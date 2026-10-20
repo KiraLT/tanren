@@ -106,8 +106,10 @@ task sheet. Tactics, in order of payoff:
 
 ## Cost discipline (every brief)
 
-- Every brief states a **time box** (default 10–15 min on sonnet, 20 min on
-  opus; `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a
+- Every brief states a **time box** (10 min for a single-module change with
+  tests on either model — hardening H1–H4 ran 2–5 min on 15–20 min boxes;
+  15–20 min only for a task with a runtime proof or a new package/runtime;
+  `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a
   turn is one API round, not one tool call, and sonnet runs ≈ 7 turns/min,
   so 120 ≈ 17 min) and
   the bar: *compiles, gate green, exactly the tests `.claude/rules/tests.md`
@@ -177,6 +179,8 @@ Owned paths (exclusive): <globs>        Read-only: <globs>
 Adjacent (another team's, name the owner): <files next to yours that another
   stream edits during the run — hardening's gate went red twice from
   wrangler.jsonc, repos/Repositories.ts and db repositories/Session.ts>
+Time box: <longest task box + 15 min (review 8 + one fix round 5 + root
+  gate/runtime proof 2); hardening: 35 given, 11 used>
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
   a missing one is a foundation gap, not a team-local file>

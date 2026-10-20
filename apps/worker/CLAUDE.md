@@ -25,8 +25,9 @@ src/
                       sibling .ts basename: on case-insensitive macOS `env.d.ts` next to `Env.ts` is silently dropped by tsc
   api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers
   repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests)
-  auth/               Sessions port (+ SessionStoreUnavailable, 503), SessionsLive (Better Auth), BetterAuth (lazy
-                      `Effect.cached` instance), EmailSender (console locally), authRoutes
+  auth/               Sessions port, SessionsLive (Better Auth), BetterAuth (lazy `Effect.cached` instance),
+                      EmailSender (console locally), authRoutes (any failure → 503 `SessionStoreUnavailable`
+                      from @tanren/shared, never 500)
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                McpAgent adapter (step 4) — the only class allowed outside Effect factories
   testing/            workerdSetup.ts (applies migrations 0000+0001 before each workerd test file), env.d.ts (TEST_MIGRATIONS,
@@ -67,4 +68,4 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
 
 ## Status
 
-Step 3 (2026-10-20): integrated with @tanren/db on local D1 (INT-1): REST, Better Auth magic link and sync push/pull pass `pnpm smoke:worker` after `pnpm db:reset`. Workerd project exists (TOOL-1: `/health` on migrated D1). Hardening-1 (2026-10-20): test types split out of prod (`tsconfig.test.json`), `Cloudflare.Env` merge in `cloudflareEnv.d.ts` (no `biome-ignore` left), silent `wrangler dev` startup (lazy Better Auth), 503 `SessionStoreUnavailable` when the session store fails, HTTP tests for nested set routes. Next: a workerd D1 round trip (authenticated `POST /exercises` → `GET`, sync push → pull) and a workerd test that boots `src/index.ts` (catches module-scope I/O); map rejected `auth.handler` on `/api/auth/*` to 503 (still 500); move `SessionStoreUnavailable` to `@tanren/shared`.
+Step 3 (2026-10-20): integrated with @tanren/db on local D1 (INT-1): REST, Better Auth magic link and sync push/pull pass `pnpm smoke:worker` after `pnpm db:reset`. Workerd project exists (TOOL-1: `/health` on migrated D1). Hardening-1 (2026-10-20): test types split out of prod (`tsconfig.test.json`), `Cloudflare.Env` merge in `cloudflareEnv.d.ts` (no `biome-ignore` left), silent `wrangler dev` startup (lazy Better Auth), 503 `SessionStoreUnavailable` when the session store fails, HTTP tests for nested set routes. HI-1 (2026-10-20): `SessionStoreUnavailable` lives in `@tanren/shared`; every `/api/auth/*` failure answers 503. QA edge tests (`src/api/Routes.edge.test.ts`): 21 routes 401 signed out, cursor/limit validation 400, nested set routes 404 for foreign ids. Known gap: `SyncStoreMemory` (Node fake) has no LWW, no parent checks and never reports conflicts, so push rules are proven only in the db workerd project. Next: a workerd test that boots `src/index.ts` with a D1 round trip and a sync push → pull through the real `SyncStore` (INT-B).

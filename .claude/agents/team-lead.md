@@ -35,7 +35,16 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    in-flight child can be resumed from the sheet alone.
 3. Brief engineers with the lead-playbook template. Every brief restates:
    owned paths (the engineer's scope must stay inside them), the contracts,
-   and "no dependency or root-config changes".
+   and "no dependency or root-config changes". The brief's gate is the
+   package gate (`pnpm -F <pkg> check`); the root `pnpm check` runs once, by
+   you, with the runtime proof. A root gate red only in a file outside your
+   owned paths (the charter's Adjacent line names its owner) is one line in
+   Verification — file, owner, when it cleared — not a diagnosis and not an
+   escalation (hardening: two such reds, team gates green throughout, yet
+   an escalation line). Box tasks by size, not by default: a single-module
+   change with tests gets 10 min (hardening H1–H4 ran 2–5 min on 15–20 min
+   boxes); 20 min only for a task that carries a runtime proof or opens a
+   new package or runtime.
 4. Spawn engineers via the Agent tool (`subagent_type: engineer`, `model`
    from the task), in one message when their file sets are disjoint. Never
    exceed the charter's parallel budget. A new task gets a fresh engineer;

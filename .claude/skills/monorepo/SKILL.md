@@ -87,6 +87,10 @@ links resolve.
 - `types: []` means no ambient `@types/*`. A package opts in: `apps/worker` adds Workers types at
   step 3, and `apps/mobile` adopts Expo's base config at step 6. `packages/shared` never gets
   Node types.
+- Never name a `.d.ts` after a sibling `.ts` basename in another case: on case-insensitive macOS
+  `src/env.d.ts` next to `src/Env.ts` is silently dropped by tsc (no error, the ambient merge just
+  vanishes; hardening H1). Ambient files take a name no module uses (`src/cloudflareEnv.d.ts`).
+  Proof: `pnpm exec tsc -p tsconfig.json --listFilesOnly | grep -i <file>.d.ts` prints the file.
 - `lib` is unset, so TS loads `es2022.full` (ES2022 + DOM). The worker narrows it when Workers
   types arrive. ES2023 array methods (`toSorted`, `toReversed`, `findLast`) are not typed: use
   `Arr.sort` / `Arr.reverse` from `effect`.

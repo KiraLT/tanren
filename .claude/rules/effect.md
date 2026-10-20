@@ -53,6 +53,11 @@ When this file and the installed `.d.ts` disagree, the `.d.ts` wins; report it.
   a `Schema.Class` instance yields a plain object: rebuild with `X.makeEffect`.
 - Running: `Effect.runPromise` / `ManagedRuntime.make(layer)` only in entry
   points (Worker `fetch`, CLI, `@effect/vitest`). Library code returns Effects.
+- No I/O at module scope. A Worker's module scope runs at isolate start, where
+  workerd forbids I/O and the clock reads 1970; `HttpRouter.toWebHandler(layer)`
+  builds layers eagerly there, so a layer's `make` must not open connections or
+  validate schemas. Do that inside the request, memoised with `Effect.cached`
+  (hardening H3: `betterAuth()` ran its schema check at every startup).
 - Time and randomness via `Clock` / `DateTime.now` / `Random`, never `Date.now()`
   or `Math.random()`, so tests can use `TestClock` from `effect/testing`.
 - Imports: one import from `"effect"` for core modules; HTTP from `effect/http`

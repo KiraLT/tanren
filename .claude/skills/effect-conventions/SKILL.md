@@ -206,6 +206,12 @@ export const parentId = (change: SyncChange): Option.Option<string> =>
 `{ ...classInstance }` is a plain object, not a `WorkoutSet`. Also
 `Option.fromNullishOr(raw)`; `_tag` unions use `Match.tag` / `Match.typeTags<U>()({...})`.
 
+Naming (ADR-0002 addendum): the `noMutation` Biome plugin is syntactic and flags any member call
+named `push`, `pop`, `shift`, `unshift`, `splice`, `sort`, `reverse` or `fill`, whatever the
+receiver. Never name an own method or function after an Array mutator; the sync transport is
+`sendChanges` / `fetchChanges`. Rename rather than suppress; the one-line
+`// biome-ignore lint/plugin/noMutation: <reason>` is for third-party calls only (`router.push`).
+
 ## 6. Time, randomness, ids
 
 ```ts
@@ -271,13 +277,17 @@ const ApiLayer = HttpApiBuilder.layer(Api).pipe(
   ),
   Layer.provide(HttpServer.layerServices),
 )
-// Worker entry: build once at module scope, call per request.
+// Worker entry: build once at module scope (layers only describe; no I/O in `make`), call per request.
 export const { handler, dispose } = HttpRouter.toWebHandler(ApiLayer) // fetch: handler(request)
 ```
 
 Ran under Node via `handler(new Request(…))`: 404 + encoded `NotFound`, 200 + wire shape,
-empty 400 when payload/params fail. **Unverified:** reaching the per-request Worker `env`
-(D1) from a module-scope handler (`handler(request, context)` takes a `Context`). Spike at step 3.
+empty 400 when payload/params fail. Verified step 3 + hardening H3: `src/index.ts` imports `env`
+from `cloudflare:workers` at module scope and captures `env.DB` in the layers; the binding is
+queried per request only. `toWebHandler` builds the layers eagerly at isolate start, where
+workerd forbids I/O (clock reads 1970), so a client whose constructor does I/O (`betterAuth()`
+schema check) is created inside the request and memoised with `Effect.cached`
+(`apps/worker/src/auth/BetterAuth.ts`; rule in `.claude/rules/effect.md`).
 
 ## 8. SQL (`packages/db`, step 2), compile-checked only
 
