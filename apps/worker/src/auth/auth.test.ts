@@ -4,7 +4,13 @@ import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
 import { authRoutes } from "./authRoutes"
-import { BetterAuth, DEV_USER_EMAIL, DEV_USER_ID, seedUserId } from "./BetterAuth"
+import {
+  type AuthDatabase,
+  BetterAuth,
+  DEV_USER_EMAIL,
+  DEV_USER_ID,
+  seedUserId,
+} from "./BetterAuth"
 import { CapturedEmails, EmailSender } from "./EmailSender"
 import { Sessions } from "./Sessions"
 import { SessionsLive } from "./SessionsLive"
@@ -19,6 +25,7 @@ const envVars = (environment: "local" | "preview"): EnvVars => ({
   ALLOWED_ORIGINS: ORIGIN,
   EMAIL_MODE: environment === "local" ? "console" : "provider",
   EMAIL_FROM: "Tanren <dev@tanren.local>",
+  MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp", // https works in every environment
   ...(environment === "local" ? {} : { RESEND_API_KEY: "re_test_only_not_a_key" }),
 })
 
@@ -42,6 +49,40 @@ const setup = (environment: "local" | "preview") =>
     const request = (input: string, init?: RequestInit) =>
       Effect.promise(() => handler(new Request(new URL(input, BASE), init)))
     return { context, request }
+  })
+
+const d1Down = () => Promise.reject(new Error("D1_ERROR: network connection lost"))
+const deadStatement = {
+  bind: () => deadStatement,
+  all: d1Down,
+  first: d1Down,
+  run: d1Down,
+  raw: d1Down,
+}
+/**
+ * A D1 binding whose every query rejects. Better Auth picks its D1 dialect by duck typing
+ * (`batch`, `exec`, `prepare`), so only those members exist; the cast stands in for the rest of the
+ * `D1Database` interface, which the dialect never calls.
+ */
+const unreachableD1 = {
+  batch: d1Down,
+  exec: d1Down,
+  prepare: () => deadStatement,
+} as unknown as AuthDatabase
+
+/** One request through `authRoutes` over an arbitrary auth stack. */
+const requestThrough = (
+  deps: Layer.Layer<BetterAuth, unknown>,
+  input: string,
+  init?: RequestInit,
+) =>
+  Effect.gen(function* () {
+    const { handler, dispose } = HttpRouter.toWebHandler(
+      authRoutes.pipe(Layer.provide(deps), Layer.provide(HttpServer.layerServices)),
+      { disableLogger: true },
+    )
+    yield* Effect.addFinalizer(() => Effect.promise(dispose))
+    return yield* Effect.promise(() => handler(new Request(new URL(input, BASE), init)))
   })
 
 const signIn = (environment: "local" | "preview", email: string) =>
@@ -104,7 +145,7 @@ describe("magic-link sign-in", () => {
     }),
   )
 
-  it.effect("provider mode fails the sign-in request when Resend rejects the email", () =>
+  it.effect("provider mode answers 502 EmailDeliveryFailed when Resend rejects the email", () =>
     Effect.gen(function* () {
       const deps = BetterAuth.layerMemory.pipe(
         Layer.provideMerge(EmailSender.layer),
@@ -116,18 +157,47 @@ describe("magic-link sign-in", () => {
           ),
         ),
       )
-      const context = yield* Layer.build(deps)
-      const auth = yield* Context.get(context, BetterAuth).auth
-      const response = yield* Effect.promise(() =>
-        auth.handler(
-          new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-            method: "POST",
-            headers: { "content-type": "application/json", origin: ORIGIN },
-            body: JSON.stringify({ email: "lukas@example.com" }),
-          }),
-        ),
+      const response = yield* requestThrough(deps, "/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        body: JSON.stringify({ email: "lukas@example.com" }),
+      })
+      expect(response.status).toBe(502)
+      expect(yield* Effect.promise(() => response.json())).toEqual({
+        _tag: "EmailDeliveryFailed",
+        provider: "resend",
+        reason: "rejected",
+      })
+    }),
+  )
+
+  it.effect("answers 503 SessionStoreUnavailable when every D1 query rejects", () =>
+    Effect.gen(function* () {
+      const deps = BetterAuth.layer(unreachableD1).pipe(
+        Layer.provide(EmailSender.layerCapture),
+        Layer.provide(WorkerConfig.layerFromEnv(envVars("local"))),
       )
-      expect(response.status).toBeGreaterThanOrEqual(400)
+      const response = yield* requestThrough(deps, "/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        body: JSON.stringify({ email: "lukas@example.com" }),
+      })
+      expect(response.status).toBe(503)
+      expect(yield* Effect.promise(() => response.json())).toMatchObject({
+        _tag: "SessionStoreUnavailable",
+      })
+    }),
+  )
+
+  it.effect("an API error (bad body) is still Better Auth's own 4xx response", () =>
+    Effect.gen(function* () {
+      const { request } = yield* setup("local")
+      const response = yield* request("/api/auth/sign-in/magic-link", {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        body: JSON.stringify({ email: "not-an-email" }),
+      })
+      expect(response.status).toBe(400)
     }),
   )
 })

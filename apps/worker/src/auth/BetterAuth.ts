@@ -33,6 +33,10 @@ const makeAuth = (
     secret: Redacted.value(config.betterAuthSecret),
     trustedOrigins: [...config.allowedOrigins],
     advanced: { database: { generateId: "uuid" } },
+    // A non-API error (a rejected `sendMagicLink`, a D1 failure) rejects `auth.handler` instead of
+    // becoming Better Auth's empty 500, so `authRoutes` can answer 502 / 503. API errors (4xx,
+    // redirects) are still turned into responses by the router (better-call `router.mjs`).
+    onAPIError: { throw: true },
     databaseHooks: {
       user: {
         create: {
