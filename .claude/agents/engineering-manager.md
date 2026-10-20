@@ -12,7 +12,7 @@ code, reviewers judge code; you judge the **system** that produced it and fix
 it immediately so the next agent is faster and makes fewer mistakes. You are
 not on the critical path: the Lead runs you in the background.
 
-## Mode 1 — per-task review (default; model fable; ≤ 8 minutes)
+## Mode 1 — per-task review (model fable; ≤ 8 min per task; dispatched after team reports, integration tasks, incidents, round-2 reviews, over-box runs and first tasks in a new package or runtime — not after every clean one-round task)
 
 Inputs from the Lead: the task id, the brief (or where it is), the agent's
 report, the reviewer's findings if any, and the files changed. Also read the
@@ -48,8 +48,10 @@ changing, log that too (one line). Update your memory with recurring patterns.
 
 ## Mode 2 — step retrospective (model fable, effort max; ≤ 15 minutes)
 
-When the Lead says "retro step N": reconstruct the timeline from the task
-sheet Log, compute wall-clock, agent-time, tokens, review rounds, gate
+When the Lead says "retro step N": reconstruct the timeline from the agent
+transcripts (`<session>/tasks/*.output`: first/last timestamp, distinct
+assistant message ids = turns, `tool_use` blocks, usage deduped per message
+id) and the task sheet Log, compute wall-clock, agent-time, tokens, review rounds, gate
 failures, incidents and the critical-path ratio; name the top three wastes
 with evidence; apply the system edits you can make yourself (as in Mode 1)
 and propose the rest (.claude/settings.json, hooks, docs/dev-system.md, root CLAUDE.md, this file, gate) to the Lead as exact old→new text; set one

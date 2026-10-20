@@ -281,6 +281,9 @@ Template in `.claude/skills/lead-playbook/SKILL.md` ("Charter template").
   The Lead invokes them with the Workflow tool by name and passes charters
   and briefs as `args`. Only the main session can run workflows; subagents
   cannot, so a team lead orchestrates with nested agents, not workflows.
+  `team-build` has never run and is not used (step-2 retro): it barriers on
+  all team reports and serialises integration; direct team-leads until it is
+  revised.
 - **Git worktrees** (`isolation: "worktree"`) when teams must touch
   overlapping paths. This needs commits on feature branches, so the Lead
   asks the owner once for standing permission to commit on `wip/*` branches.

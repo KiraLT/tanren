@@ -81,6 +81,15 @@ Amendment 3) and reviews asynchronously.
   skip out-of-tree paths; Biome rejects `import { Set }`; `.claude/**` is
   Biome-excluded; never `pkill` what you did not start.
 
+## Experiment for step 4 ∥ 7 — "zero-lag tail" (retro step 2)
+Measured from transcripts: wall-clock ≤ 60 min from first fan-out to the
+full-stack e2e pass · critical-path ratio ≥ 0.75 (step 2: 0.72) · dispatch
+lag and acceptance lag ≤ 2 min on every critical-path edge · no engineer run
+> 20 min including fix rounds · ≤ 1 review round per task · every team report
+has a `Demo` row with a real runtime proof · zero escalations naming work
+absent from every task list at fan-out. Fan-out began 23:14 (teams mcp and
+plan-web).
+
 ## Metrics
 Step 1: ≈ 2h10m, ~17 dispatches, ≈ 2.3M subagent tokens. Company-mode step
 (2 + 3 + 6 + integration): 22:08 → 23:03 e2e proven, ≈ 55 min wall-clock,

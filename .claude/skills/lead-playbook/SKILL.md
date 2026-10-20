@@ -23,7 +23,11 @@ comes back, and keep `docs/` truthful. Full rationale: `docs/dev-system.md`.
 `docs/tasks/*`, `docs/handoff.md`, `docs/retro/*`, `docs/dev-system.md`,
 every `CLAUDE.md`, everything under `.claude/`. Nothing else. If you catch
 yourself opening a source or config file to edit it, stop and write a brief
-instead.
+instead. Edit these with Edit/Write, never sed/heredoc: the auto-mode
+classifier denies shell edits to `CLAUDE.md`, `.claude/settings.json`,
+`docs/plan.md` and memory files (three denied calls, three round trips in
+step 2). Shell appends to `docs/tasks/*.md` and `docs/retro/*.md` are fine.
+You cannot change your own permission rules at all; ask the owner.
 
 ## Parallel by default
 
@@ -146,7 +150,11 @@ a fixable contract: switch to company mode (`docs/dev-system.md` §11).
    (`opus`; `fable` for the hardest contract) in a single message, each with
    its charter. 4. Read team reports, not diffs. 5. One integration engineer
    wires the teams together and runs the full gate; cross-team `reviewer`;
-   `qa`. 6. Bookkeeping and handoff as usual.
+   `qa`. 6. Bookkeeping and handoff as usual. You may run one stream
+   yourself only when it is the foundation/critical-path stream with ≤ ~6
+   tasks and there are ≤ 2 other teams (step 2's db stream: dependents
+   dispatched within a minute, no sheet overhead). A third team gets a
+   team-lead; your turns go to dispatch latency.
 
 Charter template:
 
@@ -154,6 +162,9 @@ Charter template:
 # Team charter: <name>
 Mission: <one paragraph>
 Owned paths (exclusive): <globs>        Read-only: <globs>
+Adjacent (another team's, name the owner): <files next to yours that another
+  stream edits during the run — hardening's gate went red twice from
+  wrangler.jsonc, repos/Repositories.ts and db repositories/Session.ts>
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
   a missing one is a foundation gap, not a team-local file>
@@ -248,10 +259,12 @@ For diffs over roughly 800 lines (the same threshold as Cost discipline), or
 the integration review in company mode, run the `review-fanout` workflow (Workflow tool, `name:
 "review-fanout"`, `args: { scope, brief, verifyVotes }`) instead of a single
 reviewer. Its `confirmed` list is the review; its `refuted` list is noise you
-do not forward. Company mode can run end-to-end as the `team-build`
-workflow (`args: { step, foundation, teams: [{ name, charter }],
-integration, doneCriteria }`) when you want deterministic progress
-tracking; otherwise spawn `team-lead` agents directly.
+do not forward. Do not run the `team-build` workflow: it barriers on every
+team report (escalations wait; S2-T6/T7 would have waited ≈ 7 min), runs one
+integration engineer (INT-1 ∥ INT-2 would be serial, +6 min) and always runs
+QA. Spawn `team-lead` agents directly, with architect-written team sheets and
+pre-written briefs, until the workflow supports interim escalations and
+parallel integration tasks.
 
 ## Review → fix loop
 
@@ -282,10 +295,20 @@ You are responsible for the process, not just the output.
   `HH:MM→HH:MM · task · role/model · tokens · tool uses · rounds · outcome`
   (the task notification gives you duration, tokens and tool uses). On every
   returned report: dispatch dependents and route fixes FIRST, then write the
-  Log and statuses. Bookkeeping never sits on the critical path.
-- **EM after every accepted report** (`/em-review <task>`, background,
-  fable — the owner ranks this role as critical): it fixes briefs, skills, rules and agent files immediately; you
-  read `docs/retro/em-log.md` and act on its proposals. Never wait for it.
+  Log and statuses. Bookkeeping never sits on the critical path. Neither
+  does system maintenance: role-file edits, /doctor, CLAUDE.md trims and EM
+  proposals wait until every runnable task is running (step 2: INT-2b waited
+  8.2 min behind the role audit and /doctor, then 5.7 min for acceptance —
+  25% of wall-clock). Log per critical-path edge the dispatch lag (hand-back
+  → dependent dispatch) and the acceptance lag (hand-back → Log line); both
+  ≤ 2 min. Duration comes from the task notification, never from memory
+  (S2-T3 was logged as ~24 min; the transcript shows 5m42s).
+- **EM by event** (`/em-review <task>`, background, fable — the owner ranks
+  this role as critical): after team reports, integration tasks, incidents,
+  round-2 reviews, over-box runs and the first task in a new package or
+  runtime; not after every clean one-round task. It fixes briefs, skills,
+  rules and agent files immediately; you read `docs/retro/em-log.md` and act
+  on its proposals only when every runnable task is running. Never wait for it.
 - **Retro at the end of every step** (`/retro N`, fable, effort max): the
   `engineering-manager` reads the data, applies the edits it owns (skills,
   rules, agent files except its own, package `CLAUDE.md`s) and proposes the
