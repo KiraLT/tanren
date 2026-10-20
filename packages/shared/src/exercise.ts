@@ -1,4 +1,5 @@
-import { Array as Arr, Option, pipe, Schema, Struct } from "effect"
+import { Array as Arr, Effect, Option, pipe, Schema, Struct } from "effect"
+import { CatalogId } from "./catalog/taxonomy"
 import { Label, ROW_COLUMNS, rowFields, Text } from "./common"
 import { ExerciseId } from "./ids"
 
@@ -50,6 +51,14 @@ export const ExerciseFields = {
   muscleGroups: Schema.UniqueArray(MuscleGroup),
   /** Cues, setup. */
   notes: Schema.OptionFromNullOr(Text),
+  /**
+   * Link to the static catalog (v2-catalog.md §4); relinkable, LWW. Encodes `None` as `null` like
+   * `OptionFromNullOr`, but also decodes a missing key as `None` and defaults to `None` in the
+   * constructors, so pre-v2 clients, REST/MCP callers and rows keep working.
+   */
+  catalogId: Schema.OptionFromOptionalNullOr(CatalogId, { onNoneEncoding: null }).pipe(
+    Schema.withConstructorDefault(Effect.succeed(Option.none())),
+  ),
 }
 
 export class Exercise extends Schema.Class<Exercise>("@tanren/shared/Exercise")(

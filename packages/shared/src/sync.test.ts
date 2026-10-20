@@ -85,6 +85,7 @@ const pullResponseJson = {
         aliases: ["squat", "high-bar squat"],
         muscleGroups: ["quads", "glutes", "core"],
         notes: null,
+        catalogId: null,
         createdAt: "2026-10-01T06:00:00.000Z",
         updatedAt: "2026-10-01T06:00:00.000Z",
         deletedAt: null,
@@ -162,6 +163,8 @@ describe("SyncChange", () => {
           plannedSet: ({ row }) => Option.some(row.plannedSessionId),
           session: () => Option.none(),
           set: ({ row }) => Option.some(row.sessionId),
+          programEnrollment: () => Option.none(),
+          programDayCompletion: ({ row }) => Option.some(row.enrollmentId),
         }),
       )
     const decoded = Schema.decodeUnknownSync(PushRequest)(pushRequestJson)

@@ -48,6 +48,7 @@ const exerciseRecord = {
   aliases: '["squat"]',
   muscleGroups: '["quads","glutes"]',
   notes: null,
+  catalogId: null,
 }
 const planRecord: PlanEncoded = {
   ...rowColumns,

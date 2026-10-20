@@ -13,7 +13,40 @@ const exerciseWire = {
   aliases: ["Back Squat", "High-bar"],
   muscleGroups: ["quads", "glutes"],
   notes: null,
+  catalogId: null,
 }
+
+describe("Exercise.catalogId", () => {
+  it.effect("decodes a catalog slug as Some", () =>
+    Effect.gen(function* () {
+      const input = { ...exerciseWire, catalogId: "barbell-back-squat" }
+      const exercise = yield* Schema.decodeUnknownEffect(Exercise)(input)
+      expect(exercise.catalogId).toEqual(Option.some("barbell-back-squat"))
+      expect(yield* Schema.encodeEffect(Exercise)(exercise)).toEqual(input)
+    }),
+  )
+
+  it.effect("decodes a missing key (pre-v2 row) as None and encodes it back as null", () =>
+    Effect.gen(function* () {
+      const { catalogId: _omitted, ...preV2 } = exerciseWire
+      const exercise = yield* Schema.decodeUnknownEffect(Exercise)(preV2)
+      expect(Option.isNone(exercise.catalogId)).toBe(true)
+      expect((yield* Schema.encodeEffect(Exercise)(exercise)).catalogId).toBeNull()
+    }),
+  )
+
+  it.effect("rejects a catalogId that is not a slug", () =>
+    Effect.gen(function* () {
+      const input = { ...exerciseWire, catalogId: "Back Squat" }
+      expect(yield* failingPaths(Exercise, input)).toEqual([["catalogId"]])
+    }),
+  )
+
+  it("defaults to None in the constructor", () => {
+    const { catalogId: _omitted, ...fields } = Schema.decodeUnknownSync(Exercise)(exerciseWire)
+    expect(Option.isNone(Exercise.make(fields).catalogId)).toBe(true)
+  })
+})
 
 describe("Exercise", () => {
   it.effect("round-trips the wire shape, with null decoded as None", () =>

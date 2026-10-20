@@ -2,6 +2,7 @@ import { Schema, Struct } from "effect"
 import type { SyncTable } from "./common"
 import { Exercise } from "./exercise"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
+import { ProgramDayCompletion, ProgramEnrollment } from "./program"
 import { Session, WorkoutSet } from "./session"
 import { Profile } from "./user"
 
@@ -51,6 +52,14 @@ export const SessionRow = wireRecord(Session.fields).pipe(Schema.decodeTo(Sessio
 
 export const WorkoutSetRow = wireRecord(WorkoutSet.fields).pipe(Schema.decodeTo(WorkoutSet))
 
+export const ProgramEnrollmentRow = wireRecord(ProgramEnrollment.fields).pipe(
+  Schema.decodeTo(ProgramEnrollment),
+)
+
+export const ProgramDayCompletionRow = wireRecord(ProgramDayCompletion.fields).pipe(
+  Schema.decodeTo(ProgramDayCompletion),
+)
+
 /** SQL table per synced entity (DB §1). */
 export const ROW_TABLE = {
   profile: "profile",
@@ -61,6 +70,8 @@ export const ROW_TABLE = {
   plannedSet: "planned_set",
   session: "workout_session",
   set: "workout_set",
+  programEnrollment: "program_enrollment",
+  programDayCompletion: "program_day_completion",
 } as const satisfies { readonly [T in SyncTable]: string }
 
 /** The camelCase record keys of each table: the codec's columns, in field order. */
@@ -73,4 +84,6 @@ export const ROW_KEYS = {
   plannedSet: Struct.keys(PlannedSetRow.from.fields),
   session: Struct.keys(SessionRow.from.fields),
   set: Struct.keys(WorkoutSetRow.from.fields),
+  programEnrollment: Struct.keys(ProgramEnrollmentRow.from.fields),
+  programDayCompletion: Struct.keys(ProgramDayCompletionRow.from.fields),
 } as const satisfies { readonly [T in SyncTable]: ReadonlyArray<string> }

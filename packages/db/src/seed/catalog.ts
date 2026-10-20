@@ -20,6 +20,8 @@ export type ExerciseKey =
 export interface ExerciseSpec {
   readonly key: ExerciseKey
   readonly name: string
+  /** The `@tanren/shared` catalog entry this exercise links to (v2-catalog.md §3 re-key). */
+  readonly catalogId: string
   readonly aliases: ReadonlyArray<string>
   readonly muscleGroups: ReadonlyArray<MuscleGroup>
   readonly notes: string | undefined
@@ -33,6 +35,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "squat",
     name: "Back Squat",
+    catalogId: "barbell-back-squat",
     aliases: ["squat", "bs"],
     muscleGroups: ["quads", "glutes", "core"],
     notes: "High bar, belt on the top sets.",
@@ -42,6 +45,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "bench",
     name: "Bench Press",
+    catalogId: "barbell-bench-press",
     aliases: ["bench", "bp"],
     muscleGroups: ["chest", "triceps", "shoulders"],
     notes: "Feet planted, shoulder blades pinned.",
@@ -51,6 +55,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "deadlift",
     name: "Conventional Deadlift",
+    catalogId: "conventional-deadlift",
     aliases: ["deadlift", "dl"],
     muscleGroups: ["hamstrings", "glutes", "lowerBack", "traps"],
     notes: undefined,
@@ -60,6 +65,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "ohp",
     name: "Overhead Press",
+    catalogId: "overhead-press",
     aliases: ["ohp", "press"],
     muscleGroups: ["shoulders", "triceps"],
     notes: undefined,
@@ -69,6 +75,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "row",
     name: "Barbell Row",
+    catalogId: "barbell-row",
     aliases: ["bb row", "bent over row"],
     muscleGroups: ["lats", "upperBack", "biceps"],
     notes: "Torso about 30 degrees above parallel.",
@@ -78,6 +85,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "rdl",
     name: "Romanian Deadlift",
+    catalogId: "romanian-deadlift",
     aliases: ["rdl"],
     muscleGroups: ["hamstrings", "glutes", "lowerBack"],
     notes: undefined,
@@ -87,6 +95,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "pullUp",
     name: "Pull-Up",
+    catalogId: "pull-up",
     aliases: ["pullup", "chin-up"],
     muscleGroups: ["lats", "biceps", "upperBack"],
     notes: "Bodyweight; add a belt when 4x10 is easy.",
@@ -96,6 +105,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "inclinePress",
     name: "Incline Dumbbell Press",
+    catalogId: "incline-dumbbell-press",
     aliases: ["incline db press"],
     muscleGroups: ["chest", "shoulders", "triceps"],
     notes: "Bench at 30 degrees. Load is per dumbbell.",
@@ -105,6 +115,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "curl",
     name: "Dumbbell Curl",
+    catalogId: "dumbbell-curl",
     aliases: ["db curl"],
     muscleGroups: ["biceps", "forearms"],
     notes: undefined,
@@ -114,6 +125,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "lateralRaise",
     name: "Lateral Raise",
+    catalogId: "dumbbell-lateral-raise",
     aliases: ["side raise"],
     muscleGroups: ["shoulders"],
     notes: undefined,
@@ -123,6 +135,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "splitSquat",
     name: "Bulgarian Split Squat",
+    catalogId: "bulgarian-split-squat",
     aliases: ["bss", "split squat"],
     muscleGroups: ["quads", "glutes"],
     notes: "Rear foot on the bench. Load is per dumbbell.",
@@ -132,6 +145,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "hipThrust",
     name: "Hip Thrust",
+    catalogId: "hip-thrust",
     aliases: ["barbell hip thrust"],
     muscleGroups: ["glutes", "hamstrings"],
     notes: undefined,
@@ -141,6 +155,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "calfRaise",
     name: "Standing Calf Raise",
+    catalogId: "standing-calf-raise",
     aliases: ["calf raise"],
     muscleGroups: ["calves"],
     notes: "Dumbbell in one hand, free hand on the rack.",
@@ -150,6 +165,7 @@ export const EXERCISES: ReadonlyArray<ExerciseSpec> = [
   {
     key: "legRaise",
     name: "Hanging Leg Raise",
+    catalogId: "hanging-leg-raise",
     aliases: ["leg raise"],
     muscleGroups: ["core"],
     notes: undefined,

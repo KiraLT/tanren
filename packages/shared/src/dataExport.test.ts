@@ -35,6 +35,7 @@ const exportJson = {
         aliases: [],
         muscleGroups: ["chest"],
         notes: null,
+        catalogId: null,
       },
     },
     {

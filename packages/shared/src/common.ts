@@ -107,6 +107,8 @@ export const EntityName = Schema.Literals([
   "plannedSet",
   "session",
   "set",
+  "programEnrollment",
+  "programDayCompletion",
 ])
 export type EntityName = typeof EntityName.Type
 
@@ -119,6 +121,8 @@ export const SyncTable = EntityName.pick([
   "plannedSet",
   "session",
   "set",
+  "programEnrollment",
+  "programDayCompletion",
 ])
 export type SyncTable = typeof SyncTable.Type
 

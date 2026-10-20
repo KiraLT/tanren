@@ -4,6 +4,7 @@ import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core"
 import { Array as Arr, String as Str } from "effect"
 import { exercise } from "./exercise"
 import { plan, plannedSession, plannedSet, planWeek } from "./plan"
+import { programDayCompletion, programEnrollment } from "./program"
 import { workoutSession, workoutSet } from "./session"
 import { profile } from "./user"
 
@@ -17,6 +18,8 @@ const TABLES: { readonly [T in SyncTable]: SQLiteTable } = {
   plannedSet,
   session: workoutSession,
   set: workoutSet,
+  programEnrollment,
+  programDayCompletion,
 }
 
 /** Server-only: never on a synced row. */

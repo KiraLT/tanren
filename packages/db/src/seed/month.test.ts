@@ -235,4 +235,24 @@ describe("seedMonth", () => {
       expect(second.session).toEqual(first.session)
     }),
   )
+
+  // Membership in CATALOG_BY_ID is asserted once team catalog lands the data (v2-catalog.md §3).
+  it.effect("links every exercise to a distinct catalogId (v2-catalog.md §3 re-key)", () =>
+    Effect.gen(function* () {
+      const data = yield* run(1, endDate)
+      const linked = data.exercise.map((e) => [e.name, Option.getOrNull(e.catalogId)])
+      expect(linked).toContainEqual(["Back Squat", "barbell-back-squat"])
+      expect(linked).toContainEqual(["Lateral Raise", "dumbbell-lateral-raise"])
+      const ids = linked.map(([, catalogId]) => catalogId)
+      expect(ids).not.toContain(null)
+      expect(new globalThis.Set(ids).size).toBe(data.exercise.length)
+    }),
+  )
+
+  it.effect("has no program progress", () =>
+    Effect.gen(function* () {
+      const data = yield* run(1, endDate)
+      expect([data.programEnrollment, data.programDayCompletion]).toEqual([[], []])
+    }),
+  )
 })

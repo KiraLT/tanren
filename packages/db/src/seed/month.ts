@@ -4,6 +4,7 @@
  * timestamp from `endDate`; nothing reads the clock, so `(seed, endDate)` fixes the output.
  */
 import {
+  CatalogId,
   Exercise,
   ExerciseId,
   type IdGenerator,
@@ -18,6 +19,8 @@ import {
   PlanWeek,
   PlanWeekId,
   Profile,
+  type ProgramDayCompletion,
+  type ProgramEnrollment,
   Reps,
   type RepTarget,
   Rpe,
@@ -65,6 +68,9 @@ export interface SeedData {
   readonly plannedSet: ReadonlyArray<PlannedSet>
   readonly session: ReadonlyArray<Session>
   readonly set: ReadonlyArray<WorkoutSet>
+  /** Empty: the seeded month has no program progress. */
+  readonly programEnrollment: ReadonlyArray<ProgramEnrollment>
+  readonly programDayCompletion: ReadonlyArray<ProgramDayCompletion>
 }
 
 const MINUTE = 60_000
@@ -219,6 +225,7 @@ const buildExercises = ({ userId, ms }: Stamp) =>
         aliases: spec.aliases,
         muscleGroups: spec.muscleGroups,
         notes: Option.fromNullishOr(spec.notes),
+        catalogId: Option.some(yield* CatalogId.makeEffect(spec.catalogId).pipe(Effect.orDie)),
       }).pipe(Effect.orDie)
       return { spec, row }
     }),
@@ -513,6 +520,8 @@ const build = (options: SeedOptions) =>
       plannedSet: Arr.flatMap(planned, (s) => s.sets),
       session: [...logged, unplanned].map((entry) => entry.session),
       set: sets,
+      programEnrollment: [],
+      programDayCompletion: [],
     } satisfies SeedData
   })
 

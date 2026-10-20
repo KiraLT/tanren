@@ -28,6 +28,12 @@ export type SessionId = typeof SessionId.Type
 export const SetId = Uuid.pipe(Schema.brand("SetId"))
 export type SetId = typeof SetId.Type
 
+export const ProgramEnrollmentId = Uuid.pipe(Schema.brand("ProgramEnrollmentId"))
+export type ProgramEnrollmentId = typeof ProgramEnrollmentId.Type
+
+export const ProgramDayCompletionId = Uuid.pipe(Schema.brand("ProgramDayCompletionId"))
+export type ProgramDayCompletionId = typeof ProgramDayCompletionId.Type
+
 export interface IdGeneratorShape {
   readonly next: Effect.Effect<Uuid>
 }

@@ -7,6 +7,8 @@ import {
   PlannedSet,
   PlanWeek,
   Profile,
+  ProgramDayCompletion,
+  ProgramEnrollment,
   Session,
   type SyncTable,
   type UserId,
@@ -24,6 +26,8 @@ export interface RowByTable {
   readonly plannedSet: PlannedSet
   readonly session: Session
   readonly set: WorkoutSet
+  readonly programEnrollment: ProgramEnrollment
+  readonly programDayCompletion: ProgramDayCompletion
 }
 
 /** A row plus its server sync position (the in-memory `server_seq`, db.md §3). */
@@ -52,6 +56,8 @@ const emptyState: MemoryState = {
     plannedSet: HashMap.empty(),
     session: HashMap.empty(),
     set: HashMap.empty(),
+    programEnrollment: HashMap.empty(),
+    programDayCompletion: HashMap.empty(),
   },
   clock: HashMap.empty(),
 }
@@ -160,6 +166,30 @@ const keep: { readonly [T in SyncTable]: Keep<T> } = {
       }),
       () => i,
     ),
+  programEnrollment: (s, i) =>
+    Option.getOrElse(
+      ProgramEnrollment.makeOption({
+        ...i,
+        id: s.id,
+        userId: s.userId,
+        createdAt: s.createdAt,
+        programId: s.programId,
+        startedOn: s.startedOn,
+      }),
+      () => i,
+    ),
+  programDayCompletion: (s, i) =>
+    Option.getOrElse(
+      ProgramDayCompletion.makeOption({
+        ...i,
+        id: s.id,
+        userId: s.userId,
+        createdAt: s.createdAt,
+        enrollmentId: s.enrollmentId,
+        dayNumber: s.dayNumber,
+      }),
+      () => i,
+    ),
 }
 
 /**
@@ -215,6 +245,15 @@ export const uniqueViolation = (tables: Tables, userId: UserId): Option.Option<s
   }
   if (hasDuplicate(exercises.map((exercise) => exercise.name.toLowerCase()))) {
     return Option.some("exercise_user_name_unique")
+  }
+  const enrollments = liveRows(tables, "programEnrollment", userId)
+  const active = enrollments.filter((enrollment) => enrollment.status === "active")
+  if (hasDuplicate(active.map((enrollment) => enrollment.programId))) {
+    return Option.some("program_enrollment_user_program_active_unique")
+  }
+  const completions = liveRows(tables, "programDayCompletion", userId)
+  if (hasDuplicate(completions.map((c) => `${c.enrollmentId}:${c.dayNumber}`))) {
+    return Option.some("program_day_completion_enrollment_day_unique")
   }
   return Option.none()
 }

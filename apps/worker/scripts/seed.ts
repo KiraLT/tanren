@@ -82,6 +82,10 @@ const program = Effect.gen(function* () {
     plannedSet: chunked(data.plannedSet, (rows) => plan.putPlannedSets(userId, rows)),
     session: chunked(data.session, (rows) => session.putSessions(userId, rows)),
     set: chunked(data.set, (rows) => session.putSets(userId, rows)),
+    // The seeded month has no program progress (asserted in packages/db seed/month.test.ts), and no
+    // repository writes these tables; clients sync them.
+    programEnrollment: Effect.void,
+    programDayCompletion: Effect.void,
   }
   // Parents first: foreign keys are enforced by D1.
   yield* Effect.forEach(SYNC_TABLE_ORDER, (table) => writes[table], { discard: true })

@@ -7,6 +7,8 @@ import {
   PlanRow,
   PlanWeekRow,
   ProfileRow,
+  ProgramDayCompletionRow,
+  ProgramEnrollmentRow,
   type PushResponse,
   type RejectedChange,
   type RejectReason,
@@ -127,6 +129,16 @@ const decodeRow: {
     Effect.map(Schema.decodeUnknownEffect(SessionRow)(r), (row) => ({ table: "session", row })),
   set: (r) =>
     Effect.map(Schema.decodeUnknownEffect(WorkoutSetRow)(r), (row) => ({ table: "set", row })),
+  programEnrollment: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(ProgramEnrollmentRow)(r), (row) => ({
+      table: "programEnrollment",
+      row,
+    })),
+  programDayCompletion: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(ProgramDayCompletionRow)(r), (row) => ({
+      table: "programDayCompletion",
+      row,
+    })),
 }
 
 const encodeRow = (
@@ -142,6 +154,8 @@ const encodeRow = (
       plannedSet: ({ row }) => Schema.encodeEffect(PlannedSetRow)(row),
       session: ({ row }) => Schema.encodeEffect(SessionRow)(row),
       set: ({ row }) => Schema.encodeEffect(WorkoutSetRow)(row),
+      programEnrollment: ({ row }) => Schema.encodeEffect(ProgramEnrollmentRow)(row),
+      programDayCompletion: ({ row }) => Schema.encodeEffect(ProgramDayCompletionRow)(row),
     }),
   )
 
@@ -162,6 +176,9 @@ const parentKeys = (change: SyncChange): ReadonlyArray<SyncKey> =>
       ],
       session: () => [],
       set: ({ row }) => [syncKey("session", row.sessionId), syncKey("exercise", row.exerciseId)],
+      programEnrollment: () => [],
+      // `sessionId` is a nullable soft link, not a parent (v2-programs.md §2).
+      programDayCompletion: ({ row }) => [syncKey("programEnrollment", row.enrollmentId)],
     }),
   )
 
@@ -177,6 +194,9 @@ const chainParent = (change: SyncChange): Option.Option<SyncKey> =>
       plannedSet: ({ row }) => Option.some(syncKey("plannedSession", row.plannedSessionId)),
       session: () => Option.none(),
       set: ({ row }) => Option.some(syncKey("session", row.sessionId)),
+      programEnrollment: () => Option.none(),
+      programDayCompletion: ({ row }) =>
+        Option.some(syncKey("programEnrollment", row.enrollmentId)),
     }),
   )
 
@@ -193,6 +213,8 @@ const IMMUTABLE: { readonly [T in SyncTable]: ReadonlyArray<string> } = {
   plannedSet: ["plannedSessionId"],
   session: [],
   set: ["sessionId"],
+  programEnrollment: ["programId", "startedOn"],
+  programDayCompletion: ["enrollmentId", "dayNumber"],
 }
 
 const pushOrder: Order.Order<SyncChange> = Order.combine(
@@ -251,13 +273,20 @@ const EXERCISE_NAME = "exercise_user_name_unique"
 const ACTIVE_PLAN = "plan_user_active_unique"
 const WEEK_START = "plan_week_plan_week_start_unique"
 
+const ACTIVE_ENROLLMENT = "program_enrollment_user_program_active_unique"
+const COMPLETION_DAY = "program_day_completion_enrollment_day_unique"
+
 const exerciseNameSlot = (folded: string) => `${EXERCISE_NAME}|${folded}`
 const weekStartSlot = (planId: string, weekStart: string) => `${WEEK_START}|${planId}|${weekStart}`
+const activeEnrollmentSlot = (programId: string) => `${ACTIVE_ENROLLMENT}|${programId}`
+const completionDaySlot = (enrollmentDay: string) => `${COMPLETION_DAY}|${enrollmentDay}`
 
 /**
- * The slot a row takes in a partial unique index of migration 0000 (all are scoped to live rows):
+ * The slot a row takes in a partial unique index (all are scoped to live rows): migration 0000's
  * `exercise (user_id, lower(name))`, `plan (user_id) WHERE status = 'active'`,
- * `plan_week (plan_id, week_start)`. The user is implicit: one push is one user.
+ * `plan_week (plan_id, week_start)`, and 0002's `program_enrollment (user_id, program_id) WHERE
+ * status = 'active'`, `program_day_completion (enrollment_id, day_number)`. The user is implicit:
+ * one push is one user.
  */
 const uniqueSlot = (snapshot: Snapshot, change: SyncChange): Option.Option<string> =>
   Option.isSome(change.row.deletedAt)
@@ -272,6 +301,12 @@ const uniqueSlot = (snapshot: Snapshot, change: SyncChange): Option.Option<strin
           plannedSet: () => Option.none(),
           session: () => Option.none(),
           set: () => Option.none(),
+          programEnrollment: ({ row }) =>
+            row.status === "active"
+              ? Option.some(activeEnrollmentSlot(row.programId))
+              : Option.none(),
+          programDayCompletion: ({ row }) =>
+            Option.some(completionDaySlot(`${row.enrollmentId}|${row.dayNumber}`)),
         }),
       )
 
@@ -465,6 +500,20 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
           ),
         )
         const activePlan = Arr.some(live, (c) => c.table === "plan" && c.row.status === "active")
+        const programs = Arr.dedupe(
+          Arr.filterMap(live, (c) =>
+            c.table === "programEnrollment" && c.row.status === "active"
+              ? Result.succeed(c.row.programId)
+              : Result.failVoid,
+          ),
+        )
+        const completionDays = Arr.dedupe(
+          Arr.filterMap(live, (c) =>
+            c.table === "programDayCompletion"
+              ? Result.succeed(`${c.row.enrollmentId}|${c.row.dayNumber}`)
+              : Result.failVoid,
+          ),
+        )
         const folded = Arr.isReadonlyArrayNonEmpty(names)
           ? yield* sql`SELECT value AS name, lower(value) AS folded
               FROM json_each(${JSON.stringify(names)})`.pipe(
@@ -497,9 +546,33 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
             WHERE user_id = ${userId} AND deleted_at IS NULL
               AND plan_id || '|' || week_start IN (SELECT value FROM json_each(${json}))`,
         )
+        const enrollments = yield* holdersOf(
+          "programEnrollment",
+          activeEnrollmentSlot,
+          programs,
+          (json) =>
+            sql`SELECT id, program_id AS value FROM program_enrollment
+            WHERE user_id = ${userId} AND deleted_at IS NULL AND status = 'active'
+              AND program_id IN (SELECT value FROM json_each(${json}))`,
+        )
+        const completions = yield* holdersOf(
+          "programDayCompletion",
+          completionDaySlot,
+          completionDays,
+          (json) =>
+            sql`SELECT id, enrollment_id || '|' || day_number AS value FROM program_day_completion
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+              AND enrollment_id || '|' || day_number IN (SELECT value FROM json_each(${json}))`,
+        )
         return {
           folded: HashMap.fromIterable(Arr.map(folded, (r) => [r.name, r.folded] as const)),
-          held: HashMap.fromIterable([...exercises, ...plans, ...planWeeks]),
+          held: HashMap.fromIterable([
+            ...exercises,
+            ...plans,
+            ...planWeeks,
+            ...enrollments,
+            ...completions,
+          ]),
         }
       })
 
