@@ -35,7 +35,12 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
 2. Write the team sheet (when the architect pre-wrote it, verify it and
    brief in your first turn: writing one from scratch cost 2.3–3.4 min
    before the first engineer started): tasks, model per task, parallel
-   groups, status.
+   groups, status. The task table carries one `REV-<group>` row per
+   parallel group (depends: that group's tasks; box 5–8 min; the last one
+   is the delta pass), so rolling review is a row you dispatch, not a rule
+   you remember: team programs (v2) had review rows and reviewed P1–P3 at
+   21:43 while P4/P5 ran; team design had none and ran one pass at minute
+   38 of 57 although D1–D4 had finished by minute 20.
    Log lines: `HH:MM→HH:MM · task · role/model · agent id · tokens · tool
    uses · rounds · outcome`; the agent id is written at dispatch, so an
    in-flight child can be resumed from the sheet alone.
