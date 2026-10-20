@@ -9,6 +9,7 @@ import {
   ManagedRuntime,
   Option,
   Predicate,
+  Record as Rec,
   Schedule,
   type Scope,
 } from "effect"
@@ -175,16 +176,19 @@ export const runtime = ManagedRuntime.make(AppLayer)
 
 const GENERIC_FAILURE = "Something went wrong."
 
+/** User-facing copy per error `_tag`; any other tag (or no error) gets `GENERIC_FAILURE`. */
+const FAILURE_COPY: Readonly<Record<string, string>> = {
+  ValidationError: "That set is not valid. Check weight and reps.",
+  DatabaseInUse: "Tanren is open in another tab. Close it and reload this page.",
+  StoreError: "Could not save on this device. Try again.",
+}
+
 /** A short, user-facing message for a failed run: no stack traces in the UI. */
 export const failureMessage = (cause: Cause.Cause<unknown>): string =>
-  Option.match(Cause.findErrorOption(cause), {
-    onNone: () => GENERIC_FAILURE,
-    onSome: (error) =>
-      Predicate.isTagged(error, "ValidationError")
-        ? "That set is not valid. Check weight and reps."
-        : Predicate.isTagged(error, "DatabaseInUse")
-          ? "Tanren is open in another tab. Close it and reload this page."
-          : Predicate.isTagged(error, "StoreError")
-            ? "Could not save on this device. Try again."
-            : GENERIC_FAILURE,
-  })
+  Cause.findErrorOption(cause).pipe(
+    Option.filter(Predicate.hasProperty("_tag")),
+    Option.map((error) => error._tag),
+    Option.filter(Predicate.isString),
+    Option.flatMap((tag) => Rec.get(FAILURE_COPY, tag)),
+    Option.getOrElse(() => GENERIC_FAILURE),
+  )

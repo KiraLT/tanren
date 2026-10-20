@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
+import { ValidationError } from "@tanren/shared"
 import { Cause, Effect, Exit, Fiber, Option, Ref, Scope } from "effect"
 import { TestClock } from "effect/testing"
 import { vi } from "vitest"
@@ -177,5 +178,24 @@ describe("openPageStore", () => {
     expect(isAccessHandleError(transient)).toBe(true)
     expect(isAccessHandleError(permanent)).toBe(false)
     expect(isAccessHandleError(new StoreError({ cause: "Access Handle" }))).toBe(false)
+  })
+})
+
+describe("failureMessage", () => {
+  it("maps each known error tag to its copy and everything else to the generic line", () => {
+    const message = (error: unknown) => failureMessage(Cause.fail(error))
+    expect(message(new ValidationError({ message: "bad", issues: [] }))).toBe(
+      "That set is not valid. Check weight and reps.",
+    )
+    expect(message(new DatabaseInUse({ lockName: "tanren.db" }))).toBe(
+      "Tanren is open in another tab. Close it and reload this page.",
+    )
+    expect(message(new StoreError({ cause: "disk" }))).toBe(
+      "Could not save on this device. Try again.",
+    )
+    expect(message({ _tag: "toString" })).toBe("Something went wrong.")
+    expect(message({ _tag: 42 })).toBe("Something went wrong.")
+    expect(message("plain")).toBe("Something went wrong.")
+    expect(failureMessage(Cause.die("defect"))).toBe("Something went wrong.")
   })
 })

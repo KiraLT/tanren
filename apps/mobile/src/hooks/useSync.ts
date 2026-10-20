@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Fiber, Option, Queue } from "effect"
+import { Cause, Effect, Exit, Fiber, Option } from "effect"
 import { useCallback, useEffect, useState } from "react"
 import { runtime } from "../services/runtime"
 import type { StoreError } from "../services/SqlDriver"
@@ -6,8 +6,6 @@ import { SyncEngine, type SyncSummary } from "../services/SyncEngine"
 import type { TransportError } from "../services/SyncTransport"
 
 export type SyncStatus = "idle" | "syncing" | "offline" | "error"
-
-export const SYNC_INTERVAL_MS = 60_000
 
 /** Unreachable server → "offline"; anything else (401, bad body, store failure) → "error". */
 export const statusOfFailure = (cause: Cause.Cause<TransportError | StoreError>): SyncStatus =>
@@ -18,10 +16,10 @@ export const statusOfFailure = (cause: Cause.Cause<TransportError | StoreError>)
   })
 
 /**
- * Background sync: one loop per mount runs a sync, then waits for the interval (~60 s) or a
- * `syncNow()`. Triggers that arrive while a sync runs collapse into one re-run (a sliding queue of
- * one); nothing is interrupted except on unmount. A sync already running elsewhere (another
- * caller of the engine) makes this round a no-op.
+ * Background sync: runs `SyncEngine.background` for the life of the mount (a sync now, then every
+ * `SYNC_INTERVAL` or `PUSH_DEBOUNCE` after a `requestSync`, which `useLogSet` sends after every
+ * logged set). `syncNow()` is the same request. A sync already running elsewhere (another caller
+ * of the engine) makes a round a no-op; only unmount interrupts.
  */
 export const useSync = (): {
   readonly status: SyncStatus
@@ -30,11 +28,9 @@ export const useSync = (): {
 } => {
   const [status, setStatus] = useState<SyncStatus>("idle")
   const [lastSyncedAt, setLastSyncedAt] = useState<Option.Option<string>>(Option.none())
-  // Needs no services, so it is created synchronously with the plain Effect runner.
-  const [wake] = useState(() => Effect.runSync(Queue.sliding<void>(1)))
   const syncNow = useCallback(() => {
-    Queue.offerUnsafe(wake, undefined)
-  }, [wake])
+    runtime.runFork(SyncEngine.use((engine) => engine.requestSync))
+  }, [])
 
   useEffect(() => {
     const report = (exit: Exit.Exit<Option.Option<SyncSummary>, TransportError | StoreError>) =>
@@ -50,16 +46,18 @@ export const useSync = (): {
           setStatus("idle")
         },
       })
-    const round = Effect.sync(() => setStatus("syncing")).pipe(
-      Effect.andThen(Effect.exit(SyncEngine.use((engine) => engine.syncOnceExclusive))),
-      Effect.flatMap((exit) => Effect.sync(() => report(exit))),
-      Effect.andThen(Effect.race(Queue.take(wake), Effect.sleep(SYNC_INTERVAL_MS))),
+    const fiber = runtime.runFork(
+      SyncEngine.use((engine) =>
+        engine.background({
+          started: Effect.sync(() => setStatus("syncing")),
+          finished: (exit) => Effect.sync(() => report(exit)),
+        }),
+      ),
     )
-    const fiber = runtime.runFork(Effect.forever(round))
     return () => {
       runtime.runFork(Fiber.interrupt(fiber))
     }
-  }, [wake])
+  }, [])
 
   return { status, lastSyncedAt, syncNow }
 }

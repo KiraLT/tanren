@@ -38,7 +38,9 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   schema version via `PRAGMA user_version`; no foreign keys.
 - Writes go through `TodayRepo` (serialised by a semaphore) and emit
   `StoreEvents`, which reloads Today.
-- Sync (`SyncEngine`): on mount, every 60 s, and on `syncNow`; pull applies a
+- Sync (`SyncEngine.background`, run by `useSync`): on mount, every 60 s, and 500 ms
+  (`PUSH_DEBOUNCE`) after `requestSync`, which `useLogSet` sends after every logged set
+  (taps in the window share one push; offline fails once, then waits for the loop); pull applies a
   row only if strictly newer, push conflicts tie to the server; accepted /
   rejected marks apply only if `updatedAt` is unchanged since the push.
   An undecodable dirty row is flagged `_rejected = "invalid"` (warning logged, not retried) while

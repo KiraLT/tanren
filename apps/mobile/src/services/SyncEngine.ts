@@ -7,7 +7,19 @@ import {
   type SyncTable,
   type UserId,
 } from "@tanren/shared"
-import { Array as Arr, Context, DateTime, Effect, Layer, Option, Schema, Semaphore } from "effect"
+import {
+  Array as Arr,
+  Context,
+  DateTime,
+  type Duration,
+  Effect,
+  type Exit,
+  Layer,
+  Option,
+  Queue,
+  Schema,
+  Semaphore,
+} from "effect"
 import { LOCAL_USER_ID } from "../store/localUser"
 import {
   countPushable,
@@ -26,6 +38,18 @@ import { StoreEvents } from "./StoreEvents"
 import { SyncTransport, type TransportError } from "./SyncTransport"
 
 export const PULL_PAGE_LIMIT = 200
+/** Fallback period of the background loop. */
+export const SYNC_INTERVAL: Duration.Input = "60 seconds"
+/** Wait after a `requestSync` so rapid taps coalesce into one push. */
+export const PUSH_DEBOUNCE: Duration.Input = "500 millis"
+
+/** How the background loop tells its caller (the `useSync` hook) about each round. */
+export interface SyncReport {
+  readonly started: Effect.Effect<void>
+  readonly finished: (
+    exit: Exit.Exit<Option.Option<SyncSummary>, TransportError | StoreError>,
+  ) => Effect.Effect<void>
+}
 
 export interface SyncSummary {
   readonly pushed: number
@@ -46,6 +70,16 @@ export interface SyncEngineShape {
    * Skipped (`false`) when the store already belongs to `userId`.
    */
   readonly rekeyLocalUser: (userId: UserId) => Effect.Effect<boolean, StoreError>
+  /**
+   * Asks `background` for a sync `PUSH_DEBOUNCE` from now (after a local write). Requests made
+   * during that wait, or while a sync runs, collapse into one more round; never lost, never queued.
+   */
+  readonly requestSync: Effect.Effect<void>
+  /**
+   * Syncs at once, then forever: waits `SYNC_INTERVAL` or a `requestSync` + `PUSH_DEBOUNCE`, and
+   * syncs again (`syncOnceExclusive`). A failed round (offline) is reported, not retried early.
+   */
+  readonly background: (report: SyncReport) => Effect.Effect<never>
 }
 
 interface Pushed {
@@ -270,10 +304,28 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
           }),
         )
 
+      const syncOnceExclusive = lock.withPermitsIfAvailable(1)(syncOnce)
+
+      /** Sliding queue of one: any number of requests before the next take leave one wake-up. */
+      const wake = yield* Queue.sliding<void>(1)
+      /** The debounced request clears requests made during the wait, so they share its round. */
+      const requested = Queue.take(wake).pipe(
+        Effect.andThen(Effect.sleep(PUSH_DEBOUNCE)),
+        Effect.andThen(Queue.clear(wake)),
+      )
+      const round = (report: SyncReport) =>
+        report.started.pipe(
+          Effect.andThen(Effect.exit(syncOnceExclusive)),
+          Effect.flatMap(report.finished),
+          Effect.andThen(Effect.race(requested, Effect.sleep(SYNC_INTERVAL))),
+        )
+
       return SyncEngine.of({
         syncOnce,
-        syncOnceExclusive: lock.withPermitsIfAvailable(1)(syncOnce),
+        syncOnceExclusive,
         rekeyLocalUser,
+        requestSync: Queue.offer(wake, undefined).pipe(Effect.asVoid),
+        background: (report) => Effect.forever(round(report)),
       })
     }),
   )

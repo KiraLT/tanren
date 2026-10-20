@@ -1,10 +1,12 @@
-import { Exit, Option } from "effect"
+import { Effect, Exit, Option } from "effect"
 import { useCallback, useState } from "react"
 import { failureMessage, runtime } from "../services/runtime"
+import { SyncEngine } from "../services/SyncEngine"
 import { type LogSetInput, TodayRepo } from "../services/TodayRepo"
 
 /**
- * Logs a set to the local store (offline), creating today's session on the first set. The promise
+ * Logs a set to the local store (offline), creating today's session on the first set, then asks
+ * the sync loop for a push (`requestSync`, debounced; offline it fails once quietly). The promise
  * always resolves: `true` when the set was stored, `false` on failure (invalid input, store
  * error), whose message lands in `error` until the next log. `useToday` refreshes by itself.
  */
@@ -17,7 +19,10 @@ export const useLogSet = (): {
   const [error, setError] = useState<Option.Option<string>>(Option.none())
   const logSet = useCallback((input: LogSetInput) => {
     setPending(true)
-    return runtime.runPromiseExit(TodayRepo.use((repo) => repo.logSet(input))).then((exit) => {
+    const logged = TodayRepo.use((repo) => repo.logSet(input)).pipe(
+      Effect.tap(() => SyncEngine.use((engine) => engine.requestSync)),
+    )
+    return runtime.runPromiseExit(logged).then((exit) => {
       setPending(false)
       setError(
         Exit.match(exit, {

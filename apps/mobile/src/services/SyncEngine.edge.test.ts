@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { ExerciseId, PushResponse, type SyncChange, UserId } from "@tanren/shared"
-import { DateTime, Deferred, Effect, Fiber, Layer, Option, Ref } from "effect"
+import { ExerciseId, type PushRequest, PushResponse, type SyncChange, UserId } from "@tanren/shared"
+import { DateTime, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect"
+import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
 import {
   at,
@@ -341,6 +342,114 @@ describe("SyncEngine edges", () => {
         yield* Effect.ignore(phone.run(sync))
         const server = yield* MockSyncServer.use((mock) => mock.rows)
         expect(server.length).toBe(1)
+      }),
+    ),
+  )
+})
+
+/** Records every push request, then delegates to the mock server as `LOCAL_USER_ID`. */
+const recording = (sent: Ref.Ref<ReadonlyArray<PushRequest>>) =>
+  Layer.effect(
+    SyncTransport,
+    Effect.gen(function* () {
+      const inner = yield* SyncTransport
+      return SyncTransport.of({
+        fetchChanges: inner.fetchChanges,
+        sendChanges: (request) =>
+          Ref.update(sent, (all) => [...all, request]).pipe(
+            Effect.andThen(inner.sendChanges(request)),
+          ),
+      })
+    }),
+  ).pipe(Layer.provide(MockSyncServer.transport(LOCAL_USER_ID)))
+
+/** What `useLogSet` runs: the local write, then a sync request. */
+const logSetAndRequest = (weightKg: number) =>
+  TodayRepo.use((repo) =>
+    repo.logSet({
+      exerciseId: ExerciseId.make(EXERCISE_ID),
+      plannedSetId: Option.none(),
+      weightKg,
+      reps: 5,
+      rpe: Option.none(),
+    }),
+  ).pipe(Effect.tap(() => SyncEngine.use((engine) => engine.requestSync)))
+
+/** A phone running `background` (as `useSync` does) past its first round, which pushes nothing. */
+const backgroundPhone = Effect.gen(function* () {
+  const sent = yield* Ref.make<ReadonlyArray<PushRequest>>([])
+  const failedRounds = yield* Ref.make(0)
+  const firstRound = yield* Deferred.make<void>()
+  const phone = yield* openPhone({ transport: recording(sent) })
+  yield* Effect.forkChild(
+    phone.run(
+      SyncEngine.use((engine) =>
+        engine.background({
+          started: Effect.void,
+          finished: (exit) =>
+            Deferred.succeed(firstRound, undefined).pipe(
+              Effect.andThen(
+                Exit.isFailure(exit) ? Ref.update(failedRounds, (n) => n + 1) : Effect.void,
+              ),
+            ),
+        }),
+      ),
+    ),
+  )
+  yield* Deferred.await(firstRound)
+  const setsPerPush = Ref.get(sent).pipe(
+    Effect.map((requests) =>
+      requests.map((request) => request.changes.filter((change) => change.table === "set").length),
+    ),
+  )
+  return { phone, setsPerPush, failedRounds }
+})
+
+describe("SyncEngine.background", () => {
+  it.effect("pushes a logged set once PUSH_DEBOUNCE has passed, not on the 60 s loop", () =>
+    withServer(
+      Effect.gen(function* () {
+        const { phone, setsPerPush } = yield* backgroundPhone
+        yield* phone.run(logSetAndRequest(50))
+        yield* TestClock.adjust("499 millis")
+        expect(yield* setsPerPush).toEqual([])
+        yield* TestClock.adjust("1 millis")
+        expect(yield* setsPerPush).toEqual([1])
+        const server = yield* MockSyncServer.use((mock) => mock.rows)
+        expect(server.filter((change) => change.table === "set").length).toBe(1)
+      }),
+    ),
+  )
+
+  it.effect("two sets logged 100 ms apart go out in one push", () =>
+    withServer(
+      Effect.gen(function* () {
+        const { phone, setsPerPush } = yield* backgroundPhone
+        yield* phone.run(logSetAndRequest(50))
+        yield* TestClock.adjust("100 millis")
+        yield* phone.run(logSetAndRequest(60))
+        yield* TestClock.adjust("400 millis")
+        expect(yield* setsPerPush).toEqual([2])
+        yield* TestClock.adjust("10 seconds")
+        expect(yield* setsPerPush).toEqual([2])
+      }),
+    ),
+  )
+
+  it.effect("offline, a logged set makes one failed attempt and waits for the loop", () =>
+    withServer(
+      Effect.gen(function* () {
+        const { phone, setsPerPush, failedRounds } = yield* backgroundPhone
+        yield* MockSyncServer.use((server) => server.setReachable(false))
+        yield* phone.run(logSetAndRequest(50))
+        yield* TestClock.adjust("500 millis")
+        expect(yield* setsPerPush).toEqual([1])
+        expect(yield* Ref.get(failedRounds)).toBe(1)
+        yield* TestClock.adjust("59 seconds")
+        expect(yield* setsPerPush).toEqual([1])
+        yield* TestClock.adjust("1 second")
+        expect(yield* setsPerPush).toEqual([1, 1])
+        expect(yield* Ref.get(failedRounds)).toBe(2)
       }),
     ),
   )
