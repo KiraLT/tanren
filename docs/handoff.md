@@ -115,7 +115,18 @@ owner was pinged with the recipe at ≈ 00:08 (test from a worktree of
   skip out-of-tree paths; Biome rejects `import { Set }`; `.claude/**` is
   Biome-excluded; never `pkill` what you did not start.
 
-## Experiment for step 4 ∥ 7 — "zero-lag tail" (retro step 2)
+## Experiments (retro steps 4 ∥ 7, `docs/retro/2026-10-20-steps-4-7-parallel.md`)
+Result of "zero-lag tail": 4 of 7 targets met (wall-clock 40.5 min, ratio
+0.96, Lead lags ≤ 2.1 min after the idle checklist; missed: fix-round waits,
+2 review rounds, 5 late escalations). Next: **step 5 "rolling review"** —
+report → fix-round wait ≤ 3 min, no foreground Agent pair in a team-lead
+turn, 0 harness hand-back nudges, team final ≤ 45 of 90, ≤ 1 review round.
+**Closing phase "one owner session"** — owner round-trips ≤ 1 to a prod e2e
+and ≤ 2 to the first set logged on the phone; a `deploy:preflight` script
+pre-validates every owner step; ≤ 15 min agent wall-clock from "owner done"
+to proof.
+
+## Previous experiment for step 4 ∥ 7 — "zero-lag tail" (retro step 2)
 Measured from transcripts: wall-clock ≤ 60 min from first fan-out to the
 full-stack e2e pass · critical-path ratio ≥ 0.75 (step 2: 0.72) · dispatch
 lag and acceptance lag ≤ 2 min on every critical-path edge · no engineer run

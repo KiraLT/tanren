@@ -50,7 +50,12 @@ on while you wait?"):
 4. the EM on every event (team report, incident, round 2);
 5. pre-write the integration brief and the next step's briefs;
 6. owner-facing docs (runbooks, test recipes) via the architect.
-Stop only when the dependency graph itself is empty, and say so.
+Stop only when the dependency graph itself is empty, and say so. Run this
+list **in the fan-out turn itself**, not after the first wait: steps 4 ∥ 7
+lost 16 min (23:16 → 23:32) because the five side streams started in one
+turn after the owner's nudge although every input existed at fan-out.
+After any EM or retro edit to a role file, forward the deltas to live
+team-leads by SendMessage (they run on the file they were spawned with).
 
 ## You do not research
 

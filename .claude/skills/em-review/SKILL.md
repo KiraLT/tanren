@@ -22,3 +22,9 @@ changes (`docs/retro/em-log.md`) and act on its proposals; its handback ends
 with `## Proposals for the Lead` as exact old→new text, so applying one is a
 paste, done only when every runnable task is running. For "step N", also
 feed it the Log section of `docs/tasks/step-N.md` and `docs/retro/incidents.md`.
+
+Role-file edits never reach a running agent: when a Mode 1 run changes
+`team-lead.md` or `engineer.md` while a team is live, its handback names the
+live team-lead ids and a ≤ 3-line delta for the Lead to forward as one
+message (team mcp-oauth started 23:45:24 on the 23:38 team-lead.md; the
+hand-back, budget and port rules landed 23:52–23:54 and it never saw them).

@@ -62,10 +62,13 @@ domains (`api.`, `mcp.`, apex), static assets for the web build.
 `import { McpServer, type CallToolResult } from "@modelcontextprotocol/server"` (SDK v2, 2.3.1).
 `createMcpHandler(factory, { route: "/mcp" })` returns `(request, env, ctx) => Promise<Response>`;
 the factory builds a fresh `McpServer` per request, so the caller's `userId` reaches tools by
-closure. Layout: `src/mcp/server.ts` (`createServer({ userId, run })`, the only `McpServer`),
+closure. Layout: `src/mcp/server.ts` (`createServer({ principal, run })`, the only `McpServer`),
 `src/mcp/McpRoute.ts` (`makeMcp(env, { persistence, auth })`: one lazy `ManagedRuntime` per
-isolate; `McpAuth.resolve` → `401` + `WWW-Authenticate: Bearer`, empty body, before the SDK runs),
-`src/index.ts` routes the exact path `/mcp` before `app.handler`. Facts:
+isolate; `McpAuth.resolve(request, ctx)` → `Option<McpPrincipal>`; `None` → `401` with the
+`WWW-Authenticate: Bearer realm="OAuth", resource_metadata=…, scope="tanren:read"` challenge
+(`challenge()` in `McpAuth.ts`), empty body, before the SDK runs). Since S5 `src/index.ts`
+default-exports the `OAuthProvider` (next section), whose `serveWith` routes the exact path `/mcp`
+to `mcp.handle` before `app.handler`. Facts:
 - `registerTool(name, { description, inputSchema, annotations: { readOnlyHint: true } }, cb)`:
   `inputSchema` must be a `StandardSchemaWithJSON`. Pass the ENCODED side,
   `Schema.toStandardJSONSchemaV1(Schema.toStandardSchemaV1(Schema.toEncoded(input)))`, so the SDK
@@ -82,17 +85,82 @@ isolate; `McpAuth.resolve` → `401` + `WWW-Authenticate: Bearer`, empty body, b
   `PlanRepo.currentPlan` alone costs 4 (plan, weeks, sessions, sets), so `get_overview` reads
   `listPlans` + `listWeeks` (2) and totals 5; `get_exercise_history` is 3, bounded by `limit`
   through `listSessionsForExercise`, never a `getSession` per entry (review S4-REV found 7 and an
-  unbounded scan). No test counts statements yet; a counting D1 layer in the workerd tests is open.
-- Identity: step 4 passes `userId` to tools by closure (`createServer({ userId, run })`). The SDK's
-  `getMcpAuthContext()` (`agents/mcp/server`) exposes `ctx.props` to tool callbacks; the OAuth
-  layer (step 5, `docs/design/oauth.md`) decides whether `McpAuth.layerOAuth` reads `ctx.props`
-  directly or through it. Do not use it in step-4 code paths.
+  unbounded scan). `src/testing/countingD1.ts` counts D1 executions in workerd tests (S5):
+  `get_overview` = 5, `write_plan_week` 4 weeks x 6 = 36 executions including batch members
+  (`src/index.workerd.test.ts`, `src/mcp/writeTools.test.ts`).
+- Identity (S5): `McpAuth.resolve(request, ctx) → Option<McpPrincipal>` (`{ userId, scopes }`).
+  `layerOAuth` decodes `ctx.props` with the shared `OAuthProps` (the provider sets it for a valid
+  token), `layerDevToken` gives the seed user every scope (local only), `layerLive` tries OAuth then
+  the dev token, `layerFixed` is for tests. `createServer({ principal, run })` passes
+  `principal.userId` to tools by closure; `toolsFor(principal)` registers the write tools
+  (`src/mcp/writeTools.ts`) only when `scopes` has `tanren:write`, so without it they are an
+  unknown tool. Tools are `Tool`/`AnyTool` values with a `kind` (`eraseTool` erases the types).
+  The SDK's `getMcpAuthContext()` is not used.
 - Workerd test: `makeMcp(...).handle(req, env, createExecutionContext())` from `cloudflare:test`
   (`src/mcp/McpRoute.workerd.test.ts`). Bundle with MCP: 3785 KiB / 718 KiB gzip (Free limit 3 MiB gzip).
 - Attach Claude Code without touching user config: `claude -p "…" --mcp-config <file>
   --strict-mcp-config --allowedTools mcp__tanren-local__get_overview` with
   `{"mcpServers":{"tanren-local":{"type":"http","url":"http://localhost:<port>/mcp",
   "headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`. Never `claude mcp add` in a task.
+
+## OAuth provider + wrangler config layout (verified S5, 2026-10-21)
+
+**Config layout** (`apps/worker/wrangler.jsonc`, JSONC with comments):
+- Top level = local: `vars` (`ENVIRONMENT: "local"`, `BETTER_AUTH_URL`, `MCP_RESOURCE_URL:
+  "http://localhost:8787/mcp"`, fake `BETTER_AUTH_SECRET` / `DEV_MCP_TOKEN`), D1 `DB`, and
+  `kv_namespaces: [{ binding: "OAUTH_KV", id: "local-oauth-kv" }]`. A bare `wrangler dev` cannot reach Cloudflare.
+- `env.production` (shape from `docs/design/deploy.md` §2): `routes` `api.tanren.me` and
+  `mcp.tanren.me` (`custom_domain: true`), its own `vars` (`BETTER_AUTH_URL` `https://api.tanren.me`,
+  `MCP_RESOURCE_URL` `https://mcp.tanren.me/mcp`), its own `d1_databases` and `kv_namespaces`
+  whose ids are `<owner: …>` placeholders so a deploy fails loudly. **Named envs do not inherit
+  `vars`**, hence the repeat; wrangler warns that `BETTER_AUTH_SECRET` / `DEV_MCP_TOKEN` are absent
+  there: intended, they are secrets (`wrangler secret put … --env production`, owner only, never in the repo).
+- `wrangler.test.jsonc` repeats the local vars + `OAUTH_KV` so a workerd test can boot `src/index.ts`.
+  `wrangler.web.jsonc` is the static-assets Worker `tanren-web`, `env.production` route `tanren.me`.
+- Custom domains and secrets are owner actions; agents never run `wrangler deploy|secret|login`.
+- Bindings are typed in `src/Env.ts`: `OAUTH_KV`, `MCP_RESOURCE_URL`, `OAUTH_PROVIDER?` (the
+  provider's `OAuthHelpers`, injected into `env` per request); `EnvVars = Omit<Env, "DB" | "OAUTH_KV" |
+  "OAUTH_PROVIDER">`. `WorkerConfig.mcpResourceUrl` is absolute, has no fragment, and may be `http:` only
+  when local; `WorkerConfig.fromEnvSync(env)` decodes at module scope (no I/O).
+
+**The provider** is the second adapter next to the MCP handler: `src/index.ts` default-exports
+`makeProvider(config, { app, mcp, authorize })` (`src/oauth/provider.ts`), a `new OAuthProvider<Env>`
+from `@cloudflare/workers-oauth-provider@1.2.3` (named + default export; `OAuthHelpers`, `AuthRequest`,
+`AuthorizationError`, `authorizationErrorRedirect` are named exports). No Durable Object; state lives in
+`OAUTH_KV`. Biome's `noClass` override excludes only `src/mcp/**` and `src/index.ts`, so `src/oauth/**`
+declares no class: `provider.ts` only calls `new OAuthProvider`.
+- Its JS imports `cloudflare:workers`: never value-import it from a Node-tested module; use
+  `import type`. Only `index.ts` and workerd tests load `provider.ts`; Node tests use the fake
+  `OAuthApi` (`src/oauth/authorize.test.ts`).
+- Combined mode: the issuer is the origin of the token endpoint, so full-URL endpoints built from
+  `BETTER_AUTH_URL` put the authorization server on the API host (where the Better Auth cookie lives).
+  `/.well-known/oauth-authorization-server` answers on any host with that issuer; token and register
+  match only that hostname. `resourceMetadata.authorization_servers` defaults to the token-endpoint
+  origin, so neither is set. `resourceMetadata.resource` is required (`http:` only on loopback).
+- Wire facts: PKCE S256 mandatory, dynamic client registration for public clients. Consent helpers
+  `describeConsent / beginConsent / approveConsent / denyConsent` (`d.ts:1233-1263`);
+  `beginConsent`'s headers must be forwarded with the consent page. `/authorize` must catch
+  `parseAuthRequest` failures.
+- Routing in `serveWith`: `/mcp` → `mcp.handle`, `/authorize` and below → `authorize.handle`, the rest →
+  `app.handler`. `apiRoute: "/mcp"`; `requiredScopes: ["tanren:read"]`; `resolveExternalToken`
+  accepts `DEV_MCP_TOKEN` as the dev principal's props (local only), so the dev token keeps working.
+- Better Auth from the authorize page: `auth.api.signInMagicLink` needs `headers`
+  (`requireHeaders: true`), body `{ email, callbackURL }`. `/api/auth/get-session` without a cookie
+  answers 200 `null`. The magic-link token is in D1 as `verification.identifier = "magic-link:<token>"`.
+- Boot proof: `src/index.workerd.test.ts` drives the real default export (health, get-session, `/mcp`
+  401 with `resource_metadata`, exercises round trip, sync push → pull incl. a LWW tie → `conflicts`).
+  The full OAuth flow test is `src/oauth/oauth.workerd.test.ts`.
+  `oauth.workerd.test.ts` (6 green, S5-T4b 2026-10-21): authorization-server metadata issuer =
+  `BETTER_AUTH_URL`; no token → 401 with `resource_metadata`; register → authorize → approve → token
+  (S256) → `tools/list` 7; a read-only grant → 4 tools and `update_profile` is not executed; the dev
+  token → 7; `write_plan_week` on D1, then `get_current_plan` shows it.
+- Dev token through the provider: `provider.ts` sets `resolveExternalToken` (audience =
+  `mcpResourceUrl`, local only) mapping `Bearer <DEV_MCP_TOKEN>` to the dev principal. Without it the
+  provider answers `invalid_token` before `/mcp` runs, so `layerLive`'s dev fallback matters only when
+  `makeMcp` is called directly.
+- Wrangler warns that CIMD (client ID metadata documents) is disabled without the compat flag
+  `global_fetch_strictly_public`. Claude uses DCR, so off is fine; decide at deploy time.
+- Local recipe and proven curl flow: `docs/design/local-dev.md` §5.
 
 ## Vendor plugin skills
 

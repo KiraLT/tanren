@@ -23,7 +23,13 @@ Task sheet log:
    uses (`tool_use` blocks) and tokens (`message.usage`, deduped per message
    id; the notification's "k" ≈ cache_creation + input + output) from there,
    never from the Log — step 2's Log said S2-T3 ran ~24 min; the transcript
-   showed 5m42s.
+   showed 5m42s. Transcript timestamps are UTC; the Log is the owner's local
+   clock (Europe/Vilnius, UTC+3 until the last Sunday of October): convert
+   before comparing, and trust transcript times over remembered ones (retro
+   4 ∥ 7: "fan-out 23:14" was 23:16:44, "owner nudge 23:40" was ≈ 23:32).
+   An engineer's span includes its wait for the fix round: report active
+   time (dispatch/resume → hand-back) and the fix-round wait separately;
+   the 20-min rule is on active time.
 2. Spawn the `engineering-manager` (model `fable`, `effort: max`) with that
    summary, the paths above, and the question "what would have made this
    step faster and smoother, and what should change in the system?"

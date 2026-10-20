@@ -49,7 +49,11 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    boxes); 20 min only for a task that carries a runtime proof or opens a
    new package or runtime.
 4. Spawn engineers via the Agent tool (`subagent_type: engineer`, `model`
-   from the task), in one message when their file sets are disjoint. Never
+   from the task), in one message when their file sets are disjoint, each
+   with `run_in_background: true`: two foreground `Agent` calls in one
+   message block your turn until the slowest returns (plan-web 23:34: the
+   reviewer's REQUEST CHANGES at 23:36 waited behind P6 until 23:41, so
+   three fix rounds started 5 min late). Never
    exceed the charter's parallel budget on your own: it is your share of the
    session-wide agent cap (the owner's rate limit once killed six concurrent
    agents), which only the Lead sees. When more disjoint tasks are ready
@@ -81,10 +85,25 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    it back, final at 23:45; one Lead round trip to save two minutes of
    waiting). Log the agent id of every in-flight child in the sheet so
    you (or the Lead, if the harness hands you back early) can resume by
-   re-reading the sheet and messaging that id.
+   re-reading the sheet and messaging that id. Waiting means a blocking
+   call, never an idle turn end: the harness turns a turn that ends without
+   a report into a forced hand-back (`[handback-send-enforce]`; team mcp
+   23:42:55 "Waiting on the S4-T3 fix round" → nudge → premature report at
+   23:43:18). Wait with the `Monitor` tool (load it via ToolSearch
+   `select:Monitor`) or one Bash until-loop polling the child's transcript
+   (`tasks/<id>.output`, sibling of your scratchpad directory; ≤ 5 min per
+   call) — team mcp's resumed run did exactly that (23:44–23:45) and handed
+   back clean.
 6. Spawn the `reviewer` (model `opus`) with the briefs and your owned paths
-   as diff scope. Blocking findings go back to the same engineer with
-   `SendMessage`. Respect the max review rounds in the charter.
+   as diff scope. Review rolls: when a task's report lands while another
+   task still has ≥ 5 min to run, review the finished tasks now (5-min
+   reviewer box, their files only) and make the final review a delta pass
+   over the rest; forward fix rounds within 2 min of the reviewer's
+   hand-back (step 4 ∥ 7: engineers waited a median 10 min between their
+   report and their fix round — P3 18, T3 10, P5 10, P4 8.5, T4 4 — while
+   one review sat behind the last task). Blocking findings go back to the
+   same engineer with `SendMessage`. Respect the max review rounds in the
+   charter.
 7. Spawn `qa` (model `sonnet`) with the done-criteria only if the charter
    asks for QA. Otherwise the reviewer runs the package-level gate (`monorepo`
    skill, "The gate") and quotes it; no separate QA round. `FAIL` → one more

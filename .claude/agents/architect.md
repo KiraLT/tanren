@@ -46,7 +46,13 @@ an API.
    written: plan-web's charter said "`weekStart` is a Monday" while its own
    contract block and ADR-0007 say any weekday; the team-lead had to
    overrule the charter in its sheet. An uncited Assumes line is a question
-   for the Lead, not a fact. Every cross-stream need (a port one stream
+   for the Lead, not a fact. Before the task list, grep the master Log and
+   `docs/retro/incidents.md` for forward references to this step (`→ step
+   N`, `step N:`, `OPEN`) and make each a task or an explicit "Deferred:
+   <why>" charter line: the step-7 charter (23:03–23:16) missed the sign-in
+   screen that INT-2b's Log line had routed to step 7 at 23:06; the owner
+   asked for it at 23:26 and S7-P6 was added mid-step (the step's only
+   scope gap, two review rounds). Every cross-stream need (a port one stream
    implements for another, a migration, a shared schema) is a task in the
    owning stream's list before fan-out: step 2's S2-T6/T7 surfaced only at a team's interim
    report and the db stream waited 4.7 min for the port. Also write each
