@@ -1,5 +1,6 @@
 export * from "./common"
 export * from "./currentPlan"
+export * from "./dataExport"
 export * from "./errors"
 export * from "./exercise"
 export * from "./ids"
