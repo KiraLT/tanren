@@ -116,8 +116,8 @@ change: magic link → cookie → get-session → re-key → pull → log set �
 server pull shows it. `localhost:8081` and `:8787` are the same site, so the
 SameSite=Lax cookie rides `credentials: "include"`. The seed plan has no session
 on Tuesdays: to test Today on a rest day, launch agent-browser with e.g.
-`TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Open: Expo Go
-(native cookie storage, `Linking.createURL` callback), a manual rest → swipe pass.
+`TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Open: a manual rest → swipe
+pass on a phone in Expo Go (offline logging only; sign-in is web-only, see above).
 
 Step 7 (2026-10-20, team plan-web): Plan screen (PlanWeekRepo + usePlanWeek),
 two-column layout at ≥ 900 px, web export served by the assets-only Worker on
