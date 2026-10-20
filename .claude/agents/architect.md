@@ -41,9 +41,14 @@ an API.
    team charters (name, mission, exclusive owned paths, frozen contracts,
    tasks, budget) and an integration task with its verification. State the
    contracts precisely enough that teams never need to talk to each other.
-   Every cross-stream need (a port one stream implements for another, a
-   migration, a shared schema) is a task in the owning stream's list
-   before fan-out: step 2's S2-T6/T7 surfaced only at a team's interim
+   Every `Assumes` line that states a data fact cites its source (ADR
+   number or design §) and is read against it before the charter is
+   written: plan-web's charter said "`weekStart` is a Monday" while its own
+   contract block and ADR-0007 say any weekday; the team-lead had to
+   overrule the charter in its sheet. An uncited Assumes line is a question
+   for the Lead, not a fact. Every cross-stream need (a port one stream
+   implements for another, a migration, a shared schema) is a task in the
+   owning stream's list before fan-out: step 2's S2-T6/T7 surfaced only at a team's interim
    report and the db stream waited 4.7 min for the port. Also write each
    team's sheet skeleton `docs/tasks/step-N/team-<name>.md` (charter, task
    table, frozen contracts, Assumes, Log header): team-leads spent 2.3–3.4

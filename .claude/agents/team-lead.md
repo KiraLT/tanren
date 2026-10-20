@@ -35,7 +35,10 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    in-flight child can be resumed from the sheet alone.
 3. Brief engineers with the lead-playbook template. Every brief restates:
    owned paths (the engineer's scope must stay inside them), the contracts,
-   and "no dependency or root-config changes". The brief's gate is the
+   and "no dependency or root-config changes". Its tests line names every
+   new Effect function or service and its failure paths; "pure helpers
+   tested" is not a tests line (S7-P6, briefed mid-step: `sendMagicLink`
+   shipped without tests and cost the only round 2 of the team). The brief's gate is the
    package gate (`pnpm -F <pkg> check`); the root `pnpm check` runs once, by
    you, with the runtime proof. A root gate red only in a file outside your
    owned paths (the charter's Adjacent line names its owner) is one line in
@@ -47,7 +50,12 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    new package or runtime.
 4. Spawn engineers via the Agent tool (`subagent_type: engineer`, `model`
    from the task), in one message when their file sets are disjoint. Never
-   exceed the charter's parallel budget. A new task gets a fresh engineer;
+   exceed the charter's parallel budget on your own: it is your share of the
+   session-wide agent cap (the owner's rate limit once killed six concurrent
+   agents), which only the Lead sees. When more disjoint tasks are ready
+   than the budget allows, send a ≤ 5-line interim naming them; the Lead
+   raises the budget or not (plan-web: charter said 2, the Lead's dispatch
+   raised it to 3 for P1 ∥ P2 ∥ P3). A new task gets a fresh engineer;
    `SendMessage` continuation is for review fixes only (W-T3 as a
    continuation of W-T2 serialised two tasks on one agent: 21 min on a
    15-min box). There is no `researcher` role: engineers verify against

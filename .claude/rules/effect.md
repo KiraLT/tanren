@@ -2,9 +2,11 @@
 paths:
   - "packages/**/*.ts"
   - "apps/worker/**/*.ts"
+  - "apps/mobile/src/services/**/*.ts"
+  - "apps/mobile/src/hooks/**/*.ts"
 ---
 
-# Effect code rules (packages/*, apps/worker) — Effect 4.0.5
+# Effect code rules (packages/*, apps/worker, apps/mobile services + hooks) — Effect 4.0.5
 
 Verified against `effect@4.0.5` types on 2026-10-19 (`docs/research/2026-10-19-effect-4-api.md`).
 When this file and the installed `.d.ts` disagree, the `.d.ts` wins; report it.
@@ -46,6 +48,10 @@ When this file and the installed `.d.ts` disagree, the `.d.ts` wins; report it.
 - Unions discriminate on `_tag`, `type` or a natural key (`table`) and match
   exhaustively: `Match.value(x).pipe(Match.tag("A", ...), Match.exhaustive)`,
   `Match.typeTags`, or `Match.discriminatorsExhaustive("table")` for natural keys.
+  No `switch` on a tag or literal union, no nested `_tag` ternaries, and no
+  `instanceof` on a tagged value (`Predicate.isTagged(e, "MagicLinkFailed")`
+  or `Match`): no Biome plugin catches these yet, so review does (S7-P6 cost
+  a round 2 on all three).
 - Immutability: `readonly` on every field and array. No `let`, no `push`, no
   `Object.assign` mutation; use spreads, `Arr.map`, `Record`, `Chunk`,
   `HashMap` from `effect` (`import { Array as Arr } from "effect"`: Biome's

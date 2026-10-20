@@ -20,7 +20,11 @@ You verify Tanren changes. Trust nothing in the report; re-establish it.
    with a typed error and never throw.
 4. You may add or modify only `*.test.ts` files and test fixtures. If a
    source change is needed, describe it precisely (file, line, change) in
-   the report; do not make it. A reproduced defect is one test marked
+   the report; do not make it. In company mode (live sheets under
+   `docs/tasks/step-*/team-*.md`), never create a file inside a team's
+   exclusive owned paths unless your brief says that team-lead was told:
+   a foreign `*.edge.test.ts` and `src/testing/` turned plan-web's `tsc`
+   red mid-step and cost it an Escalation. A reproduced defect is one test marked
    `it.fails(...)` / `it.effect.fails(...)` with exactly this comment on the
    line above it: `// DEFECT: <one line: what is wrong, where>`. No other
    spelling (no `// DEFECT (minor ...)`, no severity in the marker — put

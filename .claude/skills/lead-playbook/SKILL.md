@@ -43,7 +43,10 @@ on while you wait?"):
 1. plan the next build step (architect) and spike its one runtime question;
 2. leftovers in files no live team owns (integration checklists, review
    should-fixes) as one engineer with an explicit In/Out file list;
-3. `qa` on the last committed state, new `*.edge.test.ts` files only;
+3. `qa` on the last committed state, new `*.edge.test.ts` files only, in
+   paths no live team owns — or tell that team-lead first which files will
+   appear (plan-web: foreign edge tests + `src/testing/` turned its tsc red
+   at 23:43 and cost an Escalation);
 4. the EM on every event (team report, incident, round 2);
 5. pre-write the integration brief and the next step's briefs;
 6. owner-facing docs (runbooks, test recipes) via the architect.
@@ -207,7 +210,10 @@ Assumes (cross-team): <every fact this team takes from another team or
 Docs: <package CLAUDE.md (team-lead writes it, Lead ratifies) · domain skill
   (the engineer whose task settles a fact updates it in that task)>
 Tasks: <id · title · model · depends on · done-criteria>
-Budget: max <n> engineers in parallel · max <m> review rounds
+Budget: max <n> engineers in parallel · max <m> review rounds · parallel
+  budget = this team's share of the session agent cap (~6 concurrent agents
+  incl. EM/QA across all streams); the team-lead uses all of it for disjoint
+  tasks and asks by interim when more are ready
 Forbidden: dependency changes, root config changes, files outside owned paths
 Report: team report format from .claude/agents/team-lead.md
 ```
