@@ -376,11 +376,7 @@ describe("SyncStore.pull edges", () => {
 })
 
 describe("SyncStore.apply defects", () => {
-  // DEFECT: two live exercises whose names collide (case-insensitive) in one push hit the partial
-  // unique index `exercise_user_name_unique`; the batch aborts and the whole push (including valid
-  // rows) fails with PersistenceError instead of rejecting the offender per change. A client that
-  // created "Bench" offline on two devices can never push again (poison pill).
-  it.effect.fails("a name collision rejects only the colliding change, not the whole push", () =>
+  it.effect("a name collision rejects only the colliding change, not the whole push", () =>
     Effect.gen(function* () {
       yield* at(now)
       const user = userOf(30)

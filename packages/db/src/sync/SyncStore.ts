@@ -212,6 +212,11 @@ interface Outcome {
   readonly known: HashSet.HashSet<Key>
   /** The subset of `known` that is soft-deleted after the changes accepted so far. */
   readonly tombstoned: HashSet.HashSet<Key>
+  /**
+   * Folded name → id of the live exercise holding it after the changes accepted so far, for the
+   * names this push uses (`exercise_user_name_unique` is `(user_id, lower(name))` over live rows).
+   */
+  readonly exerciseNames: HashMap.HashMap<string, string>
 }
 
 interface Snapshot {
@@ -219,7 +224,12 @@ interface Snapshot {
   readonly now: DateTime.Utc
   readonly own: HashMap.HashMap<Key, SyncChange>
   readonly foreign: HashSet.HashSet<Key>
+  /** Each pushed exercise name → SQLite's `lower(name)`, so the check matches the index exactly. */
+  readonly folded: HashMap.HashMap<string, string>
 }
+
+const foldName = (snapshot: Snapshot, name: string): string =>
+  Option.getOrElse(HashMap.get(snapshot.folded, name), () => name)
 
 const reject = (
   outcome: Outcome,
@@ -234,15 +244,51 @@ const reject = (
   ],
 })
 
-const accept = (outcome: Outcome, change: SyncChange, updatedAt: DateTime.Utc): Outcome => ({
-  ...outcome,
-  accepted: [...outcome.accepted, { table: change.table, id: change.row.id, updatedAt }],
-  writes: [...outcome.writes, { change, updatedAt }],
-  known: HashSet.add(outcome.known, changeKey(change)),
-  tombstoned: Option.isSome(change.row.deletedAt)
-    ? HashSet.add(outcome.tombstoned, changeKey(change))
-    : HashSet.remove(outcome.tombstoned, changeKey(change)),
-})
+/** The name map after `change` is written: its id releases its old name, a live row takes its own. */
+const nextExerciseNames = (snapshot: Snapshot, outcome: Outcome, change: SyncChange) => {
+  if (change.table !== "exercise") {
+    return outcome.exerciseNames
+  }
+  const released = HashMap.filter(outcome.exerciseNames, (id) => id !== change.row.id)
+  return Option.isNone(change.row.deletedAt)
+    ? HashMap.set(released, foldName(snapshot, change.row.name), change.row.id)
+    : released
+}
+
+const accept = (
+  snapshot: Snapshot,
+  outcome: Outcome,
+  change: SyncChange,
+  updatedAt: DateTime.Utc,
+): Outcome => {
+  // Statements run in accept order, so a live name another live exercise still holds at this
+  // point would abort the whole batch on `exercise_user_name_unique`: reject just this change.
+  const holder =
+    change.table === "exercise" && Option.isNone(change.row.deletedAt)
+      ? Option.filter(
+          HashMap.get(outcome.exerciseNames, foldName(snapshot, change.row.name)),
+          (id) => id !== change.row.id,
+        )
+      : Option.none()
+  if (Option.isSome(holder)) {
+    return reject(
+      outcome,
+      change,
+      "invariantViolated",
+      `the name is taken by live exercise ${holder.value} (case-insensitive)`,
+    )
+  }
+  return {
+    ...outcome,
+    accepted: [...outcome.accepted, { table: change.table, id: change.row.id, updatedAt }],
+    writes: [...outcome.writes, { change, updatedAt }],
+    known: HashSet.add(outcome.known, changeKey(change)),
+    tombstoned: Option.isSome(change.row.deletedAt)
+      ? HashSet.add(outcome.tombstoned, changeKey(change))
+      : HashSet.remove(outcome.tombstoned, changeKey(change)),
+    exerciseNames: nextExerciseNames(snapshot, outcome, change),
+  }
+}
 
 /** One step of DM §10.2 rule 3. Pure: all lookups come from the snapshot. */
 const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outcome => {
@@ -273,7 +319,7 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
   const limit = DateTime.add(snapshot.now, CLOCK_SKEW_LIMIT)
   const effective = DateTime.isGreaterThan(row.updatedAt, limit) ? snapshot.now : row.updatedAt
   return Option.match(HashMap.get(snapshot.own, key), {
-    onNone: () => accept(outcome, change, effective),
+    onNone: () => accept(snapshot, outcome, change, effective),
     onSome: (existing) => {
       if (
         !DateTime.Equivalence(existing.row.createdAt, row.createdAt) ||
@@ -282,7 +328,7 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
         return reject(outcome, change, "immutableFieldChanged", "createdAt or parent id changed")
       }
       return DateTime.isGreaterThan(effective, existing.row.updatedAt)
-        ? accept(outcome, change, effective)
+        ? accept(snapshot, outcome, change, effective)
         : { ...outcome, conflicts: [...outcome.conflicts, existing] }
     },
   })
@@ -307,6 +353,8 @@ const splitDuplicates = (changes: ReadonlyArray<SyncChange>): Split => {
 }
 
 const IdRecord = Schema.Struct({ id: Schema.String })
+const FoldedRecord = Schema.Struct({ name: Schema.String, folded: Schema.String })
+const HolderRecord = Schema.Struct({ id: Schema.String, folded: Schema.String })
 const PositionRecord = Schema.Struct({ id: Schema.String, serverSeq: Schema.Number })
 
 interface Entry extends Position {
@@ -353,6 +401,45 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
         ),
       ).pipe(Effect.map((tables) => HashSet.fromIterable(Arr.flatten(Arr.flatten(tables)))))
 
+    /**
+     * SQLite's `lower()` of every live pushed exercise name, and the user's live exercises holding
+     * one of them. One bound JSON parameter each, so no `ID_CHUNK` split is needed.
+     */
+    const exerciseNameState = (userId: UserId, changes: ReadonlyArray<SyncChange>) =>
+      Effect.gen(function* () {
+        const names = Arr.dedupe(
+          Arr.filterMap(changes, (c) =>
+            c.table === "exercise" && Option.isNone(c.row.deletedAt)
+              ? Result.succeed(c.row.name)
+              : Result.failVoid,
+          ),
+        )
+        if (!Arr.isReadonlyArrayNonEmpty(names)) {
+          return {
+            folded: HashMap.empty<string, string>(),
+            holders: HashMap.empty<string, string>(),
+          }
+        }
+        const json = JSON.stringify(names)
+        const folded = yield* sql`SELECT value AS name, lower(value) AS folded
+          FROM json_each(${json})`.pipe(
+          Effect.flatMap((rows) =>
+            Effect.forEach(rows, (r) => Schema.decodeUnknownEffect(FoldedRecord)(r)),
+          ),
+        )
+        const holders = yield* sql`SELECT id, lower(name) AS folded FROM exercise
+          WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND lower(name) IN (SELECT lower(value) FROM json_each(${json}))`.pipe(
+          Effect.flatMap((rows) =>
+            Effect.forEach(rows, (r) => Schema.decodeUnknownEffect(HolderRecord)(r)),
+          ),
+        )
+        return {
+          folded: HashMap.fromIterable(Arr.map(folded, (r) => [r.name, r.folded] as const)),
+          holders: HashMap.fromIterable(Arr.map(holders, (r) => [r.folded, r.id] as const)),
+        }
+      })
+
     const toRecord = ({ change, updatedAt }: Write) =>
       Effect.gen(function* () {
         const record = yield* encodeRow(change)
@@ -366,11 +453,13 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
         const sorted = Arr.sort(unique, pushOrder)
         const keys = Arr.map(sorted, (c) => ({ table: c.table, id: c.row.id }))
         const own = yield* ownRows(userId, Arr.appendAll(keys, Arr.flatMap(sorted, parentKeys)))
+        const names = yield* exerciseNameState(userId, sorted)
         const snapshot: Snapshot = {
           userId,
           now,
           own: HashMap.fromIterable(Arr.map(own, (c) => [changeKey(c), c] as const)),
           foreign: yield* foreignKeys(userId, keys),
+          folded: names.folded,
         }
         const initial: Outcome = {
           accepted: [],
@@ -384,6 +473,7 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
               changeKey,
             ),
           ),
+          exerciseNames: names.holders,
         }
         const outcome = Arr.reduce(
           duplicates,

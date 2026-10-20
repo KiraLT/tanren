@@ -240,6 +240,79 @@ describe("SyncStore.apply", () => {
     }).pipe(Effect.provide(StoreLayer)),
   )
 
+  it.effect("rejects a live name another live exercise of the user already holds in D1", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(40)
+      const store = yield* SyncStore
+      yield* store.apply(UserId.make(user), [
+        ex(exercise({ id: id(300), userId: user, name: "Bench", aliases: [] })),
+      ])
+
+      const result = yield* store.apply(UserId.make(user), [
+        ex(exercise({ id: id(301), userId: user, name: "BENCH", aliases: [] })),
+        ex(exercise({ id: id(302), userId: user, name: "Row", aliases: [] })),
+      ])
+
+      expect(result.accepted.map((a) => a.id)).toEqual([id(302)])
+      expect(result.rejected.map((r) => [r.id, r.reason])).toEqual([[id(301), "invariantViolated"]])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("rejects a name taken by a rename accepted earlier in the same push", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(41)
+      const store = yield* SyncStore
+      yield* store.apply(UserId.make(user), [
+        ex(exercise({ id: id(310), userId: user, name: "Deadlift", aliases: [] })),
+      ])
+
+      const result = yield* store.apply(UserId.make(user), [
+        // The rename sorts first (older updatedAt), so "squat" is taken when the new row comes.
+        ex(exercise({ id: id(311), userId: user, name: "squat", aliases: [], updatedAt: now })),
+        ex(exercise({ id: id(310), userId: user, name: "Squat", aliases: [], updatedAt: t2 })),
+      ])
+
+      expect(result.accepted.map((a) => a.id)).toEqual([id(310)])
+      expect(result.rejected.map((r) => [r.id, r.reason])).toEqual([[id(311), "invariantViolated"]])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("accepts re-upserts, a case-only self rename, and names freed by a soft delete", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(42)
+      const store = yield* SyncStore
+      yield* store.apply(UserId.make(user), [
+        ex(exercise({ id: id(320), userId: user, name: "Curl", aliases: [] })),
+        ex(exercise({ id: id(321), userId: user, name: "Press", aliases: [] })),
+        ex(exercise({ id: id(322), userId: user, name: "Dip", aliases: [], deletedAt: t1 })),
+      ])
+
+      const result = yield* store.apply(UserId.make(user), [
+        ex(exercise({ id: id(320), userId: user, name: "CURL", aliases: [], updatedAt: t2 })),
+        // Already soft-deleted in D1: the partial index ignores it.
+        ex(exercise({ id: id(323), userId: user, name: "dip", aliases: [], updatedAt: t2 })),
+        // Deleted earlier in this push, so its name is free for the later row.
+        ex(
+          exercise({
+            id: id(321),
+            userId: user,
+            name: "Press",
+            aliases: [],
+            updatedAt: t2,
+            deletedAt: t2,
+          }),
+        ),
+        ex(exercise({ id: id(324), userId: user, name: "press", aliases: [], updatedAt: now })),
+      ])
+
+      expect(result.rejected).toEqual([])
+      expect(result.accepted.map((a) => a.id)).toEqual([id(320), id(323), id(321), id(324)])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
   it.effect("rejects missing and foreign parents, cascading, and applies the rest", () =>
     Effect.gen(function* () {
       yield* at(now)
@@ -436,18 +509,21 @@ describe("SyncStore.apply", () => {
     Effect.gen(function* () {
       yield* at(now)
       const user = userOf(9)
-      // Two live exercises with one name violate the unique index on the second insert.
+      // Two active plans violate `plan_user_active_unique` on the second insert (`decide` does not
+      // pre-check that index yet; exercise names are pre-checked, see the name tests above).
       const error = yield* Effect.flip(
         (yield* SyncStore).apply(UserId.make(user), [
-          ex(exercise({ id: id(60), userId: user, name: "Twin" })),
-          ex(exercise({ id: id(61), userId: user, name: "twin" })),
+          ex(exercise({ id: id(62), userId: user, name: "Bystander" })),
+          { table: "plan", row: plan({ id: id(60), userId: user }) },
+          { table: "plan", row: plan({ id: id(61), userId: user }) },
         ]),
       )
       expect(error._tag).toBe("PersistenceError")
       expect(
         yield* rowsOf(user, [
-          ["exercise", id(60)],
-          ["exercise", id(61)],
+          ["exercise", id(62)],
+          ["plan", id(60)],
+          ["plan", id(61)],
         ]),
       ).toEqual([])
       expect(yield* clockOf(user)).toEqual([])
