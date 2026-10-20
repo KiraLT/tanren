@@ -3,11 +3,19 @@ import { Effect, Option, Redacted, Schema } from "effect"
 
 /**
  * Where the complete page may send the one-time code: Expo Go (`exp://<host>[:port][/…]/--/auth/callback`,
- * `exps://` over EAS Update) on a pinned host, or a dev build (`tanren://auth/callback`). Group 1 is
- * the `host[:port]` of an Expo URL.
+ * `exps://` over EAS Update) on a pinned prefix, or a dev build (`tanren://auth/callback`). Host is
+ * letters, digits, `.` and `-`; the port is digits only; path segments are `[A-Za-z0-9_-]+`, so no
+ * dot segments, percent-escapes, userinfo, query or fragment.
  */
 export const RETURN_TO =
-  /^(?:exps?:\/\/([^/\s?#@]+)(?:\/[^\s?#]*)?\/--\/auth\/callback|tanren:\/\/\/?auth\/callback)$/
+  /^(?:exps?:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9_-]+)*\/--\/auth\/callback|tanren:\/\/\/?auth\/callback)$/
+
+/** `raw` is already in WHATWG-serialised form, so no parser can read it differently from `startsWith`. */
+const isCanonicalUrl = (raw: string): boolean =>
+  Option.match(Option.liftThrowable(() => new URL(raw).href)(), {
+    onNone: () => false,
+    onSome: (href) => href === raw,
+  })
 
 /**
  * `returnTo` has the `RETURN_TO` shape AND starts with one of `prefixes`
@@ -18,7 +26,9 @@ export const RETURN_TO =
 export const isAllowedReturnTo =
   (prefixes: ReadonlyArray<string>) =>
   (raw: string): boolean =>
-    RETURN_TO.test(raw) && prefixes.some((prefix) => prefix.length > 0 && raw.startsWith(prefix))
+    RETURN_TO.test(raw) &&
+    isCanonicalUrl(raw) &&
+    prefixes.some((prefix) => prefix.length > 0 && raw.startsWith(prefix))
 
 const encoder = new TextEncoder()
 

@@ -71,6 +71,9 @@ describe("isAllowedReturnTo (pinned prefixes)", () => {
 
   it.each([
     "exps://u.expo.dev/other-project/--/auth/callback", // another EAS project on the shared host
+    "exps://u.expo.dev/tanren-project-id/../evil/--/auth/callback", // dot segment escapes the prefix
+    "exps://u.expo.dev/tanren-project-id/%2e%2e/evil/--/auth/callback",
+    "exp://localhost:evil.com/--/auth/callback", // non-numeric port
     "exps://u.expo.dev/tanren-project-idx/--/auth/callback",
     "exp://evil.example:8081/--/auth/callback", // attacker's Expo dev server
     "exp://192.168.1.6:8081/--/auth/callback",
