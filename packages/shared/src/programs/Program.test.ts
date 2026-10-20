@@ -75,8 +75,8 @@ describe("Program", () => {
     }),
   )
 
-  it("findProgram is None for an unknown id while PROGRAMS is empty", () => {
-    expect(PROGRAMS).toEqual([])
-    expect(Option.isNone(findProgram(ProgramId.make("core-30")))).toBe(true)
+  it("findProgram is None for an unknown id", () => {
+    expect(PROGRAMS.length).toBeGreaterThan(0)
+    expect(Option.isNone(findProgram(ProgramId.make("no-such-program")))).toBe(true)
   })
 })
