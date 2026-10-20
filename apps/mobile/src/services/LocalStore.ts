@@ -5,6 +5,8 @@ import {
   PlanRow,
   PlanWeekRow,
   ProfileRow,
+  ProgramDayCompletionRow,
+  ProgramEnrollmentRow,
   ROW_KEYS,
   ROW_TABLE,
   SessionRow,
@@ -12,9 +14,15 @@ import {
   type SyncTable,
   WorkoutSetRow,
 } from "@tanren/shared"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, Layer, Record as Rec, Schema } from "effect"
 import { migrate } from "../store/migrations"
-import { SqlDriver, type SqlRecord, type SqlStatement, StoreError } from "./SqlDriver"
+import {
+  SqlDriver,
+  type SqlRecord,
+  type SqlStatement,
+  type SqlValue,
+  StoreError,
+} from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
 
 const recordMember = <T extends SyncTable, Row extends Schema.Constraint>(table: T, row: Row) =>
@@ -30,14 +38,23 @@ export const LocalChange = Schema.Union([
   recordMember("plannedSet", PlannedSetRow),
   recordMember("session", SessionRow),
   recordMember("set", WorkoutSetRow),
+  recordMember("programEnrollment", ProgramEnrollmentRow),
+  recordMember("programDayCompletion", ProgramDayCompletionRow),
 ])
+
+/**
+ * `ExerciseRow.catalogId` is an optional key in the encoded type (pre-v2 records decode without
+ * it) although encoding always writes a value or `null`; an absent key is stored as NULL.
+ */
+const toSqlRecord = (row: Readonly<Record<string, SqlValue | undefined>>): SqlRecord =>
+  Rec.map(row, (value) => value ?? null)
 
 /** Encodes an entity to the flat record stored in its table. */
 export const encodeChange = (
   change: SyncChange,
 ): Effect.Effect<{ readonly table: SyncTable; readonly record: SqlRecord }, StoreError> =>
   Schema.encodeEffect(LocalChange)(change).pipe(
-    Effect.map((encoded) => ({ table: encoded.table, record: encoded.row })),
+    Effect.map((encoded) => ({ table: encoded.table, record: toSqlRecord(encoded.row) })),
     Effect.mapError((cause) => new StoreError({ cause })),
   )
 

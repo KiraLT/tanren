@@ -393,6 +393,8 @@ describe("SyncEngine.syncOnce", () => {
             planned_set: 1,
             workout_session: 1,
             workout_set: 1,
+            program_enrollment: 0,
+            program_day_completion: 0,
           })
           expect(
             yield* phone.run(
