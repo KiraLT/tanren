@@ -12,7 +12,7 @@ export function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
     <View style={{ gap: space.sm }}>
       <Text variant="caption" tone="muted" accessibilityRole="header">
-        {title.toUpperCase()}
+        {title}
       </Text>
       <Card padding={0} style={{ overflow: "hidden" }}>
         {children}

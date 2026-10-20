@@ -217,3 +217,10 @@ the store (second tab fails after 10 s): open product decision.
 INT-A (2026-10-20): owner recipe proven on the export via root `pnpm dev`
 (`docs/design/local-dev.md` §Owner recipe). Gap: `logSet` does not call
 `syncNow()`, so a logged set reaches the server only on the next ~60 s loop.
+
+v2 design + extras (2026-10-21, team design): `src/ui` design system (tokens, light/dark,
+theme preference, 15 primitives + Icon, desktop `AppBar` nav), Today/Plan/Sign-in/auth callback
+restyled, legacy `components/{theme,Screen,BigButton}` deleted; Progress tab, Settings, PWA
+manifest. Proven on the export at 390/768/1280 light+dark (30 screenshots). Known: `EmptyState`
+(`flex: 1`) collapses inside a `Page scroll` on web: give it a `minHeight` (see `progress.tsx`
+`INLINE_STATE`). Stale Metro after edits: restart the server, `--clear` is not enough.

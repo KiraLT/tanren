@@ -80,3 +80,4 @@ Parallel groups (≤ 2 engineers): A = {X2, X1→X5} · B = {X3, X4} · C = {X4 
 
 ## Log
 - 2026-10-21 · created from architect breakdown (`docs/design/v2-extras.md` the same hour)
+- 2026-10-21 01:00 · team design (phase 2) · X1 by Lead; X2 committed; X3–X6 done by team design (agent ids in docs/tasks/v2-design.md Log). Ratified deviations: `DataExporter` service name; export covers all 10 sync tables; native sign-out shown (POST via `withSession` → `forgetOwner` → `NativeSession.clear`, banner "Signed out. Reopen the app to finish."); `exportAll: Effect<{ json, fileName }, StoreError>` (file name from the same `exportedAt`); test file `src/pwa/manifest.test.ts` (not `manifestTokens.test.ts`); sign-out runtime proof → INT-X.

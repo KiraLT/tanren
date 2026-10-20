@@ -1,4 +1,4 @@
-import { Effect, Exit, Option } from "effect"
+import { Exit, Option } from "effect"
 import { useCallback, useState } from "react"
 import { DataExporter } from "../services/DataExport"
 import { runtime } from "../services/runtime"
@@ -16,9 +16,7 @@ const download = (fileName: string, json: string): void => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const build = DataExporter.use((exporter) =>
-  Effect.all({ json: exporter.exportAll, fileName: exporter.fileName }),
-)
+const build = DataExporter.use((exporter) => exporter.exportAll)
 
 /** Web: "Export my data" builds the `DataExport` file from the local store and downloads it. */
 export const useExportData = (): Option.Option<ExportData> => {

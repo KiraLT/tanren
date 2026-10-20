@@ -35,13 +35,14 @@ export function SegmentedControl({
     return (
       <Pressable
         key={option.value}
-        accessibilityRole="tab"
+        role="tab"
+        aria-selected={selected}
         accessibilityLabel={option.label}
         accessibilityState={{ selected }}
         onPress={() => onChange(option.value)}
         style={({ pressed }) => [
           {
-            minHeight: sizes.tap - space.xs * 2,
+            minHeight: sizes.tap,
             paddingHorizontal: space.md,
             borderRadius: radius.sm,
             borderCurve: "continuous",
@@ -61,7 +62,8 @@ export function SegmentedControl({
   })
   const container: ViewStyle = {
     flexDirection: "row",
-    padding: space.xs,
+    // Horizontal inset only: the 44 px segments already fill the height (hit area >= `sizes.tap`).
+    paddingHorizontal: space.xs,
     gap: space.xs,
     borderRadius: radius.md,
     borderCurve: "continuous",

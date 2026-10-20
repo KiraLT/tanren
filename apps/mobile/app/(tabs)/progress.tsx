@@ -36,10 +36,9 @@ const SESSION_PAGE = 30
 
 /** The empty/failed states sit inside the scrolling page, not centred on a full screen. */
 const INLINE_STATE = {
-  // Not `flex: 0`: on web that is `flex-basis: 0`, which collapses the box onto the control above.
-  flexGrow: 0,
-  flexShrink: 0,
-  flexBasis: "auto",
+  // `EmptyState` is `flex: 1` (basis 0%): inside the scroll content that collapses the box onto
+  // the control above, and RNW ignores a `flex` override here. A minimum height keeps its gap.
+  minHeight: 280,
   paddingVertical: space.xxxl,
 } as const
 

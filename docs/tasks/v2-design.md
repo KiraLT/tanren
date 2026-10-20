@@ -97,3 +97,26 @@ Parallel groups: A = {D1} · B = {D2, D3, D4} · C = {D5} · D = {REV, fixes, QA
 - 00:35→00:49 · X3 · engineer/sonnet · accb0634d2be9b027 · 192k · 98 · r1 · done: Progress list/detail/aside, chartGeometry + progressFormat 21 tests; ui-check 390/1280 (PR on 3rd set); lost ~8 min to a stale Metro bundle
 - 00:35→00:44 · X4 · engineer/sonnet · a58f472ecf849cbf4 · 204k · 56 · r1 · done except gear tail: Account (16 tests) + `DataExporter` (8, all 10 sync tables) + settings (6), runtime.ts +2 layers; ui-check /settings 390/1280, export JSON parses; sign-out runtime → INT-X
 - 00:50 · team gate: `pnpm -F @tanren/mobile` biome green (178 files), tsc clean, vitest 44 files / 379 tests green
+- 00:53→00:55 · X4 tail · engineer/sonnet (continuation) · a58f472ecf849cbf4 · — · 12 · r1 · done: gear `IconButton "Settings"` in Progress AppBar, ui-check 390/1280 → /settings and back
+- 00:53→00:56 · X5 · engineer/sonnet · a42d55832e3533372 · 96k · 28 · r1 · done: manifest (#C2410C/#FFFFFF), icon.svg + 4 PNGs, index.html (expo customize, biome-ignore useValidLang), manifest.test 6; export :8795 → manifest 200 application/json, `Page.getInstallabilityErrors` [] (V1), crossOriginIsolated true
+- 00:53→00:55 · L1 · engineer/sonnet · a06473509e4217a83 · 91k · 28 · r1 · done: `app/auth/callback.tsx` on src/ui (Lead-authorised), `components/{theme,Screen,BigButton}` deleted, LEGACY note removed; ui-check Failed view
+- 00:53→00:55 · REV r1 · reviewer/opus · a6130062ee5626b45 · 90k · 17 · — · REQUEST CHANGES: B1 all-caps Settings headings; S SegmentedControl 36 px segments; S Account forgetOwner-after-clear + test; nits DataExport name date, useAccount unmount, Email brand. Package gate green at review time.
+- 00:58→00:59 · REV fix (SegmentedControl) · D5 continuation a4e409d33ff0d5162 · 6 tools · done: segments 44, role=tab + aria-selected; gate green 392 tests
+- 00:58→ · REV fix (X4 items 1–4) · X4 continuation a58f472ecf849cbf4 · in flight
+- 00:58→00:59 · X6 · engineer/sonnet · ad44ed409f7214f90 · 74k · 6 · r1 · done: CLAUDE.md "## v2 extras", skill "## PWA"
+- 00:58→00:59 · REV fix (X4 items 1–4) · X4 continuation a58f472ecf849cbf4 · 25 tools · done: no upper-case headings; signOut POST→forgetOwner→clear + failing-batch test; `exportAll` → `{ json, fileName }` from one `exportedAt`; mounted ref, `Email` brand; gate green 393
+- 00:59→01:00 · REV delta · reviewer/opus a6130062ee5626b45 · 8 tools · APPROVE; ratified biome-ignore `useValidLang` in `public/index.html`; should: `exportAll` type drift vs v2-extras §2.3 (ratified below); nit: `httpEquiv` → `http-equiv` in index.html
+- 01:00 · contract note (extras): `DataExporter.exportAll: Effect<{ json: string; fileName: string }, StoreError>` (no separate `fileName` getter) replaces docs/design/v2-extras.md §2.3 `Effect<string, StoreError>` — team decision after REV r1, only consumer `useExportData.web.ts`
+- 00:59→01:02 · DEMO · qa/sonnet · a4adc9ff4b056d177 · 66k · 22 · — · export :8795, 30 screenshots (5 routes × 3 widths × 2 schemes), all checks PASS except 390 tab labels clipped at the bottom edge (confirmed by team-lead from demo-progress-390-light.png)
+- 01:01→ · DEMO fix (tab label clipping) · D5 continuation a4e409d33ff0d5162 · in flight
+
+## Integration checklist
+- [ ] `apps/mobile/app/(tabs)/{programs,library}.tsx` · teams programs/catalog replace the "Coming soon" placeholders (default export, `Page` + `AppBar title`; AppBar renders desktop nav automatically) · `ab open :<port>/programs` shows their screen, 5 tabs at 390, nav at 1280
+- [ ] INT-X sign-out · `:8790` web + `:8787` API (owner recipe, docs/design/local-dev.md): sign in → Settings shows email → Sign out → reload signed out, rows visible → log a set → sign in → set syncs · `ab network requests --filter sign-out` + `/sync/pull`
+- [ ] INT-X native sign-out · Expo Go: Settings → Sign out → banner "Signed out. Reopen the app to finish." → relaunch signed out · owner on device
+- [ ] PWA on the deployed site · Chrome install icon on tanren.me after deploy (V1 proven locally via CDP `Page.getInstallabilityErrors` = []) · owner action
+- [ ] `apps/mobile/public/index.html:6` nit · `httpEquiv` → `http-equiv` (IE-only meta, no effect) · biome green
+- [ ] Root `pnpm check` + combined ui-check at 390/768/1280 light+dark across all five tabs + /settings after catalog/programs land
+- 01:01→01:05 · DEMO fix (tab labels) · D5 continuation a4e409d33ff0d5162 · 33 tools · done: `tabBarStyle` height 64 + inset; re-export :8795, labels fully visible 390/768 light+dark, `ab errors` []
+- 01:06→01:10 · polish (Progress empty-state gap) · X3 continuation accb0634d2be9b027 · done: `INLINE_STATE` minHeight 280 + paddingVertical xxxl (EmptyState `flex: 1` collapses inside scroll content on web — follow-up for `src/ui/EmptyState`)
+- 01:10 · team gate: mobile biome (app src) green, tsc 0 errors, vitest 49 files / 449 tests; root `pnpm check` stops at biome on 6 `noSvgWithoutTitle` in `apps/mobile/assets/exercises/*.svg` (team catalog, foreign); root typecheck green, root vitest 105 files / 1104 tests green

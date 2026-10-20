@@ -1,5 +1,6 @@
+import type { Email } from "@tanren/shared"
 import { Cause, Effect, Exit, Option, Predicate } from "effect"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Account } from "../services/Account"
 import { CurrentUser } from "../services/CurrentUser"
 import { runtime } from "../services/runtime"
@@ -7,7 +8,7 @@ import { runtime } from "../services/runtime"
 export type AccountState =
   | { readonly _tag: "Loading" }
   | { readonly _tag: "SignedOut" }
-  | { readonly _tag: "SignedIn"; readonly email: string }
+  | { readonly _tag: "SignedIn"; readonly email: Email }
   /** The worker cannot be asked, but the store says someone is signed in. */
   | { readonly _tag: "SignedInOffline" }
 
@@ -61,14 +62,30 @@ export const useAccount = (): {
     return () => controller.abort()
   }, [])
 
+  // The sign-out request is not interrupted on unmount (it must finish or fail cleanly); only the
+  // state updates after it are skipped once the screen is gone.
+  const mounted = useRef(false)
+  useEffect(() => {
+    // biome-ignore lint/plugin/noMutation: React ref flag, not shared state
+    mounted.current = true
+    return () => {
+      // biome-ignore lint/plugin/noMutation: React ref flag, not shared state
+      mounted.current = false
+    }
+  }, [])
+
   const requestSignOut = useCallback(() => {
     setSignOut({ _tag: "SigningOut" })
     runtime.runPromiseExit(Account.use((current) => current.signOut)).then((exit) => {
+      if (Exit.isSuccess(exit) && IS_WEB) {
+        // The session is gone: reload even if the screen was left meanwhile.
+        window.location.assign("/today")
+        return
+      }
+      if (!mounted.current) {
+        return
+      }
       if (Exit.isSuccess(exit)) {
-        if (IS_WEB) {
-          window.location.assign("/today")
-          return
-        }
         setAccount({ _tag: "SignedOut" })
         setSignOut({ _tag: "Done" })
         return

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Tanren</title>
+  <rect width="512" height="512" fill="#C2410C" />
+  <path d="M80 244h352v24H80z" fill="#FFFFFF" />
+  <path d="M152 146h32a12 12 0 0 1 12 12v196a12 12 0 0 1-12 12h-32a12 12 0 0 1-12-12V158a12 12 0 0 1 12-12z" fill="#FFFFFF" />
+  <path d="M360 146h32a12 12 0 0 1 12 12v196a12 12 0 0 1-12 12h-32a12 12 0 0 1-12-12V158a12 12 0 0 1 12-12z" fill="#FFFFFF" />
+  <path d="M108 181h22a10 10 0 0 1 10 10v130a10 10 0 0 1-10 10h-22a10 10 0 0 1-10-10V191a10 10 0 0 1 10-10z" fill="#FCE9E0" />
+  <path d="M404 181h22a10 10 0 0 1 10 10v130a10 10 0 0 1-10 10h-22a10 10 0 0 1-10-10V191a10 10 0 0 1 10-10z" fill="#FCE9E0" />
+</svg>
