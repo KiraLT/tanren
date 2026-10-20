@@ -179,8 +179,11 @@ Owned paths (exclusive): <globs>        Read-only: <globs>
 Adjacent (another team's, name the owner): <files next to yours that another
   stream edits during the run — hardening's gate went red twice from
   wrangler.jsonc, repos/Repositories.ts and db repositories/Session.ts>
-Time box: <longest task box + 15 min (review 8 + one fix round 5 + root
-  gate/runtime proof 2); hardening: 35 given, 11 used>
+Time box: <sum of the task boxes on the longest dependency chain + 15 min
+  (review 8 + one fix round 5 + root gate/runtime proof 2); mcp: chain
+  20+10+20 → 65 with the new boxes, 29 used; hardening: 35 given, 11 used>
+A port's memory/test implementation (e.g. repos/Repositories.ts) is owned by
+  whoever changes the port, even when listed under Read-only.
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
   a missing one is a foundation gap, not a team-local file>
@@ -288,7 +291,9 @@ parallel integration tasks.
 ## Review → fix loop
 
 Blocking findings go back to the same engineer via `SendMessage`, verbatim,
-with "fix only these, re-run the gate, report". `should` findings go to the
+with "fix only these, re-run the gate, report". A QA fix brief ends with the
+proof `grep -rn "DEFECT" <paths>` (no colon): every marker either gone with
+its test passing or listed as not fixed. `should` findings go to the
 task sheet as follow-ups unless trivial. Re-review only the blocking ones.
 Two rounds without convergence → escalate the engineer's model, or spawn the
 architect to decide the contested point.

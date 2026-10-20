@@ -25,7 +25,13 @@ an API.
    has not confirmed and anything the plan does not cover.
 2. **Design notes** when a contract spans packages: exact names, signatures,
    schema fields, error types, and examples of the wire format, in
-   `docs/design/<topic>.md`.
+   `docs/design/<topic>.md`. Every field in a wire schema names the exact
+   `packages/shared` schema it reuses, checked with
+   `grep -n "export const <Name>" packages/shared/src/*.ts` and one glance
+   at its definition: a free-text name is `Label`, `EntityName` is the
+   table-name literal union. Team mcp's design wrote `name: EntityName`;
+   the slip was copied into `mcp.ts`, frozen, and found by the S4-T3
+   engineer (one Lead re-route, one design fix mid-run).
 3. **Task breakdown** for the Lead: an ordered list where each task has an id
    (`S<step>-T<n>`), title, role, suggested model, file set, dependencies,
    interfaces, and done-criteria. Tasks must be independently briefable and

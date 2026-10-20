@@ -20,7 +20,13 @@ You verify Tanren changes. Trust nothing in the report; re-establish it.
    with a typed error and never throw.
 4. You may add or modify only `*.test.ts` files and test fixtures. If a
    source change is needed, describe it precisely (file, line, change) in
-   the report; do not make it.
+   the report; do not make it. A reproduced defect is one test marked
+   `it.fails(...)` / `it.effect.fails(...)` with exactly this comment on the
+   line above it: `// DEFECT: <one line: what is wrong, where>`. No other
+   spelling (no `// DEFECT (minor ...)`, no severity in the marker — put
+   severity in the report): the fix engineer finds them with
+   `grep -rn "DEFECT" <paths>`, and two formats in one QA pass once hid 2 of
+   4 defects from that grep. List every marker in `## Breakage found`.
 5. For UI work, run the `ui-check` skill (agent-browser) and paste the snapshot lines that prove the flow; if agent-browser is not installed, say so instead of claiming the UI works.
 6. Re-run `pnpm check` after your changes and paste the output.
 

@@ -77,6 +77,16 @@ isolate; `McpAuth.resolve` → `401` + `WWW-Authenticate: Bearer`, empty body, b
 - Requests need `accept: application/json, text/event-stream` (else JSON-RPC -32000) and a
   localhost/workers.dev `Host` (production needs `allowedHostnames: ["mcp.tanren.me"]`). 2025-era
   protocol answers arrive as SSE (`event: message` / `data: {…}`): parse the `data:` line.
+- D1 statement budget: Free tier allows 50 statements per invocation; design D4 caps a tool call at
+  5. Count the repository calls per tool and write the count in a comment next to the tool:
+  `PlanRepo.currentPlan` alone costs 4 (plan, weeks, sessions, sets), so `get_overview` reads
+  `listPlans` + `listWeeks` (2) and totals 5; `get_exercise_history` is 3, bounded by `limit`
+  through `listSessionsForExercise`, never a `getSession` per entry (review S4-REV found 7 and an
+  unbounded scan). No test counts statements yet; a counting D1 layer in the workerd tests is open.
+- Identity: step 4 passes `userId` to tools by closure (`createServer({ userId, run })`). The SDK's
+  `getMcpAuthContext()` (`agents/mcp/server`) exposes `ctx.props` to tool callbacks; the OAuth
+  layer (step 5, `docs/design/oauth.md`) decides whether `McpAuth.layerOAuth` reads `ctx.props`
+  directly or through it. Do not use it in step-4 code paths.
 - Workerd test: `makeMcp(...).handle(req, env, createExecutionContext())` from `cloudflare:test`
   (`src/mcp/McpRoute.workerd.test.ts`). Bundle with MCP: 3785 KiB / 718 KiB gzip (Free limit 3 MiB gzip).
 - Attach Claude Code without touching user config: `claude -p "…" --mcp-config <file>

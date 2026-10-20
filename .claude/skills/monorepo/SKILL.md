@@ -175,9 +175,12 @@ biome ci --error-on-warnings <path>                   # one file or folder, same
   `catalog:` in `pnpm-workspace.yaml`, write `"<pkg>": "catalog:"` in the package's
   `package.json`, then run `pnpm install`. Every `@effect/*` package uses the `effect` version.
   pnpm 11+ defaults `minimumReleaseAge` to 1440 min, so versions under a day old are not picked.
-  A dependency with a native postinstall (esbuild, workerd) makes `pnpm install` fail with
-  `ERR_PNPM_IGNORED_BUILDS`: add it to `allowBuilds:` in `pnpm-workspace.yaml` (as `name: true`).
-  Record the reason in your report.
+  Any dependency with a postinstall script — direct or transitive — makes `pnpm install` fail with
+  `ERR_PNPM_IGNORED_BUILDS` until `allowBuilds:` in `pnpm-workspace.yaml` names it: `name: true`
+  when the build is needed (native binaries: esbuild, workerd), `name: false` when it is not
+  (`core-js-pure: false`, S4-T1: pulled in by `agents` → `mimetext` → `@babel/runtime-corejs3`; its
+  postinstall only prints a banner). Find the chain with `pnpm why <pkg>`, record the reason in your
+  report, and in company mode list the line under Decisions: it is root config outside the catalog.
 - **A package**: copy the anatomy above and name it `@tanren/<name>`. Add a `CLAUDE.md` (purpose,
   boundaries, layout). Vitest picks up anything under `apps/*` or `packages/*` automatically.
   The root `CLAUDE.md` dependency line is updated via the Lead.

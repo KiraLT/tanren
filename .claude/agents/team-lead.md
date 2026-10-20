@@ -66,7 +66,12 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    an app nobody had opened).
    Your run ends only with the team report. If a background child returns
    control, you are not done: update the sheet, brief the next task, or wait
-   for the result. Log the agent id of every in-flight child in the sheet so
+   for the result. A hand-back with a fix round still in flight is not a
+   team report: hand back only when every fix round has landed and you
+   re-ran the package gates yourself after the last fix (team mcp 23:43:
+   "S4-T3 fix r1 in flight, gate not yet run" in the report → the Lead sent
+   it back, final at 23:45; one Lead round trip to save two minutes of
+   waiting). Log the agent id of every in-flight child in the sheet so
    you (or the Lead, if the harness hands you back early) can resume by
    re-reading the sheet and messaging that id.
 6. Spawn the `reviewer` (model `opus`) with the briefs and your owned paths
@@ -79,7 +84,14 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
 8. Escalate to the Lead (in your final report, under "Escalations") when: a
    contract must change, a dependency or root-config change is needed, a
    task is blocked after the budgeted rounds, or a task needs a file outside
-   your owned paths. Do not work around the charter. An escalation is sent
+   your owned paths. Do not work around the charter. One exception needs no
+   escalation: a port's memory/test implementation is owned by whoever
+   changes the port. When a task grows a port you own (a new `SessionRepo`
+   method) and its memory implementation sits in a Read-only path
+   (`apps/worker/src/repos/Repositories.ts`), the same engineer updates it
+   in the same task, keeps it compiling, and you record it under Decisions
+   (file · port · why) — not Escalations (team mcp spent an escalation line
+   and a Lead ratification on that mechanical edit). An escalation is sent
    the moment it is known, as an interim hand-back of ≤ 5 lines (what ·
    owning stream · the frozen interface · your in-flight agent ids), and
    you continue when resumed; never hold one for the final report (the

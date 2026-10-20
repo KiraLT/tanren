@@ -29,3 +29,8 @@ paths:
 - Keep fixtures tiny and next to the test; build them with the schema's
   constructor (`new X({...})`, `X.make({...})`, `SessionId.make("…")`) or
   from wire JSON with `Schema.decodeUnknownSync(X)(...)`, so they cannot drift.
+- A test that reproduces a known defect is `it.fails(...)` /
+  `it.effect.fails(...)` with exactly `// DEFECT: <one line>` on the line
+  above it — one spelling, no severity in the marker. Fixing the defect means
+  dropping `.fails` and the comment; `grep -rn "DEFECT" <paths>` must then
+  find nothing in the fixed paths (two spellings once hid 2 of 4 defects).
