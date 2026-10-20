@@ -1,10 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect } from "react"
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native"
-import { BigButton } from "../../src/components/BigButton"
-import { Screen } from "../../src/components/Screen"
-import { colors, space } from "../../src/components/theme"
+import { ActivityIndicator, View, type ViewStyle } from "react-native"
 import { useNativeCallback } from "../../src/hooks/useNativeCallback"
+import { Button, Page, space, Text, useTheme } from "../../src/ui"
 
 const first = (value: string | ReadonlyArray<string> | undefined): string | undefined =>
   typeof value === "string" ? value : value?.[0]
@@ -17,6 +15,7 @@ export default function AuthCallbackScreen() {
   const router = useRouter()
   const params = useLocalSearchParams<{ code?: string; error?: string }>()
   const state = useNativeCallback({ code: first(params.code), error: first(params.error) })
+  const { colors } = useTheme()
 
   useEffect(() => {
     if (state._tag === "Done") {
@@ -25,17 +24,17 @@ export default function AuthCallbackScreen() {
   }, [state._tag, router])
 
   return (
-    <Screen>
-      <View style={styles.root}>
+    <Page>
+      <View style={content}>
         {state._tag === "Failed" ? (
           <>
-            <Text style={styles.title} accessibilityRole="header">
+            <Text variant="title" accessibilityRole="header">
               Sign-in failed
             </Text>
-            <Text style={styles.message} accessibilityRole="alert">
+            <Text tone="muted" accessibilityRole="alert">
               {state.message}
             </Text>
-            <BigButton
+            <Button
               label="Back to sign-in"
               accessibilityLabel="Back to sign-in"
               variant="primary"
@@ -45,16 +44,12 @@ export default function AuthCallbackScreen() {
         ) : (
           <>
             <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={styles.message}>Signing you in…</Text>
+            <Text tone="muted">Signing you in…</Text>
           </>
         )}
       </View>
-    </Screen>
+    </Page>
   )
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, padding: space.md, gap: space.md, justifyContent: "center" },
-  title: { color: colors.text, fontSize: 32, fontWeight: "900" },
-  message: { color: colors.textMuted, fontSize: 20 },
-})
+const content: ViewStyle = { flex: 1, justifyContent: "center", gap: space.lg }

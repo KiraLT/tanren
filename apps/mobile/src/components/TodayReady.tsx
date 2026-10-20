@@ -1,11 +1,14 @@
 import { Array as Arr, Option } from "effect"
+import { useRouter } from "expo-router"
 import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../hooks/useLayoutMode"
 import { useLogSet } from "../hooks/useLogSet"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
-import { Banner, gutter, Page, space, Text, useBreakpoint } from "../ui"
+import { programBannerOf } from "../player/programBanner"
+import { useProgramDay } from "../player/useProgramDay"
+import { Banner, gutter, ListRow, Page, space, Text, useBreakpoint } from "../ui"
 import { clampPage, ExercisePager } from "./ExercisePager"
 import { RestTimerBar } from "./RestTimerBar"
 import { SetList } from "./SetList"
@@ -67,6 +70,8 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
   const wide = useLayoutMode() === "two-column"
   const breakpoint = useBreakpoint()
   const current = Arr.get(exercises, clampPage(page, exercises.length))
+  const program = programBannerOf(useProgramDay().state)
+  const router = useRouter()
   const onLogged = (seconds: number) => {
     setRestTotal(seconds)
     start(seconds)
@@ -81,6 +86,19 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
       aside={<TodayAside current={current} rest={rest("ring")} />}
     >
       <View style={{ flex: 1 }}>
+        {Option.match(program, {
+          onNone: () => null,
+          onSome: (banner) => (
+            <ListRow
+              title={banner.title}
+              subtitle={banner.subtitle}
+              accessibilityLabel={banner.accessibilityLabel}
+              // biome-ignore lint/plugin/noMutation: expo-router API
+              onPress={() => router.push("/programs")}
+              style={{ marginHorizontal: gutter[breakpoint], marginTop: space.md }}
+            />
+          ),
+        })}
         <ExercisePager
           exercises={exercises}
           pending={pending}

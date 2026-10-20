@@ -18,14 +18,13 @@ import {
   Card,
   EmptyState,
   gutter,
+  IconButton,
   Page,
   SegmentedControl,
   Skeleton,
   space,
   useBreakpoint,
 } from "../../src/ui"
-
-const PROGRESS_BAR = <AppBar title="Progress" />
 
 const TABS = [
   { value: "exercises", label: "Exercises" },
@@ -36,7 +35,13 @@ const TABS = [
 const SESSION_PAGE = 30
 
 /** The empty/failed states sit inside the scrolling page, not centred on a full screen. */
-const INLINE_STATE = { flex: 0, paddingVertical: space.xxxl } as const
+const INLINE_STATE = {
+  // Not `flex: 0`: on web that is `flex-basis: 0`, which collapses the box onto the control above.
+  flexGrow: 0,
+  flexShrink: 0,
+  flexBasis: "auto",
+  paddingVertical: space.xxxl,
+} as const
 
 function ListSkeleton() {
   return (
@@ -148,7 +153,22 @@ export default function ProgressScreen() {
   )
 
   return (
-    <Page scroll header={PROGRESS_BAR} aside={aside}>
+    <Page
+      scroll
+      header={
+        <AppBar
+          title="Progress"
+          trailing={
+            <IconButton
+              icon="settings"
+              accessibilityLabel="Settings"
+              onPress={() => router.navigate("/settings")}
+            />
+          }
+        />
+      }
+      aside={aside}
+    >
       <SegmentedControl
         options={TABS}
         value={tab}

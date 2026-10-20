@@ -1,5 +1,15 @@
 import { Tabs } from "expo-router"
-import { Icon, type IconName, sizes, stroke, type, useBreakpoint, useTheme } from "../../src/ui"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
+import {
+  Icon,
+  type IconName,
+  sizes,
+  space,
+  stroke,
+  type,
+  useBreakpoint,
+  useTheme,
+} from "../../src/ui"
 
 interface TabSpec {
   readonly name: string
@@ -16,8 +26,12 @@ const TABS: ReadonlyArray<TabSpec> = [
   { name: "progress", title: "Progress", icon: "chart" },
 ]
 
+/** Bar height without the safe-area inset: 24 px icon, 16 px caption, item padding, `space.sm` air. */
+const TAB_BAR_CONTENT = sizes.controlLg + space.sm
+
 export default function TabsLayout() {
   const { colors } = useTheme()
+  const insets = useSafeAreaInsets()
   // At desktop the `AppBar` renders the nav links, so the bottom bar is hidden.
   const desktop = useBreakpoint() === "desktop"
   return (
@@ -30,6 +44,12 @@ export default function TabsLayout() {
         tabBarStyle: desktop
           ? { display: "none" }
           : {
+              // The default 49 px bar squeezes the caption to 13 px (overflow hidden clips the
+              // descenders on web): size the content for icon + caption, then add the
+              // home-indicator inset on top (0 on web).
+              height: TAB_BAR_CONTENT + insets.bottom,
+              paddingTop: space.xs,
+              paddingBottom: insets.bottom,
               backgroundColor: colors.surfaceRaised,
               borderTopColor: colors.border,
               borderTopWidth: stroke.hairline,

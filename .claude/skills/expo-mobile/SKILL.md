@@ -107,6 +107,35 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   Check: `agent-browser errors --json` empty and no "does not recognize" in `console` (use a fresh
   `--session`: `errors --clear` does not reset the buffer).
 
+## Programs / player (v2, docs/design/v2-programs.md §4)
+
+- `expo-notifications` 58.1.5: `scheduleNotificationAsync({ trigger: { type:
+  SchedulableTriggerInputTypes.TIME_INTERVAL, seconds } })`, `cancelAllScheduledNotificationsAsync`,
+  `requestPermissionsAsync → { granted, ios?.status }` (`PROVISIONAL` counts as granted). Loaded by
+  dynamic `import()` inside `PhaseAlerts.layer`, so node tests never load it (no-op + warning on failure);
+  web uses the no-op. No foreground `setNotificationHandler`: the alert shows only in the background.
+- `expo-audio` works on web (`ExpoAudio.web.d.ts` has `useAudioPlayer`); `assets/sounds/beep.wav` (6.7 KB)
+  bundles into the export. Haptics are skipped on web behind `Platform.OS`; `useKeepAwake` is mounted
+  (`app/programs/play.tsx`) only while Working/Resting.
+- `EXPO_PUBLIC_PLAYER_SPEED` is inlined at export time (the bundle contains `parseSpeed)("10")`) and divides
+  every duration; dev/proof only.
+- Typed routes: a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it; kill
+  that PID afterwards.
+- Serve a scratch export so parallel engineers do not share `apps/mobile/dist`: `pnpm -F @tanren/worker exec
+  wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`).
+
+## PWA (v2 extras X5, verified 2026-10-21)
+
+- `public/manifest.json` (`theme_color` #C2410C = light accent, `background_color` #FFFFFF) and
+  `public/icons/{icon.svg, icon-192, icon-512, maskable-512, apple-touch-icon}.png` (rendered once from the
+  SVG with agent-browser) are copied into the export; `public/index.html` comes from `expo customize`
+  (works under the isolated linker) and needs its `biome-ignore lint/a11y/useValidLang` comment re-added
+  after any re-customize. No service worker: `Page.getInstallabilityErrors` returns `[]` without one (CDP
+  via `agent-browser get cdp-url`), Workers static assets serve `manifest.json` as `application/json`, and
+  `crossOriginIsolated` stays true. An offline shell would be a Workbox step. Isolated proof: export to a
+  scratch dir with `--output-dir`, serve it with a scratch copy of `wrangler.web.jsonc` whose
+  `assets.directory` is absolute, on a spare port.
+
 ## Vendor plugin skills
 
 Mobile engineers load `expo:expo-overview` first, then `expo:expo-router`,
