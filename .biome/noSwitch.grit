@@ -1,0 +1,20 @@
+// noSwitch: Tanren rule, no `switch` statements (exhaustive Match instead).
+//
+// Pattern: every JsSwitchStatement, in any function, method or top level.
+// `switch` is not exhaustive by construction: adding a union member compiles silently into
+// `default` (or nothing). Match.exhaustive makes it a compile error.
+//
+// Fix: Match.value(x).pipe(Match.when(...), Match.exhaustive), Match.tag / Match.discriminators
+// for tagged unions, or an `if` chain for two or three plain branches.
+// Known gaps: none for `switch` statements. Ternary chains are not flagged.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noSwitch: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+JsSwitchStatement() as $switch where {
+	register_diagnostic(
+		span = $switch,
+		message = "lint/plugin/noSwitch: `switch` is not allowed, use exhaustive Match (effect) instead of switch: Match.value(x).pipe(Match.when(...), Match.exhaustive).",
+		severity = "error"
+	)
+}

@@ -81,3 +81,19 @@ Recorded 2026-10-19, from the owner's kickoff message:
    plan does not cover, records each as an accepted ADR, and commits locally
    at milestones. The owner reviews asynchronously and overrides by message.
    This replaces "Ask before making architectural decisions not covered here."
+4. **v2 scope** (2026-10-21 00:20, owner, leaving until morning: "Work on
+   your own. If you finish what you planned, then expand functionality"):
+   - **Exercise catalog**: "all possible exercises in the gym with images (I
+     don't know all official names, I need image). For image try to generate
+     SVG illustration."
+   - **Guided programs**: like the "Six Pack in 30 Days" app — every day
+     seven six-pack exercises done in 15 minutes. On iPhone: Dynamic Island
+     ("floating island") support while an exercise is on, break (rest)
+     tracking, Lock Screen display while exercising — "like a proper
+     training app".
+   - **Design**: "keep simple and modern design like Strava. Web should be
+     responsive — desktop, tablet, mobile support."
+   - "If you have even more time think yourself what to do."
+   Lead decisions under Amendment 3 apply; deviations (e.g. a native dev
+   build for Live Activities, which Expo Go cannot run) are ADRs with owner
+   actions listed.

@@ -20,8 +20,9 @@ const cases = [
   ["noThrow.positive.ts", "packages/selftest/noThrow.ts", 3],
   ["noMutation.positive.ts", "packages/selftest/noMutation.ts", 24],
   ["noLoop.positive.ts", "packages/selftest/noLoop.ts", 5],
+  ["noSwitch.positive.ts", "packages/selftest/noSwitch.ts", 3],
   ["noClass.positive.ts", "apps/worker/src/mcp/noClass.ts", 0], // adapter exemption
-  ...["noLet", "noClass", "noThrow", "noMutation", "noLoop"].map((rule) => [
+  ...["noLet", "noClass", "noThrow", "noMutation", "noLoop", "noSwitch"].map((rule) => [
     `${rule}.negative.ts`,
     `packages/selftest/${rule}.negative.ts`,
     0,

@@ -14,8 +14,9 @@ The plan asked for eslint-plugin-functional. The owner then chose Biome only: no
   `biome ci --error-on-warnings`.
 - Functional rules are enforced in two layers:
   - Built-ins: `useConst`, `noParameterAssign`, `noIncrementDecrement`, `noVar`, `noForIn`.
-  - Five GritQL plugins in `.biome/`, with camelCase ids `lint/plugin/<name>`:
-    `noLet`, `noThrow`, `noMutation` and `noLoop` are top-level; `noClass` is declared in an
+  - Six GritQL plugins in `.biome/`, with camelCase ids `lint/plugin/<name>`:
+    `noLet`, `noThrow`, `noMutation`, `noLoop` and `noSwitch` (bans `switch`; use exhaustive
+    `Match`) are top-level; `noClass` is declared in an
     `overrides` entry that excludes the adapters (`apps/worker/src/mcp/**`,
     `apps/worker/src/index.ts`).
 - `noClass` allows Effect class factories: `Context.Service`/`Tag`, `Effect.Service`,

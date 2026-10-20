@@ -72,7 +72,8 @@
     "./.biome/noLet.grit",
     "./.biome/noThrow.grit",
     "./.biome/noMutation.grit",
-    "./.biome/noLoop.grit"
+    "./.biome/noLoop.grit",
+    "./.biome/noSwitch.grit"
   ],
   "overrides": [
     {

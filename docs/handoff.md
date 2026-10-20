@@ -18,36 +18,57 @@ McpAgent deprecated upstream); owner: "auto-commit when needed, tell me when
 something is testable on localhost", and "still too slow, more work while
 you wait" → idle checklist added to lead-playbook.
 
+## Done 23:12 → 23:50 (all committed; HEAD `35f34dd`)
+Team mcp (step 4) in 29 min: `/mcp` with four read tools, Claude Code
+headless proof. Step 5 planned (ADR-0011, `docs/design/oauth.md`,
+`deploy.md` runbook, `docs/tasks/step-5.md`), S5-SPIKE positive (note in
+`docs/research/`). HI-1 (shared 503 error, auth routes never 500, tombstoned
+parents reject children). QA edge passes on db/worker (29 tests) and mobile
+(27 tests + `src/testing/phone.ts`). SyncStore pre-checks all three partial
+unique indexes per change (poison-pill fix). Gates: shared 155, db 97,
+worker 117.
+
+## Done 23:50 → 00:15 (all committed; HEAD `1352d26`)
+Step 7 landed (plan-web, 34 of 75 min) and step 4 (mcp, 29 of 75).
+Cross-team review: approve, 0 blocking, 8 follow-ups all routed and most
+landed (runtime lock cleanup, native sign-in notice, mobile defects). INT-A
+proved the **owner recipe** (`docs/design/local-dev.md` §Owner recipe):
+`pnpm db:reset` → `pnpm web:export` → `pnpm dev` (:8787 + :8790) → sign in
+as `dev@tanren.local` via the terminal magic link → log a set → Plan → Claude
+Code MCP `list_sessions` shows it. Root gate 575 tests at that point. The
+owner was pinged with the recipe at ≈ 00:08 (test from a worktree of
+`c2921b9` while agents edit the tree).
+
 ## In flight (resumable by SendMessage; all report to the Lead)
-- **Team mcp** (team-lead/opus, 75-min box from 23:14): `docs/tasks/step-4.md`
-  — S4-SPIKE, S4-T1 foundation (deps, shared `mcp.ts`, `devUser.ts`, `/mcp`
-  stub), S4-T2 db queries, S4-T3 four read tools + `McpAuth`, S4-T4 server +
-  route + workerd test + Claude Code proof. Ratified mid-run: `name: Label`
-  in `ExerciseSummary`/`Overview.currentPlan`.
-- **Team plan-web** (team-lead/opus, 75-min box from 23:14):
-  `docs/tasks/step-7.md` — P1 PlanWeekRepo, P2 web hosting
-  (`wrangler.web.jsonc`, `_headers`, :8790), P3 Plan screen, P4 two-column
-  layout, P5 Resend `EmailSender`, **P6 sign-in screen (added 23:35)**.
-- **Architect step 5** (fable, 25 min from 23:40): `docs/tasks/step-5.md`
-  (team mcp-oauth), `docs/design/oauth.md`, `docs/design/deploy.md` runbook.
-- **S5-SPIKE** (opus, 10 min): `workers-oauth-provider` + `createMcpHandler`
-  under `wrangler dev`; Claude connector needs (DCR, PKCE, `ctx.props`).
-- **HI-1** (engineer/opus, 15 min): `SessionStoreUnavailable` → shared,
-  `/api/auth/*` 503, tombstoned parent rejects children.
-- **QA** (sonnet, 15 min): `*.edge.test.ts` on HEAD (sync, cursor, routes).
-- **EM Mode 1** (fable) on the hardening team report.
+- **Team mcp-oauth** (team-lead/opus, 90-min box from 23:45):
+  `docs/tasks/step-5.md` — T1 infra, T2 contracts, T3 write tools, T4
+  provider wiring + `index.workerd.test.ts` boot test + runtime proof, T5
+  docs, REV, QA. Also carries review follow-ups: `OptionFromNullOr` for
+  `CurrentPlanResult`, a statement-counting D1 test for the ≤ 5 budget,
+  `MAX_HISTORY_LIMIT` from the schema.
+- **AUTH-1** (opus, 10 min): `EmailSendFailed` → 502 `EmailDeliveryFailed`
+  (shared), defects → 500 `InternalError`, email types in `src/auth/Email.ts`
+  (removes the `Layer.suspend` cycle).
+- **LINT-1** (sonnet, 10 min): `.biome/noSwitch.grit` + fixtures + self-test
+  case; registers in `biome.jsonc` only if the repo has no `switch` hits.
+- **MOBILE-2** (opus, 15 min): push within ~500 ms of a logged set (debounced
+  trigger; loop stays as fallback); `failureMessage` as a tag → copy lookup;
+  browser proof of the push timing and the second-tab copy.
+- **Retro steps 4 ∥ 7** (EM fable/max): against the "zero-lag tail" targets.
 
 ## Next actions (in order)
 1. Each report → accept within 2 min, dispatch dependents, Log line.
-2. Both teams reported → dispatch INT-A ∥ INT-B from
-   `docs/tasks/step-4-7-integration.md`; cross-team reviewer; commit
-   "Steps 4 and 7"; **ping the owner with the recipe** from
-   `docs/design/local-dev.md` §Owner recipe (`pnpm db:reset`,
-   `pnpm web:export`, `pnpm dev`, http://localhost:8790, sign in as
-   `dev@tanren.local`, magic link in the terminal; `claude mcp add` for MCP).
-3. Step 5 sheet + spike in → dispatch team mcp-oauth right after INT-A
-   (it touches `src/mcp/**`, `index.ts`, `wrangler.jsonc` KV binding);
-   ADR-0011 via the architect.
+2. AUTH-1 / LINT-1 / MOBILE-2 reports → accept, commit each; MOBILE-2's
+   browser proof re-validates the recipe (tell the owner the push is now
+   immediate).
+3. Team mcp-oauth reported → commit "Step 5", EM Mode 1, then tell the owner
+   the step-5 local proof and the owner actions in `docs/design/deploy.md`
+   (Resend account + domain, DNS, `wrangler secret put`, deploy, Claude app
+   connector). Agents never deploy.
+4. Retro 4 ∥ 7 report → apply proposals, log fixes, set the step-5 /
+   closing-phase experiment here. Then the backlog: native auth (ADR needed:
+   deep link + one-time token vs WebView), phone test in Expo Go (owner),
+   D1 statement budget test, two-tab web.
 4. `/retro` for steps 4 ∥ 7 against "zero-lag tail" (below), then handoff.
 
 ## Decisions made (owner may override by message)
