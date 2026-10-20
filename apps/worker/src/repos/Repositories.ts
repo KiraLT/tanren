@@ -153,6 +153,60 @@ const makeMemory = Effect.gen(function* () {
         Effect.map((rows) => Arr.sort(Arr.filter(live(rows, liveOnly), inRange(range)), byStarted)),
       ),
     putSessions: put("session"),
+    listSetsInRange: (userId, range) =>
+      Effect.all([all("session", userId), all("set", userId)]).pipe(
+        Effect.map(([sessions, sets]) =>
+          pipe(
+            live(sessions, liveOnly),
+            Arr.filter(inRange(range)),
+            Arr.sort(byStarted),
+            Arr.flatMap((owner) =>
+              pipe(
+                live(sets, liveOnly),
+                Arr.filter((set) => set.sessionId === owner.id),
+                Arr.sort(byOrder),
+              ),
+            ),
+          ),
+        ),
+      ),
+    listSetsForExercise: (userId, exerciseId, limit) =>
+      Effect.all([all("session", userId), all("set", userId)]).pipe(
+        Effect.map(([sessions, sets]) => {
+          const ofExercise = pipe(
+            live(sets, liveOnly),
+            Arr.filter((set) => set.exerciseId === exerciseId),
+          )
+          return pipe(
+            live(sessions, liveOnly),
+            Arr.filter((owner) => ofExercise.some((set) => set.sessionId === owner.id)),
+            Arr.sort(Order.flip(byStarted)),
+            Arr.take(limit),
+            Arr.flatMap((owner) =>
+              pipe(
+                ofExercise,
+                Arr.filter((set) => set.sessionId === owner.id),
+                Arr.sort(byOrder),
+              ),
+            ),
+          )
+        }),
+      ),
+    listSessionsForExercise: (userId, exerciseId, limit) =>
+      Effect.all([all("session", userId), all("set", userId)]).pipe(
+        Effect.map(([sessions, sets]) => {
+          const ofExercise = Arr.filter(
+            live(sets, liveOnly),
+            (set) => set.exerciseId === exerciseId,
+          )
+          return pipe(
+            live(sessions, liveOnly),
+            Arr.filter((owner) => ofExercise.some((set) => set.sessionId === owner.id)),
+            Arr.sort(Order.flip(byStarted)),
+            Arr.take(limit),
+          )
+        }),
+      ),
     listSets: (userId, sessionId) =>
       all("set", userId).pipe(
         Effect.map((rows) =>

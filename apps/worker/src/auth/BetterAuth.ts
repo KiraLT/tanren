@@ -2,11 +2,10 @@ import { type BetterAuthOptions, betterAuth } from "better-auth"
 import { magicLink } from "better-auth/plugins"
 import { Context, Effect, Layer, Option, Redacted } from "effect"
 import { type Environment, WorkerConfig, type WorkerConfigShape } from "../Config"
+import { DEV_USER_EMAIL, DEV_USER_ID } from "./devUser"
 import { EmailSender, type EmailSenderShape } from "./EmailSender"
 
-/** Seed user of docs/design/local-dev.md §1: signing in as this email locally reuses its id. */
-export const DEV_USER_EMAIL = "dev@tanren.local"
-export const DEV_USER_ID = "00000000-0000-4000-8000-000000000001"
+export { DEV_USER_EMAIL, DEV_USER_ID } from "./devUser"
 
 /** What Better Auth accepts as `database`: the D1 binding once the auth tables are migrated. */
 export type AuthDatabase = NonNullable<BetterAuthOptions["database"]>

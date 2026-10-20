@@ -2,15 +2,16 @@
 
 The Cloudflare Worker: REST API (`@effect/platform` HttpApi), Better Auth
 (magic link), the batched sync endpoint, static web hosting, and the MCP
-server (`McpAgent` from the Cloudflare Agents SDK + `workers-oauth-provider`).
+server (stateless `createMcpHandler` from the Cloudflare Agents SDK, ADR-0010; OAuth via
+`workers-oauth-provider` arrives in step 5).
 
 Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 
 ## Boundaries
 
 - Depends on `@tanren/shared`, `@tanren/db`. Never imports from `apps/mobile`.
-- Effect everywhere except the `McpAgent` adapter class and the Worker
-  `fetch` entry, which are thin adapters that run an Effect program.
+- Effect everywhere except the MCP adapter (`mcp/server.ts`: the `McpServer` instance +
+  `createMcpHandler` call) and the Worker `fetch` entry, which are thin adapters that run an Effect program.
 - Bindings and secrets come from `wrangler` config / `.dev.vars`; agents do
   not read `.dev.vars`.
 
@@ -29,7 +30,8 @@ src/
                       EmailSender (console locally), authRoutes (any failure → 503 `SessionStoreUnavailable`
                       from @tanren/shared, never 500)
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
-  mcp/                McpAgent adapter (step 4) — the only class allowed outside Effect factories
+  mcp/                tools.ts (four read tools, pure Effect over the repo ports) · McpAuth.ts (identity port) ·
+                      server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime)
   testing/            workerdSetup.ts (applies migrations 0000+0001 before each workerd test file), env.d.ts (TEST_MIGRATIONS,
                       test project only), fixtures.ts (shared `envVars` for Node + workerd tests)
   *.workerd.test.ts   tests that run inside workerd on a migrated D1 (project @tanren/worker-workerd)
@@ -61,6 +63,30 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
   (expect 200) → one route behind `Authentication` (expect 401, never 500) → kill only that PID.
 - Dev server: use a spare port when 8787 is busy (`wrangler dev --port`). Never kill processes you did not start.
 
+## MCP (`/mcp`, step 4; contract `docs/design/mcp.md`)
+
+- Stateless `createMcpHandler` (`agents/mcp/server`) + `McpServer` (`@modelcontextprotocol/server` v2); no
+  `McpAgent`, no Durable Object, no session state (ADR-0010). `index.ts` routes the exact path `/mcp` to
+  `mcp.handle(request, env, ctx)` before `app.handler`; `/mcp/`, `/mcpx` go to the REST app.
+- Identity: `McpAuth.resolve(request) → Option<UserId>`. Step 4 = `layerDevToken`: `Authorization: Bearer
+  <DEV_MCP_TOKEN>` (constant-time compare) and `ENVIRONMENT=local` → `DEV_USER_ID` (`auth/devUser.ts`).
+  `None` → 401 `WWW-Authenticate: Bearer`, empty body, before the SDK runs. Never cookies, never `Sessions`.
+  Step 5 adds `layerOAuth` (`ctx.props`) and `allowedHostnames: ["mcp.tanren.me"]` (default allowlist is
+  localhost/workers.dev only).
+- Tools: `AnyReadTool.call(userId, rawArgs)` decodes once (→ `ValidationError`), runs, encodes to JSON.
+  `inputSchema = toStandardJSONSchemaV1(toStandardSchemaV1(toEncoded(input)))` so the SDK validates and
+  advertises the wire shape and never hands decoded values to `call`. A non-object result (`get_current_plan`
+  → null) goes out as text only, no `structuredContent`. Typed errors → `isError` text; `PersistenceError` and
+  defects are logged and shown as `storage unavailable` / `internal error`.
+- D1 budget (Free: 50 statements per invocation): `get_overview` ≤ 5, via `SessionRepo.listSetsInRange`.
+- Clients send `accept: application/json, text/event-stream` (else -32000) and, in workerd tests, a `host`
+  header; 2025-era protocol replies are SSE `data:` lines.
+- Local attach without touching user config: `claude -p "…" --mcp-config <file> --strict-mcp-config
+  --allowedTools mcp__tanren-local__get_overview` with `{"mcpServers":{"tanren-local":{"type":"http","url":
+  "http://localhost:<port>/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`.
+  `claude` may not be on PATH in agent shells (VS Code ships a binary under the extension's
+  `resources/native-binary/`).
+
 ## Commands
 
 `pnpm -F @tanren/worker check` (package gate: biome → typecheck incl. scripts → both test projects) ·
@@ -69,3 +95,4 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
 ## Status
 
 Step 3 (2026-10-20): integrated with @tanren/db on local D1 (INT-1): REST, Better Auth magic link and sync push/pull pass `pnpm smoke:worker` after `pnpm db:reset`. Workerd project exists (TOOL-1: `/health` on migrated D1). Hardening-1 (2026-10-20): test types split out of prod (`tsconfig.test.json`), `Cloudflare.Env` merge in `cloudflareEnv.d.ts` (no `biome-ignore` left), silent `wrangler dev` startup (lazy Better Auth), 503 `SessionStoreUnavailable` when the session store fails, HTTP tests for nested set routes. HI-1 (2026-10-20): `SessionStoreUnavailable` lives in `@tanren/shared`; every `/api/auth/*` failure answers 503. QA edge tests (`src/api/Routes.edge.test.ts`): 21 routes 401 signed out, cursor/limit validation 400, nested set routes 404 for foreign ids. Known gap: `SyncStoreMemory` (Node fake) has no LWW, no parent checks and never reports conflicts, so push rules are proven only in the db workerd project. Next: a workerd test that boots `src/index.ts` with a D1 round trip and a sync push → pull through the real `SyncStore` (INT-B).
+Step 4 (2026-10-20, team mcp): `/mcp` serves `get_overview`, `get_exercise_history`, `list_sessions`, `get_current_plan` to the dev-token user; workerd test `mcp/McpRoute.workerd.test.ts` (initialize, tools/list, calls, 401); Claude Code headless called `get_overview` against `wrangler dev` on the seed (5 sessions / 65 sets in 7d). Known gap: no test boots `src/index.ts` itself (its module-scope `env` needs `ENVIRONMENT` in the workerd test env). Next: step 5 write tools + OAuth.

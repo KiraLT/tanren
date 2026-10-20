@@ -17,8 +17,10 @@
     "check": "biome ci --error-on-warnings . && pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "catalog:",
     "@tanren/db": "workspace:*",
     "@tanren/shared": "workspace:*",
+    "agents": "catalog:",
     "better-auth": "catalog:",
     "effect": "catalog:"
   },

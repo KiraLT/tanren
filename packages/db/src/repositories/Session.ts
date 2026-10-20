@@ -1,5 +1,6 @@
 import { D1Client } from "@effect/sql-d1"
 import {
+  ExerciseId,
   type Forbidden,
   ROW_KEYS,
   ROW_TABLE,
@@ -37,6 +38,32 @@ export interface SessionRepoShape {
     userId: UserId,
     sessionId: SessionId,
   ) => Effect.Effect<ReadonlyArray<WorkoutSet>, PersistenceError>
+  /**
+   * Live sets of live sessions with `from <= started_at < to`, in ONE statement, ordered by
+   * `(session started_at, session id, order, created_at, id)`: oldest session first.
+   */
+  readonly listSetsInRange: (
+    userId: UserId,
+    range: { readonly from: Timestamp; readonly to: Timestamp },
+  ) => Effect.Effect<ReadonlyArray<WorkoutSet>, PersistenceError>
+  /**
+   * Live sets of one exercise from the newest `limit` live sessions that contain a live set of it.
+   * Newest session first (`started_at DESC, id DESC`), within a session `(order, created_at, id)`.
+   */
+  readonly listSetsForExercise: (
+    userId: UserId,
+    exerciseId: ExerciseId,
+    limit: number,
+  ) => Effect.Effect<ReadonlyArray<WorkoutSet>, PersistenceError>
+  /**
+   * The newest `limit` live sessions that contain a live set of one exercise, newest first
+   * (`started_at DESC, id DESC`): the sessions `listSetsForExercise` draws from, in one statement.
+   */
+  readonly listSessionsForExercise: (
+    userId: UserId,
+    exerciseId: ExerciseId,
+    limit: number,
+  ) => Effect.Effect<ReadonlyArray<Session>, PersistenceError>
   /** Upserts, each in one batch (db.md §6). Write sessions before their sets: a set of a missing session or exercise (FK) aborts the batch. */
   readonly putSessions: Put<Session>
   readonly putSets: Put<WorkoutSet>
@@ -71,6 +98,54 @@ export class SessionRepo extends Context.Service<SessionRepo, SessionRepoShape>(
             WHERE user_id = ${userId} AND session_id = ${sessionId} AND deleted_at IS NULL
             ORDER BY "order", created_at, id`,
       })
+      const findSetsInRange = SqlSchema.findAll({
+        Request: Schema.Struct({ userId: UserId, from: Timestamp, to: Timestamp }),
+        Result: WorkoutSetRow,
+        execute: ({ userId, from, to }) =>
+          sql`SELECT s.* FROM workout_set s
+            JOIN workout_session w ON s.session_id = w.id
+            WHERE s.user_id = ${userId} AND w.user_id = ${userId}
+              AND s.deleted_at IS NULL AND w.deleted_at IS NULL
+              AND w.started_at >= ${from} AND w.started_at < ${to}
+            ORDER BY w.started_at, w.id, s."order", s.created_at, s.id`,
+      })
+      const findSetsForExercise = SqlSchema.findAll({
+        Request: Schema.Struct({ userId: UserId, exerciseId: ExerciseId, limit: Schema.Number }),
+        Result: WorkoutSetRow,
+        execute: ({ userId, exerciseId, limit }) =>
+          sql`SELECT s.* FROM workout_set s
+            JOIN workout_session w ON s.session_id = w.id
+            WHERE s.user_id = ${userId} AND w.user_id = ${userId}
+              AND s.deleted_at IS NULL AND w.deleted_at IS NULL
+              AND s.exercise_id = ${exerciseId}
+              AND w.id IN (
+                SELECT w2.id FROM workout_session w2
+                JOIN workout_set s2 ON s2.session_id = w2.id
+                WHERE w2.user_id = ${userId} AND s2.user_id = ${userId}
+                  AND w2.deleted_at IS NULL AND s2.deleted_at IS NULL
+                  AND s2.exercise_id = ${exerciseId}
+                GROUP BY w2.id
+                ORDER BY w2.started_at DESC, w2.id DESC
+                LIMIT ${limit})
+            ORDER BY w.started_at DESC, w.id DESC, s."order", s.created_at, s.id`,
+      })
+      const findSessionsForExercise = SqlSchema.findAll({
+        Request: Schema.Struct({ userId: UserId, exerciseId: ExerciseId, limit: Schema.Number }),
+        Result: SessionRow,
+        execute: ({ userId, exerciseId, limit }) =>
+          sql`SELECT * FROM workout_session
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+              AND id IN (
+                SELECT w2.id FROM workout_session w2
+                JOIN workout_set s2 ON s2.session_id = w2.id
+                WHERE w2.user_id = ${userId} AND s2.user_id = ${userId}
+                  AND w2.deleted_at IS NULL AND s2.deleted_at IS NULL
+                  AND s2.exercise_id = ${exerciseId}
+                GROUP BY w2.id
+                ORDER BY w2.started_at DESC, w2.id DESC
+                LIMIT ${limit})
+            ORDER BY started_at DESC, id DESC`,
+      })
 
       return {
         getSession: (userId, id) =>
@@ -81,6 +156,18 @@ export class SessionRepo extends Context.Service<SessionRepo, SessionRepoShape>(
           ),
         listSets: (userId, sessionId) =>
           findSets({ userId, sessionId }).pipe(Effect.mapError(persistenceError("set.list"))),
+        listSetsInRange: (userId, { from, to }) =>
+          findSetsInRange({ userId, from, to }).pipe(
+            Effect.mapError(persistenceError("set.listInRange")),
+          ),
+        listSetsForExercise: (userId, exerciseId, limit) =>
+          findSetsForExercise({ userId, exerciseId, limit }).pipe(
+            Effect.mapError(persistenceError("set.listForExercise")),
+          ),
+        listSessionsForExercise: (userId, exerciseId, limit) =>
+          findSessionsForExercise({ userId, exerciseId, limit }).pipe(
+            Effect.mapError(persistenceError("session.listForExercise")),
+          ),
         putSessions: makePut(sql, "session", SessionRow, {
           table: ROW_TABLE.session,
           keys: ROW_KEYS.session,

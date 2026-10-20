@@ -59,7 +59,7 @@ export const DateRange = Schema.Struct({ from: Timestamp, to: Timestamp })      
 // get_overview(period)
 export const GetOverviewInput = Schema.Struct({ period: Schema.optionalKey(Period) })  // default "30d"
 export const ExerciseSummary = Schema.Struct({
-  exerciseId: ExerciseId, name: EntityName, muscleGroups: Schema.Array(MuscleGroup),
+  exerciseId: ExerciseId, name: Label, muscleGroups: Schema.Array(MuscleGroup),
   sessions: Schema.Int, sets: Schema.Int, volumeKg: Schema.Number,                 // Σ weightKg·reps, live sets
   best: Schema.OptionFromNullOr(Schema.Struct({ weightKg: WeightKg, reps: Reps, loggedAt: Timestamp })), // max weight, then reps
   lastLoggedAt: Schema.OptionFromNullOr(Timestamp),
@@ -67,7 +67,7 @@ export const ExerciseSummary = Schema.Struct({
 export const Overview = Schema.Struct({
   period: Period, range: DateRange, sessions: Schema.Int, sets: Schema.Int, volumeKg: Schema.Number,
   exercises: Schema.Array(ExerciseSummary),                                          // by volumeKg desc, then name
-  currentPlan: Schema.OptionFromNullOr(Schema.Struct({ planId: PlanId, name: EntityName, weeks: Schema.Int })),
+  currentPlan: Schema.OptionFromNullOr(Schema.Struct({ planId: PlanId, name: Label, weeks: Schema.Int })),
 })
 
 // get_exercise_history(exerciseId)
@@ -134,8 +134,10 @@ derivation is the one `ExercisePatch` already uses; VERIFY that `Struct.omit` on
   Standard Schema (`Schema.toStandardSchemaV1(tool.input)` exists in effect 4.0.5 `Schema.ts:1386`
   [V]) or a JSON Schema (`Schema.toJsonSchemaDocument`, `Schema.ts:17040` [V]); use whichever
   `registerTool`'s types take, else duplicate the four inputs in zod inside `server.ts` only.
-  Handler: `run(tool.run(userId, args))` → `{ content: [{ type: "text", text: JSON.stringify(encoded) }],
-  structuredContent: encoded }` with `encoded = Schema.encodeSync(tool.output)(result)`.
+  Handler: `run(tool.call(userId, args))` (`AnyReadTool.call` decodes the raw args once, runs, encodes the
+  output; S4-T3) → `{ content: [{ type: "text", text: JSON.stringify(encoded) }], structuredContent: encoded }`;
+  a non-object result (`get_current_plan` → null) is text only. `inputSchema` = the encoded side,
+  `toStandardJSONSchemaV1(toStandardSchemaV1(toEncoded(input)))` (S4-SPIKE/T4, 2026-10-20).
   Errors → `{ isError: true, content: [{ type: "text", text }] }`: `NotFound`/`ValidationError` use
   their own message; `PersistenceError` is logged (`Effect.logError`) and shown as
   `"storage unavailable"`. Never `throw`.

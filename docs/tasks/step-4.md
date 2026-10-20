@@ -69,3 +69,8 @@ Parallel groups: A = {SPIKE, T1, T2} · B = {T3} (T4 may start its adapter skele
 
 ## Log
 - 2026-10-20 · created from architect breakdown (docs/design/mcp.md written the same hour)
+- 2026-10-20 23:17 · team mcp (team-lead) dispatched S4-SPIKE (spike/opus, a48699daf4b3a3a40) ∥ S4-T2 (engineer/sonnet, a0ab0a7f7487c8f9f); both done by 23:20. Team sheet: `docs/tasks/step-4/team-mcp.md`.
+- 23:23 · S4-T1 (sonnet, a71e0062c7d41b5bb) ∥ S4-T3 (opus, a8e20afbbd42dd4c3) after hardening reported 23:20; T1 done 23:26, T3 done 23:31. §3 `EntityName` → `Label` (ratified by Lead; design doc fixed by team-lead).
+- 23:32 · S4-T4 (opus, a44291323fb02e19c) done 23:37: Claude Code headless `get_overview` 7d on `wrangler dev :8792` → 5 sessions / 65 sets.
+- 23:38 · S4-REV (opus, abdcfcca8cce51544) APPROVE ∥ S4-QA (sonnet, a6515e3c40cd3d90f) +11 tests. 23:41 fix round 1 to T3 (overview ≤ 5 statements, bounded history) and T4 (defect → "internal error", done 23:44).
+- 23:45 · team mcp DONE: fix round 1 landed (overview 5 D1 statements, history 3 bounded, defects → "internal error"); gates shared 155 · db 97 · worker 117 green.
