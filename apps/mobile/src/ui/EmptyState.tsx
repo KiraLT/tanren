@@ -18,6 +18,13 @@ export interface EmptyStateProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
+/**
+ * Never collapses: `flex: 1` has basis 0%, so inside a `ScrollView` content container or a
+ * `FlatList` empty component (no bounded parent height) the box would shrink onto its sibling
+ * above. The minimum height keeps its breathing room; in a bounded parent `flex: 1` still fills it.
+ */
+const MIN_HEIGHT = 240
+
 /** Centred empty (or failed, with `icon="warning"`) state: title, muted body, one secondary action. */
 export function EmptyState({ icon, title, body, action, style }: EmptyStateProps) {
   const { colors } = useTheme()
@@ -26,6 +33,7 @@ export function EmptyState({ icon, title, body, action, style }: EmptyStateProps
       style={[
         {
           flex: 1,
+          minHeight: MIN_HEIGHT,
           alignItems: "center",
           justifyContent: "center",
           gap: space.md,

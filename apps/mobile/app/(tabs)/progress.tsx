@@ -34,14 +34,6 @@ const TABS = [
 /** Sessions are read in pages of this size. */
 const SESSION_PAGE = 30
 
-/** The empty/failed states sit inside the scrolling page, not centred on a full screen. */
-const INLINE_STATE = {
-  // `EmptyState` is `flex: 1` (basis 0%): inside the scroll content that collapses the box onto
-  // the control above, and RNW ignores a `flex` override here. A minimum height keeps its gap.
-  minHeight: 280,
-  paddingVertical: space.xxxl,
-} as const
-
 function ListSkeleton() {
   return (
     <View accessible accessibilityLabel="Loading progress" style={{ gap: space.sm }}>
@@ -64,12 +56,7 @@ function ListState<A>({ state, render, onLogFirstSet }: ListStateProps<A>) {
     Match.tagsExhaustive({
       Loading: () => <ListSkeleton />,
       Failed: ({ message }) => (
-        <EmptyState
-          icon="warning"
-          title="Could not load progress"
-          body={message}
-          style={INLINE_STATE}
-        />
+        <EmptyState icon="warning" title="Could not load progress" body={message} />
       ),
       Ready: ({ value }) =>
         value.length === 0 ? (
@@ -77,7 +64,6 @@ function ListState<A>({ state, render, onLogFirstSet }: ListStateProps<A>) {
             title="Log your first set on Today"
             body="Your best sets, volume and records show up here."
             action={{ label: "Go to Today", onPress: onLogFirstSet }}
-            style={INLINE_STATE}
           />
         ) : (
           render(value)
