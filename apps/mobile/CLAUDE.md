@@ -137,8 +137,8 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 
 - Definitions are static shared data (`CORE30` in `@tanren/shared` `programs/`); progress is the
   synced `program_enrollment` / `program_day_completion` rows. `ProgramRepo.complete` writes the
-  completion, bumps `currentDay` (never backwards; non-active enrollment → `StoreError`
-  `EnrollmentNotActive`), and logs one ordinary `session` + one `set` per *performed* item-round
+  completion, bumps `currentDay` (only `day === currentDay` is accepted, any other day → `StoreError`
+  `DayOutOfOrder { expected, got }`; non-active enrollment → `EnrollmentNotActive`), and logs one ordinary `session` + one `set` per *performed* item-round
   (`CompletionInput.performedItems`, round-major; the player counts it, an early Finish logs less)
   (`reps` = seconds, `weightKg` 0, `order` from 0, `loggedAt` = planned item end ≤ now) in one dirty
   batch; exercises come from `ExerciseLink.ensure` (team catalog); ids missing from the catalog are
@@ -178,7 +178,7 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
 - Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
   (`themePreferenceStore.web.ts`); native keeps it for the session only.
 - Sign-out policy: server first (`POST /api/auth/sign-out`; native goes through `withSession`), then
-  `forgetOwner`, then `NativeSession.clear` (a failed forget keeps the token: `SignOutFailed("server")`). Local rows are kept. Web then does a full reload to `/today`;
+  `forgetOwner`, then `NativeSession.clear` (a failed forget keeps the token: `SignOutFailed("server")`; a 401 from the POST means the server session is already gone and counts as success). Local rows are kept. Web then does a full reload to `/today`;
   native shows the banner "Signed out. Reopen the app to finish." Offline or non-2xx gives `SignOutFailed`
   and nothing local changes. A different user on the same device is not built. The sign-out runtime proof
   is pending INT-X.

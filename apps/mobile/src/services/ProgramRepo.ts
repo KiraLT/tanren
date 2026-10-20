@@ -61,6 +61,12 @@ export class EnrollmentNotActive extends Data.TaggedError("EnrollmentNotActive")
   readonly status: ProgramEnrollment["status"]
 }> {}
 
+/** Internal: `complete` for a day other than the enrollment's `currentDay`. Carried as `StoreError.cause`. */
+export class DayOutOfOrder extends Data.TaggedError("DayOutOfOrder")<{
+  readonly expected: number
+  readonly got: number
+}> {}
+
 /** Internal: the enrollment is unknown, tombstoned or not the owner's. Carried as `StoreError.cause`. */
 export class EnrollmentNotFound extends Data.TaggedError("EnrollmentNotFound")<{
   readonly id: ProgramEnrollmentId
@@ -84,8 +90,9 @@ export interface ProgramRepoShape {
    * Session, sets, completion and enrollment go dirty in one batch (exercise links are written by
    * `ExerciseLink.ensure` just before). Logging never fails the call. A second call for a day that
    * already has a live completion returns that one and writes nothing. Otherwise a non-`active`
-   * enrollment fails with `StoreError(EnrollmentNotActive)`, writing nothing; `currentDay` never
-   * moves backwards (completing an older day keeps it).
+   * enrollment fails with `StoreError(EnrollmentNotActive)`, writing nothing. Only the enrollment's
+   * `currentDay` can be completed: any other day fails with `StoreError(DayOutOfOrder)`, writing
+   * nothing.
    */
   readonly complete: (input: CompletionInput) => Effect.Effect<ProgramDayCompletion, StoreError>
 }
@@ -382,6 +389,13 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
                 ),
               )
             }
+            if (input.dayNumber !== enrollment.currentDay) {
+              return yield* Effect.fail(
+                toStoreError(
+                  new DayOutOfOrder({ expected: enrollment.currentDay, got: input.dayNumber }),
+                ),
+              )
+            }
             const now = yield* DateTime.now
             const history = yield* historyFor(enrollment.programId, enrollment.userId, input, now)
             const historyChanges: ReadonlyArray<SyncChange> = Option.match(history, {
@@ -391,8 +405,7 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
                 ...Arr.map(sets, (row): SyncChange => ({ table: "set", row })),
               ],
             })
-            /** Completing an older day never moves the enrollment backwards. */
-            const nextDay = Math.max(enrollment.currentDay, input.dayNumber + 1)
+            const nextDay = input.dayNumber + 1
             const finished = find(enrollment.programId).pipe(
               Option.exists((program) => nextDay > program.days.length),
             )

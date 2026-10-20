@@ -239,19 +239,18 @@ describe("Account.signOut", () => {
     }),
   )
 
-  it.effect("on 401 fails server and leaves the owner and the token untouched", () =>
-    Effect.gen(function* () {
-      const { result, owner, tokens } = yield* scenario((account) => account.signOut, {
-        entries: SESSION_ENTRY,
-        respond: () => json({ message: "unauthorised" }, 401),
-      })
-      expect(Result.isFailure(result) && result.failure).toMatchObject({
-        _tag: "SignOutFailed",
-        reason: "server",
-      })
-      expect(owner).toEqual([USER])
-      expect(tokens).toEqual(SESSION_ENTRY)
-    }),
+  it.effect(
+    "on 401 (server session already gone) still forgets the owner and clears the token",
+    () =>
+      Effect.gen(function* () {
+        const { result, owner, tokens } = yield* scenario((account) => account.signOut, {
+          entries: SESSION_ENTRY,
+          respond: () => json({ message: "unauthorised" }, 401),
+        })
+        expect(result).toEqual(Result.succeed(undefined))
+        expect(owner).toEqual([])
+        expect(tokens).toEqual({})
+      }),
   )
 
   it.effect("on 500 fails server and leaves the owner untouched", () =>

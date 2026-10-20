@@ -336,16 +336,32 @@ describe("ProgramRepo", () => {
     ),
   )
 
-  it.effect("completing an older day does not move currentDay backwards", () =>
-    run(
-      Effect.gen(function* () {
-        const enrollment = yield* stored(TWO_DAY, { currentDay: 2 })
-        yield* (yield* ProgramRepo).complete(dayInput(enrollment.id, 1))
-        expect(yield* rows(`SELECT "status", "currentDay" FROM "program_enrollment"`)).toEqual([
-          { status: "active", currentDay: 2 },
-        ])
-      }),
-    ),
+  it.effect.each([
+    { currentDay: 2, day: 1 },
+    { currentDay: 1, day: 2 },
+  ])(
+    "complete for day $day while currentDay is $currentDay fails DayOutOfOrder, writing nothing",
+    ({ currentDay, day }) =>
+      run(
+        Effect.gen(function* () {
+          const enrollment = yield* stored(TWO_DAY, { currentDay })
+          const before = yield* version
+          const error = yield* Effect.flip(
+            (yield* ProgramRepo).complete(dayInput(enrollment.id, day)),
+          )
+          expect(error.cause).toMatchObject({
+            _tag: "DayOutOfOrder",
+            expected: currentDay,
+            got: day,
+          })
+          expect(yield* version).toBe(before)
+          expect(yield* rows(`SELECT "status", "currentDay" FROM "program_enrollment"`)).toEqual([
+            { status: "active", currentDay },
+          ])
+          expect(yield* rows(`SELECT "id" FROM "program_day_completion"`)).toEqual([])
+          expect(yield* rows(`SELECT "id" FROM "workout_session"`)).toEqual([])
+        }),
+      ),
   )
 
   it.effect(

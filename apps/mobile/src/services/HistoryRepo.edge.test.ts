@@ -134,8 +134,7 @@ describe("HistoryRepo bodyweight and tombstones", () => {
       }).pipe(Effect.provide(TestLayer)),
   )
 
-  // DEFECT: HistoryRepo.exercises / exercise() select exercise rows without `deletedAt IS NULL`, so a tombstoned exercise with live sets is listed and openable (HistoryRepo.ts exercises, exercise)
-  it.effect.fails("a tombstoned exercise with live sets is not listed in exercises", () =>
+  it.effect("a tombstoned exercise with live sets is not listed in exercises", () =>
     Effect.gen(function* () {
       yield* TestClock.setTime(Date.UTC(2026, 9, 21))
       yield* write(base("2026-10-20T08:00:00.000Z"))
@@ -143,8 +142,7 @@ describe("HistoryRepo bodyweight and tombstones", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  // DEFECT: HistoryRepo.exercise(id) returns Some for a tombstoned exercise row (HistoryRepo.ts exercise, no deletedAt filter)
-  it.effect.fails("a tombstoned exercise has no detail", () =>
+  it.effect("a tombstoned exercise has no detail", () =>
     Effect.gen(function* () {
       yield* TestClock.setTime(Date.UTC(2026, 9, 21))
       yield* write(base("2026-10-20T08:00:00.000Z"))

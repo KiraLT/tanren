@@ -61,19 +61,30 @@ const make = (baseUrl: Effect.Effect<string>) =>
     const native = yield* NativeSession
     const driver = yield* SqlDriver
 
-    /** Same options as `CurrentUser.fetchSession`: session cookie, no trace headers, 3 s. */
-    const send = (request: HttpClientRequest.HttpClientRequest) =>
+    /** Same options as `CurrentUser.fetchSession`: session cookie, no trace headers. */
+    const execute = (request: HttpClientRequest.HttpClientRequest) =>
       withSession(request).pipe(
         Effect.provideService(NativeSession, native),
         Effect.flatMap((authorised) => client.execute(authorised)),
         Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
         Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+      )
+
+    /** HTTP errors become `SignOutFailed`; 3 s timeout. */
+    const settle = <A>(effect: Effect.Effect<A, HttpClientError.HttpClientError>) =>
+      effect.pipe(
         Effect.mapError(failureOfHttp),
         Effect.timeoutOrElse({
           duration: REQUEST_TIMEOUT,
           orElse: () => Effect.fail(failed("offline")),
         }),
       )
+
+    const send = (request: HttpClientRequest.HttpClientRequest) => settle(execute(request))
+
+    /** A 401 means the server session is already gone: nothing left to end remotely. */
+    const isUnauthorised = (cause: HttpClientError.HttpClientError): boolean =>
+      cause.reason._tag === "StatusCodeError" && cause.reason.response.status === 401
 
     const session = Effect.gen(function* () {
       const base = yield* baseUrl
@@ -96,9 +107,10 @@ const make = (baseUrl: Effect.Effect<string>) =>
         HttpClientRequest.bodyJson({}),
         Effect.mapError(() => failed("server")),
       )
-      yield* send(request)
+      yield* settle(execute(request).pipe(Effect.catchIf(isUnauthorised, () => Effect.void)))
       // Owner first: if it cannot be forgotten the token stays, so the user is still signed in
-      // locally and can retry. (The server session is already gone; a retry then gets a 401.)
+      // locally and can retry. (The server session is already gone; a retry then gets a 401,
+      // which counts as success.)
       yield* driver.batch([forgetOwner]).pipe(Effect.mapError(() => failed("server")))
       yield* native.clear
     })

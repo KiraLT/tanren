@@ -229,7 +229,7 @@ describe("ProgramRepo edge cases", () => {
       run(
         Effect.gen(function* () {
           const repo = yield* ProgramRepo
-          yield* storedEnrollment(ENR, {})
+          yield* storedEnrollment(ENR, { currentDay: 3 })
           const completion = yield* repo.complete(input(3, 2))
           expect(Option.isNone(completion.sessionId)).toBe(true)
           const [enrollment] = yield* repo.enrollments
@@ -238,15 +238,21 @@ describe("ProgramRepo edge cases", () => {
       ),
   )
 
-  it.effect("completing day 2 while currentDay is 1 skips day 1 (currentDay 3, completed)", () =>
+  it.effect("completing day 2 while currentDay is 1 fails DayOutOfOrder and writes nothing", () =>
     run(
       Effect.gen(function* () {
         const repo = yield* ProgramRepo
         yield* storedEnrollment(ENR, {})
-        yield* repo.complete(input(2, 2))
+        const result = yield* Effect.result(repo.complete(input(2, 2)))
+        expect(Result.isFailure(result) && result.failure.cause).toMatchObject({
+          _tag: "DayOutOfOrder",
+          expected: 1,
+          got: 2,
+        })
         const [enrollment] = yield* repo.enrollments
-        // Documents current behaviour: day 1 never done, yet the program is marked completed.
-        expect(enrollment).toMatchObject({ currentDay: 3, status: "completed" })
+        expect(enrollment).toMatchObject({ currentDay: 1, status: "active" })
+        expect(yield* count("program_day_completion")).toBe(0)
+        expect(yield* count("workout_session")).toBe(0)
       }),
     ),
   )

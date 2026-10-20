@@ -116,19 +116,16 @@ describe("Account edge cases", () => {
       }),
   )
 
-  // DEFECT: Account.signOut on a 401 (server session already expired) fails SignOutFailed and keeps owner and token, so the user can never sign out (Account.ts signOut -> send -> filterStatusOk)
-  it.effect.fails(
-    "sign-out on a 401 still signs out locally (the server session is already gone)",
-    () =>
-      Effect.gen(function* () {
-        const { kv, layer, fetch } = yield* world(() => ok({ message: "unauthorised" }, 401))
-        yield* Effect.gen(function* () {
-          yield* seedOwner
-          const result = yield* Effect.result(Account.use((a) => a.signOut))
-          expect(Result.isSuccess(result)).toBe(true)
-          expect(yield* owner).toEqual([])
-        }).pipe(Effect.provide(layer), Effect.provideService(FetchHttpClient.Fetch, fetch))
-        expect(Option.isNone(Option.fromNullishOr((yield* Ref.get(kv))[SESSION_KEY]))).toBe(true)
-      }),
+  it.effect("sign-out on a 401 still signs out locally (the server session is already gone)", () =>
+    Effect.gen(function* () {
+      const { kv, layer, fetch } = yield* world(() => ok({ message: "unauthorised" }, 401))
+      yield* Effect.gen(function* () {
+        yield* seedOwner
+        const result = yield* Effect.result(Account.use((a) => a.signOut))
+        expect(Result.isSuccess(result)).toBe(true)
+        expect(yield* owner).toEqual([])
+      }).pipe(Effect.provide(layer), Effect.provideService(FetchHttpClient.Fetch, fetch))
+      expect(Option.isNone(Option.fromNullishOr((yield* Ref.get(kv))[SESSION_KEY]))).toBe(true)
+    }),
   )
 })

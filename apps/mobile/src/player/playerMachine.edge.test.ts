@@ -184,8 +184,7 @@ describe("playerMachine speed", () => {
     })
   })
 
-  // DEFECT: scaledMs uses Math.max(1, speed) which is NaN for NaN speed, so deadlines become NaN and the phase never ends (playerMachine.ts scaledMs)
-  it.fails("speed NaN does not produce a NaN deadline", () => {
+  it("speed NaN does not produce a NaN deadline", () => {
     const s = run([["start", T0]], cfg(Number.NaN))
     expect(s._tag === "Working" && Option.getOrElse(s.endsAtMs, () => Number.NaN)).not.toBeNaN()
   })

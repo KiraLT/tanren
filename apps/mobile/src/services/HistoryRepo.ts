@@ -241,7 +241,7 @@ export class HistoryRepo extends Context.Service<HistoryRepo, HistoryRepoShape>(
         const sets = yield* liveSets("")
         const byExercise = Arr.groupBy(sets, (set): string => set.exerciseId)
         const rows = yield* whereIn(
-          `SELECT * FROM "exercise" WHERE "id"`,
+          `SELECT * FROM "exercise" WHERE "deletedAt" IS NULL AND "id"`,
           Rec.keys(byExercise),
         ).pipe(Effect.flatMap(decodeRecords(ExerciseRow)))
         return pipe(
@@ -260,7 +260,7 @@ export class HistoryRepo extends Context.Service<HistoryRepo, HistoryRepoShape>(
       const exercise = (id: ExerciseId) =>
         Effect.gen(function* () {
           const found = yield* store
-            .all(q(`SELECT * FROM "exercise" WHERE "id" = ?`, id))
+            .all(q(`SELECT * FROM "exercise" WHERE "id" = ? AND "deletedAt" IS NULL`, id))
             .pipe(Effect.flatMap(decodeRecords(ExerciseRow)), Effect.map(Arr.head))
           if (Option.isNone(found)) {
             return Option.none<ExerciseHistory>()

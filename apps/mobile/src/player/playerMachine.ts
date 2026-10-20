@@ -83,7 +83,7 @@ export const playerEvent = (tag: PlayerEventTag, nowMs: number): PlayerEvent => 
 export const PREVIOUS_GRACE_MS = 2000
 
 const scaledMs = (config: PlayerConfig, seconds: number): number =>
-  (seconds * 1000) / Math.max(1, config.speed)
+  (seconds * 1000) / (Number.isFinite(config.speed) ? Math.max(1, config.speed) : 1)
 
 const lastItemIndex = (day: ProgramDay): number => day.items.length - 1
 
