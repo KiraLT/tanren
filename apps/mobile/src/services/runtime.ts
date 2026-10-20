@@ -1,5 +1,17 @@
 import { IdGenerator, Uuid } from "@tanren/shared"
-import { Cause, DateTime, Effect, Layer, ManagedRuntime, Option, Predicate, Schedule } from "effect"
+import {
+  Cause,
+  Data,
+  DateTime,
+  type Duration,
+  Effect,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Predicate,
+  Schedule,
+  type Scope,
+} from "effect"
 import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
 import { CurrentUser } from "./CurrentUser"
@@ -26,32 +38,97 @@ const AppIdGenerator = Layer.succeed(
 )
 
 /**
+ * Internal: another live tab holds the database's Web Lock (web is single-tab in v1). It fails
+ * the runtime build, which `ManagedRuntime` caches for the page's life, so recovery is a reload
+ * once the other tab is closed (the `failureMessage` copy says so).
+ */
+export class DatabaseInUse extends Data.TaggedError("DatabaseInUse")<{
+  readonly lockName: string
+}> {}
+
+/** The slice of `LockManager` this module uses: `navigator.locks` in the app, a fake in tests. */
+export interface DatabaseLocks {
+  readonly request: (
+    name: string,
+    options: LockOptions,
+    callback: (lock: Lock | null) => Promise<void>,
+  ) => Promise<void>
+}
+
+export const LOCK_TIMEOUT: Duration.Input = "10 seconds"
+
+const untilAborted = (signal: AbortSignal): Promise<void> =>
+  signal.aborted
+    ? Promise.resolve()
+    : new Promise((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }))
+
+/**
  * Web: after a full navigation Chrome keeps the previous page in the back/forward cache, and its
  * sqlite worker keeps the OPFS access handle, so this page's open fails ("Access Handles cannot
  * be created…") and `ManagedRuntime` caches that failure for the page's life. Every page holds
  * the Web Lock named after the database for its whole life: requesting it evicts a cached page
- * that holds it. A second live tab waits up to 10 s, then fails. Native has no `navigator.locks`.
+ * that holds it. A second live tab waits `LOCK_TIMEOUT`, then fails with `DatabaseInUse`.
+ * One controller per page: aborting it (interrupted wait, failed open, scope close) cancels a
+ * pending request (even one granted late: the grant callback sees the abort) and releases a
+ * granted lock. Returns that release action.
  */
-const holdDatabaseLock = Effect.callback<void, StoreError>((resume) => {
-  if (typeof navigator === "undefined" || navigator.locks === undefined) {
-    resume(Effect.void)
-    return
-  }
-  navigator.locks
-    .request(DATABASE_NAME, { signal: AbortSignal.timeout(10_000) }, () => {
-      resume(Effect.void)
-      return new Promise<never>(() => {})
-    })
-    .catch((cause: unknown) => resume(Effect.fail(new StoreError({ cause }))))
-})
+const holdDatabaseLock = (locks: DatabaseLocks) =>
+  Effect.gen(function* () {
+    const controller = yield* Effect.acquireRelease(
+      Effect.sync(() => new AbortController()),
+      (held) => Effect.sync(() => held.abort()),
+    )
+    const release = Effect.sync(() => controller.abort())
+    yield* Effect.callback<void, StoreError>((resume) => {
+      locks
+        .request(DATABASE_NAME, { signal: controller.signal }, () => {
+          resume(Effect.void)
+          return untilAborted(controller.signal)
+        })
+        .catch((cause: unknown) => resume(Effect.fail(new StoreError({ cause }))))
+      return release
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: LOCK_TIMEOUT,
+        orElse: () => Effect.fail(new DatabaseInUse({ lockName: DATABASE_NAME })),
+      }),
+    )
+    return release
+  })
 
-/** The evicted page's worker shuts down asynchronously, so the open is retried for up to ~5 s. */
-const PageSqlDriver = Layer.effectContext(
-  holdDatabaseLock.pipe(
-    Effect.andThen(
-      Layer.build(SqlDriver.layer).pipe(
-        Effect.retry({ schedule: Schedule.spaced("250 millis"), times: 20 }),
+/** The bfcached page's OPFS handle ("Access Handles cannot be created…"); expo-sqlite's worker
+ * channel keeps only the message, so the class is matched on it. */
+export const isAccessHandleError = (error: StoreError): boolean =>
+  error.cause instanceof Error && /access handle/i.test(error.cause.message)
+
+/**
+ * Takes the page lock (when the platform has Web Locks), then opens. The evicted page's worker
+ * shuts down asynchronously, so only that failure is retried, for up to ~5 s. A failed open
+ * releases the lock at once, so other tabs are not blocked while this page stays open.
+ */
+export const openPageStore = <A, R>(
+  locks: Option.Option<DatabaseLocks>,
+  open: Effect.Effect<A, StoreError, R>,
+): Effect.Effect<A, StoreError | DatabaseInUse, R | Scope.Scope> =>
+  Option.match(locks, { onNone: () => Effect.succeed(Effect.void), onSome: holdDatabaseLock }).pipe(
+    Effect.flatMap((release) =>
+      open.pipe(
+        Effect.retry({
+          schedule: Schedule.spaced("250 millis"),
+          times: 20,
+          while: isAccessHandleError,
+        }),
+        Effect.onError(() => release),
       ),
+    ),
+  )
+
+/** Native has no `navigator.locks`; `LockManager` assigns to `DatabaseLocks`. */
+const PageSqlDriver = Layer.effectContext(
+  Effect.suspend(() =>
+    openPageStore(
+      Option.fromNullishOr(typeof navigator === "undefined" ? undefined : navigator.locks),
+      Layer.build(SqlDriver.layer),
     ),
   ),
 )
@@ -105,7 +182,9 @@ export const failureMessage = (cause: Cause.Cause<unknown>): string =>
     onSome: (error) =>
       Predicate.isTagged(error, "ValidationError")
         ? "That set is not valid. Check weight and reps."
-        : Predicate.isTagged(error, "StoreError")
-          ? "Could not save on this device. Try again."
-          : GENERIC_FAILURE,
+        : Predicate.isTagged(error, "DatabaseInUse")
+          ? "Tanren is open in another tab. Close it and reload this page."
+          : Predicate.isTagged(error, "StoreError")
+            ? "Could not save on this device. Try again."
+            : GENERIC_FAILURE,
   })

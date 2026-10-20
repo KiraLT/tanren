@@ -72,6 +72,10 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   (`apps/worker/wrangler.web.jsonc`, SPA fallback) applies, also under
   `wrangler dev`. Credentialed CORS fetches to the API work under the COEP
   value in `_headers` (proven S7-P4).
+- Web is single-tab in v1: `runtime.ts` `openPageStore` fails a second live tab with
+  `DatabaseInUse` after `LOCK_TIMEOUT` (cached by `ManagedRuntime`: the copy asks for a reload),
+  aborts or releases the Web Lock on interrupt, failed open or scope close, and retries only
+  the bfcache "Access Handle" open failure (`isAccessHandleError`).
 - `EXPO_PUBLIC_API_URL` is inlined at export time (local export:
   `http://localhost:8787`; production: `https://api.tanren.me`). `__DEV__` is
   false in an export (no dev prefills).
@@ -120,3 +124,7 @@ failure. `runtime.ts` `PageSqlDriver` takes a page-lifetime Web Lock named
 after the database (evicts the bfcached holder; 10 s timeout; skipped on
 native) and retries the open (250 ms × 20). Two live tabs still cannot share
 the store (second tab fails after 10 s): open product decision.
+
+INT-A (2026-10-20): owner recipe proven on the export via root `pnpm dev`
+(`docs/design/local-dev.md` §Owner recipe). Gap: `logSet` does not call
+`syncNow()`, so a logged set reaches the server only on the next ~60 s loop.

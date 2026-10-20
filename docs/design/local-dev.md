@@ -163,5 +163,38 @@ Decided 2026-10-20 by the Lead under owner delegation
   host-URI field name, `cloudflared` quick tunnel without an account.
 
 
+## Owner recipe (proven end to end by INT-A, 2026-10-20)
+
+From the repo root, in one terminal:
+
+```
+pnpm install
+pnpm db:reset        # wipes apps/worker/.wrangler/state, migrates, seeds dev@tanren.local
+pnpm web:export      # writes apps/mobile/dist (re-run after any app change)
+pnpm dev             # API on http://localhost:8787 (wrangler prints 0.0.0.0:8787) + web on http://localhost:8790; Ctrl-C stops both
+```
+
+1. Open `http://localhost:8790`. Signed out, Today shows the demo plan; tap **Sign in**.
+2. Enter `dev@tanren.local`, tap **Send magic link**. The `pnpm dev` terminal prints
+   `magic link for dev@tanren.local: http://localhost:8787/api/auth/magic-link/verify?token=…`; open it in the
+   same browser. You land on Today with the server plan for today (seed: "Lower A" on Tuesday).
+3. Tap **Log set 1**. The app pushes on its sync loop, within about 60 s (logging does not trigger a push).
+4. The **Plan** tab shows the week; today's session reads "done"; two columns at ≥ 900 px.
+5. Attach Claude Code to the local MCP server (token = `DEV_MCP_TOKEN` in `apps/worker/wrangler.jsonc`):
+
+   ```
+   claude mcp add --transport http tanren-local http://localhost:8787/mcp --header "Authorization: Bearer local-dev-only-mcp-token"
+   ```
+
+   Then ask it to call `get_overview` and `list_sessions` (`from`/`to` ISO timestamps, `includeSets: true`)
+   for today: the set from step 3 is listed. Without touching your Claude config:
+   `claude -p "…" --mcp-config mcp.json --strict-mcp-config --allowedTools mcp__tanren-local__list_sessions`
+   with `{"mcpServers":{"tanren-local":{"type":"http","url":"http://localhost:8787/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`
+   (the form INT-A ran).
+
+`pnpm dev` runs the root scripts `dev:api` (`wrangler dev --ip 0.0.0.0`, also reachable from the phone on the
+LAN) and `dev:web` (`pnpm web:serve`) in parallel through pnpm's regex script selector. For the Expo dev
+server instead of the export: `pnpm dev:api` plus `pnpm -F @tanren/mobile web` (`:8081`).
+
 ## 9a. Implemented (2026-10-20)
 `pnpm db:migrate` / `pnpm db:seed [--seed n] [--end YYYY-MM-DD]` / `pnpm db:reset` (root) run against the local D1 under `apps/worker/.wrangler/state`; the runner is `apps/worker/scripts/seed.ts` via `tsx` (Node type stripping fails on extensionless imports).
