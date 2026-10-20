@@ -33,14 +33,6 @@ export const SIGN_IN_WEB_ONLY_NOTICE = "Sign in on the web app for now"
 /** Absolute URL of `/today` that the magic link lands on after verifying (web only). */
 export const todayCallbackUrl = (origin: string): string => `${origin.replace(/\/+$/, "")}/today`
 
-/**
- * Relative callbackURL for a native sign-in: after verifying, the link lands on the worker's
- * `/auth/native/complete` page, which hands `returnTo` (the app's deep link) a one-time code bound
- * to `challenge`. Relative, so it resolves on the API origin, which is always trusted.
- */
-export const nativeCallbackUrl = (challenge: string, returnTo: string): string =>
-  `/auth/native/complete?${new URLSearchParams({ challenge, returnTo }).toString()}`
-
 /** JSON body of `POST /api/auth/sign-in/magic-link`. */
 export const magicLinkBody = (email: string, callbackURL: string) => ({ email, callbackURL })
 

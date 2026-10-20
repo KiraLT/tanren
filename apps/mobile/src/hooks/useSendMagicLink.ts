@@ -30,15 +30,13 @@ const SENT_HINT = IS_WEB ? "Open the link on this device." : "Open the link on t
 
 /**
  * Web: the callbackURL is `<origin>/today`. Native: `NativeSession.begin` stores a fresh PKCE
- * verifier and returns the worker's `/auth/native/complete?challenge=…&returnTo=…` callbackURL.
+ * verifier and posts `{ email, challenge, returnTo }` to the worker's `/api/native/begin`, which
+ * signs the callbackURL and sends the link.
  */
 const requestLink = (email: string) =>
   IS_WEB
     ? sendMagicLink(email, todayCallbackUrl(window.location.origin))
-    : NativeSession.use((session) => session.begin).pipe(
-        Effect.flatMap((callbackURL) => sendMagicLink(email, callbackURL)),
-        Effect.provide(NativeSession.layer),
-      )
+    : NativeSession.use((session) => session.begin(email)).pipe(Effect.provide(NativeSession.layer))
 
 /**
  * Requests a magic link for an email. The promise-free `send` moves the state Idle, Sending, then

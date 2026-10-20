@@ -1,4 +1,6 @@
 import {
+  NativeBeginRequest,
+  NativeBeginResponse,
   NativeCode,
   NativeSessionRequest,
   NativeSessionResponse,
@@ -28,7 +30,7 @@ import {
   HttpClientResponse,
 } from "effect/http"
 import { apiBaseUrl } from "./apiBaseUrl"
-import { nativeCallbackUrl } from "./magicLink"
+import { MagicLinkFailed, normalizeEmail } from "./magicLink"
 
 /**
  * Internal: a native sign-in step failed. `no-pending` = no verifier stored (or older than 15 min)
@@ -43,8 +45,11 @@ export class NativeSignInFailed extends Data.TaggedError("NativeSignInFailed")<{
 export interface NativeSessionShape {
   /** Bearer token, if stored and not past `expiresAt`. Always None on web. */
   readonly token: Effect.Effect<Option.Option<SessionToken>>
-  /** Step 1: new verifier, stores the pending sign-in, returns the relative callbackURL. */
-  readonly begin: Effect.Effect<string, NativeSignInFailed>
+  /**
+   * Step 1: new verifier, stores the pending sign-in, then `POST /api/native/begin` (the worker
+   * signs the callbackURL and emails the link). Fails like the web request (`MagicLinkFailed`).
+   */
+  readonly begin: (email: string) => Effect.Effect<void, NativeSignInFailed | MagicLinkFailed>
   /** Step 7: exchanges `code` with the pending verifier, stores the response, deletes pending. */
   readonly complete: (code: string) => Effect.Effect<UserId, NativeSignInFailed>
   /** Sign-out / 401: deletes the stored session and any pending sign-in. */
@@ -58,6 +63,7 @@ export const PENDING_KEY = "tanren.auth.pending"
 export const PENDING_TTL_MS = 15 * 60 * 1000
 
 const EXCHANGE_PATH = "/api/native/session"
+const BEGIN_PATH = "/api/native/begin"
 
 /** The slice of SecureStore this service uses: the real one on a device, a `Ref` in tests. */
 export interface SecureKv {
@@ -112,14 +118,9 @@ const make = (deps: NativeSessionDeps) =>
       Effect.orElseSucceed(() => Option.none<NativeSessionResponse>()),
     )
 
-    const token = Effect.gen(function* () {
-      const session = yield* readSession
-      const now = yield* DateTime.now
-      return session.pipe(
-        Option.filter((stored) => DateTime.isGreaterThan(stored.expiresAt, now)),
-        Option.map((stored) => stored.token),
-      )
-    })
+    // Not filtered by the stored `expiresAt`: Better Auth extends a session on use, so the server
+    // decides (`CurrentUser.fetchSession` clears the token when `get-session` answers `null`).
+    const token = readSession.pipe(Effect.map(Option.map((stored) => stored.token)))
 
     const readPending = Effect.gen(function* () {
       const raw = yield* kv.get(PENDING_KEY)
@@ -134,7 +135,12 @@ const make = (deps: NativeSessionDeps) =>
       )
     })
 
-    const begin = Effect.gen(function* () {
+    const begin = Effect.fn("NativeSession.begin")(function* (rawEmail: string) {
+      const email = yield* Option.match(normalizeEmail(rawEmail), {
+        onNone: () =>
+          Effect.fail(new MagicLinkFailed({ reason: "invalid-email", status: Option.none() })),
+        onSome: Effect.succeed,
+      })
       const bytes = yield* pkce.randomBytes(32)
       const verifier = yield* Schema.decodeUnknownEffect(PkceVerifier)(base64Url(bytes)).pipe(
         Effect.mapError(storage),
@@ -150,7 +156,28 @@ const make = (deps: NativeSessionDeps) =>
         createdAt,
       }).pipe(Effect.mapError(storage))
       yield* kv.set(PENDING_KEY, encoded)
-      return nativeCallbackUrl(challenge, returnTo)
+      const body = yield* Schema.decodeUnknownEffect(NativeBeginRequest)({
+        email,
+        challenge,
+        returnTo,
+      }).pipe(
+        Effect.mapError(
+          () => new MagicLinkFailed({ reason: "invalid-email", status: Option.none() }),
+        ),
+      )
+      // The worker signs the callbackURL and sends the link itself (design §4, session-export CSRF).
+      const request = yield* HttpClientRequest.post(`${yield* deps.baseUrl}${BEGIN_PATH}`).pipe(
+        HttpClientRequest.acceptJson,
+        HttpClientRequest.schemaBodyJson(NativeBeginRequest)(body),
+        Effect.mapError(storage),
+      )
+      yield* client
+        .execute(request)
+        .pipe(
+          Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+          Effect.flatMap(HttpClientResponse.schemaBodyJson(NativeBeginResponse)),
+          Effect.mapError(beginFailureOf),
+        )
     })
 
     const exchange = (request: NativeSessionRequest) =>
@@ -200,6 +227,17 @@ const make = (deps: NativeSessionDeps) =>
 
     return { token, begin, complete, clear } satisfies NativeSessionShape
   })
+
+/** Same copy as the web request: a status error is `rejected` (with the status), else `unreachable`. */
+const beginFailureOf = (
+  cause: HttpClientError.HttpClientError | Schema.SchemaError,
+): MagicLinkFailed =>
+  "reason" in cause && cause.reason._tag === "StatusCodeError"
+    ? new MagicLinkFailed({
+        reason: "rejected",
+        status: Option.some(cause.reason.response.status),
+      })
+    : new MagicLinkFailed({ reason: "unreachable", status: Option.none() })
 
 /** 4xx = the worker refused (`rejected`); anything else (network, 5xx) = `unreachable`. */
 const failureOfHttp = (cause: HttpClientError.HttpClientError): NativeSignInFailed =>
@@ -258,7 +296,7 @@ export class NativeSession extends Context.Service<NativeSession, NativeSessionS
     this,
     this.of({
       token: Effect.succeed(Option.none()),
-      begin: Effect.fail(failed("no-pending")),
+      begin: () => Effect.fail(failed("no-pending")),
       complete: () => Effect.fail(failed("no-pending")),
       clear: Effect.void,
     }),

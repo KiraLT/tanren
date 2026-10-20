@@ -71,18 +71,64 @@ describe("base64Url", () => {
 })
 
 describe("NativeSession.begin", () => {
-  it.effect("stores the pending verifier and returns the worker callbackURL", () =>
-    withMemory({}, (store) =>
+  it.effect("stores the pending verifier and posts email, challenge and returnTo to /begin", () => {
+    const seen: Array<{ readonly url: string; readonly method: string; readonly body: string }> = []
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const request = new Request(input, init)
+      // biome-ignore lint/plugin/noMutation: test spy collecting what the fake server saw
+      seen.push({ url: request.url, method: request.method, body: await request.text() })
+      return new Response(JSON.stringify({ sent: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    }
+    return withMemory(
+      {},
+      (store) =>
+        Effect.gen(function* () {
+          yield* NativeSession.use((session) => session.begin("  dev@tanren.local "))
+          expect(seen).toEqual([
+            {
+              url: "http://api.test/api/native/begin",
+              method: "POST",
+              body: JSON.stringify({
+                email: "dev@tanren.local",
+                challenge: RFC_CHALLENGE,
+                returnTo: RETURN_TO,
+              }),
+            },
+          ])
+          const pending = JSON.parse((yield* Ref.get(store))[PENDING_KEY] ?? "{}")
+          expect(pending.verifier).toBe(RFC_VERIFIER)
+        }),
+      fetch,
+    )
+  })
+
+  it.effect("fails as invalid-email without a request", () =>
+    withMemory({}, () =>
       Effect.gen(function* () {
-        const callbackUrl = yield* NativeSession.use((session) => session.begin)
-        const url = new URL(callbackUrl, "http://api.test")
-        expect(url.pathname).toBe("/auth/native/complete")
-        expect(url.searchParams.get("challenge")).toBe(RFC_CHALLENGE)
-        expect(url.searchParams.get("returnTo")).toBe(RETURN_TO)
-        const pending = JSON.parse((yield* Ref.get(store))[PENDING_KEY] ?? "{}")
-        expect(pending.verifier).toBe(RFC_VERIFIER)
+        const reason = yield* failureReason(NativeSession.use((s) => s.begin("not-an-email")))
+        expect(reason).toBe("invalid-email")
       }),
     ),
+  )
+
+  it.effect("reports a 400 as rejected with the status and a network failure as unreachable", () =>
+    Effect.gen(function* () {
+      const refused = yield* withMemory(
+        {},
+        () => Effect.flip(NativeSession.use((s) => s.begin("dev@tanren.local"))),
+        respond(400, { _tag: "NativeBeginRejected", reason: "return-to" }),
+      )
+      const offline = yield* withMemory(
+        {},
+        () => failureReason(NativeSession.use((s) => s.begin("dev@tanren.local"))),
+        () => Promise.reject(new TypeError("offline")),
+      )
+      expect(refused).toMatchObject({ reason: "rejected", status: Option.some(400) })
+      expect(offline).toBe("unreachable")
+    }),
   )
 })
 
@@ -183,18 +229,22 @@ describe("NativeSession.complete", () => {
 })
 
 describe("NativeSession.token and clear", () => {
-  it.effect("is None without a stored session and after expiresAt", () =>
+  it.effect("is None without a stored session or with an unreadable one", () =>
     Effect.gen(function* () {
       const empty = yield* withMemory({}, () => NativeSession.use((s) => s.token))
-      const expired = yield* withMemory(
-        { [SESSION_KEY]: sessionJson("1969-12-31T00:00:00.000Z") },
-        () => NativeSession.use((s) => s.token),
-      )
       const garbage = yield* withMemory({ [SESSION_KEY]: "{" }, () =>
         NativeSession.use((s) => s.token),
       )
-      expect([empty, expired, garbage]).toEqual([Option.none(), Option.none(), Option.none()])
+      expect([empty, garbage]).toEqual([Option.none(), Option.none()])
     }),
+  )
+
+  it.effect("still returns the token past the stored expiresAt (the server decides)", () =>
+    withMemory({ [SESSION_KEY]: sessionJson("1969-12-31T00:00:00.000Z") }, () =>
+      Effect.gen(function* () {
+        expect(yield* NativeSession.use((s) => s.token)).toEqual(Option.some(TOKEN))
+      }),
+    ),
   )
 
   it.effect("is the stored token before expiresAt", () =>
@@ -218,7 +268,7 @@ describe("NativeSession.token and clear", () => {
     Effect.gen(function* () {
       const session = yield* NativeSession
       expect(yield* session.token).toEqual(Option.none())
-      expect(yield* failureReason(session.begin)).toBe("no-pending")
+      expect(yield* failureReason(session.begin("dev@tanren.local"))).toBe("no-pending")
       yield* session.clear
     }).pipe(Effect.provide(NativeSession.layerNone)),
   )
