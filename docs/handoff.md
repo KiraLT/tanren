@@ -39,6 +39,24 @@ Code MCP `list_sessions` shows it. Root gate 575 tests at that point. The
 owner was pinged with the recipe at ≈ 00:08 (test from a worktree of
 `c2921b9` while agents edit the tree).
 
+## v2 (owner's overnight scope, plan Amendment 4) — state at 00:40
+Planned and committed: ADR-0012 (dev client + Live Activities, PhaseAlerts
+port), 0013 (catalog + programs as static shared data), 0014 (design
+system), 0015 (native sign-in via one-time code + Bearer). Sheets:
+`docs/tasks/v2-{design,catalog,illustrations,programs,extras,native-auth}.md`.
+Landed: design D1 (tokens, primitives, `src/ui` barrel frozen), X1
+`DataExport`, X2 `HistoryRepo`, `pnpm deploy:preflight`. Live: team design
+D2–D4 then D5 + X3–X6; V2-F1 (shared+db foundation: taxonomy, program
+entities, migration 0002, SyncStore); V2-F2 (mobile deps incl.
+expo-secure-store, store migration v2); NA-1 ∥ NA-2 (native sign-in worker +
+mobile; Lead-run stream, then NA-3 proof, NA-4 `dev:phone` + QR, NA-REV).
+Next: when F1 lands → dispatch team-leads **catalog** (C0 → C1a–j data ∥ C3
+→ C2 → C4 Library → C5 MCP tool after step 5), **programs** (P1 Core 30 ∥
+P2 machine ∥ P3 repo + alerts → P4 player → P5 logging → P6 docs; P7 Live
+Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
+→ I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
+Unattended-mode line in every brief. Commit after each landing.
+
 ## In flight (resumable by SendMessage; all report to the Lead)
 - **Team mcp-oauth** (team-lead/opus, 90-min box from 23:45):
   `docs/tasks/step-5.md` — T1 infra, T2 contracts, T3 write tools, T4

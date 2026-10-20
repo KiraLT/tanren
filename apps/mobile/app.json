@@ -8,7 +8,11 @@
     "userInterfaceStyle": "automatic",
     "ios": { "supportsTablet": true, "bundleIdentifier": "me.tanren.app" },
     "web": { "bundler": "metro", "output": "single" },
-    "plugins": ["expo-router", "expo-sqlite"],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      ["expo-notifications", { "enableRemoteNotifications": false }]
+    ],
     "experiments": { "typedRoutes": true }
   }
 }

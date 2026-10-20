@@ -111,8 +111,32 @@ const v1: ReadonlyArray<string> = [
   ...TABLES.map(dirtyIndex),
 ]
 
+/** v2 (docs/design/v2-programs.md §2, v2-catalog.md §4): programs progress + catalog link. */
+const v2: ReadonlyArray<string> = [
+  `ALTER TABLE "exercise" ADD COLUMN "catalogId" TEXT`,
+  table(
+    "program_enrollment",
+    `"programId" TEXT NOT NULL,
+  "startedOn" TEXT NOT NULL,
+  "status" TEXT NOT NULL,
+  "currentDay" INTEGER NOT NULL`,
+  ),
+  table(
+    "program_day_completion",
+    `"enrollmentId" TEXT NOT NULL,
+  "dayNumber" INTEGER NOT NULL,
+  "completedAt" TEXT NOT NULL,
+  "durationSeconds" INTEGER NOT NULL,
+  "sessionId" TEXT`,
+  ),
+  `CREATE INDEX IF NOT EXISTS "exercise_catalog" ON "exercise" ("catalogId")`,
+  `CREATE INDEX IF NOT EXISTS "program_day_completion_enrollment" ON "program_day_completion" ("enrollmentId")`,
+  dirtyIndex("program_enrollment"),
+  dirtyIndex("program_day_completion"),
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

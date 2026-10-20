@@ -5,6 +5,69 @@ import { SqlDriver } from "../services/SqlDriver"
 import { nodeSqlDriverLayer } from "../services/SqlDriver.testing"
 import { MIGRATIONS, migrate, userVersion } from "./migrations"
 
+const columnsOf = (table: string) =>
+  SqlDriver.use((driver) => driver.all({ sql: `PRAGMA table_info("${table}")`, params: [] })).pipe(
+    Effect.map((rows) => rows.map((row) => String(row.name))),
+  )
+
+describe("migrations v2", () => {
+  it.effect("adds catalogId to exercise", () =>
+    Effect.gen(function* () {
+      yield* SqlDriver.use(migrate)
+      expect(yield* columnsOf("exercise")).toContain("catalogId")
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+
+  it.effect("creates program_enrollment and program_day_completion with the design columns", () =>
+    Effect.gen(function* () {
+      yield* SqlDriver.use(migrate)
+      const sync = ["createdAt", "updatedAt", "deletedAt", "_dirty", "_rejected"]
+      expect(yield* columnsOf("program_enrollment")).toEqual([
+        "id",
+        "userId",
+        "programId",
+        "startedOn",
+        "status",
+        "currentDay",
+        ...sync,
+      ])
+      expect(yield* columnsOf("program_day_completion")).toEqual([
+        "id",
+        "userId",
+        "enrollmentId",
+        "dayNumber",
+        "completedAt",
+        "durationSeconds",
+        "sessionId",
+        ...sync,
+      ])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+
+  it.effect("upgrades a v1 store in place, keeping rows and leaving catalogId null", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      const [v1] = MIGRATIONS
+      yield* driver.batch([
+        ...(v1 ?? []).map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 1", params: [] },
+        {
+          sql: `INSERT INTO "exercise" ("id", "userId", "name", "aliases", "muscleGroups", "createdAt", "updatedAt")
+            VALUES ('e1', 'u1', 'Squat', '[]', '[]', 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(2)
+      const rows = yield* driver.all({
+        sql: `SELECT "name", "catalogId" FROM "exercise"`,
+        params: [],
+      })
+      expect(rows).toEqual([{ name: "Squat", catalogId: null }])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
 describe("migrations", () => {
   it.effect("apply idempotently and record the version", () =>
     Effect.gen(function* () {

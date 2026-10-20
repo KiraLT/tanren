@@ -68,6 +68,11 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 - tsconfig extends `expo/tsconfig.base.json` (with the `.json` suffix) and
   `../../tsconfig.base.json`; `typedRoutes` on (else `expo start` rewrites
   tsconfig). Isolated pnpm linker, no metro `watchFolders`.
+- v2 deps (V2-F2, all in Expo Go, pinned from SDK 58 `bundledNativeModules.json`):
+  `expo-notifications` (plugin, `enableRemoteNotifications: false`: local only), `expo-haptics`,
+  `expo-audio`, `expo-keep-awake`, `expo-secure-store`; store migration v2 adds `exercise.catalogId`,
+  `program_enrollment`, `program_day_completion`. `expo-widgets` (dev build only, ADR-0012) and
+  its `app.json` plugin are added by V2-P7, not before.
 - Ids from `expo-crypto` behind an app `IdGenerator` (Hermes
   `crypto.randomUUID` unverified).
 - Web: sqlite wasm needs cross-origin isolation (COOP `same-origin` + COEP).
