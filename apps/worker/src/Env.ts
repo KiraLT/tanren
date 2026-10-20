@@ -10,6 +10,10 @@ export interface Env {
   /** Comma-separated origins. */
   readonly ALLOWED_ORIGINS: string
   readonly EMAIL_MODE: string
+  /** Magic-link sender address (var), e.g. `Tanren <login@tanren.me>`. */
+  readonly EMAIL_FROM: string
+  /** Secret, required when `EMAIL_MODE` is `provider` (Resend API key). */
+  readonly RESEND_API_KEY?: string
   /** Local only: bearer token for the dev MCP route. Must be absent outside `local`. */
   readonly DEV_MCP_TOKEN?: string
 }

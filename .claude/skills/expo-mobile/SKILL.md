@@ -38,10 +38,35 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 - Runtime proof is the `ui-check` skill (agent-browser) against
   `expo start --web --port <n>`; tests do not prove the UI.
 
-## Not yet filled (step 7)
+## Web export, hosting and two-column layout (step 7, verified 2026-10-20)
 
-EAS Update / Expo Go publish flow · `expo export --platform web` served
-from the Worker · two-column web layout.
+- Export: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm web:export` writes
+  `apps/mobile/dist/` (the URL is inlined at bundle time; production uses
+  `https://api.tanren.me`). Expo copies `public/` into `dist/`, so
+  `public/_headers` (COEP `require-corp` + COOP `same-origin`) ships with it.
+  `require-corp`, not `credentialless`: WebKit/Safari does not support
+  `credentialless`, and every subresource is same-origin (API calls are CORS,
+  which `require-corp` allows). Proven in Chromium only; Safari is unverified.
+- Serve: `pnpm web:serve` = assets-only Worker `apps/worker/wrangler.web.jsonc`
+  on :8790 (SPA fallback, `_headers` parsed by Workers static assets). Under
+  these headers `crossOriginIsolated === true`, sqlite opens, and the
+  credentialed CORS fetches to :8787 (`get-session`, `/sync/*`) succeed.
+  After editing `_headers`, re-export: the Worker serves `dist/`, not `public/`.
+  `wrangler deploy --dry-run -c wrangler.web.jsonc` needs no account.
+- Two columns: `useLayoutMode()` (`src/hooks/useLayoutMode.ts`, pure rule in
+  `layoutMode.ts`) is `"two-column"` iff window width >= `WIDE_BREAKPOINT`
+  (900). `Screen` takes `aside?: ReactNode` and renders it (role
+  `complementary`, gap 24, max 480; main column fixed at `contentMaxWidth`
+  560 because pager pages are that wide) only in two-column mode; at phone
+  width the aside is not rendered at all. A screen whose aside needs inner
+  state (Today: pager index, rest timer) renders its own `Screen`
+  (`TodayReady`, `PlanReady` in `plan.tsx`). Asides are read-only: no second
+  "Log set" button, and content the aside shows is hidden from the main column
+  (`ExercisePage` `showSets={false}` when wide; Plan cards `showBlocks={false}`).
+- ui-check: `agent-browser set viewport 1280 800` switches layouts live.
+  `snapshot -i` lists only interactive/labelled nodes; use plain `snapshot`
+  (grep it) to see non-interactive rows (day rows, set rows, `complementary`).
+- Still open: EAS Update / Expo Go publish flow.
 
 ## Vendor plugin skills
 

@@ -1,5 +1,5 @@
 # Step 7 — team plan-web: Plan screen, web layout, web served by a Worker
-Source: docs/plan.md step 7 · Status: planning · Updated: 2026-10-20 · Baseline commit: c6a4d68 (`git diff c6a4d68` shows the step)
+Source: docs/plan.md step 7 · Status: in-progress (team plan-web) · Updated: 2026-10-20 · Baseline commit: c6a4d68 (`git diff c6a4d68` shows the step)
 Runs in parallel with `docs/tasks/step-4.md` (team mcp) after `docs/tasks/hardening-1/team-hardening.md` finishes. Agents never deploy: the deploy and DNS are the owner actions at the end.
 
 ## Team charter: plan-web
@@ -66,6 +66,7 @@ Report: team report format from `.claude/agents/team-lead.md`.
 | S7-P3 | Plan screen UI: week header, 7 day rows (+ unscheduled), session cards with status, exercise blocks with targets; accessibility labels; `Empty`/`Failed` states | engineer / sonnet (frontend-design) | P1 (types first; render against a fixture while P1 finishes) | `apps/mobile/app/(tabs)/plan.tsx`, `src/components/{PlanWeek,PlanDayRow,PlannedSessionCard}.tsx` (+ pure helpers/tests) | todo |
 | S7-P4 | Two-column layout: `useLayoutMode`, `Screen.aside`, Today aside (SetList + RestTimerBar), Plan aside (selected session); ui-check on :8790 at 390 and 1280 px; skill + CLAUDE.md | engineer / opus (frontend-design) | P2, P3 | `src/hooks/useLayoutMode.ts`, `src/components/{Screen,TodayReady,ExercisePager}.tsx`, `app/(tabs)/{today,plan}.tsx` (aside wiring only), `apps/mobile/CLAUDE.md`, skill section | todo |
 | S7-P5 | Resend `EmailSender` layer (ADR-0008): `ResendEmailSender.ts`, `EMAIL_FROM`/`RESEND_API_KEY` config + guard, tests with a captured `HttpClient`, local var | engineer / opus | hardening team report (H3 touches `src/auth/**`) | `apps/worker/src/auth/{EmailSender,EmailSender.test,ResendEmailSender,ResendEmailSender.test}.ts`, `apps/worker/src/{Env,Config,Config.test}.ts`, `apps/worker/wrangler.jsonc` (`EMAIL_FROM` var) | todo |
+| S7-P6 | Sign-in screen: `app/sign-in.tsx`, email (dev prefill), "Send magic link" (POST `/api/auth/sign-in/magic-link`, `credentials: include`, absolute `/today` callbackURL), Sent/Failed states, "Sign in" entry on Today when signed out; ui-check on :8790 (added at the Lead's request 23:33) | engineer / sonnet | P3 | `app/sign-in.tsx`, `src/hooks/{useSignedIn,useSendMagicLink}.ts`, `src/services/magicLink.ts`(+test), `app/(tabs)/today.tsx` (entry only) | in-review |
 | S7-REV | Review (runs `pnpm -F @tanren/mobile check` + `pnpm -F @tanren/worker check`; reads the ui-check snapshots) | reviewer / opus | P3, P4, P5 | owned paths | todo |
 | S7-QA | QA only if diff > 800 lines | qa / sonnet | REV | *.test.ts | todo |
 
@@ -92,6 +93,9 @@ Parallel groups: A = {P1, P2, P5 (as soon as hardening has reported)} · B = {P3
 - [ ] `ResendEmailSender.layer` sends one POST per magic link with the frozen body/headers; test with a captured `HttpClient` layer (effect/http test client or a `FetchHttpClient` fed by a fake `fetch`) asserts URL, bearer header, `from`, `to`, that the url appears in the body; a 4xx/5xx response and a transport failure each fail with `EmailSendFailed` (message includes status); `Redacted` never appears in logs or messages.
 - [ ] `WorkerConfig`: `emailFrom: string`, `resendApiKey: Option<Redacted<string>>`; `provider` mode without the key → `ConfigError` (test); `local` + `console` needs no key (test). `EmailSender.layer` picks `ResendEmailSender.layer` for `provider`; `EmailProviderMissing` deleted.
 - [ ] `wrangler.jsonc` local vars gain `EMAIL_FROM`; `Env.ts` gains `EMAIL_FROM` and optional `RESEND_API_KEY`; `docs/design/local-dev.md` §4 "layerProvider (production; provider not chosen)" line corrected to Resend (one line). Request shape verified with context7 and the source cited in the report. `pnpm -F @tanren/worker check` green, pasted; `wrangler dev` smoke `/health` 200.
+### S7-P6 Sign-in screen (added 23:33 at the Lead's request)
+- [ ] Signed out, `/today` shows a "Sign in" link (`accessibilityLabel`); `/sign-in` has an email field (prefilled `dev@tanren.local` when `__DEV__`), "Send magic link" posting `{ email, callbackURL: <origin>/today }` with `credentials: "include"`, Sending/Sent/Failed states; signed in → entry hidden, `/sign-in` offers "Back to Today".
+- [ ] ui-check on the exported build (:8790 + API :8787): sign-in → send → open the link from the wrangler log → `/today` shows the server plan, "Sign in" gone, `errors` empty; pure helpers tested; `pnpm -F @tanren/mobile check` green.
 ### S7-REV
 - [ ] `git diff c6a4d68 -- apps/mobile apps/worker/wrangler*.jsonc apps/worker/src/auth apps/worker/src/Env.ts apps/worker/src/Config.ts` reviewed; only owned paths changed (plus the announced `runtime.ts` line); hooks boundary respected; package gates green.
 
@@ -105,3 +109,18 @@ Parallel groups: A = {P1, P2, P5 (as soon as hardening has reported)} · B = {P3
 
 ## Log
 - 2026-10-20 · created from architect breakdown
+- 23:16 team plan-web (team-lead/opus) started; team sheet `docs/tasks/step-7/team-plan-web.md` (per-dispatch lines + agent ids there)
+- 23:17→23:20 · S7-P2 · engineer/sonnet · a1d39d31ac98b6d48 · 86k · 13 · 1 · done (headers + SPA + dry-run + crossOriginIsolated)
+- 23:17→23:21 · S7-P1 · engineer/opus · af2316d0ca14a0cbe · 114k · 24 · 1 · done (types compiled 23:19 → FROZEN)
+- 23:17→23:22 · S7-P3 · engineer/sonnet · a0d27f3e09a94bebe · 143k · 56 · 1 · done
+- 23:20 Lead: hardening done → P5 unblocked
+- 23:24→23:31 · S7-P5 · engineer/opus · adc3b186ec3ba9f4a · 143k · 59 · 1 · done (scope deviation auth.test.ts + fixtures.ts, ratify)
+- 23:24→23:33 · S7-P4 · engineer/opus · a04d4f71e411d5c7b · 152k · 66 · 1 · done w/ escalation (direct /plan load → StoreError, P1 code); db:reset run once by P4 (announced)
+- 23:33 S7-P6 added at the Lead's request (post-fan-out scope gap; counts against the step experiment)
+- 23:34→23:40 · S7-P6 · engineer/sonnet · ad6fb7d10a16233ef · 139k · 55 · 1 · done
+- 23:34→23:36 · S7-REV r1 · reviewer/opus · a37f9bac03b34e63b · 104k · 14 · 1 · REQUEST CHANGES (1 blocking `as` cast, debug log, SetList dup, Safari COEP, evidence)
+- 23:34→ · S7-P1 fix (direct /plan StoreError + debug log) · SendMessage af2316d0ca14a0cbe
+- 23:41→23:46 · fixes r1 done (P3, P5, P4 incl. COEP → require-corp + final proof)
+- 23:43→23:45 · S7-REV r2 · APPROVE · 23:45→23:47 S7-P6 fix r2 · 23:47→23:48 REV r2 delta APPROVE
+- 23:49→23:51 · S7-QA · qa/sonnet · a0f804d1176ceffc7 · 91k · 14 · PASS (+12 tests)
+- 23:52 team plan-web report · wall-clock 36 min (box 75)

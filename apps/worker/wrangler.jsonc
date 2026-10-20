@@ -7,11 +7,13 @@
   "vars": {
     "ENVIRONMENT": "local",
     "BETTER_AUTH_URL": "http://localhost:8787",
-    "ALLOWED_ORIGINS": "http://localhost:8081",
+    "ALLOWED_ORIGINS": "http://localhost:8081,http://localhost:8790",
     "EMAIL_MODE": "console",
+    "EMAIL_FROM": "Tanren <dev@tanren.local>",
     // Clearly fake, local only. Non-local environments must use real secrets (startup guard in Config.ts).
     "BETTER_AUTH_SECRET": "local-dev-only-not-a-secret-0000000000000000",
-    "DEV_MCP_TOKEN": "local-dev-only-mcp-token"
+    "DEV_MCP_TOKEN": "local-dev-only-mcp-token",
+    "MCP_RESOURCE_URL": "http://localhost:8787/mcp"
   },
   "d1_databases": [
     {
@@ -21,5 +23,6 @@
       "database_id": "00000000-0000-4000-8000-000000000000",
       "migrations_dir": "../../packages/db/migrations"
     }
-  ]
+  ],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }]
 }

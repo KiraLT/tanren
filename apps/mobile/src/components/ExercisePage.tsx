@@ -15,6 +15,8 @@ interface ExercisePageProps {
   readonly logSet: (input: LogSetInput) => Promise<boolean>
   /** Called once the set is stored locally; starts the rest timer. */
   readonly onLogged: (restSeconds: number) => void
+  /** Show the set list on the page; false in the wide layout, where the aside shows it. */
+  readonly showSets?: boolean
 }
 
 interface SetEntryProps {
@@ -83,7 +85,14 @@ const progressText = (item: TodayExercise): string => {
 }
 
 /** One exercise, one page: name, planned/logged sets, and the logging controls. */
-export function ExercisePage({ item, width, pending, logSet, onLogged }: ExercisePageProps) {
+export function ExercisePage({
+  item,
+  width,
+  pending,
+  logSet,
+  onLogged,
+  showSets = true,
+}: ExercisePageProps) {
   return (
     <ScrollView style={{ width }} contentContainerStyle={styles.content}>
       <View style={styles.heading}>
@@ -92,7 +101,7 @@ export function ExercisePage({ item, width, pending, logSet, onLogged }: Exercis
         </Text>
         <Text style={styles.progress}>{progressText(item)}</Text>
       </View>
-      <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} />
+      {showSets ? <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} /> : null}
       <SetEntry
         key={`${item.exercise.id}-${item.loggedSets.length}`}
         item={item}

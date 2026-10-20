@@ -1,10 +1,11 @@
 import { IdGenerator, Uuid } from "@tanren/shared"
-import { Cause, DateTime, Effect, Layer, ManagedRuntime, Option, Predicate } from "effect"
+import { Cause, DateTime, Effect, Layer, ManagedRuntime, Option, Predicate, Schedule } from "effect"
 import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
 import { CurrentUser } from "./CurrentUser"
 import { LocalStore } from "./LocalStore"
-import { SqlDriver } from "./SqlDriver"
+import { PlanWeekRepo } from "./PlanWeekRepo"
+import { DATABASE_NAME, SqlDriver, StoreError } from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
 import { SyncEngine } from "./SyncEngine"
 import { SyncTransport } from "./SyncTransport"
@@ -24,11 +25,40 @@ const AppIdGenerator = Layer.succeed(
   }),
 )
 
+/**
+ * Web: after a full navigation Chrome keeps the previous page in the back/forward cache, and its
+ * sqlite worker keeps the OPFS access handle, so this page's open fails ("Access Handles cannot
+ * be created…") and `ManagedRuntime` caches that failure for the page's life. Every page holds
+ * the Web Lock named after the database for its whole life: requesting it evicts a cached page
+ * that holds it. A second live tab waits up to 10 s, then fails. Native has no `navigator.locks`.
+ */
+const holdDatabaseLock = Effect.callback<void, StoreError>((resume) => {
+  if (typeof navigator === "undefined" || navigator.locks === undefined) {
+    resume(Effect.void)
+    return
+  }
+  navigator.locks
+    .request(DATABASE_NAME, { signal: AbortSignal.timeout(10_000) }, () => {
+      resume(Effect.void)
+      return new Promise<never>(() => {})
+    })
+    .catch((cause: unknown) => resume(Effect.fail(new StoreError({ cause }))))
+})
+
+/** The evicted page's worker shuts down asynchronously, so the open is retried for up to ~5 s. */
+const PageSqlDriver = Layer.effectContext(
+  holdDatabaseLock.pipe(
+    Effect.andThen(
+      Layer.build(SqlDriver.layer).pipe(
+        Effect.retry({ schedule: Schedule.spaced("250 millis"), times: 20 }),
+      ),
+    ),
+  ),
+)
+
 /** Shared infrastructure, exposed so later services (sync) reuse the same database handle. */
 export const BaseLayer = Layer.mergeAll(
-  LocalStore.layerNoDeps.pipe(
-    Layer.provideMerge(Layer.mergeAll(SqlDriver.layer, StoreEvents.layer)),
-  ),
+  LocalStore.layerNoDeps.pipe(Layer.provideMerge(Layer.mergeAll(PageSqlDriver, StoreEvents.layer))),
   AppIdGenerator,
   DateTime.layerCurrentZoneLocal,
 )
@@ -55,6 +85,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       TodayRepo.layerNoDeps,
+      PlanWeekRepo.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),
     ),
   ),

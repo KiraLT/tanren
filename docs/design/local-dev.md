@@ -91,7 +91,7 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
 - `sendMagicLink` calls an `EmailSender` service (`Context.Service`). Layers: `layerConsole` logs
   `magic link for <email>: <url>` with `Effect.logInfo` (shows in the `wrangler dev` terminal);
   `layerCapture` (tests) records sends in a `Ref` so a test can sign in end to end; `layerProvider`
-  (production; provider not chosen, see decisions). `EMAIL_MODE` selects the layer.
+  (production: `ResendEmailSender` posts to `https://api.resend.com/emails`; secret `RESEND_API_KEY`, sender `EMAIL_FROM`; ADR-0008). `EMAIL_MODE` selects the layer.
 - Owner flow locally: enter `dev@tanren.local` in the web app, click the link printed by wrangler.
   Native (iPhone) login in dev depends on the Expo/Better Auth integration (§9).
 

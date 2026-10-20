@@ -1,0 +1,100 @@
+import { Data, Effect, Match, Option } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
+import { apiBaseUrl } from "./apiBaseUrl"
+
+/** Better Auth magic-link endpoint (relative to `apiBaseUrl`). */
+export const MAGIC_LINK_PATH = "/api/auth/sign-in/magic-link"
+
+/**
+ * Internal: the magic-link request did not go through. `invalid-email` = refused before sending;
+ * `unreachable` = no network / server down; `rejected` = non-2xx (e.g. 403 origin not trusted).
+ */
+export class MagicLinkFailed extends Data.TaggedError("MagicLinkFailed")<{
+  readonly reason: "invalid-email" | "unreachable" | "rejected"
+  readonly status: Option.Option<number>
+}> {}
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** The trimmed address, or `None` when it does not look like an email. */
+export const normalizeEmail = (raw: string): Option.Option<string> =>
+  Option.some(raw.trim()).pipe(Option.filter((value) => EMAIL_SHAPE.test(value)))
+
+export interface CallbackInputs {
+  readonly isWeb: boolean
+  /** `window.location.origin` on web, e.g. `"http://localhost:8790"`. */
+  readonly origin: string
+  /** `Linking.createURL("/today")` on native, e.g. `"exp://192.168.1.5:8081/--/today"`. */
+  readonly nativeUrl: string
+}
+
+/** Absolute URL of `/today` that the magic link lands on after verifying. */
+export const todayCallbackUrl = ({ isWeb, origin, nativeUrl }: CallbackInputs): string =>
+  isWeb ? `${origin.replace(/\/+$/, "")}/today` : nativeUrl
+
+/** JSON body of `POST /api/auth/sign-in/magic-link`. */
+export const magicLinkBody = (email: string, callbackURL: string) => ({ email, callbackURL })
+
+/** A short, user-facing explanation (no status codes beyond the one that helps). */
+export const magicLinkFailureMessage = (error: MagicLinkFailed): string =>
+  Match.value(error.reason).pipe(
+    Match.when("invalid-email", () => "Enter a valid email address."),
+    Match.when(
+      "unreachable",
+      () => "Could not reach the server. Check your connection and try again.",
+    ),
+    Match.when(
+      "rejected",
+      () =>
+        `The server refused the request${Option.match(error.status, {
+          onNone: () => "",
+          onSome: (status) => ` (${status})`,
+        })}. Try again.`,
+    ),
+    Match.exhaustive,
+  )
+
+/**
+ * Asks the worker to email a magic link that returns to `callbackURL`. Sends the session cookie
+ * (`credentials: "include"`) and no trace headers (they would fail the CORS preflight), as in
+ * `SyncTransport`. Provides its own HttpClient.
+ */
+export const sendMagicLink = (
+  rawEmail: string,
+  callbackURL: string,
+): Effect.Effect<void, MagicLinkFailed> =>
+  Option.match(normalizeEmail(rawEmail), {
+    onNone: () =>
+      Effect.fail(new MagicLinkFailed({ reason: "invalid-email", status: Option.none() })),
+    onSome: (email) =>
+      Effect.gen(function* () {
+        const baseUrl = yield* apiBaseUrl
+        const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
+        const request = yield* HttpClientRequest.post(`${baseUrl}${MAGIC_LINK_PATH}`).pipe(
+          HttpClientRequest.acceptJson,
+          HttpClientRequest.bodyJson(magicLinkBody(email, callbackURL)),
+        )
+        yield* client
+          .execute(request)
+          .pipe(
+            Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
+            Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+          )
+      }).pipe(
+        Effect.asVoid,
+        Effect.mapError(
+          (cause) =>
+            new MagicLinkFailed({
+              reason:
+                "reason" in cause && cause.reason._tag === "StatusCodeError"
+                  ? "rejected"
+                  : "unreachable",
+              status:
+                "reason" in cause && cause.reason._tag === "StatusCodeError"
+                  ? Option.some(cause.reason.response.status)
+                  : Option.none(),
+            }),
+        ),
+        Effect.provide(FetchHttpClient.layer),
+      ),
+  })

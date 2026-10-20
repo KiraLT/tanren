@@ -1,17 +1,23 @@
-import { Context, Data, Effect, Layer, Match, Ref, Schema } from "effect"
+import { Context, Data, Effect, Layer, Match, type Option, Ref, Schema } from "effect"
+import { FetchHttpClient } from "effect/http"
 import { WorkerConfig } from "../Config"
+import { ResendEmailSender } from "./ResendEmailSender"
 
 /** One magic-link email: the recipient and the sign-in URL Better Auth generated. */
 export const MagicLinkEmail = Schema.Struct({ email: Schema.String, url: Schema.String })
 export type MagicLinkEmail = typeof MagicLinkEmail.Type
 
-/** `EMAIL_MODE=provider` has no email provider yet (docs/design/local-dev.md §4). Internal. */
-export class EmailProviderMissing extends Data.TaggedError("EmailProviderMissing")<{
+/**
+ * The provider did not accept the email: a non-2xx response (`status` is Some) or a transport
+ * failure (None). Internal: Better Auth turns the rejected send into a failed sign-in request.
+ */
+export class EmailSendFailed extends Data.TaggedError("EmailSendFailed")<{
   readonly message: string
+  readonly status: Option.Option<number>
 }> {}
 
 export interface EmailSenderShape {
-  readonly send: (magicLink: MagicLinkEmail) => Effect.Effect<void, EmailProviderMissing>
+  readonly send: (magicLink: MagicLinkEmail) => Effect.Effect<void, EmailSendFailed>
 }
 
 export class EmailSender extends Context.Service<EmailSender, EmailSenderShape>()(
@@ -25,18 +31,8 @@ export class EmailSender extends Context.Service<EmailSender, EmailSenderShape>(
     }),
   )
 
-  /** No provider is chosen yet: every send fails, so sign-in fails loudly instead of silently. */
-  static readonly layerProvider = Layer.succeed(
-    this,
-    this.of({
-      send: () =>
-        Effect.fail(
-          new EmailProviderMissing({
-            message: "EMAIL_MODE=provider: no email provider configured",
-          }),
-        ),
-    }),
-  )
+  /** Production: Resend over the Workers `fetch` (docs/adr/0008). */
+  static readonly layerProvider = ResendEmailSender.layer.pipe(Layer.provide(FetchHttpClient.layer))
 
   /** `EMAIL_MODE` from `WorkerConfig` picks the layer. */
   static readonly layer = Layer.unwrap(

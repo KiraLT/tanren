@@ -7,6 +7,8 @@
     "dev": "expo start",
     "start": "expo start",
     "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "serve:web": "pnpm -F @tanren/worker exec wrangler dev -c wrangler.web.jsonc --port 8790",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --root ../.. --project @tanren/mobile",
     "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Context, Effect, Layer, Option } from "effect"
-import { HttpRouter, HttpServer } from "effect/http"
+import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
 import { authRoutes } from "./authRoutes"
@@ -18,6 +18,8 @@ const envVars = (environment: "local" | "preview"): EnvVars => ({
   BETTER_AUTH_SECRET: "test-only-not-a-secret-000000000000000000000",
   ALLOWED_ORIGINS: ORIGIN,
   EMAIL_MODE: environment === "local" ? "console" : "provider",
+  EMAIL_FROM: "Tanren <dev@tanren.local>",
+  ...(environment === "local" ? {} : { RESEND_API_KEY: "re_test_only_not_a_key" }),
 })
 
 /** Fresh auth stack (memory DB, captured email) with the auth routes served as a Web handler. */
@@ -102,11 +104,17 @@ describe("magic-link sign-in", () => {
     }),
   )
 
-  it.effect("provider mode fails the sign-in request instead of sending", () =>
+  it.effect("provider mode fails the sign-in request when Resend rejects the email", () =>
     Effect.gen(function* () {
       const deps = BetterAuth.layerMemory.pipe(
         Layer.provideMerge(EmailSender.layer),
         Layer.provideMerge(WorkerConfig.layerFromEnv(envVars("preview"))),
+        // No network in tests: the fetch Resend's client uses answers 401 (bad API key).
+        Layer.provideMerge(
+          Layer.succeed(FetchHttpClient.Fetch, () =>
+            Promise.resolve(new Response("{}", { status: 401 })),
+          ),
+        ),
       )
       const context = yield* Layer.build(deps)
       const auth = yield* Context.get(context, BetterAuth).auth

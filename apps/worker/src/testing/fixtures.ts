@@ -7,4 +7,5 @@ export const envVars: EnvVars = {
   BETTER_AUTH_SECRET: "test-secret-0000000000000000000000000000",
   ALLOWED_ORIGINS: "http://localhost:8081",
   EMAIL_MODE: "console",
+  EMAIL_FROM: "Tanren <dev@tanren.local>",
 }
