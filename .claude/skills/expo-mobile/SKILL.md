@@ -99,6 +99,8 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   font sizes, no hex or `rgb()` outside `src/ui/colors.ts` (drift grep: `grep -rn '#[0-9A-Fa-f]\{6\}'
   apps/mobile/src/components apps/mobile/app` must be empty); colours and spacing come from `useTheme()` /
   `useStyles` and the tokens; breakpoints from `useBreakpoint()` (phone < 600, tablet 600–899, desktop >= 900).
+- Copy and hit areas follow design-system.md §1 and §4 (sentence case, no all-caps or `textTransform`,
+  44 px minimum on `IconButton`/`sizes.tap`); review checks them, so apply them before reporting.
 - Web hover/focus: `usePressableInteraction()` (`onHoverIn/Out` state; RNW's `hovered` is runtime-only and
   untyped; ring = `outline*` style, 2 px `colors.focus`, only for `:focus-visible`). New pressables use it.
 - DOM-prop rule: never give `accessibilityElementsHidden` / `importantForAccessibility` to `Svg`,

@@ -6,9 +6,11 @@ paths:
 # React / Expo rules (apps/mobile)
 
 - Function components only, typed props as `readonly` interfaces, no classes.
-- **No Effect inside components.** Components call hooks from `src/hooks/`;
-  hooks are the only place that runs Effects (through a single `runtime`
-  built once in `src/services/runtime.ts`).
+- **No Effect inside components.** Components call hooks; hooks are the only
+  place that runs Effects (through a single `runtime` built once in
+  `src/services/runtime.ts`). A hook used by two or more features lives in
+  `src/hooks/`; a hook used by one feature may live in that feature's folder
+  (`src/player/useProgramDay.ts`), next to the pure module it drives.
 - All data shapes come from `@tanren/shared`; never redeclare a type locally.
 - State: local `useState`/`useReducer` for UI state; persisted data lives in
   the local store service, never in component state.
@@ -18,3 +20,9 @@ paths:
   start (two-column on wide viewports at step 7).
 - Accessibility: large tap targets for ± steppers and "Log set"; labels on
   every pressable.
+- Design system is normative: `docs/design/design-system.md` §1 (sentence
+  case, no all-caps labels, no `letterSpacing`/`textTransform`, one accent)
+  and §4 (`IconButton` 44 px minimum hit area, `sizes.tap`). Read those two
+  sections before writing a screen; the reviewer checks against them and the
+  design team's only second round (2026-10-21) came from an all-caps heading
+  and an undersized hit area.

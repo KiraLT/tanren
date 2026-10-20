@@ -45,6 +45,17 @@ engineer can act on without asking questions.
   report must show it running in its target runtime (`wrangler dev` + `curl`,
   or `ui-check`). Node tests alone are not evidence; missing smoke is
   `blocking`.
+- Auth diffs, security first and in one pass (native-auth took 3 deltas for
+  one allowlist because each finding was reported as it was found): before
+  the hard rules, walk every endpoint that sets, reads or redeems a cookie,
+  code or token and ask, in order: (1) who can make this request with a
+  victim's cookie (Lax cookie + top-level GET = anyone); (2) is every
+  redirect target pinned by exact prefix incl. path, and does the code try
+  `../`, `%2e%2e`, look-alike hosts and sibling tenants (list the bypasses
+  you tried in the finding); (3) is the URL canonical
+  (`new URL(raw).href === raw`); (4) `no-store`, no secret in logs or
+  `Referer`; (5) binding checked before consume. Report all of them in the
+  first round, then the hard rules.
 - Correctness: off-by-one, `Option` / `undefined` handling,
   encode / decode asymmetry, timestamp and timezone handling, sync columns
   present on every row schema.

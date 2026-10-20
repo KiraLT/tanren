@@ -211,6 +211,8 @@ Time box: <sum of the task boxes on the longest dependency chain + 15 min
   20+10+20 → 65 with the new boxes, 29 used; hardening: 35 given, 11 used>
 A port's memory/test implementation (e.g. repos/Repositories.ts) is owned by
   whoever changes the port, even when listed under Read-only.
+Ports: web <W> / API <A> and a scratch `dist` dir for this team (ui-check
+  "Isolated stack"); never the owner's :8787/:8790.
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
   a missing one is a foundation gap, not a team-local file>
@@ -272,6 +274,10 @@ Out: <explicitly not this brief; leave notes instead>
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
 Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless busy, then a spare.
+
+Security (auth / redirect / token work only): design §<n> + architect.md "Auth /
+redirect design checklist" line by line; paste the bypass tests you ran (`../`,
+`%2e%2e`, look-alike host, sibling tenant) — native-auth ran 4 rounds without it.
 
 ## Open questions
 <anything unverified, as a question — "does the session cookie cross :8081→:8787, or is a dev

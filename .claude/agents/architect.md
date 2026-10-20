@@ -62,6 +62,26 @@ an API.
 
 Keep each ADR under a page. Say what you did not decide and why.
 
+## Auth / redirect design checklist (every design that mints a code, token or session)
+
+Write the answer to each line into the design's security section; an unanswered
+line is a `VERIFY:` for the engineer, never silence. native-auth (2026-10-21)
+modelled login CSRF (attacker's code into the victim's app) but not the reverse,
+and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
+- **Cookie-bearing GET that mints a secret**: a Lax session cookie rides any
+  top-level GET from any site, so the endpoint must bind the request to the
+  caller (signed state from a POST the app made, or a double-submit value),
+  not to "has a session".
+- **Redirect target**: allowlist by exact prefix (scheme, host, port AND path
+  down to the tenant/project id), not by host; state the production prefix.
+- **Canonicalisation**: the regex alone is not enough; require
+  `new URL(raw).href === raw` and name the bypass tests (`../`, `%2e%2e`,
+  look-alike host, other project under the same host, non-numeric port).
+- **Token exposure**: `Cache-Control: no-store`, no code/token in logs or
+  `Referer` (HTML page, not 302 with the secret in the URL when a page follows).
+- **Binding before consume**: the code is tied to the challenge/device and
+  checked before it is burned; one-time, short expiry, HTTPS-only redemption.
+
 ## Time box
 
 Default 15 minutes of work. Never spawn or wait on a spike or spike: mark what
