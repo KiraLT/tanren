@@ -7,6 +7,7 @@ import {
   magicLinkFailureMessage,
   normalizeEmail,
   sendMagicLink,
+  signInSupported,
   todayCallbackUrl,
 } from "./magicLink"
 
@@ -21,23 +22,24 @@ describe("normalizeEmail", () => {
   })
 })
 
-describe("todayCallbackUrl", () => {
-  const nativeUrl = "exp://192.168.1.5:8081/--/today"
+describe("signInSupported", () => {
+  it("is true only on web", () => {
+    expect(signInSupported("web")).toBe(true)
+    expect(["ios", "android", "windows", "macos", ""].some(signInSupported)).toBe(false)
+  })
+})
 
-  it("is the page origin plus /today on web", () => {
-    expect(todayCallbackUrl({ isWeb: true, origin: "http://localhost:8790", nativeUrl })).toBe(
-      "http://localhost:8790/today",
-    )
+describe("todayCallbackUrl", () => {
+  it("is the page origin plus /today", () => {
+    expect(todayCallbackUrl("http://localhost:8790")).toBe("http://localhost:8790/today")
   })
 
   it("ignores a trailing slash on the origin", () => {
-    expect(todayCallbackUrl({ isWeb: true, origin: "http://localhost:8790/", nativeUrl })).toBe(
-      "http://localhost:8790/today",
-    )
+    expect(todayCallbackUrl("http://localhost:8790/")).toBe("http://localhost:8790/today")
   })
 
-  it("is the deep link on native", () => {
-    expect(todayCallbackUrl({ isWeb: false, origin: "", nativeUrl })).toBe(nativeUrl)
+  it("never yields an exp:// callback", () => {
+    expect(todayCallbackUrl("http://192.168.1.5:8081").startsWith("exp://")).toBe(false)
   })
 })
 

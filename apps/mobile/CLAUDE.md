@@ -93,7 +93,12 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   (Better Auth `trustedOrigins` = worker `ALLOWED_ORIGINS`); the link's
   redirect is a full page load, so the runtime rebuilds and `CurrentUser`
   resolves the session. Adding a route needs one `expo start` to regenerate
-  `.expo/types/router.d.ts`, else `tsc` rejects `Link href`.
+  `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. **Sign-in is web-only in v1**
+  (`signInSupported(platform)`, true only for web): on native Today shows "Sign in on the web app
+  for now" instead of the link, `/sign-in` shows the same notice, and no `exp://` callback is ever
+  sent (it would be 403 against `trustedOrigins`, and the emailed link opens in Safari, not Expo
+  Go). Native auth is a later task, two candidate designs: a deep link plus a one-time token
+  exchange, or running the auth flow in a WebView.
 - API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
   else `http://localhost:8787`.
 

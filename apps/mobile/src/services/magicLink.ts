@@ -20,17 +20,18 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export const normalizeEmail = (raw: string): Option.Option<string> =>
   Option.some(raw.trim()).pipe(Option.filter((value) => EMAIL_SHAPE.test(value)))
 
-export interface CallbackInputs {
-  readonly isWeb: boolean
-  /** `window.location.origin` on web, e.g. `"http://localhost:8790"`. */
-  readonly origin: string
-  /** `Linking.createURL("/today")` on native, e.g. `"exp://192.168.1.5:8081/--/today"`. */
-  readonly nativeUrl: string
-}
+/**
+ * Sign-in is web-only in v1. A native `exp://` callback is not in the worker's `trustedOrigins`
+ * (403), and the emailed link would open in Safari, not Expo Go, so no native callback exists.
+ * `platform` is `process.env.EXPO_OS`.
+ */
+export const signInSupported = (platform: string): boolean => platform === "web"
 
-/** Absolute URL of `/today` that the magic link lands on after verifying. */
-export const todayCallbackUrl = ({ isWeb, origin, nativeUrl }: CallbackInputs): string =>
-  isWeb ? `${origin.replace(/\/+$/, "")}/today` : nativeUrl
+/** Shown instead of the sign-in entry point where `signInSupported` is false. */
+export const SIGN_IN_WEB_ONLY_NOTICE = "Sign in on the web app for now"
+
+/** Absolute URL of `/today` that the magic link lands on after verifying (web only). */
+export const todayCallbackUrl = (origin: string): string => `${origin.replace(/\/+$/, "")}/today`
 
 /** JSON body of `POST /api/auth/sign-in/magic-link`. */
 export const magicLinkBody = (email: string, callbackURL: string) => ({ email, callbackURL })

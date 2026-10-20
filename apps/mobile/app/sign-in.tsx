@@ -5,7 +5,12 @@ import { StyleSheet, Text, TextInput, View } from "react-native"
 import { BigButton } from "../src/components/BigButton"
 import { Screen } from "../src/components/Screen"
 import { colors, radius, sizes, space } from "../src/components/theme"
-import { type MagicLinkState, useSendMagicLink } from "../src/hooks/useSendMagicLink"
+import {
+  type MagicLinkState,
+  SIGN_IN_SUPPORTED,
+  SIGN_IN_WEB_ONLY_NOTICE,
+  useSendMagicLink,
+} from "../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../src/hooks/useSignedIn"
 
 const DEV_EMAIL = "dev@tanren.local"
@@ -52,53 +57,67 @@ export default function SignInScreen() {
   const backToToday = () => router.replace("/today")
 
   // Loading shows only the heading, so someone already signed in never sees the form flash.
-  const body = Match.value(signedIn).pipe(
-    Match.tagsExhaustive({
-      Loading: () => null,
-      SignedIn: () => (
-        <>
-          <Text style={styles.body}>You are signed in.</Text>
-          <BigButton
-            label="Back to Today"
-            accessibilityLabel="Back to Today"
-            variant="primary"
-            onPress={backToToday}
-          />
-        </>
-      ),
-      SignedOut: () => (
-        <>
-          <Text style={styles.body}>We email you a link. Open it on this device.</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Email address"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            autoCorrect={false}
-            editable={!sending}
-            onSubmitEditing={() => send(email)}
-          />
-          <BigButton
-            label={sending ? "Sending…" : "Send magic link"}
-            accessibilityLabel="Send magic link"
-            variant="primary"
-            disabled={sending}
-            onPress={() => send(email)}
-          />
-          <Status state={state} />
-          <BigButton
-            label="Back to Today"
-            accessibilityLabel="Back to Today"
-            onPress={backToToday}
-          />
-        </>
-      ),
-    }),
+  const body = !SIGN_IN_SUPPORTED ? (
+    <>
+      <Text style={styles.body} accessibilityLabel={SIGN_IN_WEB_ONLY_NOTICE}>
+        {SIGN_IN_WEB_ONLY_NOTICE}
+      </Text>
+      <BigButton
+        label="Back to Today"
+        accessibilityLabel="Back to Today"
+        variant="primary"
+        onPress={backToToday}
+      />
+    </>
+  ) : (
+    Match.value(signedIn).pipe(
+      Match.tagsExhaustive({
+        Loading: () => null,
+        SignedIn: () => (
+          <>
+            <Text style={styles.body}>You are signed in.</Text>
+            <BigButton
+              label="Back to Today"
+              accessibilityLabel="Back to Today"
+              variant="primary"
+              onPress={backToToday}
+            />
+          </>
+        ),
+        SignedOut: () => (
+          <>
+            <Text style={styles.body}>We email you a link. Open it on this device.</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={colors.textMuted}
+              accessibilityLabel="Email address"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              editable={!sending}
+              onSubmitEditing={() => send(email)}
+            />
+            <BigButton
+              label={sending ? "Sending…" : "Send magic link"}
+              accessibilityLabel="Send magic link"
+              variant="primary"
+              disabled={sending}
+              onPress={() => send(email)}
+            />
+            <Status state={state} />
+            <BigButton
+              label="Back to Today"
+              accessibilityLabel="Back to Today"
+              onPress={backToToday}
+            />
+          </>
+        ),
+      }),
+    )
   )
 
   return (

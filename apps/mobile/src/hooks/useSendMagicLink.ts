@@ -1,8 +1,18 @@
 import { Cause, Exit, Option, Predicate } from "effect"
-import * as Linking from "expo-linking"
 import { useCallback, useState } from "react"
-import { magicLinkFailureMessage, sendMagicLink, todayCallbackUrl } from "../services/magicLink"
+import {
+  magicLinkFailureMessage,
+  SIGN_IN_WEB_ONLY_NOTICE,
+  sendMagicLink,
+  signInSupported,
+  todayCallbackUrl,
+} from "../services/magicLink"
 import { runtime } from "../services/runtime"
+
+/** False on native: sign-in is web-only in v1 (see `signInSupported`). */
+export const SIGN_IN_SUPPORTED = signInSupported(process.env.EXPO_OS ?? "")
+
+export { SIGN_IN_WEB_ONLY_NOTICE }
 
 export type MagicLinkState =
   | { readonly _tag: "Idle" }
@@ -12,13 +22,8 @@ export type MagicLinkState =
 
 const GENERIC_FAILURE = "Something went wrong. Try again."
 
-/** Absolute URL of `/today` in this app: the page origin on web, the Expo deep link on native. */
-const callbackUrl = (): string =>
-  todayCallbackUrl({
-    isWeb: process.env.EXPO_OS === "web",
-    origin: process.env.EXPO_OS === "web" ? window.location.origin : "",
-    nativeUrl: Linking.createURL("/today"),
-  })
+/** Absolute URL of `/today` on the web page origin (only called where sign-in is supported). */
+const callbackUrl = (): string => todayCallbackUrl(window.location.origin)
 
 /**
  * Requests a magic link for an email. The promise-free `send` moves the state Idle, Sending, then
@@ -30,6 +35,10 @@ export const useSendMagicLink = (): {
 } => {
   const [state, setState] = useState<MagicLinkState>({ _tag: "Idle" })
   const send = useCallback((email: string) => {
+    if (!SIGN_IN_SUPPORTED) {
+      setState({ _tag: "Failed", message: SIGN_IN_WEB_ONLY_NOTICE })
+      return
+    }
     setState({ _tag: "Sending" })
     runtime.runPromiseExit(sendMagicLink(email, callbackUrl())).then((exit) => {
       setState(

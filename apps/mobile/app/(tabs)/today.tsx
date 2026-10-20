@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Screen } from "../../src/components/Screen"
 import { TodayReady } from "../../src/components/TodayReady"
 import { colors, radius, space } from "../../src/components/theme"
+import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
 
@@ -61,6 +62,15 @@ function SignInEntry() {
   if (signedIn._tag !== "SignedOut") {
     return null
   }
+  if (!SIGN_IN_SUPPORTED) {
+    return (
+      <View style={[styles.entry, { top: insets.top + space.sm }]} pointerEvents="none">
+        <Text style={styles.notice} accessibilityLabel={SIGN_IN_WEB_ONLY_NOTICE}>
+          {SIGN_IN_WEB_ONLY_NOTICE}
+        </Text>
+      </View>
+    )
+  }
   return (
     <View style={[styles.entry, { top: insets.top + space.sm }]} pointerEvents="box-none">
       <Link href="/sign-in" asChild>
@@ -99,6 +109,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   entryPressed: { opacity: 0.7 },
+  notice: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
   entryLabel: { color: colors.accent, fontSize: 18, fontWeight: "800" },
   message: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg, gap: 12 },
   title: { color: colors.text, fontSize: 32, fontWeight: "900", textAlign: "center" },
