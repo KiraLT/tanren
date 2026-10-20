@@ -78,7 +78,11 @@ const requestThrough = (
 ) =>
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      authRoutes.pipe(Layer.provide(deps), Layer.provide(HttpServer.layerServices)),
+      authRoutes.pipe(
+        Layer.provide(deps),
+        Layer.provide(WorkerConfig.layerFromEnv(envVars("local"))), // native routes read the secret
+        Layer.provide(HttpServer.layerServices),
+      ),
       { disableLogger: true },
     )
     yield* Effect.addFinalizer(() => Effect.promise(dispose))

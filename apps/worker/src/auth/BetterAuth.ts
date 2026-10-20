@@ -1,5 +1,5 @@
 import { type BetterAuthOptions, betterAuth } from "better-auth"
-import { magicLink } from "better-auth/plugins"
+import { bearer, magicLink, oneTimeToken } from "better-auth/plugins"
 import { Context, Effect, Layer, Option, Redacted } from "effect"
 import { type Environment, WorkerConfig, type WorkerConfigShape } from "../Config"
 import { DEV_USER_EMAIL, DEV_USER_ID } from "./devUser"
@@ -15,6 +15,17 @@ export const seedUserId = (environment: Environment, email: string): Option.Opti
   environment === "local" && email.toLowerCase() === DEV_USER_EMAIL
     ? Option.some(DEV_USER_ID)
     : Option.none()
+
+/**
+ * Better Auth turns its limiter on only when `NODE_ENV === "production"`, which the deployed Worker
+ * never sets (`dist/context/create-context.mjs:172`: `enabled ?? isProduction`). Production is
+ * therefore explicit, from our `ENVIRONMENT`; elsewhere Better Auth's default stays (off, unless a
+ * test stubs `NODE_ENV`, as `rateLimit.workerd.test.ts` does).
+ */
+export const rateLimitFor = (
+  environment: Environment,
+): NonNullable<BetterAuthOptions["rateLimit"]> =>
+  environment === "production" ? { enabled: true } : {}
 
 const makeAuth = (
   config: WorkerConfigShape,
@@ -32,7 +43,17 @@ const makeAuth = (
     basePath: "/api/auth",
     secret: Redacted.value(config.betterAuthSecret),
     trustedOrigins: [...config.allowedOrigins],
-    advanced: { database: { generateId: "uuid" } },
+    // Server-only: the bare one-time token must never be redeemable over HTTP; the native exchange
+    // (`POST /api/native/session`, binding checked first) is the only door. Entries are relative to
+    // `basePath` (`normalizePathname`), and `auth.api.*` calls bypass the list.
+    disabledPaths: ["/one-time-token/generate", "/one-time-token/verify"],
+    rateLimit: rateLimitFor(config.environment),
+    advanced: {
+      database: { generateId: "uuid" },
+      // The rate limiter keys on the first of these headers that holds a valid IP (default
+      // `x-forwarded-for`, which a caller sets freely). Cloudflare overwrites `cf-connecting-ip`.
+      ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] },
+    },
     // A non-API error (a rejected `sendMagicLink`, a D1 failure) rejects `auth.handler` instead of
     // becoming Better Auth's empty 500, so `authRoutes` can answer 502 / 503. API errors (4xx,
     // redirects) are still turned into responses by the router (better-call `router.mjs`).
@@ -56,6 +77,17 @@ const makeAuth = (
         // sign-in request fails instead of pretending an email went out.
         sendMagicLink: ({ email, url }) =>
           Effect.runPromiseWith(context)(sender.send({ email, url })),
+      }),
+      // `Authorization: Bearer <session.token>` → the session cookie, also for
+      // `auth.api.getSession({ headers })` (SessionsLive), so the native app needs no cookie.
+      bearer(),
+      // The native code's one-time half: single use, 5 min, stored hashed in `verification`.
+      // Generated and consumed only through `auth.api.*` (see `disabledPaths`).
+      oneTimeToken({
+        expiresIn: 5,
+        disableClientRequest: true,
+        disableSetSessionCookie: true,
+        storeToken: "hashed",
       }),
     ],
   })

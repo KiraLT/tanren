@@ -62,7 +62,11 @@ const failingBuild = Layer.succeed(
 const requestWith = (betterAuth: Layer.Layer<BetterAuth, unknown>) =>
   Effect.gen(function* () {
     const { handler, dispose } = HttpRouter.toWebHandler(
-      authRoutes.pipe(Layer.provide(betterAuth), Layer.provide(HttpServer.layerServices)),
+      authRoutes.pipe(
+        Layer.provide(betterAuth),
+        Layer.provide(WorkerConfig.layerFromEnv(envVars)), // the native routes read the secret
+        Layer.provide(HttpServer.layerServices),
+      ),
       { disableLogger: true },
     )
     yield* Effect.addFinalizer(() => Effect.promise(dispose))

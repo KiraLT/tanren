@@ -3,6 +3,7 @@ import { Data, Effect, Layer, Schema } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { BetterAuth } from "./BetterAuth"
 import { EmailSendFailed } from "./Email"
+import { nativeAuthRoutes } from "./nativeAuthRoutes"
 
 /** Internal: the auth service or its store could not answer (D1 down, instance failed to build). */
 class AuthStoreFailed extends Data.TaggedError("AuthStoreFailed")<{ readonly cause: unknown }> {}
@@ -46,7 +47,7 @@ const internal = (defect: unknown) =>
  * Auth must run with `onAPIError.throw` for it to reach here) is 502 `EmailDeliveryFailed`. Any
  * other defect is 500 `InternalError`.
  */
-export const authRoutes = Layer.unwrap(
+const betterAuthMount = Layer.unwrap(
   Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
     return HttpRouter.add("*", "/api/auth/*", (request) =>
@@ -68,3 +69,9 @@ export const authRoutes = Layer.unwrap(
     )
   }),
 )
+
+/**
+ * Every auth route: the Better Auth mount plus native sign-in (`/auth/native/complete`,
+ * `/api/native/session`), so `app.ts` and `index.ts` wire one layer.
+ */
+export const authRoutes = Layer.mergeAll(betterAuthMount, nativeAuthRoutes)
