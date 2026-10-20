@@ -1,1 +1,2 @@
 - [Task sheet conventions](feedback_task_sheets.md) — charter fields, `accepted (Lead delegation)` wording, one owner per shared file, check existing sheets first
+- [Lead constraints v2](feedback_lead_constraints.md) — permissions line in every brief; opus only foundation+reviewer; sonnet from spec; ≤3 parallel
