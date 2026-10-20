@@ -1,4 +1,4 @@
-import { Cause, Exit, Option, Predicate } from "effect"
+import { Cause, Effect, Exit, Option, Predicate } from "effect"
 import { useCallback, useState } from "react"
 import {
   magicLinkFailureMessage,
@@ -7,23 +7,38 @@ import {
   signInSupported,
   todayCallbackUrl,
 } from "../services/magicLink"
+import { NativeSession, nativeSignInFailureMessage } from "../services/NativeSession"
 import { runtime } from "../services/runtime"
 
-/** False on native: sign-in is web-only in v1 (see `signInSupported`). */
+/** True on web (cookie) and on iOS / Android (one-time code deep link, see `NativeSession`). */
 export const SIGN_IN_SUPPORTED = signInSupported(process.env.EXPO_OS ?? "")
 
 export { SIGN_IN_WEB_ONLY_NOTICE }
 
+const IS_WEB = process.env.EXPO_OS === "web"
+
 export type MagicLinkState =
   | { readonly _tag: "Idle" }
   | { readonly _tag: "Sending" }
-  | { readonly _tag: "Sent" }
+  | { readonly _tag: "Sent"; readonly hint: string }
   | { readonly _tag: "Failed"; readonly message: string }
 
 const GENERIC_FAILURE = "Something went wrong. Try again."
 
-/** Absolute URL of `/today` on the web page origin (only called where sign-in is supported). */
-const callbackUrl = (): string => todayCallbackUrl(window.location.origin)
+/** Shown after the link was requested: where to open it. */
+const SENT_HINT = IS_WEB ? "Open the link on this device." : "Open the link on this iPhone."
+
+/**
+ * Web: the callbackURL is `<origin>/today`. Native: `NativeSession.begin` stores a fresh PKCE
+ * verifier and returns the worker's `/auth/native/complete?challenge=…&returnTo=…` callbackURL.
+ */
+const requestLink = (email: string) =>
+  IS_WEB
+    ? sendMagicLink(email, todayCallbackUrl(window.location.origin))
+    : NativeSession.use((session) => session.begin).pipe(
+        Effect.flatMap((callbackURL) => sendMagicLink(email, callbackURL)),
+        Effect.provide(NativeSession.layer),
+      )
 
 /**
  * Requests a magic link for an email. The promise-free `send` moves the state Idle, Sending, then
@@ -40,7 +55,7 @@ export const useSendMagicLink = (): {
       return
     }
     setState({ _tag: "Sending" })
-    runtime.runPromiseExit(sendMagicLink(email, callbackUrl())).then((exit) => {
+    runtime.runPromiseExit(requestLink(email)).then((exit) => {
       setState(
         Exit.match(exit, {
           // The cause also carries runtime-build failures (store errors): only ours is explained.
@@ -51,10 +66,12 @@ export const useSendMagicLink = (): {
               onSome: (error) =>
                 Predicate.isTagged(error, "MagicLinkFailed")
                   ? magicLinkFailureMessage(error)
-                  : GENERIC_FAILURE,
+                  : Predicate.isTagged(error, "NativeSignInFailed")
+                    ? nativeSignInFailureMessage(error.reason)
+                    : GENERIC_FAILURE,
             }),
           }),
-          onSuccess: () => ({ _tag: "Sent" }),
+          onSuccess: () => ({ _tag: "Sent", hint: SENT_HINT }),
         }),
       )
     })

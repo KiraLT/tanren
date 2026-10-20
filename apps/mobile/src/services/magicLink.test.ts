@@ -5,6 +5,7 @@ import {
   MagicLinkFailed,
   magicLinkBody,
   magicLinkFailureMessage,
+  nativeCallbackUrl,
   normalizeEmail,
   sendMagicLink,
   signInSupported,
@@ -23,9 +24,22 @@ describe("normalizeEmail", () => {
 })
 
 describe("signInSupported", () => {
-  it("is true only on web", () => {
-    expect(signInSupported("web")).toBe(true)
-    expect(["ios", "android", "windows", "macos", ""].some(signInSupported)).toBe(false)
+  it("is true on web, ios and android only", () => {
+    expect(["web", "ios", "android"].every(signInSupported)).toBe(true)
+    expect(["windows", "macos", ""].some(signInSupported)).toBe(false)
+  })
+})
+
+describe("nativeCallbackUrl", () => {
+  it("is the worker's complete page with the challenge and the encoded deep link", () => {
+    const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+    const returnTo = "exp://192.168.1.5:8081/--/auth/callback"
+    const url = nativeCallbackUrl(challenge, returnTo)
+    expect(url.startsWith("/auth/native/complete?")).toBe(true)
+    const params = new URL(url, "http://api.test").searchParams
+    expect(params.get("challenge")).toBe(challenge)
+    expect(params.get("returnTo")).toBe(returnTo)
+    expect(url).toContain("returnTo=exp%3A%2F%2F192.168.1.5%3A8081%2F--%2Fauth%2Fcallback")
   })
 })
 

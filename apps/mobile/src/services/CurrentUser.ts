@@ -1,15 +1,36 @@
 import { UserId } from "@tanren/shared"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Schema, Stream, SubscriptionRef } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { LOCAL_USER_ID } from "../store/localUser"
 import { readOwner } from "../store/syncQueries"
 import { apiBaseUrl } from "./apiBaseUrl"
 import { LocalStore } from "./LocalStore"
+import { NativeSession, withSession } from "./NativeSession"
 
 export interface CurrentUserShape {
   /** The signed-in user; `None` when nobody is signed in (local demo mode, `LOCAL_USER_ID`). */
   readonly signedIn: Effect.Effect<Option.Option<UserId>>
+  /** Resolves again (after a native sign-in exchange or sign-out), publishes it to `changes`. */
+  readonly refresh: Effect.Effect<Option.Option<UserId>>
+  /** The current value first, then every later `refresh` result. */
+  readonly changes: Stream.Stream<Option.Option<UserId>>
 }
+
+/**
+ * A `CurrentUser` whose value lives in a `SubscriptionRef`: `resolve` runs once now (the initial
+ * value) and again on every `refresh`.
+ */
+export const currentUserFrom = (
+  resolve: Effect.Effect<Option.Option<UserId>>,
+): Effect.Effect<CurrentUserShape> =>
+  Effect.gen(function* () {
+    const ref = yield* SubscriptionRef.make(yield* resolve)
+    return {
+      signedIn: SubscriptionRef.get(ref),
+      refresh: resolve.pipe(Effect.tap((userId) => SubscriptionRef.set(ref, userId))),
+      changes: SubscriptionRef.changes(ref),
+    }
+  })
 
 /**
  * Better Auth `GET /api/auth/get-session` body: `null` when signed out, else `{ session, user }`.
@@ -42,20 +63,28 @@ export const resolveSignedIn = <E, R1, R2>(inputs: {
 
 const SESSION_TIMEOUT = "3 seconds"
 
-const fetchSession = (baseUrl: string) =>
+/**
+ * `GET /api/auth/get-session` with the session cookie (web) or the stored Bearer token (native).
+ * A `null` body while a token is stored means the session expired: the token is cleared.
+ */
+export const fetchSession = (baseUrl: string) =>
   Effect.gen(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
-    const response = yield* client
-      .execute(
-        HttpClientRequest.get(`${baseUrl}/api/auth/get-session`).pipe(HttpClientRequest.acceptJson),
-      )
-      .pipe(
-        // Session cookie, and no trace headers (CORS preflight), as in SyncTransport.
-        Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
-        Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-      )
+    const native = yield* NativeSession
+    const request = yield* withSession(
+      HttpClientRequest.get(`${baseUrl}/api/auth/get-session`).pipe(HttpClientRequest.acceptJson),
+    )
+    const response = yield* client.execute(request).pipe(
+      // Session cookie, and no trace headers (CORS preflight), as in SyncTransport.
+      Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
+      Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+    )
     const body = yield* HttpClientResponse.schemaBodyJson(SessionBody)(response)
-    return Option.map(Option.fromNullishOr(body), ({ user }) => user.id)
+    const userId = Option.map(Option.fromNullishOr(body), ({ user }) => user.id)
+    if (Option.isNone(userId) && Option.isSome(yield* native.token)) {
+      yield* native.clear
+    }
+    return userId
   }).pipe(Effect.timeout(SESSION_TIMEOUT))
 
 const storedOwner = LocalStore.use((store) => store.all(readOwner)).pipe(
@@ -64,26 +93,44 @@ const storedOwner = LocalStore.use((store) => store.all(readOwner)).pipe(
   Effect.orElseSucceed(() => Option.none<UserId>()),
 )
 
-/** The signed-in user, resolved once when the app runtime is built (no sign-in UI yet). */
+/**
+ * The signed-in user: resolved when the app runtime is built, and again on `refresh` (after a
+ * native sign-in exchange or a sign-out); `changes` streams every result to the UI.
+ */
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserShape>()(
   "@tanren/CurrentUser",
 ) {
-  /** App: dev override, worker session, stored owner (see `resolveSignedIn`). Needs LocalStore. */
+  /**
+   * App: dev override, worker session (cookie on web, Bearer from `NativeSession` on native),
+   * stored owner (see `resolveSignedIn`). Needs LocalStore.
+   */
   static readonly layer = Layer.effect(
     this,
-    resolveSignedIn({
-      // Static access only: Expo inlines `process.env.EXPO_PUBLIC_*` / `NODE_ENV` at bundle time.
-      devUserId:
-        process.env.NODE_ENV === "production"
-          ? Option.none()
-          : parseDevUserId(process.env.EXPO_PUBLIC_DEV_USER_ID),
-      session: apiBaseUrl.pipe(Effect.flatMap(fetchSession)),
-      storedOwner,
-    }).pipe(Effect.map((signedIn) => CurrentUser.of({ signedIn: Effect.succeed(signedIn) }))),
-  ).pipe(Layer.provide(FetchHttpClient.layer))
+    Effect.gen(function* () {
+      const context = yield* Effect.context<HttpClient.HttpClient | NativeSession | LocalStore>()
+      return yield* currentUserFrom(
+        resolveSignedIn({
+          // Static access only: Expo inlines `process.env.EXPO_PUBLIC_*` / `NODE_ENV` at bundle time.
+          devUserId:
+            process.env.NODE_ENV === "production"
+              ? Option.none()
+              : parseDevUserId(process.env.EXPO_PUBLIC_DEV_USER_ID),
+          session: apiBaseUrl.pipe(Effect.flatMap(fetchSession)),
+          storedOwner,
+        }).pipe(Effect.provide(context)),
+      )
+    }),
+  ).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, NativeSession.layer)))
 
   static readonly layerTest = (signedIn: Option.Option<UserId>) =>
-    Layer.succeed(this, this.of({ signedIn: Effect.succeed(signedIn) }))
+    Layer.succeed(
+      this,
+      this.of({
+        signedIn: Effect.succeed(signedIn),
+        refresh: Effect.succeed(signedIn),
+        changes: Stream.make(signedIn),
+      }),
+    )
 }
 
 /** Owner of new local rows: the signed-in user, else `LOCAL_USER_ID`. */
