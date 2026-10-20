@@ -146,6 +146,8 @@ piped through `apps/worker/scripts/linkQr.mjs`, which passes every line through 
 after each `magic link for <email>: <url>` line (`uqr`, a worker devDependency; never in the bundle).
 The LAN IP is detected (`ipconfig getifaddr en0`, Wi-Fi on macOS); override with `LAN_IP=192.168.x.y pnpm dev:phone`
 (other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (BETTER_AUTH_URL follows).
+`dev:phone` also sets `NATIVE_RETURN_HOSTS=localhost,127.0.0.1,<LAN IP>`, because the worker only links back
+to pinned Expo hosts (`exp://<host>/--/auth/callback`), and Expo Go's host here is the Mac's LAN IP.
 
 1. Terminal A: `pnpm dev:phone` (API only; wait for `Ready on http://0.0.0.0:8787`).
 2. Terminal B: `pnpm -F @tanren/mobile dev`; scan the Expo QR with the iPhone camera → Expo Go.
