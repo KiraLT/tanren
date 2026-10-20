@@ -1,0 +1,20 @@
+# dependencies and build output
+node_modules
+dist
+coverage
+*.tsbuildinfo
+
+# Cloudflare / Expo local state
+.wrangler
+.expo
+
+# secrets (never read or committed by agents)
+.dev.vars*
+.env*
+
+# OS
+.DS_Store
+
+# Claude Code local-only files
+.claude/settings.local.json
+.claude/agent-memory-local

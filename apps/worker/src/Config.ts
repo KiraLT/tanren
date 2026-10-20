@@ -1,0 +1,75 @@
+import { Context, Data, Effect, Layer, Option, type Redacted, Schema } from "effect"
+
+/** Startup failure: the env is incomplete or unsafe. Internal; the Worker refuses to serve. */
+export class ConfigError extends Data.TaggedError("ConfigError")<{
+  readonly message: string
+}> {}
+
+export const Environment = Schema.Literals(["local", "preview", "production"])
+export type Environment = typeof Environment.Type
+
+export const EmailMode = Schema.Literals(["console", "provider"])
+export type EmailMode = typeof EmailMode.Type
+
+/** The raw vars wrangler injects (docs/design/local-dev.md §2). Extra keys such as `DB` are ignored. */
+const RawEnv = Schema.Struct({
+  ENVIRONMENT: Environment,
+  BETTER_AUTH_URL: Schema.NonEmptyString,
+  BETTER_AUTH_SECRET: Schema.RedactedFromValue(Schema.NonEmptyString),
+  ALLOWED_ORIGINS: Schema.String,
+  EMAIL_MODE: EmailMode,
+  DEV_MCP_TOKEN: Schema.optionalKey(Schema.RedactedFromValue(Schema.NonEmptyString)),
+})
+
+export interface WorkerConfigShape {
+  readonly environment: Environment
+  readonly betterAuthUrl: string
+  readonly betterAuthSecret: Redacted.Redacted<string>
+  readonly allowedOrigins: ReadonlyArray<string>
+  readonly emailMode: EmailMode
+  readonly devMcpToken: Option.Option<Redacted.Redacted<string>>
+}
+
+const splitOrigins = (raw: string): ReadonlyArray<string> =>
+  raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0)
+
+export class WorkerConfig extends Context.Service<WorkerConfig, WorkerConfigShape>()(
+  "@tanren/worker/WorkerConfig",
+) {
+  /**
+   * Decodes the Worker env. `env` is `unknown` because it is a boundary: pass the `Env` binding
+   * object. Fails with `ConfigError` for missing or malformed vars and for the guard in
+   * docs/design/local-dev.md §2: outside `local`, console email or a dev MCP token is refused.
+   */
+  static readonly layerFromEnv = (env: unknown): Layer.Layer<WorkerConfig, ConfigError> =>
+    Layer.effect(
+      WorkerConfig,
+      Effect.gen(function* () {
+        const raw = yield* Schema.decodeUnknownEffect(RawEnv)(env).pipe(
+          Effect.mapError((error) => new ConfigError({ message: error.message })),
+        )
+        const devMcpToken = Option.fromNullishOr(raw.DEV_MCP_TOKEN)
+        if (raw.ENVIRONMENT !== "local" && raw.EMAIL_MODE === "console") {
+          return yield* new ConfigError({
+            message: `EMAIL_MODE "console" is only allowed when ENVIRONMENT is "local" (got "${raw.ENVIRONMENT}")`,
+          })
+        }
+        if (raw.ENVIRONMENT !== "local" && Option.isSome(devMcpToken)) {
+          return yield* new ConfigError({
+            message: `DEV_MCP_TOKEN must not be set when ENVIRONMENT is "${raw.ENVIRONMENT}"`,
+          })
+        }
+        return {
+          environment: raw.ENVIRONMENT,
+          betterAuthUrl: raw.BETTER_AUTH_URL,
+          betterAuthSecret: raw.BETTER_AUTH_SECRET,
+          allowedOrigins: splitOrigins(raw.ALLOWED_ORIGINS),
+          emailMode: raw.EMAIL_MODE,
+          devMcpToken,
+        }
+      }),
+    )
+}

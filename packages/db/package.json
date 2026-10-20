@@ -1,0 +1,30 @@
+{
+  "name": "@tanren/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. --project @tanren/db",
+    "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/db"
+  },
+  "dependencies": {
+    "@effect/sql-d1": "catalog:",
+    "@tanren/shared": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@effect/vitest": "catalog:",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "tanren",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "scripts": {
+    "check": "pnpm check:plugins && biome ci --error-on-warnings . && pnpm typecheck && vitest run",
+    "check:plugins": "node .biome/selftest.mjs",
+    "db:migrate": "pnpm -F @tanren/worker db:migrate",
+    "db:seed": "pnpm -F @tanren/worker db:seed",
+    "db:reset": "pnpm -F @tanren/worker db:reset",
+    "smoke:worker": "pnpm -F @tanren/worker smoke",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "typecheck": "pnpm typecheck:root && pnpm -r typecheck",
+    "typecheck:root": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

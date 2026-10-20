@@ -1,0 +1,91 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "apps/**",
+      "packages/**",
+      "*.json",
+      "*.jsonc",
+      "*.ts",
+      ".biome/*.mjs",
+      "!!**/node_modules",
+      "!!**/dist",
+      "!!**/.wrangler",
+      "!!**/.expo",
+      "!!**/.claude",
+      // Plugin self-test fixtures violate the rules on purpose; .biome/selftest.mjs lints them.
+      "!!**/.biome/fixtures",
+      // drizzle-kit output (SQL + meta JSON): generated, rewritten on every `generate`.
+      "!!**/packages/db/migrations"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "double",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "noIncrementDecrement": "error",
+        "noNamespace": "error",
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "useConst": "error",
+        "useImportType": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noForIn": "error",
+        "noVar": "error"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  // Functional-rule plugins (S1-T0). Their diagnostics show the category `plugin`; suppress one
+  // line with `// biome-ignore lint/plugin/<file-stem>: <reason>`, e.g. lint/plugin/noMutation.
+  "plugins": [
+    "./.biome/noLet.grit",
+    "./.biome/noThrow.grit",
+    "./.biome/noMutation.grit",
+    "./.biome/noLoop.grit"
+  ],
+  "overrides": [
+    {
+      // noClass is declared here, not in top-level `plugins`, so the adapter files can be
+      // excluded: overrides[].plugins only ADD plugins, they never remove a top-level one.
+      "includes": ["**", "!**/apps/worker/src/mcp/**", "!**/apps/worker/src/index.ts"],
+      "plugins": ["./.biome/noClass.grit"]
+    },
+    {
+      // Ambient declaration files merge into global namespaces (e.g. `Cloudflare.Env`): the only
+      // way to type bindings. `noNamespace` stays on everywhere else.
+      "includes": ["**/*.d.ts"],
+      "linter": { "rules": { "style": { "noNamespace": "off" } } }
+    }
+  ]
+}

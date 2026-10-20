@@ -1,0 +1,15 @@
+{
+  // Test-only Worker config for the @tanren/worker-workerd vitest project (vitest.workerd.config.ts).
+  // Each test file gets isolated D1 storage; nothing here reaches Cloudflare.
+  "name": "tanren-worker-test",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tanren-test",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ]
+}

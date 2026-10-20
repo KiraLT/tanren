@@ -1,0 +1,1 @@
+- [agent-browser UI check](reference_agent_browser.md) — driving Expo web headless: offline via `set offline`, zsh function wrapper, Chrome in ~

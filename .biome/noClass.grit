@@ -1,0 +1,74 @@
+// noClass: Tanren functional rule 2, no `class` outside adapters.
+//
+// Pattern: JsClassDeclaration, JsClassExpression and JsClassExportDefaultDeclaration, EXCEPT
+//  1. Effect class factories: the `extends` clause calls an allowed factory once
+//     (`extends Data.TaggedError("NotFound")<{...}>`) or twice
+//     (`extends Context.Service<Self, Shape>()("@tanren/Foo")`, `extends Schema.Class<Self>("Id")({...})`).
+//     Allowed, as written in source: Context.Service, Context.Tag, Effect.Service, Data.TaggedError,
+//     Data.TaggedClass, Schema.Class, Schema.TaggedError, Schema.TaggedClass,
+//     HttpApiMiddleware.Service (Effect 4 HttpApi middleware, e.g. auth at build step 3).
+//  2. HttpApi definitions: the `extends` clause is a method chain rooted at `HttpApi.make(...)` or
+//     `HttpApiGroup.make(...)`, e.g. `class SetsApi extends HttpApiGroup.make("sets").add(...) {}`
+//     (effect-conventions section 7).
+//  3. Ambient declarations (`declare class`, `export declare class`, classes inside
+//     `declare module` / `declare global` / `declare namespace`): type-only, no runtime class.
+// To allow another factory, add it to `effect_class_factory` (or a new alternative to
+// `allowed_base`).
+// Adapter files (apps/worker/src/mcp/**, apps/worker/src/index.ts) are exempt by configuration:
+// biome.jsonc declares this plugin inside an `overrides` entry whose `includes` exclude them.
+// There is no Biome built-in that bans classes.
+//
+// Known gaps / limits (syntactic match on the written names):
+//  - Aliased imports are not recognised (`import { Context as C }` then `extends C.Service`).
+//  - Other factories are flagged, e.g. `Person.extend<X>("X")({...})` (Schema class extension),
+//    `Schema.Opaque<X>()(...)`, `Schema.TaggedRequest`, `Data.Class`, `Data.Error`: add them when
+//    the codebase needs them.
+//  - An allowed factory used anywhere else in the `extends` expression
+//    (`extends mixin(Data.TaggedError)`, `extends wrap(HttpApi.make("x"))`) is flagged on purpose.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noClass: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+pattern effect_class_factory() {
+	or {
+		`Context.Service`,
+		`Context.Tag`,
+		`Effect.Service`,
+		`Data.TaggedError`,
+		`Data.TaggedClass`,
+		`Schema.Class`,
+		`Schema.TaggedError`,
+		`Schema.TaggedClass`,
+		`HttpApiMiddleware.Service`
+	}
+}
+
+// `HttpApi.make(...)` / `HttpApiGroup.make(...)` followed by any number of `.method(...)` calls.
+pattern http_api_definition() {
+	or {
+		JsCallExpression(callee = or { `HttpApi.make`, `HttpApiGroup.make` }),
+		JsCallExpression(callee = JsStaticMemberExpression(object = http_api_definition()))
+	}
+}
+
+pattern allowed_base() {
+	JsExtendsClause(super_class = or {
+		JsCallExpression(callee = effect_class_factory()),
+		JsCallExpression(callee = JsCallExpression(callee = effect_class_factory())),
+		http_api_definition()
+	})
+}
+
+or { JsClassDeclaration(), JsClassExpression(), JsClassExportDefaultDeclaration() } as $class where {
+	not $class <: or {
+		JsClassDeclaration(extends_clause = allowed_base()),
+		JsClassExpression(extends_clause = allowed_base()),
+		JsClassExportDefaultDeclaration(extends_clause = allowed_base())
+	},
+	not $class <: within or { TsDeclareStatement(), TsExportDeclareClause() },
+	register_diagnostic(
+		span = $class,
+		message = "lint/plugin/noClass: classes are only allowed for Effect declarations (Context.Service/Tag, Effect.Service, Data.TaggedError/TaggedClass, Schema.Class/TaggedError/TaggedClass, HttpApiMiddleware.Service, HttpApi/HttpApiGroup.make chains) and in adapter files. Use functions, Schema and Layer instead.",
+		severity = "error"
+	)
+}

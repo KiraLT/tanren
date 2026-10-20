@@ -1,0 +1,40 @@
+{
+  "name": "@tanren/mobile",
+  "private": true,
+  "type": "module",
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "start": "expo start",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. --project @tanren/mobile",
+    "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "catalog:",
+    "@tanren/shared": "workspace:*",
+    "effect": "catalog:",
+    "expo": "catalog:",
+    "expo-constants": "catalog:",
+    "expo-crypto": "catalog:",
+    "expo-linking": "catalog:",
+    "expo-router": "catalog:",
+    "expo-sqlite": "catalog:",
+    "expo-status-bar": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-native": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-screens": "catalog:",
+    "react-native-web": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

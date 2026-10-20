@@ -1,0 +1,2 @@
+- [Retro baseline + watchlist](project_retro-baseline.md) — owner wants wall-clock speed; step-1 metrics and repeat-waste watchlist
+- [Dispatch observations](project_dispatch-observations.md) — measured: MCP behind ToolSearch, maxTurns≈7 turns/min, role-file lag, Log tool counts undercount

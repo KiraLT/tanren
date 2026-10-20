@@ -1,0 +1,22 @@
+// noThrow: Tanren functional rule 3, no `throw`.
+//
+// Pattern: every JsThrowStatement (`throw <expr>`), in any function, method or top level.
+// There is no Biome built-in that bans `throw` (style/useThrowOnlyError and
+// style/useThrowNewError only shape what is thrown).
+//
+// Fix: fail in the Effect error channel, Effect.fail(new NotFound({ id })), with errors defined
+// as Schema.TaggedError (serialisable, API/domain) or Data.TaggedError (internal). Defects use
+// Effect.die.
+// Known gaps: none for `throw` statements. Rejections created without `throw`
+// (`Promise.reject(...)`) are not flagged.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noThrow: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+JsThrowStatement() as $throw where {
+	register_diagnostic(
+		span = $throw,
+		message = "lint/plugin/noThrow: `throw` is not allowed. Fail in the Effect error channel: Effect.fail(new MyError(...)) with a Schema.TaggedError or Data.TaggedError.",
+		severity = "error"
+	)
+}

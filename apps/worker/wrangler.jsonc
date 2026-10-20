@@ -1,0 +1,25 @@
+{
+  // Top level = local: a bare `wrangler dev` can never reach Cloudflare (docs/design/local-dev.md §2).
+  "name": "tanren",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ENVIRONMENT": "local",
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    "ALLOWED_ORIGINS": "http://localhost:8081",
+    "EMAIL_MODE": "console",
+    // Clearly fake, local only. Non-local environments must use real secrets (startup guard in Config.ts).
+    "BETTER_AUTH_SECRET": "local-dev-only-not-a-secret-0000000000000000",
+    "DEV_MCP_TOKEN": "local-dev-only-mcp-token"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tanren",
+      // Placeholder: locally it only names the SQLite file. The real id is set by the owner at step 7.
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ]
+}

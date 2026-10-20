@@ -1,0 +1,84 @@
+// noMutation: Tanren functional rule 4, no mutation of objects or arrays.
+//
+// Four checks, each with its own message:
+//  1. Assignment to a property: any JsAssignmentExpression (`=`, `+=`, `??=`, ...) whose target
+//     contains a JsStaticMemberAssignment (`a.b`) or JsComputedMemberAssignment (`a[i]`). This also
+//     catches `(a.b) = c`, `a.b! = c`, `(a.b as T) = c`, `[a.b] = xs`, `({ k: a.b } = o)`.
+//  2. `delete` on anything (`delete a.b`, `delete a[k]`, `delete a?.[k]`, `delete (a.b)`).
+//     The built-in performance/noDelete is NOT used: it skips dynamic keys (`delete o[k]`,
+//     `delete o?.[k]`, template keys), and its unsafe fix rewrites to `o.k = undefined`,
+//     which is itself a mutation.
+//  3. `Object.assign(target, ...)` unless `target` is an object literal (`Object.assign({}, a)` and
+//     `Object.assign({ x: 1 }, a)` are allowed; a spread first argument is flagged).
+//  4. Calls of mutating array methods: push, pop, shift, unshift, splice, sort, reverse, fill,
+//     copyWithin, as `x.m(...)`, `x?.m(...)` or `x["m"](...)`. Receivers that are PascalCase
+//     identifiers with a lowercase letter (`Array`, `Chunk`, `Order`, `Record`) are skipped: they
+//     are Effect modules whose `Array.sort`, `Array.reverse`, `Order.reverse`, `Chunk.reverse`,
+//     `Record.pop` return new values. SCREAMING_CASE and one-letter receivers are still checked.
+// `++` / `--` are left to the built-in style/noIncrementDecrement (it covers identifiers and
+// members alike). Reassigning a plain variable is covered by noLet (no `let` to reassign),
+// suspicious/noVar, style/noParameterAssign and the recommended *Assign rules.
+//
+// Known gaps (purely syntactic, no type information):
+//  - Mutating methods of Map / Set / Date / typed arrays (`set`, `add`, `delete`, `clear`,
+//    `setHours`, ...), Object.defineProperty / setPrototypeOf, Reflect.set / deleteProperty,
+//    `Array.prototype.push.call(...)` and computed keys that are not string literals
+//    (`x[name](...)`) are not flagged. A PascalCase array constant (`Items.push(1)`) is skipped.
+//  - False positives: any object with a method of the same name, e.g. Expo Router `router.push(...)`
+//    (see docs/research/2026-10-19-biome-functional-rules.md), and React `ref.current = value`.
+// Type-level backstop: `readonly` fields and `ReadonlyArray` make TypeScript reject most of these.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noMutation: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+pattern property_assignment() {
+	JsAssignmentExpression(left = $target) as $assignment where {
+		$target <: contains or { JsStaticMemberAssignment(), JsComputedMemberAssignment() },
+		register_diagnostic(
+			span = $assignment,
+			message = "lint/plugin/noMutation: assigning to a property mutates an object or array. Build a new value instead ({ ...obj, key: value }, Array.map, Record/HashMap from effect).",
+			severity = "error"
+		)
+	}
+}
+
+pattern delete_operator() {
+	`delete $target` as $delete where {
+		register_diagnostic(
+			span = $delete,
+			message = "lint/plugin/noMutation: `delete` mutates the object. Build a copy without the key instead (const { key, ...rest } = obj, or Record.remove from effect).",
+			severity = "error"
+		)
+	}
+}
+
+pattern object_assign_into_existing() {
+	`Object.assign($target, $...)` as $call where {
+		not $target <: JsObjectExpression(),
+		register_diagnostic(
+			span = $call,
+			message = "lint/plugin/noMutation: Object.assign(target, ...) mutates `target`. Use a spread instead: { ...target, ...patch }.",
+			severity = "error"
+		)
+	}
+}
+
+pattern mutating_array_method() {
+	or {
+		JsCallExpression(callee = JsStaticMemberExpression(object = $receiver, member = $method)) as $call where {
+			$method <: r"push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin"
+		},
+		JsCallExpression(callee = JsComputedMemberExpression(object = $receiver, member = $method)) as $call where {
+			$method <: r"[\"'](?:push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)[\"']"
+		}
+	} where {
+		not $receiver <: r"[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*",
+		register_diagnostic(
+			span = $call,
+			message = "lint/plugin/noMutation: this array method mutates its receiver. Use a copying alternative: Array.sort / Array.reverse / Array.append from effect, toSorted / toReversed / toSpliced, or a spread.",
+			severity = "error"
+		)
+	}
+}
+
+or { property_assignment(), delete_operator(), object_assign_into_existing(), mutating_array_method() }

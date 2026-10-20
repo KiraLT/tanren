@@ -1,0 +1,13 @@
+export * from "./common"
+export * from "./currentPlan"
+export * from "./errors"
+export * from "./exercise"
+export * from "./ids"
+export * from "./plan"
+export * from "./row"
+export * from "./session"
+export * from "./sync"
+export * from "./user"
+
+/** Kept for the skeleton packages that import it to prove the workspace link. */
+export const packageName = "@tanren/shared"

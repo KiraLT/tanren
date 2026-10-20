@@ -1,0 +1,30 @@
+// noLet: Tanren functional rule 1, no `let`.
+//
+// Pattern: every variable declaration whose source text starts with `let`:
+//   - JsVariableDeclaration: statements, `export let`, classic `for (let i = 0; ...)` headers
+//   - JsForVariableDeclaration: `for (let x of xs)` / `for (let k in o)` headers
+// Ambient declarations (`declare let x: T`, also inside `declare global` / `declare module`)
+// are skipped: they are type declarations and emit no runtime binding.
+//
+// Why a regex: the `kind` token is not addressable in Biome GritQL
+// (`JsVariableDeclaration(kind = ...)` fails with "Failed to compile the Grit plugin"), and
+// the snippets `let $x = $y` / `let $x` match nothing. A regex must match the WHOLE node text;
+// leading comments are not part of that text, so `let\b[\s\S]*` is exact.
+//
+// Complementary built-ins (enable in biome.jsonc): suspicious/noVar (bans `var`),
+// style/useConst (safe autofix for a `let` that is never reassigned).
+// Known gaps: none for `let` itself. Reassignment of parameters and imports is covered by
+// style/noParameterAssign and suspicious/noImportAssign (recommended), not by this plugin.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noLet: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+or { JsVariableDeclaration(), JsForVariableDeclaration() } as $declaration where {
+	$declaration <: r"let\b[\s\S]*",
+	not $declaration <: within or { TsDeclareStatement(), TsExportDeclareClause() },
+	register_diagnostic(
+		span = $declaration,
+		message = "lint/plugin/noLet: `let` is not allowed. Use `const` and derive a new value instead of reassigning.",
+		severity = "error"
+	)
+}

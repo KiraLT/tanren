@@ -1,0 +1,22 @@
+// noLoop: Tanren functional rule 5, no loop statements.
+//
+// Pattern: JsForStatement (`for (;;)`), JsForOfStatement (`for (... of ...)`, including
+// `for await`), JsWhileStatement and JsDoWhileStatement.
+// `for (... in ...)` is NOT matched here on purpose: the built-in suspicious/noForIn bans it
+// (enable it in biome.jsonc), so matching it here would report every for-in twice.
+//
+// Fix: Array.map / filter / reduce (or the Array module from effect), Effect.forEach,
+// Effect.iterate / Effect.loop, Stream.
+// Known gaps: `.forEach(...)` is a call, not a loop statement, and is not flagged. Do not enable
+// complexity/noForEach to cover it: its hint recommends `for...of`, which this rule bans.
+//
+// Suppress one line:  // biome-ignore lint/plugin/noLoop: <reason>
+// Verified with @biomejs/biome 2.5.15. Biome node names can change between releases.
+
+or { JsForStatement(), JsForOfStatement(), JsWhileStatement(), JsDoWhileStatement() } as $loop where {
+	register_diagnostic(
+		span = $loop,
+		message = "lint/plugin/noLoop: loop statements are not allowed. Use Array.map/filter/reduce, Effect.forEach, Effect.iterate or Stream.",
+		severity = "error"
+	)
+}
