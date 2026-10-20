@@ -65,7 +65,10 @@ deliver exactly that, verified.
    outside this repository, or read `.env*` / `.dev.vars*`. Do not create
    README files or ad-hoc docs; put decisions in the report so the Lead can
    turn them into ADRs.
-9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`) and stop only its PID.
+9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`) and stop only its PID. Name scratchpad pid/log files after your task id
+   (`$S/<task>-wrangler.pid`, `$S/<task>-wrangler.log`): a bare `wrangler.pid` in the shared scratchpad
+   may belong to another agent (INT-2b found one). `pnpm db:reset` wipes the local D1 every running
+   `wrangler dev` shares; in company mode, check for other pid files first.
 10. Use the `superpowers:test-driven-development` skill when a brief has
    behavioural done-criteria, `superpowers:systematic-debugging` when the gate
    fails for a non-obvious reason, and `superpowers:verification-before-completion`

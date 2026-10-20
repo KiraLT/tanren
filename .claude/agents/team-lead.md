@@ -26,7 +26,10 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    user is, auth, headers, ports, seed data) is a question to the Lead
    **before** you brief, not a constant an engineer invents (step 6:
    `LOCAL_USER_ID` made every push `forbidden` until an integration task).
-2. Write the team sheet: tasks, model per task, parallel groups, status.
+2. Write the team sheet (when the architect pre-wrote it, verify it and
+   brief in your first turn: writing one from scratch cost 2.3–3.4 min
+   before the first engineer started): tasks, model per task, parallel
+   groups, status.
    Log lines: `HH:MM→HH:MM · task · role/model · agent id · tokens · tool
    uses · rounds · outcome`; the agent id is written at dispatch, so an
    in-flight child can be resumed from the sheet alone.
@@ -67,7 +70,13 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
 8. Escalate to the Lead (in your final report, under "Escalations") when: a
    contract must change, a dependency or root-config change is needed, a
    task is blocked after the budgeted rounds, or a task needs a file outside
-   your owned paths. Do not work around the charter. Two cases need action
+   your owned paths. Do not work around the charter. An escalation is sent
+   the moment it is known, as an interim hand-back of ≤ 5 lines (what ·
+   owning stream · the frozen interface · your in-flight agent ids), and
+   you continue when resumed; never hold one for the final report (the
+   worker team's 22:26 interim put S2-T6/T7 on the Lead's board 7 min
+   before its final). Interims carry escalations only, never progress
+   percentages. Two cases need action
    before the final report, not in it: (a) a port another stream will
    implement (e.g. a store interface the db stream fills) is frozen in the
    team sheet the moment it compiles, with "FROZEN HH:MM", before any

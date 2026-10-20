@@ -6,16 +6,9 @@ import { BetterAuth } from "./auth/BetterAuth"
 import { CapturedEmails, EmailSender } from "./auth/EmailSender"
 import { Sessions } from "./auth/Sessions"
 import { WorkerConfig } from "./Config"
-import type { EnvVars } from "./Env"
 import { ExerciseRepo, MemoryStore, PersistenceError } from "./repos"
+import { envVars as env } from "./testing/fixtures"
 
-const env: EnvVars = {
-  ENVIRONMENT: "local",
-  BETTER_AUTH_URL: "http://localhost:8787",
-  BETTER_AUTH_SECRET: "test-secret-0000000000000000000000000000",
-  ALLOWED_ORIGINS: "http://localhost:8081",
-  EMAIL_MODE: "console",
-}
 const userA = UserId.make("00000000-0000-4000-8000-0000000000a1")
 const userB = UserId.make("00000000-0000-4000-8000-0000000000b1")
 

@@ -20,13 +20,17 @@ Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 src/
   index.ts            Worker entry (fetch) → makeApp(env, { BetterAuth.layer(env.DB), d1Persistence(env.DB) })
   app.ts              makeApp: HttpApi layer + auth mode + persistence → { handler }; memoryPersistence / d1Persistence
-  Env.ts, Config.ts   `Env` interface + config/guard; the `Cloudflare.Env` declare-merge (and the only `biome-ignore noNamespace`) is in index.ts
+  Env.ts, Config.ts   `Env` interface + config/guard
+  cloudflareEnv.d.ts  the `Cloudflare.Env` declare-merge (typed `cloudflare:workers` env). Never name a .d.ts after a
+                      sibling .ts basename: on case-insensitive macOS `env.d.ts` next to `Env.ts` is silently dropped by tsc
   api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers
   repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests)
-  auth/               Sessions port, SessionsLive (Better Auth), BetterAuth, EmailSender (console locally), authRoutes
+  auth/               Sessions port (+ SessionStoreUnavailable, 503), SessionsLive (Better Auth), BetterAuth (lazy
+                      `Effect.cached` instance), EmailSender (console locally), authRoutes
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                McpAgent adapter (step 4) — the only class allowed outside Effect factories
-  testing/            workerdSetup.ts (applies migrations 0000+0001 before each workerd test file), env.d.ts (TEST_MIGRATIONS)
+  testing/            workerdSetup.ts (applies migrations 0000+0001 before each workerd test file), env.d.ts (TEST_MIGRATIONS,
+                      test project only), fixtures.ts (shared `envVars` for Node + workerd tests)
   *.workerd.test.ts   tests that run inside workerd on a migrated D1 (project @tanren/worker-workerd)
 scripts/seed.ts       local seed runner (tsx; typed by tsconfig.scripts.json with @types/node)
 scripts/smoke.ts      `pnpm smoke:worker --port <n> --log <wrangler output file>` against a running dev server
@@ -34,7 +38,15 @@ vitest.config.ts      Node project `@tanren/worker` (excludes *.workerd.test.ts)
 vitest.workerd.config.ts  workerd project `@tanren/worker-workerd` (@cloudflare/vitest-plugin, wrangler.test.jsonc)
 wrangler.jsonc        D1 binding `DB` (db `tanren`), migrations_dir ../../packages/db/migrations, fake local vars
 wrangler.test.jsonc   test-only D1 binding + TEST_MIGRATIONS for the workerd project
+tsconfig.json         production + Node tests (workers-types only; excludes src/testing, *.workerd.test.ts)
+tsconfig.test.json    workerd tests, src/testing, vitest configs (+ @cloudflare/vitest-plugin/types)
+tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
 ```
+
+- `makeApp` → `HttpRouter.toWebHandler` builds every layer eagerly, and `src/index.ts` calls it at module
+  scope, where workerd forbids I/O (and the clock reads 1970). A layer must never start I/O while it is
+  built: create clients lazily inside the request (hardening H3: `betterAuth()` starts a schema check on
+  construction, which logged `[Better Auth] Could not validate the database schema` at every startup).
 
 - Persistence and auth both run on `env.DB` (auth tables = migration 0001). `layerMemory` variants are for Node tests only.
 - Sync rules (LWW, clamp, per-change rejection) belong to `@tanren/db`'s `SyncStore`; never re-implement them here.
@@ -55,4 +67,4 @@ wrangler.test.jsonc   test-only D1 binding + TEST_MIGRATIONS for the workerd pro
 
 ## Status
 
-Step 3 (2026-10-20): integrated with @tanren/db on local D1 (INT-1): REST, Better Auth magic link and sync push/pull pass `pnpm smoke:worker` after `pnpm db:reset`. Workerd project exists (TOOL-1: `/health` on migrated D1). Next: a workerd D1 round trip (authenticated `POST /exercises` → `GET`, sync push → pull) so the manual smoke is only needed for auth routes; move the `Cloudflare.Env` merge in `src/index.ts` to a `.d.ts` to drop the last `noNamespace` ignore.
+Step 3 (2026-10-20): integrated with @tanren/db on local D1 (INT-1): REST, Better Auth magic link and sync push/pull pass `pnpm smoke:worker` after `pnpm db:reset`. Workerd project exists (TOOL-1: `/health` on migrated D1). Hardening-1 (2026-10-20): test types split out of prod (`tsconfig.test.json`), `Cloudflare.Env` merge in `cloudflareEnv.d.ts` (no `biome-ignore` left), silent `wrangler dev` startup (lazy Better Auth), 503 `SessionStoreUnavailable` when the session store fails, HTTP tests for nested set routes. Next: a workerd D1 round trip (authenticated `POST /exercises` → `GET`, sync push → pull) and a workerd test that boots `src/index.ts` (catches module-scope I/O); map rejected `auth.handler` on `/api/auth/*` to 503 (still 500); move `SessionStoreUnavailable` to `@tanren/shared`.

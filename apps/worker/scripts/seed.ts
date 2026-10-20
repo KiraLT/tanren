@@ -1,6 +1,6 @@
 /**
  * Local seed runner (docs/design/local-dev.md §1): fills the local D1 with a fake month for the
- * dev user. Flags: `--seed <n>` (default 1), `--end <YYYY-MM-DD>` (default today, UTC).
+ * dev user. Flags: `--seed <n>` (default 1), `--end <YYYY-MM-DD>` (default: today in the machine's local zone).
  * Entry point: this is where the Effect program is run.
  */
 import {
@@ -34,8 +34,11 @@ const parseOptions = Effect.gen(function* () {
   })
   const endDate = yield* Option.match(flag("end"), {
     onNone: () =>
+      // The machine's local date, not UTC: Today is read in the local zone, so the seed must
+      // cover the day the developer is actually in.
       DateTime.now.pipe(
-        Effect.flatMap((now) => LocalDate.makeEffect(DateTime.formatIsoDateUtc(now))),
+        Effect.map((now) => DateTime.setZone(now, DateTime.zoneMakeLocal())),
+        Effect.flatMap((now) => LocalDate.makeEffect(DateTime.formatIsoDate(now))),
       ),
     onSome: Schema.decodeUnknownEffect(LocalDate),
   })

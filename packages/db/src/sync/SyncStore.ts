@@ -34,6 +34,7 @@ import {
   Option,
   Order,
   pipe,
+  Result,
   Schema,
 } from "effect"
 import { type PersistenceError, persistenceError } from "../errors"
@@ -70,7 +71,9 @@ export interface SyncStoreShape {
   ) => Effect.Effect<ReadonlyArray<SyncChange>, PersistenceError>
   /**
    * Applies a push by the DM §10.2 rules: parents first, per-change `forbidden` / `invariantViolated`
-   * / `missingParent` / `immutableFieldChanged` rejections, LWW on `updatedAt` (ties and older go to
+   * / `missingParent` / `immutableFieldChanged` rejections (a repeated `(table, id)` after its first
+   * change in request order is `invariantViolated`; a parent that is missing, another user's, or
+   * rejected in this push is `missingParent`), LWW on `updatedAt` (ties and older go to
    * `conflicts` with the server row), `updatedAt` > now + 5 min clamped to now. Every accepted row is
    * written in ONE `D1Client.batch` behind one clock bump, so all share one `server_seq`; a failing
    * statement aborts the whole push (`PersistenceError`, nothing written). No accepted rows: no write.
@@ -267,6 +270,24 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
   })
 }
 
+interface Split {
+  readonly unique: ReadonlyArray<SyncChange>
+  readonly duplicates: ReadonlyArray<SyncChange>
+}
+
+/** Splits off every change after the first for its `(table, id)`, in request order. O(n). */
+const splitDuplicates = (changes: ReadonlyArray<SyncChange>): Split => {
+  const firstIndex = Arr.reduce(changes, HashMap.empty<Key, number>(), (acc, change, i) =>
+    HashMap.has(acc, changeKey(change)) ? acc : HashMap.set(acc, changeKey(change), i),
+  )
+  const [unique, duplicates] = Arr.partition(changes, (change, i) =>
+    Option.exists(HashMap.get(firstIndex, changeKey(change)), (first) => first === i)
+      ? Result.succeed(change)
+      : Result.fail(change),
+  )
+  return { unique, duplicates }
+}
+
 const IdRecord = Schema.Struct({ id: Schema.String })
 const PositionRecord = Schema.Struct({ id: Schema.String, serverSeq: Schema.Number })
 
@@ -323,7 +344,8 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
     const apply = Effect.fn("SyncStore.apply")(
       function* (userId: UserId, changes: ReadonlyArray<SyncChange>) {
         const now = yield* DateTime.now
-        const sorted = Arr.sort(changes, pushOrder)
+        const { unique, duplicates } = splitDuplicates(changes)
+        const sorted = Arr.sort(unique, pushOrder)
         const keys = Arr.map(sorted, (c) => ({ table: c.table, id: c.row.id }))
         const own = yield* ownRows(userId, Arr.appendAll(keys, Arr.flatMap(sorted, parentKeys)))
         const snapshot: Snapshot = {
@@ -339,7 +361,12 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
           writes: [],
           known: HashSet.fromIterable(HashMap.keys(snapshot.own)),
         }
-        const outcome = Arr.reduce(sorted, initial, (acc, change) => decide(snapshot, acc, change))
+        const outcome = Arr.reduce(
+          duplicates,
+          Arr.reduce(sorted, initial, (acc, change) => decide(snapshot, acc, change)),
+          (acc, change) =>
+            reject(acc, change, "invariantViolated", "the push already changes this row"),
+        )
         if (Arr.isReadonlyArrayNonEmpty(outcome.writes)) {
           const records = yield* Effect.forEach(outcome.writes, toRecord)
           const statements = Arr.map(Arr.zip(outcome.writes, records), ([{ change }, record]) =>

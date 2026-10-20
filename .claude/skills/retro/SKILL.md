@@ -17,6 +17,13 @@ Task sheet log:
 1. Assemble the dispatch summary from the task sheet Log and the task
    notifications you received: per dispatch — task, role, model, duration,
    tokens, tool uses, review rounds, outcome, and any blocked tool calls.
+   Also pass the transcript directory (`<session scratch>/tasks/*.output`,
+   one JSON per line, nested team agents included): the EM takes duration
+   (first→last `timestamp`), turns (distinct assistant `message.id`), tool
+   uses (`tool_use` blocks) and tokens (`message.usage`, deduped per message
+   id; the notification's "k" ≈ cache_creation + input + output) from there,
+   never from the Log — step 2's Log said S2-T3 ran ~24 min; the transcript
+   showed 5m42s.
 2. Spawn the `engineering-manager` (model `fable`, `effort: max`) with that
    summary, the paths above, and the question "what would have made this
    step faster and smoother, and what should change in the system?"

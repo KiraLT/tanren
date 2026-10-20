@@ -1,0 +1,1 @@
+- [Task sheet conventions](feedback_task_sheets.md) — charter fields, `accepted (Lead delegation)` wording, one owner per shared file, check existing sheets first

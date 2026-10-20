@@ -109,7 +109,7 @@ describe("magic-link sign-in", () => {
         Layer.provideMerge(WorkerConfig.layerFromEnv(envVars("preview"))),
       )
       const context = yield* Layer.build(deps)
-      const { auth } = Context.get(context, BetterAuth)
+      const auth = yield* Context.get(context, BetterAuth).auth
       const response = yield* Effect.promise(() =>
         auth.handler(
           new Request(`${BASE}/api/auth/sign-in/magic-link`, {

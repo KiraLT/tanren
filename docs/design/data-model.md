@@ -855,20 +855,33 @@ string codec, `Schema.decodeUnknown`, `ParseResult.*`, `Context.Tag`.
 
 ---
 
-## 14. Open questions for the owner (≤ 5)
+## 14. Open questions for the owner (≤ 5) — decided in ADR-0007
+
+Decided 2026-10-20 by the Lead under owner delegation (`docs/adr/0007-data-model-decisions.md`).
+The questions stay for history; each line ends with its decision.
 
 1. **Enum lists.** Confirm or extend `MuscleGroup`, `GoalKind`,
    `EquipmentKind` (§5) now; renames after data exists cost a migration.
+   **Decision:** keep the §5 lists. Adding a member is additive (JSON text
+   columns; no migration, no ADR). Renaming or removing one needs an ADR plus
+   a data migration.
 2. **Pull cursor.** `since` is an opaque server-issued cursor instead of a
    client timestamp (§10.1, correctness under clock skew). OK?
+   **Decision:** yes; `SyncCursor` as implemented in
+   `packages/db/src/sync/Cursor.ts`. Clients never parse it.
 3. **Week start.** `PlanWeek.weekStart` may be any weekday (no Monday-only
    rule). Keep it that way?
+   **Decision:** yes. Seed and Plan screen default to Monday; UI renders from
+   `weekStart` and never assumes Monday.
 4. **Bodyweight, holds and AMRAP.** Current design: bodyweight sets log
    `weightKg: 0`, timed holds log seconds as `reps`, and `RepTarget` has no
    `Amrap` member. Acceptable for now, or add an exercise `kind` and `Amrap`
    in step 1?
+   **Decision:** keep as is. Revisit with an additive exercise `kind` when
+   running support arrives.
 5. **Profile extras.** Bodyweight (kg) and a units preference are out
    (kg-only per plan). Add either now?
+   **Decision:** no; kg only, per plan.
 
 ---
 

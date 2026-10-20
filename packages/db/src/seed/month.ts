@@ -130,18 +130,47 @@ const loadFor = (exercise: ExerciseSpec, weekIndex: number, intensity: number): 
 interface Window {
   readonly startMs: number
   readonly endMs: number
-  /** Monday on or before `startMs`. */
+  /**
+   * First Monday of the plan: the last plan week is the one that holds `endMs`. (Counting from
+   * `startMs` instead put a Monday end date in a sixth week that did not exist.)
+   */
   readonly planStartMs: number
 }
 
 const windowOf = (endDate: LocalDate): Window => {
   const endMs = parseDay(endDate)
   const startMs = endMs - (SPAN_DAYS - 1) * DAY
-  return { startMs, endMs, planStartMs: startMs - weekdayIndex(startMs) * DAY }
+  const endWeekMs = endMs - weekdayIndex(endMs) * DAY
+  return { startMs, endMs, planStartMs: endWeekMs - (PLAN_WEEKS - 1) * 7 * DAY }
 }
 
 const weekIndexOf = (window: Window, ms: number): number =>
   Math.min(PLAN_WEEKS - 1, Math.max(0, Math.floor((ms - window.planStartMs) / (7 * DAY))))
+
+/**
+ * The sessions of plan week `weekIndex`. The week that holds `endDate` always trains on the end
+ * weekday, so Today has a planned session to log on the day the seed is run: when the weekly
+ * template skips that weekday, the nearest session (the later one on a tie) moves onto it.
+ */
+const templatesForWeek = (window: Window, weekIndex: number): ReadonlyArray<SessionTemplate> => {
+  const endDay = weekdayIndex(window.endMs)
+  if (
+    weekIndex !== weekIndexOf(window, window.endMs) ||
+    SESSION_TEMPLATES.some((template) => template.dayOffset === endDay)
+  ) {
+    return SESSION_TEMPLATES
+  }
+  const distance = (template: SessionTemplate) => Math.abs(template.dayOffset - endDay)
+  const nearest = SESSION_TEMPLATES.reduce((best, template) =>
+    distance(template) < distance(best) ||
+    (distance(template) === distance(best) && template.dayOffset > best.dayOffset)
+      ? template
+      : best,
+  )
+  return SESSION_TEMPLATES.map((template) =>
+    template === nearest ? { ...template, dayOffset: endDay } : template,
+  )
+}
 
 // Rows
 
@@ -302,7 +331,7 @@ const buildPlan = (context: PlanContext, window: Window) =>
             index === DELOAD_WEEK ? PLAN_WEEK_INTENTS.deload : PLAN_WEEK_INTENTS.build,
           ),
         }).pipe(Effect.orDie)
-        const sessions = yield* Effect.forEach(SESSION_TEMPLATES, (template, order) =>
+        const sessions = yield* Effect.forEach(templatesForWeek(window, index), (template, order) =>
           buildPlannedSession(context, { id, index, startMs }, template, order),
         )
         return { row, sessions }
@@ -427,10 +456,11 @@ const build = (options: SeedOptions) =>
     const { plan, weeks } = yield* buildPlan(context, window)
     const planned = Arr.flatMap(weeks, (week) => week.sessions)
 
-    // Scheduled inside the window: two of them are skipped, the rest are logged.
+    // Scheduled before the end date: two of them are skipped, the rest are logged. The session on
+    // the end date stays planned and unlogged, so Today shows it as the one to do.
     const inWindow = Arr.filter(
       planned,
-      (s) => s.scheduledMs >= window.startMs && s.scheduledMs <= window.endMs,
+      (s) => s.scheduledMs >= window.startMs && s.scheduledMs < window.endMs,
     )
     const missed = Arr.take(yield* Random.shuffle(inWindow), MISSED_SESSIONS).map((s) => s.row.id)
     const logged = yield* Effect.forEach(
@@ -447,7 +477,8 @@ const build = (options: SeedOptions) =>
         }),
     )
 
-    const offDays = Arr.filter(Arr.range(10, SPAN_DAYS - 1), (day) =>
+    // Never on the end date: nothing but the planned session may be logged there.
+    const offDays = Arr.filter(Arr.range(10, SPAN_DAYS - 2), (day) =>
       [1, 3].includes(weekdayIndex(window.startMs + day * DAY)),
     )
     const offDay = yield* Random.choice(offDays).pipe(Effect.orDie)
@@ -487,8 +518,8 @@ const build = (options: SeedOptions) =>
 
 /**
  * One month of sessions for `userId` ending on `endDate`: a 5-week upper/lower plan (week 4 is a
- * deload), 14 exercises, about 14 to 16 logged sessions linked to planned ones, 2 missed, 1
- * unplanned, one soft-deleted set. Provide `seededIdGenerator` for reproducible ids.
+ * deload), 14 exercises, 14 or 15 logged sessions linked to planned ones, 2 missed, 1
+ * unplanned, one soft-deleted set. The plan always has an unlogged session on `endDate`. Provide `seededIdGenerator` for reproducible ids.
  */
 export const seedMonth = (options: SeedOptions): Effect.Effect<SeedData, never, IdGenerator> =>
   build(options).pipe(Random.withSeed(options.seed))

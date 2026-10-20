@@ -86,8 +86,8 @@ describe("seedMonth", () => {
       expect(data.plannedSet.length).toBeLessThanOrEqual(20 * 6 * 5)
 
       const planned = data.session.filter((s) => Option.isSome(s.plannedSessionId))
-      expect(planned.length).toBeGreaterThanOrEqual(13)
-      expect(planned.length).toBeLessThanOrEqual(16)
+      expect(planned.length).toBeGreaterThanOrEqual(14)
+      expect(planned.length).toBeLessThanOrEqual(15)
       expect(data.session.length - planned.length).toBe(1)
       expect(data.set.filter((s) => Option.isSome(s.deletedAt))).toHaveLength(1)
 
@@ -177,20 +177,62 @@ describe("seedMonth", () => {
     }),
   )
 
+  // 2026-10-14 is a Wednesday: the seven days cover every weekday once.
+  const weekdayEnds = Arr.range(14, 20).map((day) => LocalDate.make(`2026-10-${day}`))
+
   it.effect("holds its shape for every weekday alignment of endDate", () =>
     Effect.gen(function* () {
-      const ends = Arr.range(14, 20).map((day) => LocalDate.make(`2026-10-${day}`))
-      yield* Effect.forEach(ends, (end) =>
+      yield* Effect.forEach(weekdayEnds, (end) =>
         Effect.gen(function* () {
           const data = yield* run(7, end)
           const planned = data.session.filter((s) => Option.isSome(s.plannedSessionId))
-          expect(planned.length).toBeGreaterThanOrEqual(13)
-          expect(planned.length).toBeLessThanOrEqual(16)
+          // Logged: the 16 or 17 sessions before the end date minus the 2 missed; the one on the
+          // end date stays open (it was logged before, and the plan now starts at the end week).
+          expect(planned.length).toBeGreaterThanOrEqual(14)
+          expect(planned.length).toBeLessThanOrEqual(15)
           expect(data.session.length - planned.length).toBe(1)
           yield* roundTrip(Session, data.session)
           yield* roundTrip(WorkoutSet, data.set)
         }),
       )
+    }),
+  )
+
+  it.effect.each(weekdayEnds)(
+    "the current week has an unlogged planned session on the end date (%s)",
+    (end) =>
+      Effect.gen(function* () {
+        const data = yield* run(7, end)
+        const currentWeek = Arr.last(data.planWeek)
+        expect(Option.map(currentWeek, (week) => week.weekStart <= end)).toEqual(Option.some(true))
+        const onEndDate = data.plannedSession.filter(
+          (s) =>
+            Option.exists(s.scheduledDate, (date) => date === end) &&
+            Option.exists(currentWeek, (week) => week.id === s.planWeekId),
+        )
+        expect(onEndDate).toHaveLength(1)
+        const logged = data.session.filter((s) =>
+          onEndDate.some((p) => Option.exists(s.plannedSessionId, (id) => id === p.id)),
+        )
+        expect(logged).toHaveLength(0)
+        // Nothing at all is logged on the end date, so Today reads as "to do".
+        const endMs = Date.parse(`${end}T00:00:00.000Z`)
+        expect(
+          data.session.filter((s) => {
+            const at = DateTime.toEpochMillis(s.startedAt)
+            return at >= endMs && at < endMs + 86_400_000
+          }),
+        ).toHaveLength(0)
+      }),
+  )
+
+  it.effect("the end-date session is deterministic for a given (seed, endDate)", () =>
+    Effect.gen(function* () {
+      const end = LocalDate.make("2026-10-20")
+      const first = yield* run(3, end)
+      const second = yield* run(3, end)
+      expect(second.plannedSession).toEqual(first.plannedSession)
+      expect(second.session).toEqual(first.session)
     }),
   )
 })

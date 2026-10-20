@@ -1,6 +1,6 @@
 # Local development without a production database
 
-Status: proposed (2026-10-20). The spec for how steps 2–7 run, test and seed locally.
+Status: accepted (2026-10-20; §8 decisions recorded in ADR-0008). The spec for how steps 2–7 run, test and seed locally.
 Short answer: **yes.** Wrangler runs the Worker in local `workerd` (Miniflare) with a local D1, KV and
 Durable Objects, all stored as SQLite files under `apps/worker/.wrangler/state/v3`. No Cloudflare account,
 no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudflare-core.md` /
@@ -130,14 +130,27 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
   behaviour on device, Claude Code attached to MCP, clicking real magic links. **Needs preview/prod
   (owner):** real email, the Claude app connector, free-plan CPU (10 ms) and custom domains.
 
-## 8. Decisions for the owner
+## 8. Decisions for the owner — decided in ADR-0008
+
+Decided 2026-10-20 by the Lead under owner delegation
+(`docs/adr/0008-local-development-and-environments.md`). Questions kept for history.
 
 1. **Local secrets live as dummy `vars` in the committed config** (zero-setup clone, agents never need
    `.dev.vars`), with a startup guard so non-local envs must use real secrets. Alternative: `.dev.vars`
    created by the owner.
+   **Decision:** yes. Dummy `vars` in `apps/worker/wrangler.jsonc`, guard in `src/Config.ts`;
+   `.dev.vars` is an owner-only override; agents never read `.dev.vars*`.
 2. **Preview environment:** create `tanren-preview` D1 + `env.preview` now (needed for the Claude app
    connector and off-LAN phone tests in steps 5–6), or defer until step 5.
+   **Decision:** no preview now. Local is dev, production is the only remote environment; the
+   "preview" column in §2 is not created. Revisit at step 5 only if the Claude app connector cannot
+   be tested safely against production.
 3. **Email provider for production magic links** (none chosen; local and tests need none). Decide by step 3's end.
+   **Decision:** Resend (HTTP API, free tier) via a `layerProvider` selected by `EMAIL_MODE:
+   "provider"`; console sender stays the local default. Cloudflare Email Service was checked and
+   failed two of three criteria (Email Sending is Beta; not available on Workers Free), see the ADR.
+   Owner actions: Resend account, `tanren.me` domain verification (DNS records in Cloudflare),
+   `wrangler secret put RESEND_API_KEY --env production`.
 
 ## 9. Open / unverified (for a researcher before the step that needs it)
 

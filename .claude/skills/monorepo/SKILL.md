@@ -57,7 +57,11 @@ links resolve.
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "types": "./src/index.ts",
-  "scripts": { "typecheck": "tsc --noEmit -p tsconfig.json" },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. --project @tanren/<name>",
+    "check": "biome ci --error-on-warnings . && pnpm typecheck && pnpm test"
+  },
   "dependencies": { "@tanren/shared": "workspace:*" },
   "devDependencies": { "typescript": "catalog:" }
 }
@@ -123,8 +127,8 @@ links resolve.
   must merge into the global `Cloudflare.Env`; in a `.ts` file it still needs a `biome-ignore`.
 - `pnpm test` runs `vitest run` across all projects. For one package,
   `pnpm -F @tanren/shared test` runs `vitest run --root ../.. --project @tanren/shared`, going
-  through the root config. A package gets that `test` script with its first test; today only
-  shared has one. An unknown `--project` name exits 1.
+  through the root config. Every package has that `test` script (worker's names both of its
+  projects). An unknown `--project` name exits 1.
 - Effect tests: `import { describe, expect, it } from "@effect/vitest"`, then
   `it.effect("…", () => Effect.gen(function* () { … }))`. It is already scoped and provides
   TestClock. Use `it.live` for the real clock and `layer(…)` for a shared Layer. Decode with

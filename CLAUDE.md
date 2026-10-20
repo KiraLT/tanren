@@ -53,7 +53,8 @@ only when it is green and its output is in the report.
 
 ## Hard rules (full text in the plan; enforced by `.claude/rules/` and the gate)
 
-- Effect 4 everywhere outside React components and the `McpAgent` adapter.
+- Effect 4 everywhere outside React components and the MCP handler adapter
+  (`createMcpHandler`, ADR-0010; the plan's `McpAgent` is deprecated upstream).
   Services are `Context.Service` classes with explicit `static layer`s (the
   plan's `Context.Tag` under Effect 4, ADR-0004).
 - Effect Schema for every data shape, defined in `packages/shared`.

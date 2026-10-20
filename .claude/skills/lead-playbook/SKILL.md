@@ -208,6 +208,11 @@ Out: <explicitly not this brief; leave notes instead>
 
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
+Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless busy, then a spare.
+
+## Open questions
+<anything unverified, as a question — "does the session cookie cross :8081→:8787, or is a dev
+bearer path needed?" — never as a port number, a fix to apply, or a "may need">
 
 ## Done when
 - [ ] <behavioural criterion>

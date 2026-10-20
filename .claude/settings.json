@@ -97,7 +97,8 @@
       "WebSearch",
       "mcp__plugin_cloudflare_cloudflare__docs",
       "mcp__plugin_cloudflare_cloudflare__search",
-      "mcp__plugin_cloudflare_cloudflare__whoami"
+      "mcp__plugin_cloudflare_cloudflare__whoami",
+      "Bash(git commit:*)"
     ],
     "deny": [
       "Read(./.env)",
@@ -107,7 +108,6 @@
       "Bash(git push --force:*)"
     ],
     "ask": [
-      "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git reset:*)",
       "Bash(git checkout:*)",

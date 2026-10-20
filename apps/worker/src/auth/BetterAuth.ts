@@ -60,10 +60,16 @@ const makeAuth = (
 export type Auth = ReturnType<typeof makeAuth>
 
 export interface BetterAuthShape {
-  readonly auth: Auth
+  /**
+   * The instance, created on first use and then shared. Lazy on purpose: `betterAuth()` starts a
+   * schema check against the database the moment it is called, and the Worker builds its layers at
+   * module scope, where workerd forbids I/O (the check failed and logged at isolate start). First
+   * use is inside a request, so the check runs there.
+   */
+  readonly auth: Effect.Effect<Auth>
 }
 
-/** One Better Auth instance per layer build (once per isolate in the Worker). */
+/** One Better Auth instance per layer build (once per isolate in the Worker), made on first use. */
 export class BetterAuth extends Context.Service<BetterAuth, BetterAuthShape>()(
   "@tanren/worker/BetterAuth",
 ) {
@@ -76,7 +82,10 @@ export class BetterAuth extends Context.Service<BetterAuth, BetterAuthShape>()(
         const config = yield* WorkerConfig
         const sender = yield* EmailSender
         const context = yield* Effect.context<never>()
-        return BetterAuth.of({ auth: makeAuth(config, sender, context, database) })
+        const auth = yield* Effect.cached(
+          Effect.sync(() => makeAuth(config, sender, context, database)),
+        )
+        return BetterAuth.of({ auth })
       }),
     )
 

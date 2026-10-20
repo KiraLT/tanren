@@ -27,6 +27,13 @@ from `cloudflare:workers`. tsconfig `types: ["@cloudflare/workers-types",
 { interface Env {...} }` in a `.d.ts` (needs `// biome-ignore lint/style/noNamespace: …`).
 Storage is isolated per test file. Details: `packages/db/CLAUDE.md` "Verified facts".
 
+The worker's workerd project (`@tanren/worker-workerd`, TOOL-1) is the runtime proof for the
+bundle, so it must exercise every third-party import path, not only module load: `/health` 200,
+`/api/auth/get-session` without a cookie (Better Auth loads and answers), one `Authentication`
+route → 401. Step 3 shipped 45 green Node tests while every route returned 500 under workerd (a
+better-auth re-export failed in wrangler's bundle); `/health` alone catches that class, a lazy
+import inside an auth or sync handler it does not.
+
 What this skill must contain when filled: wrangler config layout (`wrangler.jsonc`,
 bindings, `nodejs_compat`), local dev + Miniflare D1, migration workflow
 (`drizzle-kit generate` → `wrangler d1 migrations apply`), the Effect SQL

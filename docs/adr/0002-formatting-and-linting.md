@@ -38,3 +38,19 @@ The plan asked for eslint-plugin-functional. The owner then chose Biome only: no
   toolchains.
 - `nursery/noJsRestrictedProperties` for mutating methods: it also flags reads, and nursery rules
   are unstable. Kept as a fallback.
+
+## Addendum 2026-10-20 — `noMutation` false positives on own methods
+
+The `.biome/noMutation.grit` plugin is syntactic: it flags any member call named `push`, `pop`,
+`shift`, `unshift`, `splice`, `sort`, `reverse` (or `fill`) regardless of the receiver's type. A
+method named `push` on one of our own objects (the sync transport in step 6) was flagged although
+it mutates nothing.
+
+Decision (Lead, under owner delegation; plan Amendment 3): **keep the rule as is**. A false
+positive costs one rename; a missed mutation costs a bug the type system does not catch. Instead,
+a naming convention: never name an own method or function after an Array mutator. The sync
+transport uses `sendChanges` / `fetchChanges`. Third-party calls that cannot be renamed
+(`router.push`, `ref.current = …`) take the one-line
+`// biome-ignore lint/plugin/noMutation: <reason>` already described above.
+
+Engineers record this convention in `.claude/skills/effect-conventions` (not part of this ADR).

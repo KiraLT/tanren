@@ -222,7 +222,25 @@ describe("SyncStore.apply", () => {
     }).pipe(Effect.provide(StoreLayer)),
   )
 
-  it.effect("reports missingParent, cascading to children, and writes nothing", () =>
+  it.effect("rejects a second change to the same row in one push and applies the first", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(12)
+      const first = exercise({ id: id(80), userId: user, name: "First", updatedAt: t2 })
+      // Older, so sorting by updatedAt alone would have put it first: input order decides.
+      const second = exercise({ id: id(80), userId: user, name: "Second", updatedAt: t1 })
+
+      const result = yield* (yield* SyncStore).apply(UserId.make(user), [ex(first), ex(second)])
+
+      expect(result.accepted).toEqual([{ table: "exercise", id: id(80), updatedAt: time(t2) }])
+      expect(result.rejected.map((r) => [r.table, r.id, r.reason])).toEqual([
+        ["exercise", id(80), "invariantViolated"],
+      ])
+      expect(yield* rowsOf(user, [["exercise", id(80)]])).toEqual([ex(first)])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("rejects missing and foreign parents, cascading, and applies the rest", () =>
     Effect.gen(function* () {
       yield* at(now)
       const user = userOf(5)
@@ -233,9 +251,16 @@ describe("SyncStore.apply", () => {
       yield* (yield* SessionRepo).putSessions(UserId.make(other), [
         session({ id: id(34), userId: other }),
       ])
-      const before = yield* clockOf(user)
+      yield* store.apply(UserId.make(other), [
+        { table: "plan", row: plan({ id: id(37), userId: other }) },
+      ])
+      const bystander = exercise({ id: id(36), userId: user, name: "Bystander" })
 
       const result = yield* store.apply(owner, [
+        ex(bystander),
+        // Parent plan belongs to another user / does not exist.
+        { table: "planWeek", row: planWeek({ id: id(38), userId: user, planId: id(37) }) },
+        { table: "planWeek", row: planWeek({ id: id(39), userId: user, planId: id(29) }) },
         {
           table: "plannedSet",
           row: plannedSet({
@@ -256,20 +281,24 @@ describe("SyncStore.apply", () => {
         },
       ])
 
-      expect(result.accepted).toEqual([])
+      expect(result.accepted.map((a) => [a.table, a.id])).toEqual([["exercise", id(36)]])
       expect(result.rejected.map((r) => [r.table, r.reason])).toEqual([
+        ["planWeek", "missingParent"],
+        ["planWeek", "missingParent"],
         ["plannedSession", "missingParent"],
         ["plannedSet", "missingParent"],
         ["set", "missingParent"],
       ])
       expect(
         yield* rowsOf(user, [
+          ["exercise", id(36)],
+          ["planWeek", id(38)],
+          ["planWeek", id(39)],
           ["plannedSession", id(32)],
           ["plannedSet", id(33)],
           ["set", id(35)],
         ]),
-      ).toEqual([])
-      expect(yield* clockOf(user)).toEqual(before)
+      ).toEqual([ex(bystander)])
     }).pipe(Effect.provide(StoreLayer)),
   )
 
