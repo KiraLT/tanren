@@ -57,7 +57,23 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
-## In flight (resumable by SendMessage; all report to the Lead)
+## State at 00:52 (HEAD `ed6f22f`)
+Step 5 landed and committed (OAuth, write tools; Claude login = owner browser
+step). Native sign-in built on both sides, curl-proven, then NA-REV found a
+session-export CSRF (blocking): fix rounds in flight — worker signs the
+request in `POST /api/native/begin`, pins `NATIVE_RETURN_HOSTS`, strips
+`set-auth-token`, limits native routes; mobile already switched to `begin`.
+After NA-1's fix: NA-3 re-proof (+ begin/429 curls) and NA-REV delta, then
+commit. Catalog: 149 exercises + Library committed; more modules + MCP
+`search_exercises` coming. Live teams: design (D5, X3 Progress, X4 Settings,
+then X5 PWA, X6), catalog, programs (Core 30, player, PhaseAlerts),
+illustrations (I1 primitives → sonnet batches → validator). Morning report
+must lead with: web recipe (`docs/design/local-dev.md` §Owner recipe), phone
+recipe (§6a `pnpm dev:phone`), Claude OAuth connect, owner actions
+(`docs/design/deploy.md`, `pnpm deploy:preflight`, Apple dev account for
+Live Activities per ADR-0012).
+
+## Older in-flight notes (superseded above)
 - **Team mcp-oauth** (team-lead/opus, 90-min box from 23:45):
   `docs/tasks/step-5.md` — T1 infra, T2 contracts, T3 write tools, T4
   provider wiring + `index.workerd.test.ts` boot test + runtime proof, T5
