@@ -11,31 +11,44 @@ it (INT-2b, no code change needed). Every open decision is now an accepted
 ADR (0003–0009); the owner delegated all decisions to the Lead (plan
 Amendment 3) and reviews asynchronously.
 
+## Done since 23:12
+Team hardening green in 11 min and committed (`a65e5e6`); retro step 2
+applied and committed (`36923c3`); ADR-0010 (stateless `createMcpHandler`,
+McpAgent deprecated upstream); owner: "auto-commit when needed, tell me when
+something is testable on localhost", and "still too slow, more work while
+you wait" → idle checklist added to lead-playbook.
+
 ## In flight (resumable by SendMessage; all report to the Lead)
-- **Team hardening** (team-lead/opus, 35-min box from 23:08):
-  `docs/tasks/hardening-1/team-hardening.md` — H1 worker test types out of
-  prod (`tsconfig.test.json`, `env.d.ts`), H2 push rejects duplicate
-  `(table,id)` and foreign/missing parents, H3 silent Better Auth startup +
-  503 on session-store failure + nested set HTTP tests, H4 seed covers the
-  seed end date. Must finish before team mcp starts (shared worker files).
-- **Architect** (fable, 25-min box from 23:01): `docs/tasks/step-4.md` (team
-  mcp) and `docs/tasks/step-7.md` (team plan-web, incl. the Resend
-  `EmailSender` task from ADR-0008), `docs/design/mcp.md`.
-- **Retro EM** (fable, max): `docs/retro/2026-10-20-step-2-company-mode.md`
-  with proposals for the Lead and the next speed experiment.
+- **Team mcp** (team-lead/opus, 75-min box from 23:14): `docs/tasks/step-4.md`
+  — S4-SPIKE, S4-T1 foundation (deps, shared `mcp.ts`, `devUser.ts`, `/mcp`
+  stub), S4-T2 db queries, S4-T3 four read tools + `McpAuth`, S4-T4 server +
+  route + workerd test + Claude Code proof. Ratified mid-run: `name: Label`
+  in `ExerciseSummary`/`Overview.currentPlan`.
+- **Team plan-web** (team-lead/opus, 75-min box from 23:14):
+  `docs/tasks/step-7.md` — P1 PlanWeekRepo, P2 web hosting
+  (`wrangler.web.jsonc`, `_headers`, :8790), P3 Plan screen, P4 two-column
+  layout, P5 Resend `EmailSender`, **P6 sign-in screen (added 23:35)**.
+- **Architect step 5** (fable, 25 min from 23:40): `docs/tasks/step-5.md`
+  (team mcp-oauth), `docs/design/oauth.md`, `docs/design/deploy.md` runbook.
+- **S5-SPIKE** (opus, 10 min): `workers-oauth-provider` + `createMcpHandler`
+  under `wrangler dev`; Claude connector needs (DCR, PKCE, `ctx.props`).
+- **HI-1** (engineer/opus, 15 min): `SessionStoreUnavailable` → shared,
+  `/api/auth/*` 503, tombstoned parent rejects children.
+- **QA** (sonnet, 15 min): `*.edge.test.ts` on HEAD (sync, cursor, routes).
+- **EM Mode 1** (fable) on the hardening team report.
 
 ## Next actions (in order)
-1. Architect reports → dispatch **team plan-web** at once (mobile files are
-   free); dispatch **team mcp** the moment team hardening reports green.
-   Charters follow `lead-playbook` (Owned paths, Provides, Assumes
-   (cross-team), Runtime proof, Docs). Consider the `team-build` workflow
-   only if the retro recommends it.
-2. Retro report → apply accepted proposals (lead-playbook, dev-system,
-   CLAUDE.md, settings), log "fixed where" in `docs/retro/incidents.md`,
-   record the experiment here.
-3. Hardening green → commit ("Hardening: …"); after each team → commit.
-4. Step 5 (MCP write tools + OAuth, Claude app connector) after step 4; it
-   needs the Resend layer and the owner's secrets.
+1. Each report → accept within 2 min, dispatch dependents, Log line.
+2. Both teams reported → dispatch INT-A ∥ INT-B from
+   `docs/tasks/step-4-7-integration.md`; cross-team reviewer; commit
+   "Steps 4 and 7"; **ping the owner with the recipe** from
+   `docs/design/local-dev.md` §Owner recipe (`pnpm db:reset`,
+   `pnpm web:export`, `pnpm dev`, http://localhost:8790, sign in as
+   `dev@tanren.local`, magic link in the terminal; `claude mcp add` for MCP).
+3. Step 5 sheet + spike in → dispatch team mcp-oauth right after INT-A
+   (it touches `src/mcp/**`, `index.ts`, `wrangler.jsonc` KV binding);
+   ADR-0011 via the architect.
+4. `/retro` for steps 4 ∥ 7 against "zero-lag tail" (below), then handoff.
 
 ## Decisions made (owner may override by message)
 - ADR-0003 TS 7 native tsc · ADR-0004 Effect 4.0.5 · ADR-0006 Drizzle for

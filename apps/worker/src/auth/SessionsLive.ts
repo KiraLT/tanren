@@ -1,7 +1,7 @@
-import { UserId } from "@tanren/shared"
+import { SessionStoreUnavailable, UserId } from "@tanren/shared"
 import { Effect, Layer, Option, Schema } from "effect"
 import { BetterAuth } from "./BetterAuth"
-import { SessionStoreUnavailable, Sessions } from "./Sessions"
+import { Sessions } from "./Sessions"
 
 /**
  * Better Auth: the session cookie (or bearer) in `headers` → its user's id. Kept out of the

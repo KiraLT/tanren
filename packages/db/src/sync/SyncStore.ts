@@ -163,20 +163,24 @@ const parentKeys = (change: SyncChange): ReadonlyArray<SyncKey> =>
     }),
   )
 
-/** The immutable parent id of a row (DM §11.1), `""` for tables without one. */
-const immutableParent = (change: SyncChange): string =>
+/** The owning parent of a row (its immutable parent key, DM §11.1), none for root tables. */
+const chainParent = (change: SyncChange): Option.Option<SyncKey> =>
   Match.value(change).pipe(
     Match.discriminatorsExhaustive("table")({
-      profile: () => "",
-      exercise: () => "",
-      plan: () => "",
-      planWeek: ({ row }) => row.planId,
-      plannedSession: ({ row }) => row.planWeekId,
-      plannedSet: ({ row }) => row.plannedSessionId,
-      session: () => "",
-      set: ({ row }) => row.sessionId,
+      profile: () => Option.none(),
+      exercise: () => Option.none(),
+      plan: () => Option.none(),
+      planWeek: ({ row }) => Option.some(syncKey("plan", row.planId)),
+      plannedSession: ({ row }) => Option.some(syncKey("planWeek", row.planWeekId)),
+      plannedSet: ({ row }) => Option.some(syncKey("plannedSession", row.plannedSessionId)),
+      session: () => Option.none(),
+      set: ({ row }) => Option.some(syncKey("session", row.sessionId)),
     }),
   )
+
+/** The immutable parent id of a row (DM §11.1), `""` for tables without one. */
+const immutableParent = (change: SyncChange): string =>
+  Option.match(chainParent(change), { onNone: () => "", onSome: (parent) => parent.id })
 
 const IMMUTABLE: { readonly [T in SyncTable]: ReadonlyArray<string> } = {
   profile: [],
@@ -206,6 +210,8 @@ interface Outcome {
   readonly writes: ReadonlyArray<Write>
   /** Keys that exist for this user or were accepted earlier in this push. */
   readonly known: HashSet.HashSet<Key>
+  /** The subset of `known` that is soft-deleted after the changes accepted so far. */
+  readonly tombstoned: HashSet.HashSet<Key>
 }
 
 interface Snapshot {
@@ -233,6 +239,9 @@ const accept = (outcome: Outcome, change: SyncChange, updatedAt: DateTime.Utc): 
   accepted: [...outcome.accepted, { table: change.table, id: change.row.id, updatedAt }],
   writes: [...outcome.writes, { change, updatedAt }],
   known: HashSet.add(outcome.known, changeKey(change)),
+  tombstoned: Option.isSome(change.row.deletedAt)
+    ? HashSet.add(outcome.tombstoned, changeKey(change))
+    : HashSet.remove(outcome.tombstoned, changeKey(change)),
 })
 
 /** One step of DM §10.2 rule 3. Pure: all lookups come from the snapshot. */
@@ -251,6 +260,15 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
   )
   if (Arr.isReadonlyArrayNonEmpty(missing)) {
     return reject(outcome, change, "missingParent", `missing parent ${missing.join(", ")}`)
+  }
+  // A soft-deleted owner gains no live children (a deleted session cannot gain sets); tombstones
+  // still go through, so a cascaded delete (parent + children in one push) is accepted.
+  const deletedOwner = Option.filter(
+    Option.map(chainParent(change), (parent) => keyOf(parent.table, parent.id)),
+    (parent) => Option.isNone(row.deletedAt) && HashSet.has(outcome.tombstoned, parent),
+  )
+  if (Option.isSome(deletedOwner)) {
+    return reject(outcome, change, "missingParent", `deleted parent ${deletedOwner.value}`)
   }
   const limit = DateTime.add(snapshot.now, CLOCK_SKEW_LIMIT)
   const effective = DateTime.isGreaterThan(row.updatedAt, limit) ? snapshot.now : row.updatedAt
@@ -360,6 +378,12 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
           rejected: [],
           writes: [],
           known: HashSet.fromIterable(HashMap.keys(snapshot.own)),
+          tombstoned: HashSet.fromIterable(
+            Arr.map(
+              Arr.filter(own, (c) => Option.isSome(c.row.deletedAt)),
+              changeKey,
+            ),
+          ),
         }
         const outcome = Arr.reduce(
           duplicates,

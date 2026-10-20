@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { DateTime, Effect, Option, Schema } from "effect"
-import { Forbidden, NotFound, SyncConflict, ValidationError } from "./errors"
+import {
+  Forbidden,
+  NotFound,
+  SessionStoreUnavailable,
+  SyncConflict,
+  ValidationError,
+} from "./errors"
 import { Uuid } from "./ids"
 import { Goal, Profile } from "./user"
 
@@ -17,6 +23,14 @@ describe("error wire shapes", () => {
     expect(Schema.encodeSync(Forbidden)(error)).toEqual({
       _tag: "Forbidden",
       message: "not your row",
+    })
+  })
+
+  it("encodes SessionStoreUnavailable as _tag + message, status 503", () => {
+    const error = new SessionStoreUnavailable({ message: "session store unavailable" })
+    expect(Schema.encodeSync(SessionStoreUnavailable)(error)).toEqual({
+      _tag: "SessionStoreUnavailable",
+      message: "session store unavailable",
     })
   })
 

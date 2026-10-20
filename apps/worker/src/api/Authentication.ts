@@ -1,8 +1,8 @@
-import type { UserId } from "@tanren/shared"
+import { SessionStoreUnavailable, type UserId } from "@tanren/shared"
 import { Context, Effect, Layer, Option } from "effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiError, HttpApiMiddleware } from "effect/http-api"
-import { SessionStoreUnavailable, Sessions } from "../auth/Sessions"
+import { Sessions } from "../auth/Sessions"
 
 /** The signed-in user of the current request; provided by `Authentication`. */
 export class CurrentUser extends Context.Service<CurrentUser, { readonly userId: UserId }>()(

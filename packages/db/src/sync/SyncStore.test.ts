@@ -357,6 +357,81 @@ describe("SyncStore.apply", () => {
     }).pipe(Effect.provide(StoreLayer)),
   )
 
+  it.effect("rejects a new set under a tombstoned session as missingParent", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(30)
+      const owner = UserId.make(user)
+      const u = { userId: user }
+      const store = yield* SyncStore
+      yield* store.apply(owner, [
+        ex(exercise({ id: id(90), name: "Tombstone lift", ...u })),
+        { table: "session", row: session({ id: id(91), deletedAt: t1, ...u }) },
+      ])
+      const result = yield* store.apply(owner, [
+        {
+          table: "set",
+          row: workoutSet({ id: id(92), sessionId: id(91), exerciseId: id(90), ...u }),
+        },
+      ])
+      expect(result.accepted).toEqual([])
+      expect(result.rejected.map((r) => [r.table, r.id, r.reason])).toEqual([
+        ["set", id(92), "missingParent"],
+      ])
+      expect(yield* rowsOf(user, [["set", id(92)]])).toEqual([])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("rejects a new plannedSet under a plannedSession tombstoned in the same push", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(31)
+      const owner = UserId.make(user)
+      const u = { userId: user }
+      const store = yield* SyncStore
+      yield* store.apply(owner, [
+        ex(exercise({ id: id(93), name: "Planned tombstone lift", ...u })),
+        { table: "plan", row: plan({ id: id(94), ...u }) },
+        { table: "planWeek", row: planWeek({ id: id(95), planId: id(94), ...u }) },
+        { table: "plannedSession", row: plannedSession({ id: id(96), planWeekId: id(95), ...u }) },
+      ])
+      const result = yield* store.apply(owner, [
+        {
+          table: "plannedSession",
+          row: plannedSession({
+            id: id(96),
+            planWeekId: id(95),
+            updatedAt: t2,
+            deletedAt: t2,
+            ...u,
+          }),
+        },
+        {
+          table: "plannedSet",
+          row: plannedSet({ id: id(97), plannedSessionId: id(96), exerciseId: id(93), ...u }),
+        },
+        // A tombstone under the deleted owner still goes through (cascaded delete).
+        {
+          table: "plannedSet",
+          row: plannedSet({
+            id: id(98),
+            plannedSessionId: id(96),
+            exerciseId: id(93),
+            deletedAt: t2,
+            ...u,
+          }),
+        },
+      ])
+      expect(result.accepted.map((a) => [a.table, a.id])).toEqual([
+        ["plannedSession", id(96)],
+        ["plannedSet", id(98)],
+      ])
+      expect(result.rejected.map((r) => [r.table, r.id, r.reason])).toEqual([
+        ["plannedSet", id(97), "missingParent"],
+      ])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
   it.effect("is atomic: a failing statement aborts the whole push", () =>
     Effect.gen(function* () {
       yield* at(now)

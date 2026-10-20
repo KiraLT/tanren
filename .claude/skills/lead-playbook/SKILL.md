@@ -35,7 +35,19 @@ At any moment, every task whose inputs exist should be running. Before you
 wait on anything, ask: what else can start now? Research runs *alongside*
 work that does not need it, never ahead of it. Engineers verify versions and
 APIs empirically (install, run, read `.d.ts`) instead of waiting for a
-research note. A single agent waiting is a smell; two is a bug.
+research note. A single agent waiting is a smell; two is a bug. **You
+waiting is the worst bug.** "The teams own the code" never means nothing
+else can run. While teams build, go down this list and start every item
+whose files are unowned (owner 2026-10-20: "isn't there more you can work
+on while you wait?"):
+1. plan the next build step (architect) and spike its one runtime question;
+2. leftovers in files no live team owns (integration checklists, review
+   should-fixes) as one engineer with an explicit In/Out file list;
+3. `qa` on the last committed state, new `*.edge.test.ts` files only;
+4. the EM on every event (team report, incident, round 2);
+5. pre-write the integration brief and the next step's briefs;
+6. owner-facing docs (runbooks, test recipes) via the architect.
+Stop only when the dependency graph itself is empty, and say so.
 
 ## You do not research
 
@@ -208,10 +220,13 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
 - skills: <effect-conventions | monorepo | cloudflare-workers | expo-mobile>
 - docs/adr/<relevant>.md, docs/research/<relevant>.md
 - existing code: <paths>
-- every path / line / symbol claim in this brief was grep-verified at
-  dispatch (`grep -n <symbol> <path>`); a package `CLAUDE.md` is a hint, the
-  code is the fact. Unverified assumptions are written as questions ("does
-  the cookie cross ports?"), never as facts.
+- every path / line / symbol claim in this brief carries the grep that
+  proves it, pasted with its output (`grep -rn "class Foo" apps/worker/src`
+  → `src/auth/Sessions.ts:12`); a claim without output is a guess and the
+  engineer treats it as one. Writing "grep-verified" without running it is
+  what put HI-1's error in the wrong file. A package `CLAUDE.md` is a hint,
+  the code is the fact. Unverified assumptions are written as questions
+  ("does the cookie cross ports?"), never as facts.
 
 ## Scope
 In: <files / modules you own in this brief>

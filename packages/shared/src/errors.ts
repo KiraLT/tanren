@@ -52,6 +52,17 @@ export class ValidationError extends Schema.TaggedError<ValidationError>()(
   }
 }
 
+/**
+ * The session store or auth service could not be asked (D1 down, Better Auth rejected or failed to
+ * start). Any authenticated route and `/api/auth/*` can answer it, so it is part of the API
+ * contract: 503, not 500 and not 401 (a signed-in client must not drop its session over an outage).
+ */
+export class SessionStoreUnavailable extends Schema.TaggedError<SessionStoreUnavailable>()(
+  "SessionStoreUnavailable",
+  { message: Schema.String },
+  { httpApiStatus: 503 },
+) {}
+
 /** Optimistic concurrency for single-row writes; batched sync reports LWW outcomes instead. */
 export class SyncConflict extends Schema.TaggedError<SyncConflict>()(
   "SyncConflict",

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
+import { SessionStoreUnavailable } from "@tanren/shared"
 import { Effect, Layer } from "effect"
 import { makeApp } from "../app"
-import { SessionStoreUnavailable, Sessions } from "../auth/Sessions"
+import { Sessions } from "../auth/Sessions"
 import { envVars as env } from "../testing/fixtures"
 
 /** The session store is down: every lookup fails. */
