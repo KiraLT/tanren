@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Option, pipe } from "effect"
 
 export const DEV_API_PORT = 8787
 
@@ -18,12 +18,21 @@ export const resolveApiBaseUrl = ({ envUrl, hostUri, isWeb }: ApiBaseUrlInputs):
   if (nonEmpty(envUrl)) {
     return envUrl.trim().replace(/\/+$/, "")
   }
-  const host = hostUri?.split(":")[0]
-  if (!isWeb && nonEmpty(host)) {
-    return `http://${host}:${DEV_API_PORT}`
-  }
-  return `http://localhost:${DEV_API_PORT}`
+  const host = hostUri === undefined ? Option.none() : hostOf(hostUri)
+  return !isWeb && Option.isSome(host)
+    ? `http://${host.value}:${DEV_API_PORT}`
+    : `http://localhost:${DEV_API_PORT}`
 }
+
+/** URL parsing keeps IPv6 brackets (`[::1]:8081` → `[::1]`); unparsable or empty → `None`. */
+const hostOf = (hostUri: string): Option.Option<string> =>
+  pipe(
+    parseUrl(`http://${hostUri.trim()}`),
+    Option.map((url) => url.hostname),
+    Option.filter(nonEmpty),
+  )
+
+const parseUrl = Option.liftThrowable((href: string) => new URL(href))
 
 /**
  * The app's API base URL. `expo-constants` is imported lazily so this module loads under Node;

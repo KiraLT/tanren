@@ -298,7 +298,7 @@ describe("SyncEngine edges", () => {
     ),
   )
 
-  it.effect("one undecodable dirty row fails typed", () =>
+  it.effect("an undecodable dirty row is flagged invalid and not retried", () =>
     withServer(
       Effect.gen(function* () {
         const phone = yield* openPhone()
@@ -313,17 +313,17 @@ describe("SyncEngine edges", () => {
             ]),
           ),
         )
-        const error = yield* Effect.flip(phone.run(sync))
-        expect(error._tag).toBe("StoreError")
+        const first = yield* phone.run(sync)
+        expect(first).toMatchObject({ pushed: 1, rejected: 1 })
+        expect((yield* phone.run(setRows))[0]).toMatchObject({ _dirty: 1, _rejected: "invalid" })
+        expect(yield* phone.run(sync)).toMatchObject({ pushed: 0, rejected: 0 })
       }),
     ),
   )
 
-  // DEFECT: collectDirty decodes every dirty row with Effect.forEach, so one undecodable row (here
-  // a negative weight written straight to SQLite) fails the whole sync and the healthy session row
-  // is never pushed. SyncEngine.ts collectDirty / decodeChange: skip or flag the bad row
-  // (`markRejected(..., "invalid")`) instead of failing the pass.
-  it.effect.fails("a poison row does not block pushing healthy rows", () =>
+  // Ratified: collectDirty flags an undecodable row (here a negative weight written straight to
+  // SQLite) `_rejected = "invalid"` and pushes the healthy rows in the same pass.
+  it.effect("a poison row does not block pushing healthy rows", () =>
     withServer(
       Effect.gen(function* () {
         const phone = yield* openPhone()

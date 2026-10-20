@@ -59,6 +59,12 @@ interface DirtyRow {
   readonly pushed: Pushed
 }
 
+interface Collected {
+  readonly rows: ReadonlyArray<DirtyRow>
+  /** Undecodable rows flagged `invalid` during this collection. */
+  readonly invalid: number
+}
+
 const toStoreError = (cause: unknown): StoreError => new StoreError({ cause })
 
 const decodeChange = (table: SyncTable, record: SqlRecord): Effect.Effect<SyncChange, StoreError> =>
@@ -80,29 +86,58 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
       const commit = (statements: ReadonlyArray<SqlStatement>) =>
         driver.batch(statements).pipe(Effect.andThen(events.bump))
 
-      /** Pushable rows, parents first, at most `MAX_PUSH_CHANGES`. */
+      /**
+       * A dirty row that does not decode can never be pushed: flag it `_rejected = "invalid"`
+       * (not retried until a local edit clears the flag) so it stops blocking healthy rows.
+       */
+      const flagInvalid = (invalid: ReadonlyArray<Pushed>) =>
+        invalid.length === 0
+          ? Effect.void
+          : Effect.forEach(
+              invalid,
+              ({ table, id }) =>
+                Effect.logWarning("SyncEngine: undecodable dirty row flagged invalid", {
+                  table,
+                  id,
+                }),
+              { discard: true },
+            ).pipe(
+              Effect.andThen(
+                commit(
+                  invalid.map((row) => markRejected(row.table, row.id, row.updatedAt, "invalid")),
+                ),
+              ),
+            )
+
+      /** Pushable rows, parents first, at most `MAX_PUSH_CHANGES`; undecodable ones are flagged. */
       const collectDirty = Effect.reduce(
         SYNC_TABLE_ORDER,
-        (): ReadonlyArray<DirtyRow> => [],
+        (): Collected => ({ rows: [], invalid: 0 }),
         (collected, table) =>
-          collected.length >= MAX_PUSH_CHANGES
+          collected.rows.length >= MAX_PUSH_CHANGES
             ? Effect.succeed(collected)
-            : store.all(pushableRows(table, MAX_PUSH_CHANGES - collected.length)).pipe(
+            : store.all(pushableRows(table, MAX_PUSH_CHANGES - collected.rows.length)).pipe(
                 Effect.flatMap((records) =>
-                  Effect.forEach(records, (record) =>
-                    decodeChange(table, record).pipe(
-                      Effect.map((change) => ({
-                        change,
-                        pushed: {
-                          table,
-                          id: String(record.id),
-                          updatedAt: String(record.updatedAt),
-                        },
-                      })),
-                    ),
+                  Effect.partition(records, (record) => {
+                    const pushed: Pushed = {
+                      table,
+                      id: String(record.id),
+                      updatedAt: String(record.updatedAt),
+                    }
+                    return decodeChange(table, record).pipe(
+                      Effect.map((change): DirtyRow => ({ change, pushed })),
+                      Effect.mapError(() => pushed),
+                    )
+                  }),
+                ),
+                Effect.flatMap(([rows, invalid]) =>
+                  flagInvalid(invalid).pipe(
+                    Effect.as({
+                      rows: [...collected.rows, ...rows],
+                      invalid: collected.invalid + invalid.length,
+                    }),
                   ),
                 ),
-                Effect.map((batch) => [...collected, ...batch]),
               ),
       )
 
@@ -152,10 +187,18 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
         TransportError | StoreError
       > =>
         Effect.gen(function* () {
-          if ((yield* pushableCount) === 0) {
+          const queued = yield* pushableCount
+          if (queued === 0) {
             return { pushed: pushedSoFar, rejected: rejectedSoFar }
           }
-          const dirty = yield* collectDirty
+          const { rows: dirty, invalid } = yield* collectDirty
+          if (dirty.length === 0) {
+            // Every collected row was undecodable and is now flagged; go on only if the queue shrank.
+            const flagged = rejectedSoFar + invalid
+            return (yield* pushableCount) < queued
+              ? yield* pushLoop(pushedSoFar, flagged)
+              : { pushed: pushedSoFar, rejected: flagged }
+          }
           const response = yield* transport.sendChanges({
             changes: dirty.map((entry) => entry.change),
           })
@@ -164,7 +207,7 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
             response,
           )
           const pushed = pushedSoFar + dirty.length
-          const rejected = rejectedSoFar + response.rejected.length
+          const rejected = rejectedSoFar + invalid + response.rejected.length
           // No accepted or rejected row: only conflicts (or nothing) came back, so stop here.
           const progressed = response.accepted.length + response.rejected.length > 0
           return progressed ? yield* pushLoop(pushed, rejected) : { pushed, rejected }

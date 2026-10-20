@@ -31,14 +31,12 @@ describe("resolveApiBaseUrl edges", () => {
     expect(native(":8081")).toBe("http://localhost:8787")
   })
 
-  // DEFECT (minor, dev only): hostUri is split on ":" so an IPv6 literal "[::1]:8081" becomes
-  // "http://[:8787". Fix: parse with `new URL(`http://${hostUri}`).hostname`.
-  it.fails("handles an IPv6 host URI", () => {
+  it("handles an IPv6 host URI", () => {
     expect(native("[::1]:8081")).toBe("http://[::1]:8787")
   })
 
-  // DEFECT (minor, dev only): an Expo tunnel host URI ("xyz.exp.direct:80") yields a dev API port
-  // that is not tunnelled; documented here as the observed result.
+  // Observed (minor, dev only): an Expo tunnel host URI ("xyz.exp.direct:80") yields a dev API
+  // port that is not tunnelled; documented here as the observed result, not a fix target.
   it("tunnel host URIs get the dev API port appended", () => {
     expect(native("abc-anon-8081.exp.direct:80")).toBe("http://abc-anon-8081.exp.direct:8787")
   })

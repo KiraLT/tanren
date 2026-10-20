@@ -104,11 +104,9 @@ describe("TodayRepo edges", () => {
     ),
   )
 
-  // DEFECT: openSession(None) reuses ANY unfinished unplanned session regardless of date
-  // (TodayRepo.ts openSession: no `startedAt` bound), and nothing ever sets `finishedAt`. A set
-  // logged at 00:30 the next day joins yesterday's session. Fix: bound the unplanned lookup to the
-  // local day of `now` (or close sessions after N hours).
-  it.effect.fails("an unplanned set after local midnight starts a new session", () =>
+  // Ratified: openSession(None) reuses an unfinished unplanned session only if it started on the
+  // local date of `now` (localDateOf / localToday), else a new session starts.
+  it.effect("an unplanned set after local midnight starts a new session", () =>
     withServer(
       Effect.gen(function* () {
         yield* TestClock.setTime(LATE)
@@ -136,16 +134,32 @@ describe("TodayRepo edges", () => {
     }).pipe(Effect.provide(MockSyncServer.layer)),
   )
 
-  // DEFECT (possible): buildToday selects exercises by id without `deletedAt IS NULL`
-  // (TodayRepo.ts buildToday), so a pulled exercise tombstone still shows on Today. Fix: add
-  // `AND "deletedAt" IS NULL` to that query, if tombstoned exercises should hide.
-  it.effect.fails("a tombstoned exercise disappears from Today", () =>
+  // Ratified: a planned set whose exercise is tombstoned still renders on Today with its name
+  // (buildToday), but `exerciseChoices` (swap / add list) excludes deleted exercises.
+  it.effect("a tombstoned exercise stays on Today's plan but leaves the swap/add choices", () =>
     withServer(
       Effect.gen(function* () {
         yield* TestClock.setTime(Date.UTC(2026, 9, 20, 8))
         const phone = yield* openPhone()
         yield* phone.run(seedIfEmpty)
-        const before = yield* phone.run(TodayRepo.use((repo) => repo.today))
+        const names = (exercises: ReadonlyArray<{ readonly name: string }>) =>
+          exercises.map((exercise) => exercise.name)
+        const choices = phone.run(
+          TodayRepo.use((repo) => repo.exerciseChoices).pipe(Effect.map(names)),
+        )
+        const todayNames = phone.run(
+          TodayRepo.use((repo) => repo.today).pipe(
+            Effect.map(
+              Option.match({
+                onNone: (): ReadonlyArray<string> => [],
+                onSome: (today) => names(today.exercises.map((entry) => entry.exercise)),
+              }),
+            ),
+          ),
+        )
+        const before = yield* todayNames
+        expect(before).toContain("Back Squat")
+        expect(yield* choices).toContain("Back Squat")
         yield* phone.run(
           SqlDriver.use((driver) =>
             driver.batch([
@@ -156,10 +170,10 @@ describe("TodayRepo edges", () => {
             ]),
           ),
         )
-        const after = yield* phone.run(TodayRepo.use((repo) => repo.today))
-        const n = (t: typeof before) =>
-          Option.match(t, { onNone: () => 0, onSome: (x) => x.exercises.length })
-        expect(n(after)).toBe(n(before) - 1)
+        expect(yield* todayNames).toEqual(before)
+        const after = yield* choices
+        expect(after).not.toContain("Back Squat")
+        expect(after.length).toBeGreaterThan(0)
       }),
     ),
   )

@@ -63,6 +63,14 @@ export interface LogSetInput {
 
 export const DEFAULT_REST_SECONDS = 120
 
+/** The owner's calendar date of `instant`, in the device zone (`DateTime.CurrentTimeZone`). */
+export const localDateOf = (
+  instant: DateTime.DateTime,
+): Effect.Effect<LocalDate, never, DateTime.CurrentTimeZone> =>
+  DateTime.setZoneCurrent(instant).pipe(
+    Effect.map((zoned) => LocalDate.make(DateTime.formatIsoDate(zoned))),
+  )
+
 /** The owner's calendar date now, in the device zone (`DateTime.CurrentTimeZone`). */
 export const localToday: Effect.Effect<LocalDate, never, DateTime.CurrentTimeZone> =
   DateTime.nowInCurrentZone.pipe(Effect.map((now) => LocalDate.make(DateTime.formatIsoDate(now))))
@@ -101,6 +109,11 @@ export interface TodayRepoShape {
   readonly today: Effect.Effect<Option.Option<Today>, StoreError>
   /** Logs a set into today's session, creating the session on the first set. Marks both dirty. */
   readonly logSet: (input: LogSetInput) => Effect.Effect<WorkoutSet, StoreError | ValidationError>
+  /**
+   * Exercises offered by swap / add exercise: live ones only, by name. Planned sets that point at a
+   * tombstoned exercise still render on `today` (history and plan stay readable).
+   */
+  readonly exerciseChoices: Effect.Effect<ReadonlyArray<Exercise>, StoreError>
 }
 
 export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@tanren/TodayRepo") {
@@ -140,8 +153,24 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
         return Arr.head(yield* decodeRecords(PlannedSessionRow)(rows))
       })
 
-      /** The open session for this planned session (or the unplanned one when `None`). */
+      /**
+       * The open session for this planned session, or when `None` the unplanned one started on
+       * today's local date (a planned session is already bound to its `scheduledDate`).
+       */
       const openSession = (plannedSessionId: Option.Option<string>) =>
+        Effect.gen(function* () {
+          const latest = yield* latestOpenSession(plannedSessionId)
+          const today = yield* localToday
+          const started = yield* Effect.transposeOption(
+            Option.map(latest, (session) => localDateOf(session.startedAt)),
+          )
+          return Option.isSome(plannedSessionId) || Option.exists(started, (d) => d === today)
+            ? latest
+            : Option.none<Session>()
+        })
+
+      /** Newest unfinished session for this planned session (unplanned when `None`), any date. */
+      const latestOpenSession = (plannedSessionId: Option.Option<string>) =>
         owner.pipe(
           Effect.flatMap((userId) =>
             store.all(
@@ -186,6 +215,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
             )
             .pipe(Effect.flatMap(decodeRecords(PlannedSetRow)))
           const exerciseIds = Arr.dedupe(plannedSets.map((set) => set.exerciseId))
+          // Tombstoned exercises included on purpose: a planned set keeps its name (plan integrity).
           const exercises = yield* store
             .all(
               q(
@@ -304,7 +334,20 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
           ),
         )
 
-      return TodayRepo.of({ today, logSet })
+      const exerciseChoices = owner.pipe(
+        Effect.flatMap((userId) =>
+          store.all(
+            q(
+              `SELECT * FROM "exercise" WHERE "userId" = ? AND "deletedAt" IS NULL
+               ORDER BY "name", "id"`,
+              userId,
+            ),
+          ),
+        ),
+        Effect.flatMap(decodeRecords(ExerciseRow)),
+      )
+
+      return TodayRepo.of({ today, logSet, exerciseChoices })
     }),
   )
 
