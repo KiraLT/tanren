@@ -1,17 +1,27 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
+import type { CurrentPlanEncoded } from "./currentPlan"
 import type { Exercise } from "./exercise"
 import {
   CurrentPlanResult,
   ExerciseHistory,
   type ExerciseSummary,
   GetOverviewInput,
+  LogSessionInput,
+  LogSessionResult,
+  MCP_SCOPES,
   MCP_TOOLS,
+  McpScope,
   McpToolName,
+  OAuthProps,
   Overview,
   SessionList,
+  UpdateProfileResult,
+  WritePlanWeekInput,
+  WritePlanWeekResult,
 } from "./mcp"
-import { failingPaths, rejects, wireRoundTrips } from "./testing"
+import { accepts, failingPaths, rejects, wireRoundTrips } from "./testing"
+import { Profile } from "./user"
 
 type ExerciseEncoded = (typeof Exercise)["Encoded"]
 type ExerciseSummaryEncoded = (typeof ExerciseSummary)["Encoded"]
@@ -52,6 +62,7 @@ const exerciseWire: ExerciseEncoded = {
   aliases: [],
   muscleGroups: ["quads", "glutes"],
   notes: null,
+  catalogId: null,
 }
 
 /** docs/design/mcp.md §5, with full UUIDs. */
@@ -131,10 +142,184 @@ describe("read outputs", () => {
     }),
   )
 
-  it.effect("CurrentPlanResult accepts null", () =>
+  describe("CurrentPlanResult", () => {
+    const currentPlanWire: CurrentPlanEncoded = {
+      plan: {
+        id: "11111111-1111-4111-8111-111111111111",
+        userId: "6f1d2b7e-3c4a-4e2b-9a0e-1f2a3b4c5d6e",
+        createdAt: "2026-10-19T08:00:00.000Z",
+        updatedAt: "2026-10-19T08:00:00.000Z",
+        deletedAt: null,
+        name: "Strength block",
+        goal: "12-week strength block",
+        startDate: "2026-10-19",
+        status: "active",
+      },
+      weeks: [],
+      sessions: [],
+      sets: [],
+    }
+
+    it.effect("decodes null to None", () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeUnknownEffect(CurrentPlanResult)(null)
+        expect(Option.isNone(decoded)).toBe(true)
+      }),
+    )
+
+    it.effect("decodes a plan to Some", () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeUnknownEffect(CurrentPlanResult)(currentPlanWire)
+        expect(Option.map(decoded, (current) => current.plan.name)).toEqual(
+          Option.some("Strength block"),
+        )
+      }),
+    )
+
+    it.effect("rejects a malformed plan, at path plan.id", () =>
+      Effect.gen(function* () {
+        const paths = yield* failingPaths(CurrentPlanResult, {
+          ...currentPlanWire,
+          plan: { ...currentPlanWire.plan, id: "not-a-uuid" },
+        })
+        expect(paths).toEqual([["plan", "id"]])
+      }),
+    )
+
+    it.effect("encodes None back to null", () =>
+      Effect.gen(function* () {
+        expect(yield* Schema.encodeEffect(CurrentPlanResult)(Option.none())).toBeNull()
+      }),
+    )
+
+    it.effect("round-trips null and a plan through the wire", () =>
+      Effect.gen(function* () {
+        yield* wireRoundTrips(CurrentPlanResult, null)
+        yield* wireRoundTrips(CurrentPlanResult, currentPlanWire)
+      }),
+    )
+  })
+})
+
+const writePlanWeekWire = {
+  planId: null,
+  weekStart: "2026-10-19",
+  intent: "Deload: keep RPE at 7",
+  sessions: [{ name: "Upper A", order: 0, scheduledDate: "2026-10-20", notes: null, sets: [] }],
+}
+
+describe("WritePlanWeekInput", () => {
+  it.effect("decodes without newPlan and round-trips", () =>
     Effect.gen(function* () {
-      expect(yield* Schema.decodeUnknownEffect(CurrentPlanResult)(null)).toBeNull()
-      yield* wireRoundTrips(CurrentPlanResult, null)
+      const decoded = yield* Schema.decodeUnknownEffect(WritePlanWeekInput)(writePlanWeekWire)
+      expect("newPlan" in decoded).toBe(false)
+      yield* wireRoundTrips(WritePlanWeekInput, writePlanWeekWire)
+    }),
+  )
+
+  it.effect("round-trips newPlan and a null intent", () =>
+    wireRoundTrips(WritePlanWeekInput, {
+      ...writePlanWeekWire,
+      newPlan: { name: "Autumn block", goal: "Squat 140 kg" },
+      intent: null,
+    }),
+  )
+
+  it.effect("rejects an empty newPlan name at path newPlan.name", () =>
+    Effect.gen(function* () {
+      const input = { ...writePlanWeekWire, newPlan: { name: " ", goal: "x" } }
+      expect(yield* failingPaths(WritePlanWeekInput, input)).toEqual([["newPlan", "name"]])
+    }),
+  )
+})
+
+describe("WritePlanWeekResult", () => {
+  const resultWire = {
+    planId: "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    planWeekId: "b1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    replaced: false,
+    sessions: [
+      {
+        plannedSessionId: "c1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        order: 0,
+        name: "Upper A",
+        sets: 4,
+      },
+    ],
+  }
+  it.effect("round-trips", () => wireRoundTrips(WritePlanWeekResult, resultWire))
+  it.effect("rejects a fractional set count at path sessions.0.sets", () =>
+    Effect.gen(function* () {
+      const input = { ...resultWire, sessions: [{ ...resultWire.sessions[0], sets: 1.5 }] }
+      expect(yield* failingPaths(WritePlanWeekResult, input)).toEqual([["sessions", 0, "sets"]])
+    }),
+  )
+})
+
+const logSessionWire = {
+  startedAt: "2026-10-17T17:00:00.000Z",
+  finishedAt: null,
+  plannedSessionId: null,
+  notes: null,
+  sets: [{ exerciseId, weightKg: 110, reps: 5, rpe: 8, note: null }],
+}
+const logSetWire = { exerciseId, weightKg: 110, reps: 5, rpe: 8, note: null }
+
+describe("LogSessionInput", () => {
+  it.effect("round-trips without sessionId and loggedAt (step-4 shape)", () =>
+    wireRoundTrips(LogSessionInput, logSessionWire),
+  )
+
+  it.effect("round-trips sessionId and a per-set loggedAt", () =>
+    wireRoundTrips(LogSessionInput, {
+      ...logSessionWire,
+      sessionId: sessionWire.id,
+      sets: [{ ...logSetWire, loggedAt: "2026-10-17T17:21:04.000Z" }],
+    }),
+  )
+
+  it.effect("rejects a non-UUID sessionId at path sessionId", () =>
+    Effect.gen(function* () {
+      const input = { ...logSessionWire, sessionId: "nope" }
+      expect(yield* failingPaths(LogSessionInput, input)).toEqual([["sessionId"]])
+    }),
+  )
+})
+
+describe("write results", () => {
+  it.effect("LogSessionResult is a session with its sets", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(LogSessionResult, { session: sessionWire, sets: [setWire] })
+      yield* rejects(LogSessionResult, { session: sessionWire })
+    }),
+  )
+
+  it("UpdateProfileResult is the Profile schema", () => {
+    expect(UpdateProfileResult).toBe(Profile)
+  })
+})
+
+describe("OAuthProps", () => {
+  const propsWire = { userId: rowWire.userId, scopes: MCP_SCOPES }
+
+  it.effect("round-trips both scopes and accepts none", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(OAuthProps, propsWire)
+      yield* accepts(OAuthProps, { ...propsWire, scopes: [] })
+    }),
+  )
+
+  it.effect("rejects an unknown scope at path scopes.1", () =>
+    Effect.gen(function* () {
+      const input = { ...propsWire, scopes: ["tanren:read", "tanren:admin"] }
+      expect(yield* failingPaths(OAuthProps, input)).toEqual([["scopes", 1]])
+    }),
+  )
+
+  it.effect("McpScope accepts exactly MCP_SCOPES", () =>
+    Effect.gen(function* () {
+      yield* Effect.forEach(MCP_SCOPES, (scope) => Schema.decodeUnknownEffect(McpScope)(scope))
+      yield* rejects(McpScope, "read")
     }),
   )
 })

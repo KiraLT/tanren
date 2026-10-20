@@ -276,7 +276,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
 ## Done when
 - [ ] <behavioural criterion>
 - [ ] `pnpm check` is green (paste output; company mode: if red only outside your scope, also the
-      package-level stages from the `monorepo` skill, foreign failures named)
+      package-level stages from the `monorepo` skill, foreign failures named). When other
+      engineers are live in the same package, the criterion is "own files green (vitest on
+      them) + foreign reds listed with their owner", never "package gate green" (F2 r2, 00:45)
 - [ ] tests: for every exported Schema — decode-ok, decode-fail with the path asserted, and a round-trip (`.claude/rules/tests.md`); plus <behaviour-specific cases>
 - [ ] runtime smoke shown in the report when the task touches an entry point, auth or an import path (worker: `wrangler dev --port <n>` + `curl`; mobile/web: `ui-check`); Node tests alone do not count
 - [ ] no files outside Scope changed

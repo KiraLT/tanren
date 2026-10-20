@@ -1,3 +1,5 @@
+import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider"
+
 /**
  * Worker bindings and vars as Cloudflare hands them over: raw strings, not yet validated.
  * `WorkerConfig.layerFromEnv` decodes the vars; nothing else reads them directly.
@@ -16,7 +18,16 @@ export interface Env {
   readonly RESEND_API_KEY?: string
   /** Local only: bearer token for the dev MCP route. Must be absent outside `local`. */
   readonly DEV_MCP_TOKEN?: string
+  /** KV namespace the OAuth provider stores clients, grants and tokens in. */
+  readonly OAUTH_KV: KVNamespace
+  /** Absolute URL of the MCP resource, e.g. `https://mcp.tanren.me/mcp` (`http:` only locally). */
+  readonly MCP_RESOURCE_URL: string
+  /** Injected per request by `OAuthProvider`; absent in the module-scope `env`. */
+  readonly OAUTH_PROVIDER?: OAuthHelpers
 }
 
-/** The vars `WorkerConfig` needs, so tests can build a config without a D1 binding. */
-export type EnvVars = Omit<Env, "DB">
+/**
+ * The plain vars `WorkerConfig` needs, so tests can build a config without D1, KV or the
+ * provider helpers.
+ */
+export type EnvVars = Omit<Env, "DB" | "OAUTH_KV" | "OAUTH_PROVIDER">

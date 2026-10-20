@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   ExerciseId,
+  IdGenerator,
   MCP_TOOLS,
   OrderIndex,
   Reps,
@@ -11,11 +12,15 @@ import {
   WeightKg,
   WorkoutSet,
 } from "@tanren/shared"
-import { DateTime, Effect, Option } from "effect"
+import { DateTime, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { ExerciseRepo, PlanRepo, Repositories, SessionRepo } from "../repos"
 import { at, exercise, plan, userA, userB, week } from "../sync/fixtures"
 import { getCurrentPlan, getExerciseHistory, getOverview, listSessions, readTools } from "./tools"
+import { writeTools } from "./writeTools"
+
+/** Every `ToolDeps` service: in-memory repos plus the counting `IdGenerator`. */
+const TestLayer = Layer.mergeAll(Repositories.layerMemory, IdGenerator.layerTest)
 
 const NOW = at("2026-10-20T00:00:00.000Z")
 const setNow = TestClock.setTime(DateTime.toEpochMillis(NOW))
@@ -104,7 +109,7 @@ describe("get_overview", () => {
       expect(overview.range.to).toEqual(NOW)
       expect(overview.range.from).toEqual(at("2026-09-20T00:00:00.000Z"))
       expect([overview.sessions, overview.sets]).toEqual([2, 6])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("7d covers only the last seven days", () =>
@@ -112,7 +117,7 @@ describe("get_overview", () => {
       const overview = yield* run(getOverview.run(userA, { period: "7d" }))
       expect(overview.range.from).toEqual(at("2026-10-13T00:00:00.000Z"))
       expect([overview.sessions, overview.sets, overview.volumeKg]).toEqual([1, 3, 1600])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("sums volume, picks the best set and sorts by volume then name", () =>
@@ -130,7 +135,7 @@ describe("get_overview", () => {
         Option.some([100, 8]),
       )
       expect(squat?.lastLoggedAt).toEqual(Option.some(at("2026-10-18T17:02:00.000Z")))
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("never shows another user's sessions, sets or exercises", () =>
@@ -138,7 +143,7 @@ describe("get_overview", () => {
       const overview = yield* run(getOverview.run(userB, {}))
       expect([overview.sessions, overview.sets, overview.volumeKg]).toEqual([1, 1, 750])
       expect(overview.exercises.map((e) => e.name)).toEqual(["Deadlift"])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("reports the active plan's id, name and week count, or none", () =>
@@ -152,7 +157,7 @@ describe("get_overview", () => {
       expect(some.currentPlan).toEqual(
         Option.some({ planId: plan(10).id, name: "Block", weeks: 2 }),
       )
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("summarises the active plan without loading it whole, ignoring archived ones", () =>
@@ -172,7 +177,7 @@ describe("get_overview", () => {
       expect(overview.currentPlan).toEqual(
         Option.some({ planId: plan(10).id, name: "Block", weeks: 1 }),
       )
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
@@ -188,19 +193,18 @@ describe("get_exercise_history", () => {
         [older.id, [id(203)]],
         [outside.id, [id(207)]],
       ])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("returns only the newest `limit` sessions and clamps limits out of range", () =>
+  // Out-of-range limits (0, 501, 1.5) are rejected at decode: see the `call` boundary test below.
+  it.effect("returns only the newest `limit` sessions", () =>
     Effect.gen(function* () {
       const exerciseId = ExerciseId.make(id(1))
       const one = yield* run(getExerciseHistory.run(userA, { exerciseId, limit: 1 }))
       expect(one.entries.map((e) => e.session.id)).toEqual([recent.id])
-      const zero = yield* getExerciseHistory.run(userA, { exerciseId, limit: 0 })
-      expect(zero.entries).toHaveLength(1)
-      const huge = yield* getExerciseHistory.run(userA, { exerciseId, limit: 10_000 })
-      expect(huge.entries).toHaveLength(3)
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+      const max = yield* getExerciseHistory.run(userA, { exerciseId, limit: 500 })
+      expect(max.entries).toHaveLength(3)
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("fails NotFound for an unknown or another user's exercise", () =>
@@ -213,7 +217,7 @@ describe("get_exercise_history", () => {
         getExerciseHistory.run(userA, { exerciseId: ExerciseId.make(id(9)) }),
       )
       expect(foreignId).toMatchObject({ _tag: "NotFound", entity: "exercise", id: id(9) })
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
@@ -226,7 +230,7 @@ describe("list_sessions", () => {
       const list = yield* run(listSessions.run(userA, { from, to }))
       expect(list.range).toEqual({ from, to })
       expect(list.sessions.map((s) => [s.session.id, s.sets])).toEqual([[older.id, []]])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("attaches each session's sets with includeSets", () =>
@@ -242,22 +246,22 @@ describe("list_sessions", () => {
         [older.id, [id(203), id(204), id(206)]],
         [recent.id, [id(201), id(202), id(205)]],
       ])
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("fails ValidationError when to is before from", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(run(listSessions.run(userA, { from: to, to: from })))
       expect(error).toMatchObject({ _tag: "ValidationError" })
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
 describe("get_current_plan", () => {
   it.effect("is null without an active plan", () =>
     Effect.gen(function* () {
-      expect(yield* run(getCurrentPlan.run(userA, {}))).toBeNull()
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+      expect(yield* run(getCurrentPlan.run(userA, {}))).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("returns the active plan with its weeks", () =>
@@ -266,16 +270,23 @@ describe("get_current_plan", () => {
       yield* plans.putPlans(userA, [plan(10)])
       yield* plans.putPlanWeeks(userA, [week(20, 10)])
       const current = yield* getCurrentPlan.run(userA, {})
-      expect(current?.plan.id).toBe(plan(10).id)
-      expect(current?.weeks.map((w) => w.id)).toEqual([week(20, 10).id])
-      expect(yield* getCurrentPlan.run(userB, {})).toBeNull()
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+      expect(Option.map(current, (c) => c.plan.id)).toEqual(Option.some(plan(10).id))
+      expect(Option.map(current, (c) => c.weeks.map((w) => w.id))).toEqual(
+        Option.some([week(20, 10).id]),
+      )
+      expect(yield* getCurrentPlan.run(userB, {})).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
 describe("readTools", () => {
   it("lists the four read tools in MCP_TOOLS order", () => {
     expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 4))
+  })
+
+  it("marks every read tool read and every write tool write", () => {
+    expect(readTools.every((tool) => tool.kind === "read")).toBe(true)
+    expect(writeTools.every((tool) => tool.kind === "write")).toBe(true)
   })
 
   it.effect("call decodes raw args and returns the JSON wire form", () =>
@@ -288,7 +299,7 @@ describe("readTools", () => {
         volumeKg: 1600,
         currentPlan: null,
       })
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("call fails ValidationError on malformed args", () =>
@@ -298,7 +309,7 @@ describe("readTools", () => {
         history?.call(userA, { exerciseId: "not-a-uuid", limit: 0 }) ?? Effect.die("no tool"),
       )
       expect(error).toMatchObject({ _tag: "ValidationError" })
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
@@ -343,7 +354,7 @@ describe("QA: tombstones and isolation", () => {
       expect(ids).not.toContain(id(211))
       expect(ids).not.toContain(id(212))
       expect(history.entries.map((e) => e.session.id)).not.toContain(deadSession.id)
-    }).pipe(run, Effect.provide(Repositories.layerMemory)),
+    }).pipe(run, Effect.provide(TestLayer)),
   )
 
   it.effect(
@@ -365,7 +376,7 @@ describe("QA: tombstones and isolation", () => {
         const ov = yield* getOverview.run(userB, { period: "7d" })
         expect(ov.exercises.map((x) => x.name)).toEqual(["Deadlift"])
         expect(ov.volumeKg).toBe(750)
-      }).pipe(run, Effect.provide(Repositories.layerMemory)),
+      }).pipe(run, Effect.provide(TestLayer)),
   )
 
   it.effect(
@@ -394,7 +405,7 @@ describe("QA: tombstones and isolation", () => {
           }),
         ]
         expect(errors.map((error) => error._tag)).toEqual(errors.map(() => "ValidationError"))
-      }).pipe(run, Effect.provide(Repositories.layerMemory)),
+      }).pipe(run, Effect.provide(TestLayer)),
   )
 
   it.effect(
@@ -409,7 +420,7 @@ describe("QA: tombstones and isolation", () => {
         expect(max).toMatchObject({ exercise: { name: "Back Squat" } })
         const empty = yield* listSessions.run(userA, { from, to: from })
         expect(empty.sessions).toEqual([])
-      }).pipe(run, Effect.provide(Repositories.layerMemory)),
+      }).pipe(run, Effect.provide(TestLayer)),
   )
 
   it.effect("a tombstoned exercise's id is still readable but a foreign id is NotFound", () =>
@@ -419,7 +430,7 @@ describe("QA: tombstones and isolation", () => {
       )
       expect(foreignEx).toMatchObject({ _tag: "NotFound" })
       expect(JSON.stringify(foreignEx)).not.toContain("Deadlift")
-    }).pipe(run, Effect.provide(Repositories.layerMemory)),
+    }).pipe(run, Effect.provide(TestLayer)),
   )
 })
 const from = at("2026-10-10T17:00:00.000Z")

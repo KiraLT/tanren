@@ -12,6 +12,7 @@ const localEnv: EnvVars = {
   ALLOWED_ORIGINS: "http://localhost:8081",
   EMAIL_MODE: "console",
   EMAIL_FROM: "Tanren <dev@tanren.local>",
+  MCP_RESOURCE_URL: "http://localhost:8787/mcp",
 }
 const magicLink = { email: "lukas@example.com", url: "http://localhost:8787/verify?token=abc" }
 

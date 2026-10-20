@@ -134,18 +134,27 @@ describe("/mcp in workerd", () => {
     expect(await rpcResult(response)).toMatchObject({ serverInfo: { name: "tanren" } })
   })
 
-  it("lists the four read tools, read-only", async () => {
+  it("lists all seven tools for the dev token (every scope): reads read-only, writes not", async () => {
     const result = await post(rpc(2, "tools/list", {})).then(rpcResult)
     const tools = Schema.decodeUnknownSync(
       Schema.Array(
         Schema.Struct({
           name: Schema.String,
           inputSchema: Schema.Struct({ type: Schema.Literal("object") }),
-          annotations: Schema.Struct({ readOnlyHint: Schema.Literal(true) }),
+          annotations: Schema.Struct({ readOnlyHint: Schema.Boolean }),
         }),
       ),
     )(result.tools)
-    expect(tools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 4))
+    expect(tools.map((tool) => tool.name)).toEqual([...MCP_TOOLS])
+    expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+    ])
   })
 
   it("get_overview returns structured content that decodes as Overview", async () => {
@@ -177,10 +186,12 @@ describe("/mcp in workerd", () => {
     expect(result.isError).toBe(true)
   })
 
-  it("rejects a request without a token: 401 + WWW-Authenticate: Bearer, empty body", async () => {
+  it("rejects a request without a token: 401 + the resource-metadata challenge, empty body", async () => {
     const response = await post(rpc(4, "tools/list", {}), Option.none())
     expect(response.status).toBe(401)
-    expect(response.headers.get("WWW-Authenticate")).toBe("Bearer")
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      'Bearer realm="OAuth", resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource/mcp", scope="tanren:read tanren:write"',
+    )
     expect(await response.text()).toBe("")
   })
 

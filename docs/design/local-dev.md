@@ -97,13 +97,32 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
 
 ## 5. MCP locally
 
-- Step 4 (read tools, before OAuth): in `ENVIRONMENT=local` only, the MCP route also accepts
-  `Authorization: Bearer <DEV_MCP_TOKEN>` and acts as the seed user. Attach:
-  `claude mcp add --transport http tanren-local http://localhost:8787/mcp --header "Authorization: Bearer <token>"`
-  (port 8788 if MCP becomes its own Worker). `--header` syntax [UNV in this note; check `claude mcp add --help`].
-- Step 5 (OAuth): `workers-oauth-provider` on local KV; Claude Code runs the browser flow against
-  localhost and the login uses the console magic link [INF]. The Claude app's custom connector is
-  reached from Anthropic's servers, so it cannot use localhost [INF]: test it on preview or via a tunnel.
+- OAuth (step 5): the Worker's default export is an `OAuthProvider` (`src/oauth/provider.ts`) with
+  grants and tokens in the local KV binding `OAUTH_KV` (`id: "local-oauth-kv"` in
+  `apps/worker/wrangler.jsonc`, kept under `apps/worker/.wrangler/state` by `wrangler dev`; no Durable
+  Object, no account). `MCP_RESOURCE_URL` is `http://localhost:8787/mcp` (`http:` is accepted only when
+  `ENVIRONMENT=local`). The authorize page signs in with Better Auth's magic link, which the local
+  console `EmailSender` prints in the `pnpm dev` terminal (the same link as §4); the token is also in
+  D1 as `verification.identifier = "magic-link:<token>"`. `src/oauth/oauth.workerd.test.ts` is the
+  automated flow test.
+  Proven by curl on port 8794 (S5-T4b, 2026-10-21). Start the Worker with
+  `pnpm -F @tanren/worker exec wrangler dev --port <p> --var BETTER_AUTH_URL:http://localhost:<p> --var MCP_RESOURCE_URL:http://localhost:<p>/mcp`
+  (on 8787 the committed vars already match, so no `--var`). Then:
+  1. `POST /mcp` → 401 `WWW-Authenticate: Bearer realm="OAuth", resource_metadata="http://localhost:<p>/.well-known/oauth-protected-resource/mcp", scope="tanren:read"`.
+  2. `GET /.well-known/oauth-authorization-server` → issuer, `/authorize`, `/oauth/token`, `/oauth/register`, scopes.
+  3. `POST /oauth/register` (public client) → `client_id`.
+  4. `GET /authorize?…` with PKCE S256, signed out → the login page; `POST /authorize/login` → the magic link is printed in the wrangler log (`callbackURL=/authorize?…`).
+  5. Open the link (sets the session cookie) → consent page (`__Host-oauth-consent-…` cookie, `frame-ancestors 'none'`) → Approve → 302 to `callback?code=…&iss=…`.
+  6. `POST /oauth/token` with the URL-decoded code and the verifier → `{token_type: "bearer", expires_in: 3600, scope: "tanren:read tanren:write", refresh_token}`; then `tools/list` → 7 tools.
+  Claude Code: `claude mcp add --transport http tanren-local http://localhost:8787/mcp` (no header) should run
+  the same flow in a browser. **Unverified**: no agent has a headless browser login, so this has not been run.
+- Dev token (fallback, local only): with `ENVIRONMENT=local` the MCP route also accepts
+  `Authorization: Bearer <DEV_MCP_TOKEN>` and acts as the seed user with every scope (`layerDevToken`;
+  through the provider via `resolveExternalToken`). Attach as in the Owner recipe below; the
+  `--header` form is the one INT-A ran. Port 8788 only if MCP ever becomes its own Worker.
+- The Claude app's custom connector is reached from Anthropic's servers, so it cannot reach
+  localhost. Question for the owner: does it get tested on a tunnel or only on the production
+  Worker, given ADR-0008 decided against a preview environment? Unproven; nothing here has tried a tunnel.
 
 ## 6. Expo app against the local API
 
@@ -158,7 +177,8 @@ Decided 2026-10-20 by the Lead under owner delegation
   workspace imports vs adding `tsx`); `miniflare.bindings` / inline `d1Databases` in `cloudflareTest`.
 - Step 3: exact wrangler env inheritance (`vars`, bindings, `secrets`), and what `wrangler types` emits
   for multi-env configs; that local mode truly needs no login (run once with `CLOUDFLARE_API_TOKEN` unset).
-- Step 4: `claude mcp add --header` syntax; whether the dev bearer path fits `createMcpHandler`.
+- Step 4: settled. `claude mcp add --transport http … --header "Authorization: Bearer …"` was run by INT-A
+  (Owner recipe below), and the dev bearer path fits `createMcpHandler` (`McpAuth.layerDevToken`).
 - Step 6: Better Auth with Expo native (cookie/session storage, deep-link `callbackURL`), expo-constants
   host-URI field name, `cloudflared` quick tunnel without an account.
 

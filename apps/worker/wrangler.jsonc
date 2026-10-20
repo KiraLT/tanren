@@ -24,5 +24,33 @@
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }]
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }],
+  // Production (docs/design/deploy.md §2). Placeholders make a deploy fail loudly until the owner
+  // fills the ids; secrets (BETTER_AUTH_SECRET, RESEND_API_KEY) are never vars. `wrangler dev` ignores it.
+  "env": {
+    "production": {
+      "name": "tanren",
+      "routes": [
+        { "pattern": "api.tanren.me", "custom_domain": true },
+        { "pattern": "mcp.tanren.me", "custom_domain": true }
+      ],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "BETTER_AUTH_URL": "https://api.tanren.me",
+        "ALLOWED_ORIGINS": "https://tanren.me",
+        "EMAIL_MODE": "provider",
+        "EMAIL_FROM": "Tanren <login@tanren.me>",
+        "MCP_RESOURCE_URL": "https://mcp.tanren.me/mcp"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "tanren",
+          "database_id": "<owner: wrangler d1 create>",
+          "migrations_dir": "../../packages/db/migrations"
+        }
+      ],
+      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<owner: wrangler kv namespace create>" }]
+    }
+  }
 }

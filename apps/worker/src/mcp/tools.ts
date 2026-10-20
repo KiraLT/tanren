@@ -3,9 +3,11 @@ import {
   type Exercise,
   ExerciseHistory,
   type ExerciseSummary,
+  type Forbidden,
   GetCurrentPlanInput,
   GetExerciseHistoryInput,
   GetOverviewInput,
+  type IdGenerator,
   ListSessionsInput,
   type McpToolName,
   NotFound,
@@ -16,7 +18,7 @@ import {
   ValidationError,
   type WorkoutSet,
 } from "@tanren/shared"
-import { Array as Arr, DateTime, Effect, Number as Num, Option, Order, pipe, Schema } from "effect"
+import { Array as Arr, DateTime, Effect, Option, Order, pipe, Schema } from "effect"
 import {
   ExerciseRepo,
   type PersistenceError,
@@ -26,13 +28,17 @@ import {
 } from "../repos"
 
 // The MCP read tools (docs/design/mcp.md §4) as plain Effect programs over the repository ports.
-// No MCP SDK here: `server.ts` registers `readTools` and runs `call`.
+// No MCP SDK here: `server.ts` registers `readTools` (and `writeTools`) and runs `call`.
 
-export type ToolDeps = ExerciseRepo | PlanRepo | SessionRepo | ProfileRepo
-export type ToolError = NotFound | ValidationError | PersistenceError
+export type ToolDeps = ExerciseRepo | PlanRepo | SessionRepo | ProfileRepo | IdGenerator
+export type ToolError = NotFound | ValidationError | Forbidden | PersistenceError
 
-export interface ReadTool<I extends Schema.Top, O extends Schema.Top> {
+/** `read` tools are registered for every principal, `write` tools only with `tanren:write`. */
+export type ToolKind = "read" | "write"
+
+export interface Tool<I extends Schema.Top, O extends Schema.Top> {
   readonly name: McpToolName
+  readonly kind: ToolKind
   readonly description: string
   readonly input: I
   readonly output: O
@@ -46,25 +52,27 @@ export type ToolSchema = Schema.Top & {
 }
 
 /**
- * A `ReadTool` with its schema types erased, so `server.ts` can iterate `readTools`. `call` is the
+ * A `Tool` with its schema types erased, so `server.ts` can iterate `readTools`/`writeTools`. `call` is the
  * whole boundary: it decodes the raw JSON `args` with `input` (failure → `ValidationError`), runs
  * the tool, and encodes the result with `output` into its JSON form (`Option` → null, `DateTime`
  * → ISO string), ready for `structuredContent`. Register `input` as a JSON Schema so the SDK hands
  * over raw args; a Standard Schema would hand over already-decoded values and `call` would decode
  * twice.
  */
-export interface AnyReadTool {
+export interface AnyTool {
   readonly name: McpToolName
+  readonly kind: ToolKind
   readonly description: string
   readonly input: ToolSchema
   readonly output: ToolSchema
   readonly call: (userId: UserId, args: unknown) => Effect.Effect<unknown, ToolError, ToolDeps>
 }
 
-export const eraseReadTool = <I extends ToolSchema, O extends ToolSchema>(
-  tool: ReadTool<I, O>,
-): AnyReadTool => ({
+export const eraseTool = <I extends ToolSchema, O extends ToolSchema>(
+  tool: Tool<I, O>,
+): AnyTool => ({
   name: tool.name,
+  kind: tool.kind,
   description: tool.description,
   input: tool.input,
   output: tool.output,
@@ -82,8 +90,6 @@ export const eraseReadTool = <I extends ToolSchema, O extends ToolSchema>(
 const PERIOD_DAYS: { readonly [P in Period]: number } = { "7d": 7, "30d": 30, "90d": 90 }
 export const DEFAULT_PERIOD: Period = "30d"
 export const DEFAULT_HISTORY_LIMIT = 20
-/** `PageLimit`'s maximum; `listSetsForExercise` does not check `limit` itself. */
-export const MAX_HISTORY_LIMIT = 500
 
 const volumeOf = (sets: ReadonlyArray<WorkoutSet>): number =>
   Arr.reduce(sets, 0, (total, set) => total + set.weightKg * set.reps)
@@ -140,8 +146,9 @@ const activePlanSummary = Effect.fn("activePlanSummary")(function* (userId: User
   return Option.some({ planId: active.value.id, name: active.value.name, weeks: weeks.length })
 })
 
-export const getOverview: ReadTool<typeof GetOverviewInput, typeof Overview> = {
+export const getOverview: Tool<typeof GetOverviewInput, typeof Overview> = {
   name: "get_overview",
+  kind: "read",
   description:
     "Training summary for the last 7, 30 or 90 days (period, default 30d) ending now: session, " +
     "set and volume totals, then one entry per exercise trained (volume = sum of weightKg x reps, " +
@@ -178,43 +185,42 @@ export const getOverview: ReadTool<typeof GetOverviewInput, typeof Overview> = {
   }),
 }
 
-export const getExerciseHistory: ReadTool<typeof GetExerciseHistoryInput, typeof ExerciseHistory> =
-  {
-    name: "get_exercise_history",
-    description:
-      "One exercise and its logged sets, grouped by session, newest session first, for the last " +
-      "`limit` sessions that contain it (default 20, max 500). Weights are kg; timestamps are " +
-      "ISO-8601 UTC. exerciseId comes from get_overview or get_current_plan.",
+export const getExerciseHistory: Tool<typeof GetExerciseHistoryInput, typeof ExerciseHistory> = {
+  name: "get_exercise_history",
+  kind: "read",
+  description:
+    "One exercise and its logged sets, grouped by session, newest session first, for the last " +
+    "`limit` sessions that contain it (default 20, max 500). Weights are kg; timestamps are " +
+    "ISO-8601 UTC. exerciseId comes from get_overview or get_current_plan.",
+  input: GetExerciseHistoryInput,
+  output: ExerciseHistory,
+  run: Effect.fn("get_exercise_history")(function* (
+    userId: UserId,
     input: GetExerciseHistoryInput,
-    output: ExerciseHistory,
-    run: Effect.fn("get_exercise_history")(function* (
-      userId: UserId,
-      input: GetExerciseHistoryInput,
-    ) {
-      // Repo scoping makes a foreign id and an unknown one look the same: both are NotFound.
-      const exercise = yield* (yield* ExerciseRepo).get(userId, input.exerciseId)
-      if (Option.isNone(exercise)) {
-        return yield* new NotFound({ entity: "exercise", id: input.exerciseId })
-      }
-      const limit = Num.clamp(Math.trunc(input.limit ?? DEFAULT_HISTORY_LIMIT), {
-        minimum: 1,
-        maximum: MAX_HISTORY_LIMIT,
-      })
-      const sessionRepo = yield* SessionRepo
-      // Two statements over the same newest-`limit` sessions, newest first (never a `getSession`
-      // per entry: D1 Free allows 50 statements per invocation and `limit` goes up to 500).
-      const sessions = yield* sessionRepo.listSessionsForExercise(userId, input.exerciseId, limit)
-      const sets = yield* sessionRepo.listSetsForExercise(userId, input.exerciseId, limit)
-      const entries = Arr.map(sessions, (session) => ({
-        session,
-        sets: Arr.filter(sets, (set) => set.sessionId === session.id),
-      }))
-      return { exercise: exercise.value, entries }
-    }),
-  }
+  ) {
+    // Repo scoping makes a foreign id and an unknown one look the same: both are NotFound.
+    const exercise = yield* (yield* ExerciseRepo).get(userId, input.exerciseId)
+    if (Option.isNone(exercise)) {
+      return yield* new NotFound({ entity: "exercise", id: input.exerciseId })
+    }
+    // `input.limit` is a decoded `PageLimit` (integer 1..500): no clamp needed.
+    const limit = input.limit ?? DEFAULT_HISTORY_LIMIT
+    const sessionRepo = yield* SessionRepo
+    // Two statements over the same newest-`limit` sessions, newest first (never a `getSession`
+    // per entry: D1 Free allows 50 statements per invocation and `limit` goes up to 500).
+    const sessions = yield* sessionRepo.listSessionsForExercise(userId, input.exerciseId, limit)
+    const sets = yield* sessionRepo.listSetsForExercise(userId, input.exerciseId, limit)
+    const entries = Arr.map(sessions, (session) => ({
+      session,
+      sets: Arr.filter(sets, (set) => set.sessionId === session.id),
+    }))
+    return { exercise: exercise.value, entries }
+  }),
+}
 
-export const listSessions: ReadTool<typeof ListSessionsInput, typeof SessionList> = {
+export const listSessions: Tool<typeof ListSessionsInput, typeof SessionList> = {
   name: "list_sessions",
+  kind: "read",
   description:
     "Logged sessions whose start time is in the half-open range [from, to) (ISO-8601 UTC), " +
     "oldest first. With includeSets: true each session carries its sets (weights in kg), " +
@@ -243,23 +249,24 @@ export const listSessions: ReadTool<typeof ListSessionsInput, typeof SessionList
   }),
 }
 
-export const getCurrentPlan: ReadTool<typeof GetCurrentPlanInput, typeof CurrentPlanResult> = {
+export const getCurrentPlan: Tool<typeof GetCurrentPlanInput, typeof CurrentPlanResult> = {
   name: "get_current_plan",
+  kind: "read",
   description:
     "The active training plan with its weeks, planned sessions and planned sets (target weights " +
     "in kg, dates YYYY-MM-DD, timestamps ISO-8601 UTC), or null when there is no active plan.",
   input: GetCurrentPlanInput,
   output: CurrentPlanResult,
   run: Effect.fn("get_current_plan")(function* (userId: UserId, _input: GetCurrentPlanInput) {
-    // The contract's output is `CurrentPlan | null` (the JSON shape), so `Option` ends here.
-    return Option.getOrNull(yield* (yield* PlanRepo).currentPlan(userId))
+    // `CurrentPlanResult` is `OptionFromNullOr`: `None` is encoded to `null` on the wire.
+    return yield* (yield* PlanRepo).currentPlan(userId)
   }),
 }
 
 /** The step-4 tools, in `MCP_TOOLS` order. */
-export const readTools: ReadonlyArray<AnyReadTool> = [
-  eraseReadTool(getOverview),
-  eraseReadTool(getExerciseHistory),
-  eraseReadTool(listSessions),
-  eraseReadTool(getCurrentPlan),
+export const readTools: ReadonlyArray<AnyTool> = [
+  eraseTool(getOverview),
+  eraseTool(getExerciseHistory),
+  eraseTool(listSessions),
+  eraseTool(getCurrentPlan),
 ]

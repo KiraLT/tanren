@@ -4,5 +4,11 @@
   "assets": {
     "directory": "../mobile/dist",
     "not_found_handling": "single-page-application"
+  },
+  "env": {
+    "production": {
+      "name": "tanren-web",
+      "routes": [{ "pattern": "tanren.me", "custom_domain": true }]
+    }
   }
 }

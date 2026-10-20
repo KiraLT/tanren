@@ -1,26 +1,28 @@
 /**
  * The MCP tool contract (docs/design/mcp.md §3). Inputs are what Claude sends; outputs are the
  * JSON `Encoded` form of these schemas (`Option` → `null`, `DateTime` → ISO string). The step-5
- * write inputs are typed here but not registered until step 5.
+ * write tools and OAuth props follow docs/design/oauth.md §4–§5.
  */
 import { Schema, Struct } from "effect"
 import {
   Label,
   LocalDate,
   Note,
+  OrderIndex,
   PageLimit,
   Reps,
   ROW_COLUMNS,
   Rpe,
+  Text,
   Timestamp,
   WeightKg,
 } from "./common"
 import { CurrentPlan } from "./currentPlan"
 import { Exercise, MuscleGroup } from "./exercise"
-import { ExerciseId, PlanId, PlannedSessionId } from "./ids"
+import { ExerciseId, PlanId, PlannedSessionId, PlanWeekId, SessionId, UserId } from "./ids"
 import { PlannedSessionFields, PlannedSet } from "./plan"
 import { Session, WorkoutSet } from "./session"
-import { ProfilePatch } from "./user"
+import { Profile, ProfilePatch } from "./user"
 
 export const Period = Schema.Literals(["7d", "30d", "90d"])
 export type Period = typeof Period.Type
@@ -97,13 +99,13 @@ export const SessionList = Schema.Struct({
 })
 export type SessionList = typeof SessionList.Type
 
-// get_current_plan: no input, output is the active plan or null
+// get_current_plan: no input, output is the active plan (`Option`; `null` on the wire)
 export const GetCurrentPlanInput = Schema.Struct({})
 export type GetCurrentPlanInput = typeof GetCurrentPlanInput.Type
-export const CurrentPlanResult = Schema.NullOr(CurrentPlan)
+export const CurrentPlanResult = Schema.OptionFromNullOr(CurrentPlan)
 export type CurrentPlanResult = typeof CurrentPlanResult.Type
 
-// Step 5 inputs: typed now, no handler and no registration until step 5.
+// Step 5 write tools.
 /** `{ exerciseId, order, targetWeightKg, targetReps, targetRpe, restSeconds, note }`. */
 export const PlannedSetSpec = PlannedSet.mapFields(
   Struct.omit([...ROW_COLUMNS, "plannedSessionId"]),
@@ -115,15 +117,38 @@ export const PlannedSessionSpec = Schema.Struct({
   sets: Schema.Array(PlannedSetSpec),
 })
 export type PlannedSessionSpec = typeof PlannedSessionSpec.Type
+// write_plan_week (docs/design/oauth.md §5)
 export const WritePlanWeekInput = Schema.Struct({
-  /** `None` = the active plan, created if absent. */
+  /** `None` = the active plan. */
   planId: Schema.OptionFromNullOr(PlanId),
+  /** Used only when no active plan exists. */
+  newPlan: Schema.optionalKey(Schema.Struct({ name: Label, goal: Text })),
   weekStart: LocalDate,
-  notes: Schema.OptionFromNullOr(Note),
+  /** `PlanWeek.intent` (was `notes` in step 4). */
+  intent: Schema.OptionFromNullOr(Text),
   sessions: Schema.Array(PlannedSessionSpec),
 })
 export type WritePlanWeekInput = typeof WritePlanWeekInput.Type
+export const WritePlanWeekResult = Schema.Struct({
+  planId: PlanId,
+  planWeekId: PlanWeekId,
+  /** `true` when a live week with this `weekStart` already existed. */
+  replaced: Schema.Boolean,
+  sessions: Schema.Array(
+    Schema.Struct({
+      plannedSessionId: PlannedSessionId,
+      order: OrderIndex,
+      name: Label,
+      sets: Schema.Int,
+    }),
+  ),
+})
+export type WritePlanWeekResult = typeof WritePlanWeekResult.Type
+
+// log_session
 export const LogSessionInput = Schema.Struct({
+  /** Replace that session (idempotent retry); omit = create. */
+  sessionId: Schema.optionalKey(SessionId),
   startedAt: Timestamp,
   finishedAt: Schema.OptionFromNullOr(Timestamp),
   plannedSessionId: Schema.OptionFromNullOr(PlannedSessionId),
@@ -135,12 +160,28 @@ export const LogSessionInput = Schema.Struct({
       reps: Reps,
       rpe: Schema.OptionFromNullOr(Rpe),
       note: Schema.OptionFromNullOr(Note),
+      /** Defaults to `startedAt`. */
+      loggedAt: Schema.optionalKey(Timestamp),
     }),
   ),
 })
 export type LogSessionInput = typeof LogSessionInput.Type
+export const LogSessionResult = SessionWithSets
+export type LogSessionResult = typeof LogSessionResult.Type
+
+// update_profile
 export const UpdateProfileInput = ProfilePatch
 export type UpdateProfileInput = typeof UpdateProfileInput.Type
+export const UpdateProfileResult = Profile
+export type UpdateProfileResult = typeof UpdateProfileResult.Type
+
+// OAuth (docs/design/oauth.md §4)
+export const MCP_SCOPES = ["tanren:read", "tanren:write"] as const
+export const McpScope = Schema.Literals(MCP_SCOPES)
+export type McpScope = typeof McpScope.Type
+/** The grant props the OAuth provider stores encrypted and hands back as `ctx.props`. */
+export const OAuthProps = Schema.Struct({ userId: UserId, scopes: Schema.Array(McpScope) })
+export type OAuthProps = typeof OAuthProps.Type
 
 export const MCP_TOOLS = [
   "get_overview",

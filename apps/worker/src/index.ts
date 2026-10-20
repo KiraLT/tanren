@@ -3,29 +3,30 @@ import { Layer } from "effect"
 import { d1Persistence, makeApp } from "./app"
 import { BetterAuth } from "./auth/BetterAuth"
 import { EmailSender } from "./auth/EmailSender"
+import { WorkerConfig } from "./Config"
 import { McpAuth } from "./mcp/McpAuth"
 import { makeMcp } from "./mcp/McpRoute"
+import { makeAuthorize } from "./oauth/authorize"
+import { makeProvider } from "./oauth/provider"
 
 /**
- * Built once per isolate. Module scope only describes layers: the D1 binding is captured here but
- * queried per request. Auth tables (migration 0001) and domain rows both live in `env.DB`.
- * `makeApp` provides `WorkerConfig.layerFromEnv(env)` to the auth layer.
+ * Built once per isolate. Module scope only describes layers and decodes the vars (no I/O): the D1
+ * binding is captured here but queried per request. Auth tables (migration 0001) and domain rows
+ * both live in `env.DB`; OAuth grants and tokens live in `env.OAUTH_KV` (the provider's).
  */
+const config = WorkerConfig.fromEnvSync(env)
+
+const betterAuth = BetterAuth.layer(env.DB).pipe(Layer.provide(EmailSender.layer))
+
 const app = makeApp(env, {
-  auth: {
-    _tag: "BetterAuth",
-    betterAuth: BetterAuth.layer(env.DB).pipe(Layer.provide(EmailSender.layer)),
-  },
+  auth: { _tag: "BetterAuth", betterAuth },
   persistence: d1Persistence(env.DB),
 })
 
-/** The MCP server (docs/design/mcp.md): same D1, dev-token auth until step 5 adds OAuth. */
-const mcp = makeMcp(env, { persistence: d1Persistence(env.DB), auth: McpAuth.layerDevToken })
+/** The MCP server (docs/design/mcp.md, oauth.md §4): OAuth props, or the local dev token. */
+const mcp = makeMcp(env, { persistence: d1Persistence(env.DB), auth: McpAuth.layerLive })
 
-/** `/mcp` (exact path) is routed before the REST app. */
-export default {
-  fetch: (request: Request, workerEnv: unknown, ctx: ExecutionContext): Promise<Response> =>
-    new URL(request.url).pathname === "/mcp"
-      ? mcp.handle(request, workerEnv, ctx)
-      : app.handler(request),
-}
+/** The authorize pages (oauth.md §3); a second lazy Better Auth instance on the same DB. */
+const authorize = makeAuthorize(env, { betterAuth })
+
+export default makeProvider(config, { app, mcp, authorize })

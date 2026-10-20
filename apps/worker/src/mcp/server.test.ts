@@ -1,13 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Forbidden, IdGenerator, MCP_TOOLS } from "@tanren/shared"
+import { Effect, Layer, Schema } from "effect"
 import { Repositories } from "../repos"
 import { userA } from "../sync/fixtures"
-import { callTool } from "./server"
-import type { AnyReadTool } from "./tools"
+import { callTool, toolsFor } from "./server"
+import type { AnyTool } from "./tools"
+
+const TestLayer = Layer.mergeAll(Repositories.layerMemory, IdGenerator.layerTest)
 
 /** A tool whose program dies (e.g. the output-encode `orDie`) with a message that must not leak. */
-const dyingTool: AnyReadTool = {
+const dyingTool: AnyTool = {
   name: "get_overview",
+  kind: "read",
   description: "dies",
   input: Schema.Unknown,
   output: Schema.Unknown,
@@ -19,6 +23,44 @@ describe("callTool", () => {
     Effect.gen(function* () {
       const result = yield* callTool(dyingTool, userA, {})
       expect(result).toEqual({ isError: true, content: [{ type: "text", text: "internal error" }] })
-    }).pipe(Effect.provide(Repositories.layerMemory)),
+    }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("turns Forbidden into an isError result with its message", () =>
+    Effect.gen(function* () {
+      const forbiddenTool: AnyTool = {
+        ...dyingTool,
+        call: () => Effect.fail(new Forbidden({ message: "not your row" })),
+      }
+      const result = yield* callTool(forbiddenTool, userA, {})
+      expect(result).toEqual({
+        isError: true,
+        content: [{ type: "text", text: "Forbidden: not your row" }],
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("toolsFor", () => {
+  it("registers the four read tools for a read-only grant", () => {
+    expect(toolsFor({ userId: userA, scopes: ["tanren:read"] }).map((t) => t.name)).toEqual(
+      MCP_TOOLS.slice(0, 4),
+    )
+  })
+
+  it("adds the three write tools, in MCP_TOOLS order, with tanren:write", () => {
+    expect(
+      toolsFor({ userId: userA, scopes: ["tanren:read", "tanren:write"] }).map((t) => t.name),
+    ).toEqual([...MCP_TOOLS])
+  })
+
+  it("registers only the three write tools for a write-only grant", () => {
+    expect(toolsFor({ userId: userA, scopes: ["tanren:write"] }).map((t) => t.name)).toEqual(
+      MCP_TOOLS.slice(4),
+    )
+  })
+
+  it("registers nothing without a scope", () => {
+    expect(toolsFor({ userId: userA, scopes: [] })).toEqual([])
+  })
 })

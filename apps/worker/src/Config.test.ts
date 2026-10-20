@@ -11,7 +11,21 @@ const localEnv: EnvVars = {
   EMAIL_MODE: "console",
   EMAIL_FROM: "Tanren <dev@tanren.local>",
   DEV_MCP_TOKEN: "local-dev-only-mcp-token",
+  MCP_RESOURCE_URL: "http://localhost:8787/mcp",
 }
+
+/** A valid production env: provider email, https resource URL, no dev token. */
+const productionEnv = (() => {
+  const { DEV_MCP_TOKEN: _omitted, ...withoutToken } = localEnv
+  return {
+    ...withoutToken,
+    ENVIRONMENT: "production",
+    EMAIL_MODE: "provider",
+    EMAIL_FROM: "Tanren <login@tanren.me>",
+    RESEND_API_KEY: "re_test_only_not_a_key",
+    MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
+  }
+})()
 
 const RESEND_KEY = "re_test_only_not_a_key"
 
@@ -53,6 +67,7 @@ describe("WorkerConfig.layerFromEnv", () => {
         EMAIL_MODE: "provider",
         EMAIL_FROM: "Tanren <login@tanren.me>",
         RESEND_API_KEY: RESEND_KEY,
+        MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
       })
       expect(config.environment).toBe("production")
       expect(config.emailMode).toBe("provider")
@@ -134,4 +149,71 @@ describe("WorkerConfig.layerFromEnv", () => {
       expect(error.message).toContain("ENVIRONMENT")
     }),
   )
+
+  it.effect("exposes mcpResourceUrl (https in production, http in local)", () =>
+    Effect.gen(function* () {
+      const production = yield* load(productionEnv)
+      const local = yield* load(localEnv)
+      expect([production.mcpResourceUrl, local.mcpResourceUrl]).toEqual([
+        "https://mcp.tanren.me/mcp",
+        "http://localhost:8787/mcp",
+      ])
+    }),
+  )
+
+  it.effect("accepts an https MCP_RESOURCE_URL in local too", () =>
+    Effect.gen(function* () {
+      const config = yield* load({ ...localEnv, MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp" })
+      expect(config.mcpResourceUrl).toBe("https://mcp.tanren.me/mcp")
+    }),
+  )
+
+  it.effect("fails on an http MCP_RESOURCE_URL in production", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, MCP_RESOURCE_URL: "http://mcp.tanren.me/mcp" }),
+      )
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("MCP_RESOURCE_URL")
+    }),
+  )
+
+  it.effect("fails on a relative, garbage, fragment or non-http MCP_RESOURCE_URL", () =>
+    Effect.gen(function* () {
+      const errors = yield* Effect.forEach(
+        ["/mcp", "not a url", "http://localhost:8787/mcp#frag", "ftp://localhost/mcp"],
+        (MCP_RESOURCE_URL) => Effect.flip(load({ ...localEnv, MCP_RESOURCE_URL })),
+      )
+      expect(errors.every((error) => error instanceof ConfigError)).toBe(true)
+      expect(errors.every((error) => error.message.includes("MCP_RESOURCE_URL"))).toBe(true)
+    }),
+  )
+
+  it.effect("fails when MCP_RESOURCE_URL is missing", () =>
+    Effect.gen(function* () {
+      const { MCP_RESOURCE_URL: _omitted, ...withoutUrl } = localEnv
+      const error = yield* Effect.flip(load(withoutUrl))
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("MCP_RESOURCE_URL")
+    }),
+  )
+})
+
+describe("WorkerConfig.fromEnvSync", () => {
+  it("returns the same shape as layerFromEnv", () => {
+    const config = WorkerConfig.fromEnvSync(localEnv)
+    expect(config.environment).toBe("local")
+    expect(config.mcpResourceUrl).toBe("http://localhost:8787/mcp")
+    expect(config.allowedOrigins).toEqual(["http://localhost:8081", "http://localhost:19006"])
+    expect(Option.map(config.devMcpToken, Redacted.value)).toEqual(
+      Option.some("local-dev-only-mcp-token"),
+    )
+  })
+
+  it("dies on a bad env instead of returning a shape", () => {
+    expect(() => WorkerConfig.fromEnvSync({ ...localEnv, MCP_RESOURCE_URL: "/mcp" })).toThrow(
+      /MCP_RESOURCE_URL/,
+    )
+    expect(() => WorkerConfig.fromEnvSync({})).toThrow(/ENVIRONMENT/)
+  })
 })

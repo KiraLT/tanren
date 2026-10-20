@@ -1,8 +1,9 @@
+import { IdGenerator } from "@tanren/shared"
 import { createMcpHandler } from "agents/mcp/server"
 import { Effect, Layer, ManagedRuntime, Option } from "effect"
 import type { Persistence } from "../app"
 import { WorkerConfig } from "../Config"
-import { McpAuth } from "./McpAuth"
+import { challenge, McpAuth } from "./McpAuth"
 import { createServer } from "./server"
 
 // The `/mcp` route (docs/design/mcp.md §1–§2): authenticate, then hand the request to the
@@ -18,9 +19,8 @@ export interface Mcp {
   readonly dispose: () => Promise<void>
 }
 
-/** Step 5 replaces this with the OAuth resource-metadata challenge. */
-const unauthorized = (): Response =>
-  new Response(null, { status: 401, headers: { "WWW-Authenticate": "Bearer" } })
+const unauthorized = (mcpResourceUrl: string): Response =>
+  new Response(null, { status: 401, headers: { "WWW-Authenticate": challenge(mcpResourceUrl) } })
 
 /**
  * One runtime per isolate. `ManagedRuntime.make` only describes it: the layers are built on the
@@ -28,21 +28,21 @@ const unauthorized = (): Response =>
  */
 export const makeMcp = (env: unknown, services: McpServices): Mcp => {
   const runtime = ManagedRuntime.make(
-    Layer.mergeAll(
-      services.persistence,
-      services.auth.pipe(Layer.provide(WorkerConfig.layerFromEnv(env))),
+    Layer.mergeAll(services.persistence, IdGenerator.layer, services.auth).pipe(
+      Layer.provideMerge(WorkerConfig.layerFromEnv(env)),
     ),
   )
   const handle = (request: Request, workerEnv: unknown, ctx: ExecutionContext) =>
     runtime.runPromise(
       Effect.gen(function* () {
-        const userId = yield* (yield* McpAuth).resolve(request)
-        if (Option.isNone(userId)) {
-          return unauthorized()
+        const config = yield* WorkerConfig
+        const principal = yield* (yield* McpAuth).resolve(request, ctx)
+        if (Option.isNone(principal)) {
+          return unauthorized(config.mcpResourceUrl)
         }
         const handler = createMcpHandler(
-          () => createServer({ userId: userId.value, run: runtime.runPromise }),
-          { route: "/mcp" },
+          () => createServer({ principal: principal.value, run: runtime.runPromise }),
+          { route: "/mcp", allowedHostnames: [new URL(config.mcpResourceUrl).hostname] },
         )
         return yield* Effect.promise(() => handler(request, workerEnv, ctx))
       }),

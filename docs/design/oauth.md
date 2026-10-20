@@ -194,9 +194,10 @@ Rules:
   `newPlan` (missing → `ValidationError("no active plan; pass newPlan")`). Week: a live week with
   this `weekStart` in `currentPlan.weeks` → reuse its id, update `intent`, `replaced: true`; else new
   week. Sessions: match existing live planned sessions of that week by `order` → keep the id, update
-  fields; existing orders not in the input → tombstone (`deletedAt`); new orders → insert. Sets: all
-  live sets of the week's sessions are tombstoned and the input sets inserted fresh (ids are not
-  stable; `workout_set.plannedSetId` is optional, so logged sets keep working). Validation before any
+  fields; existing orders not in the input → tombstone (`deletedAt`); new orders → insert. Sets (amended
+  2026-10-21, Lead decision): within each kept planned session, match its live sets by `order` → keep
+  the id, update fields; existing orders not in the input → tombstone; new orders → insert. Sets of a
+  tombstoned planned session are tombstoned with it. Validation before any
   write: `order` values unique per week and per session (`ValidationError`), every `exerciseId` in
   `ExerciseRepo.list` (`NotFound("exercise", id)`), `weekStart` any weekday (ADR-0007). Writes, parents
   first: `putPlans` (0/1), `putPlanWeeks`, `putPlannedSessions`, `putPlannedSets` (≤ 4 batches; reads

@@ -74,3 +74,8 @@ Parallel groups: A = {T1, T2, T3-skeleton (types from §5 text)} · B = {T4 (aft
 
 ## Log
 - 2026-10-20 · created from architect breakdown (oauth.md + deploy.md written the same hour; S5-SPIKE facts baked in)
+- 2026-10-20 23:46 · team mcp-oauth (team-lead) dispatched S5-T1a (sonnet, ae1d4cfbacc0f26a6) on unowned lines; done 23:48. Team sheet: `docs/tasks/step-5/team-mcp-oauth.md` (per-dispatch lines + agent ids there).
+- 23:48 · S5-T2 (opus, a3d119d4bc8949d36) ∥ S5-T3 (opus, a6de60c7a387b1203) ∥ S5-T4a (opus, a4570d7e1542ce396); done 23:54/23:54/23:55. VERIFY 1–5 answered (sheet).
+- 23:59 · S5-T1b (sonnet, ac654e2d060af31d1) ∥ S5-T4b (continuation a4570d7e1542ce396) ∥ S5-T6 index.workerd (opus, a1d87110fed0fa887); done 00:03/00:10/00:04. 00:05 S5-T7 Lead findings a+c (sonnet, a653b05a1875785ba) done 00:07.
+- 00:10 · S5-T5 docs (sonnet, a48eb62f86fbcfc71) done 00:13. 00:12 · S5-REV-A (ad9868c3bec0f580b) ∥ S5-REV-B (a7ff807de248749ad) both APPROVE 00:15. 00:16 · T4 fix r1 (a4570d7e1542ce396) ∥ S5-QA (sonnet, afb440bca9cb4c449, PASS 00:18). Escalation 00:16: D1 50-statement budget.
+- 00:16–00:30 · fix rounds: T4 r1/r2 (rate-limit path, scope ∩ requested, both scopes advertised, empty scope), T3 stable planned-set ids (Lead decision), S5-T8 BetterAuth `cf-connecting-ip` + `toolsFor` read gate (a68c90c6e94127a7f), S5-T9 shared fixture (a04f76b70dad273b4). 00:30 team mcp-oauth report: shared 215 · db 107 · worker 230 green; wall-clock 45 min of the 90-min box.
