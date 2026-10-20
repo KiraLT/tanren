@@ -218,18 +218,24 @@ describe("WorkerConfig.fromEnvSync", () => {
   })
 })
 
-describe("NATIVE_RETURN_HOSTS", () => {
-  it.effect("defaults to localhost + 127.0.0.1 locally and to nothing in production", () =>
-    Effect.gen(function* () {
-      expect((yield* load(localEnv)).nativeReturnHosts).toEqual(["localhost", "127.0.0.1"])
-      expect((yield* load(productionEnv)).nativeReturnHosts).toEqual([])
-    }),
+describe("NATIVE_RETURN_PREFIXES", () => {
+  it.effect(
+    "defaults to exp://localhost: + exp://127.0.0.1: locally and to nothing in production",
+    () =>
+      Effect.gen(function* () {
+        expect((yield* load(localEnv)).nativeReturnPrefixes).toEqual([
+          "exp://localhost:",
+          "exp://127.0.0.1:",
+        ])
+        expect((yield* load(productionEnv)).nativeReturnPrefixes).toEqual([])
+      }),
   )
 
-  it.effect("splits, trims and lower-cases the comma list", () =>
+  it.effect("splits and trims the comma list, keeping case (paths are case-sensitive)", () =>
     Effect.gen(function* () {
-      const config = yield* load({ ...productionEnv, NATIVE_RETURN_HOSTS: " U.expo.dev, ,x.test" })
-      expect(config.nativeReturnHosts).toEqual(["u.expo.dev", "x.test"])
+      const raw = " exps://u.expo.dev/AbC-123/, ,tanren://"
+      const config = yield* load({ ...productionEnv, NATIVE_RETURN_PREFIXES: raw })
+      expect(config.nativeReturnPrefixes).toEqual(["exps://u.expo.dev/AbC-123/", "tanren://"])
     }),
   )
 })

@@ -30,7 +30,7 @@ const setup = (baseUrl: string) =>
         WorkerConfig.layerFromEnv({
           ...envVars,
           BETTER_AUTH_URL: baseUrl,
-          NATIVE_RETURN_HOSTS: "localhost,192.168.1.5",
+          NATIVE_RETURN_PREFIXES: "exp://localhost:,exp://192.168.1.5:",
         }),
       ),
     )
@@ -206,6 +206,23 @@ describe("POST /api/native/begin", () => {
         reason: "return-to",
       })
       expect(yield* Context.get(harness.context, CapturedEmails).sent).toEqual([])
+    }),
+  )
+
+  it.live("refuses another EAS project on the shared u.expo.dev host (400 return-to)", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup(envVars.BETTER_AUTH_URL)
+      const challenge = yield* challengeOf(VERIFIER)
+      const returnTo = "exps://u.expo.dev/other-project/--/auth/callback"
+      const response = yield* harness.request(
+        "/api/native/begin",
+        postJson({ email: EMAIL, challenge, returnTo }),
+      )
+      expect(response.status).toBe(400)
+      expect(yield* harness.json(response)).toEqual({
+        _tag: "NativeBeginRejected",
+        reason: "return-to",
+      })
     }),
   )
 

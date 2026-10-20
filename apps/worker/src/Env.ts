@@ -23,11 +23,12 @@ export interface Env {
   /** Absolute URL of the MCP resource, e.g. `https://mcp.tanren.me/mcp` (`http:` only locally). */
   readonly MCP_RESOURCE_URL: string
   /**
-   * Comma-separated hostnames the native sign-in may hand a code to (`exp(s)://<host>/…/--/auth/callback`).
-   * Unset: `localhost,127.0.0.1` when local, none elsewhere. `dev:phone` adds the Mac's LAN IP via
-   * `--var`; production lists the EAS Update host (owner value, docs/design/deploy.md).
+   * Comma-separated URL prefixes the native sign-in may hand a code to (`returnTo.startsWith(prefix)`
+   * plus the `RETURN_TO` shape). Unset: `exp://localhost:,exp://127.0.0.1:` when local, none
+   * elsewhere. `dev:phone` adds `exp://<LAN IP>:` via `--var`; production is
+   * `exps://u.expo.dev/<projectId>/` (owner value, docs/design/deploy.md). `tanren://` only if listed.
    */
-  readonly NATIVE_RETURN_HOSTS?: string
+  readonly NATIVE_RETURN_PREFIXES?: string
   /** Injected per request by `OAuthProvider`; absent in the module-scope `env`. */
   readonly OAUTH_PROVIDER?: OAuthHelpers
 }

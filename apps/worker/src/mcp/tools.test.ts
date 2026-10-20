@@ -5,9 +5,11 @@ import {
   MCP_TOOLS,
   OrderIndex,
   Reps,
+  type SearchExercisesInput,
   Session,
   SessionId,
   SetId,
+  searchCatalog,
   type UserId,
   WeightKg,
   WorkoutSet,
@@ -16,7 +18,16 @@ import { DateTime, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { ExerciseRepo, PlanRepo, Repositories, SessionRepo } from "../repos"
 import { at, exercise, plan, userA, userB, week } from "../sync/fixtures"
-import { getCurrentPlan, getExerciseHistory, getOverview, listSessions, readTools } from "./tools"
+import {
+  DEFAULT_SEARCH_LIMIT,
+  eraseTool,
+  getCurrentPlan,
+  getExerciseHistory,
+  getOverview,
+  listSessions,
+  readTools,
+  searchExercises,
+} from "./tools"
 import { writeTools } from "./writeTools"
 
 /** Every `ToolDeps` service: in-memory repos plus the counting `IdGenerator`. */
@@ -279,9 +290,80 @@ describe("get_current_plan", () => {
   )
 })
 
+describe("search_exercises", () => {
+  // The tool is pure (never yields a repository), so the in-memory layer only satisfies `ToolDeps`;
+  // the workerd test (McpRoute.workerd.test.ts) asserts 0 D1 statements over the wire.
+  const search = (input: SearchExercisesInput) =>
+    searchExercises.run(userA, input).pipe(Effect.provide(TestLayer))
+
+  it.effect("finds at least three rows for the query 'row'", () =>
+    Effect.gen(function* () {
+      const found = yield* search({ query: "row" })
+      expect(found.results.length).toBeGreaterThanOrEqual(3)
+      expect(found.total).toBe(found.results.length)
+      expect(found.results.every((match) => /row/i.test(match.name + match.aliases.join()))).toBe(
+        true,
+      )
+    }),
+  )
+
+  it.effect("filters by muscle (primary or secondary)", () =>
+    Effect.gen(function* () {
+      const found = yield* search({ muscle: "lats" })
+      expect(found.results.length).toBeGreaterThan(0)
+      expect(
+        found.results.every(
+          (match) =>
+            match.primaryMuscles.includes("lats") || match.secondaryMuscles.includes("lats"),
+        ),
+      ).toBe(true)
+    }),
+  )
+
+  it.effect("limit cuts the results but total counts every match", () =>
+    Effect.gen(function* () {
+      const all = yield* search({ query: "row", limit: 500 })
+      const limited = yield* search({ query: "row", limit: 2 })
+      expect(limited.results).toHaveLength(2)
+      expect(limited.results).toEqual(all.results.slice(0, 2))
+      expect(limited.total).toBe(all.total)
+      expect(all.total).toBeGreaterThan(2)
+    }),
+  )
+
+  it.effect("empty input returns the first 20 of the whole catalog, in order", () =>
+    Effect.gen(function* () {
+      const found = yield* search({})
+      expect(found.results).toHaveLength(DEFAULT_SEARCH_LIMIT)
+      expect(found.total).toBe(searchCatalog({}).length)
+      expect(found.results.map((match) => match.catalogId)).toEqual(
+        searchCatalog({}, DEFAULT_SEARCH_LIMIT).map((entry) => entry.catalogId),
+      )
+    }),
+  )
+
+  it.effect("a query with no match is an empty result with total 0", () =>
+    Effect.gen(function* () {
+      const found = yield* search({ query: "zzzzqqqq" })
+      expect(found).toEqual({ results: [], total: 0 })
+    }),
+  )
+
+  it.effect("call decodes raw args, rejects an unknown muscle, encodes picked fields only", () =>
+    Effect.gen(function* () {
+      const tool = eraseTool(searchExercises)
+      const wire = yield* tool.call(userA, { query: "row", limit: 1 })
+      expect(wire).toMatchObject({ results: [{ catalogId: expect.any(String) }] })
+      expect(JSON.stringify(wire)).not.toContain("instructions")
+      const error = yield* Effect.flip(tool.call(userA, { muscle: "wings" }))
+      expect(error).toMatchObject({ _tag: "ValidationError", issues: [{ path: ["muscle"] }] })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
 describe("readTools", () => {
-  it("lists the four read tools in MCP_TOOLS order", () => {
-    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 4))
+  it("lists the five read tools in MCP_TOOLS order", () => {
+    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 5))
   })
 
   it("marks every read tool read and every write tool write", () => {

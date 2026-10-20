@@ -17,7 +17,14 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { WorkerConfig } from "../Config"
 import { BetterAuth } from "./BetterAuth"
 import { EmailSendFailed } from "./Email"
-import { isAllowedReturnTo, signBegin, signCode, verifyBegin, verifyCode } from "./nativeCode"
+import {
+  BeginState,
+  isAllowedReturnTo,
+  signBegin,
+  signCode,
+  verifyBegin,
+  verifyCode,
+} from "./nativeCode"
 
 /** Internal: the auth service or its store could not answer (D1 down, instance failed to build). */
 class NativeStoreFailed extends Data.TaggedError("NativeStoreFailed")<{
@@ -186,6 +193,7 @@ const deliveryFailed = (error: EmailSendFailed) =>
   )
 
 const decodeChallenge = Schema.decodeUnknownOption(PkceChallenge)
+const decodeBeginState = Schema.decodeUnknownOption(BeginState)
 const decodeExpiry = Schema.decodeUnknownOption(Schema.NumberFromString.check(Schema.isInt()))
 
 const clientIp = (request: HttpServerRequest.HttpServerRequest): string =>
@@ -203,7 +211,7 @@ export const nativeAuthRoutes = Layer.unwrap(
     const betterAuth = yield* BetterAuth
     const config = yield* WorkerConfig
     const limit = yield* makeLimiter
-    const allowedReturnTo = isAllowedReturnTo(config.nativeReturnHosts)
+    const allowedReturnTo = isAllowedReturnTo(config.nativeReturnPrefixes)
     const secret = config.betterAuthSecret
     const auth = betterAuth.auth.pipe(
       Effect.catchDefect((cause) => Effect.fail(new NativeStoreFailed({ cause }))),
@@ -221,7 +229,7 @@ export const nativeAuthRoutes = Layer.unwrap(
         }
         const now = yield* Clock.currentTimeMillis
         const expiresAt = Math.floor(now / 1000) + BEGIN_TTL_SECONDS
-        const state = { ...body, expiresAt }
+        const state: BeginState = { ...body, expiresAt }
         const sig = yield* signBegin(secret, state)
         const callbackURL = `/auth/native/complete?${new URLSearchParams({
           challenge: body.challenge,
@@ -285,15 +293,15 @@ export const nativeAuthRoutes = Layer.unwrap(
         if (Option.isNone(session)) {
           return linkInvalidPage(returnTo.value)
         }
-        const state = {
+        const state = decodeBeginState({
           email: session.value.user.email,
           challenge: challenge.value,
           returnTo: returnTo.value,
           expiresAt: expiresAt.value,
-        }
+        })
         // The app started this sign-in for this email, challenge and returnTo; anything else is a
         // crafted URL (session-export CSRF) or a session of another user.
-        if (!(yield* verifyBegin(secret, state, sig.value))) {
+        if (Option.isNone(state) || !(yield* verifyBegin(secret, state.value, sig.value))) {
           return brokenPage
         }
         const createdAt = DateTime.make(session.value.session.createdAt)

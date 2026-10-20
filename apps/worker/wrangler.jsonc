@@ -14,9 +14,9 @@
     "BETTER_AUTH_SECRET": "local-dev-only-not-a-secret-0000000000000000",
     "DEV_MCP_TOKEN": "local-dev-only-mcp-token",
     "MCP_RESOURCE_URL": "http://localhost:8787/mcp",
-    // Hosts a native sign-in code may go to (exp://<host>:8081/--/auth/callback). `pnpm dev:phone`
-    // overrides it with `--var NATIVE_RETURN_HOSTS:localhost,127.0.0.1,<LAN IP>`.
-    "NATIVE_RETURN_HOSTS": "localhost,127.0.0.1"
+    // URL prefixes a native sign-in code may go to (exp://<host>:8081/--/auth/callback). `pnpm
+    // dev:phone` overrides it with `--var NATIVE_RETURN_PREFIXES:exp://localhost:,exp://127.0.0.1:,exp://<LAN IP>:`.
+    "NATIVE_RETURN_PREFIXES": "exp://localhost:,exp://127.0.0.1:"
   },
   "d1_databases": [
     {
@@ -44,8 +44,10 @@
         "EMAIL_MODE": "provider",
         "EMAIL_FROM": "Tanren <login@tanren.me>",
         "MCP_RESOURCE_URL": "https://mcp.tanren.me/mcp",
-        // Owner value (docs/design/deploy.md): the EAS Update host Expo Go opens the project from.
-        "NATIVE_RETURN_HOSTS": "u.expo.dev"
+        // Owner value (docs/design/deploy.md §2): `exps://u.expo.dev/<projectId>/` with the id from
+        // `eas init` (app.json `extra.eas.projectId`). The placeholder matches no real URL, so native
+        // sign-in answers 400 `return-to` until it is filled. No `tanren://` until universal links.
+        "NATIVE_RETURN_PREFIXES": "exps://u.expo.dev/<owner: eas projectId>/"
       },
       "d1_databases": [
         {

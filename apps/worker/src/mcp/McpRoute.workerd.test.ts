@@ -7,6 +7,7 @@ import {
   OrderIndex,
   Overview,
   Reps,
+  SearchExercisesResult,
   Session,
   SessionId,
   SetId,
@@ -19,6 +20,7 @@ import { d1Persistence } from "../app"
 import { DEV_USER_ID } from "../auth/devUser"
 import { ExerciseRepo, SessionRepo } from "../repos"
 import { exercise } from "../sync/fixtures"
+import { countingD1 } from "../testing/countingD1"
 import { envVars } from "../testing/fixtures"
 import { McpAuth } from "./McpAuth"
 import { makeMcp } from "./McpRoute"
@@ -134,7 +136,7 @@ describe("/mcp in workerd", () => {
     expect(await rpcResult(response)).toMatchObject({ serverInfo: { name: "tanren" } })
   })
 
-  it("lists all seven tools for the dev token (every scope): reads read-only, writes not", async () => {
+  it("lists all eight tools for the dev token (every scope): reads read-only, writes not", async () => {
     const result = await post(rpc(2, "tools/list", {})).then(rpcResult)
     const tools = Schema.decodeUnknownSync(
       Schema.Array(
@@ -147,6 +149,7 @@ describe("/mcp in workerd", () => {
     )(result.tools)
     expect(tools.map((tool) => tool.name)).toEqual([...MCP_TOOLS])
     expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual([
+      true,
       true,
       true,
       true,
@@ -241,6 +244,46 @@ describe("QA: /mcp methods and D1 isolation", () => {
     const result = await callTool("get_exercise_history", { exerciseId: foreignExercise })
     expect(result.isError).toBe(true)
     expect(JSON.stringify(result)).not.toContain("SecretLift")
+  })
+})
+
+describe("search_exercises over /mcp", () => {
+  it("returns catalog matches as structured content", async () => {
+    const result = await callTool("search_exercises", { query: "row", limit: 3 })
+    expect(result.isError).toBeUndefined()
+    const found = Schema.decodeUnknownSync(SearchExercisesResult)(result.structuredContent)
+    expect(found.results.length).toBeGreaterThanOrEqual(3)
+    expect(found.total).toBeGreaterThanOrEqual(found.results.length)
+  })
+
+  it("runs 0 D1 statements (the catalog is static)", async () => {
+    const counting = countingD1(env.DB)
+    const countedMcp = makeMcp(mcpEnv, {
+      persistence: d1Persistence(counting.db),
+      auth: McpAuth.layerDevToken,
+    })
+    const ctx = createExecutionContext()
+    const response = await countedMcp.handle(
+      new Request("http://localhost/mcp", {
+        method: "POST",
+        headers: {
+          host: "localhost",
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json",
+          authorization: `Bearer ${TOKEN}`,
+        },
+        body: JSON.stringify(
+          rpc(6, "tools/call", { name: "search_exercises", arguments: { query: "row" } }),
+        ),
+      }),
+      mcpEnv,
+      ctx,
+    )
+    await waitOnExecutionContext(ctx)
+    const result = await rpcResult(response)
+    expect(result.isError).toBeUndefined()
+    expect(counting.statements()).toBe(0)
+    await countedMcp.dispose()
   })
 })
 

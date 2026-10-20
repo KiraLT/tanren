@@ -13,7 +13,10 @@ import {
   NotFound,
   Overview,
   type Period,
+  SearchExercisesInput,
+  SearchExercisesResult,
   SessionList,
+  searchCatalog,
   type UserId,
   ValidationError,
   type WorkoutSet,
@@ -263,10 +266,36 @@ export const getCurrentPlan: Tool<typeof GetCurrentPlanInput, typeof CurrentPlan
   }),
 }
 
-/** The step-4 tools, in `MCP_TOOLS` order. */
+export const DEFAULT_SEARCH_LIMIT = 20
+
+export const searchExercises: Tool<typeof SearchExercisesInput, typeof SearchExercisesResult> = {
+  name: "search_exercises",
+  kind: "read",
+  description:
+    "Search the built-in exercise catalog (static, the same list the app's Library shows). " +
+    "All filters are optional and combine with AND: `query` matches names and aliases (case-insensitive, " +
+    "best match first), `muscle` matches primary or secondary muscles, `equipment` one required " +
+    "implement, `kind` reps | timed | distance. `limit` defaults to 20; `total` is the number " +
+    "of matches before the limit. Each result has a `catalogId`, its name, aliases, muscles, " +
+    "equipment and movement pattern; use it to pick real exercise names when writing a plan.",
+  input: SearchExercisesInput,
+  output: SearchExercisesResult,
+  // Pure: the catalog ships in `@tanren/shared`, so this tool runs 0 D1 statements.
+  run: (_userId: UserId, input: SearchExercisesInput) => {
+    const { limit, ...filter } = input
+    const matches = searchCatalog(filter)
+    return Effect.succeed({
+      results: Arr.take(matches, limit ?? DEFAULT_SEARCH_LIMIT),
+      total: matches.length,
+    })
+  },
+}
+
+/** The read tools, in `MCP_TOOLS` order (the first five names). */
 export const readTools: ReadonlyArray<AnyTool> = [
   eraseTool(getOverview),
   eraseTool(getExerciseHistory),
   eraseTool(listSessions),
   eraseTool(getCurrentPlan),
+  eraseTool(searchExercises),
 ]

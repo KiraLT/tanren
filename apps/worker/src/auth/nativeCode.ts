@@ -1,4 +1,4 @@
-import { NativeCode, PkceChallenge, type PkceVerifier } from "@tanren/shared"
+import { NativeBeginRequest, NativeCode, PkceChallenge, type PkceVerifier } from "@tanren/shared"
 import { Effect, Option, Redacted, Schema } from "effect"
 
 /**
@@ -10,23 +10,15 @@ export const RETURN_TO =
   /^(?:exps?:\/\/([^/\s?#@]+)(?:\/[^\s?#]*)?\/--\/auth\/callback|tanren:\/\/\/?auth\/callback)$/
 
 /**
- * `returnTo` is on the allowlist: the `tanren://` scheme, or an Expo URL whose hostname (port
- * dropped, lower-cased) is in `hosts` (`WorkerConfig.nativeReturnHosts`). Pinning the host means a
- * code can only reach an Expo Go loading this project, never an attacker's dev server.
+ * `returnTo` has the `RETURN_TO` shape AND starts with one of `prefixes`
+ * (`WorkerConfig.nativeReturnPrefixes`: `exp://192.168.1.5:`, `exps://u.expo.dev/<projectId>/`,
+ * `tanren://` only when listed). A host alone is not enough: every EAS project shares `u.expo.dev`,
+ * so production pins the project path, and a code can only reach an Expo Go loading this project.
  */
 export const isAllowedReturnTo =
-  (hosts: ReadonlyArray<string>) =>
-  (raw: string): boolean => {
-    const match = RETURN_TO.exec(raw)
-    if (match === null) {
-      return false
-    }
-    const host = match[1]
-    if (host === undefined) {
-      return true // tanren://auth/callback
-    }
-    return hosts.includes(host.replace(/:\d+$/, "").toLowerCase())
-  }
+  (prefixes: ReadonlyArray<string>) =>
+  (raw: string): boolean =>
+    RETURN_TO.test(raw) && prefixes.some((prefix) => prefix.length > 0 && raw.startsWith(prefix))
 
 const encoder = new TextEncoder()
 
@@ -121,14 +113,15 @@ export const verifyCode = (
     return valid ? Option.some(ott) : Option.none()
   })
 
-/** What `POST /api/native/begin` signs into the magic link's callbackURL. */
-export interface BeginState {
-  readonly email: string
-  readonly challenge: string
-  readonly returnTo: string
-  /** Unix seconds after which `/auth/native/complete` refuses the state. */
-  readonly expiresAt: number
-}
+/**
+ * What `POST /api/native/begin` signs into the magic link's callbackURL: the request plus
+ * `expiresAt`, unix seconds after which `/auth/native/complete` refuses the state.
+ */
+export const BeginState = Schema.Struct({
+  ...NativeBeginRequest.fields,
+  expiresAt: Schema.Number.check(Schema.isInt()),
+})
+export type BeginState = typeof BeginState.Type
 
 const beginInput = (state: BeginState) =>
   [

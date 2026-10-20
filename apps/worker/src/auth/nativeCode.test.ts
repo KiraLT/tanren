@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { PkceVerifier } from "@tanren/shared"
-import { Effect, Option, Redacted } from "effect"
+import { Effect, Option, Redacted, Schema } from "effect"
 import {
+  BeginState,
   challengeOf,
   isAllowedReturnTo,
   signBegin,
@@ -50,13 +51,18 @@ describe("signCode / verifyCode", () => {
   )
 })
 
-describe("isAllowedReturnTo (pinned hosts)", () => {
-  const allowed = isAllowedReturnTo(["192.168.1.5", "u.expo.dev", "localhost"])
+describe("isAllowedReturnTo (pinned prefixes)", () => {
+  const allowed = isAllowedReturnTo([
+    "exp://192.168.1.5:",
+    "exps://u.expo.dev/tanren-project-id/",
+    "exp://localhost:",
+    "tanren://",
+  ])
 
   it.each([
     "exp://192.168.1.5:8081/--/auth/callback",
-    "exps://u.expo.dev/x/--/auth/callback",
-    "exp://LOCALHOST:8081/--/auth/callback",
+    "exps://u.expo.dev/tanren-project-id/--/auth/callback",
+    "exp://localhost:8081/--/auth/callback",
     "tanren://auth/callback",
     "tanren:///auth/callback",
   ])("accepts %s", (url) => {
@@ -64,8 +70,11 @@ describe("isAllowedReturnTo (pinned hosts)", () => {
   })
 
   it.each([
+    "exps://u.expo.dev/other-project/--/auth/callback", // another EAS project on the shared host
+    "exps://u.expo.dev/tanren-project-idx/--/auth/callback",
     "exp://evil.example:8081/--/auth/callback", // attacker's Expo dev server
     "exp://192.168.1.6:8081/--/auth/callback",
+    "exp://192.168.1.5.evil.example:8081/--/auth/callback",
     "exp://user@192.168.1.5:8081/--/auth/callback",
     "https://evil.example/--/auth/callback",
     "exp://192.168.1.5/--/auth/callback/x",
@@ -76,20 +85,26 @@ describe("isAllowedReturnTo (pinned hosts)", () => {
   ])("rejects %s", (url) => {
     expect(allowed(url)).toBe(false)
   })
+
+  it("allows tanren:// only when listed (production leaves it out until universal links)", () => {
+    expect(isAllowedReturnTo(["exp://localhost:"])("tanren://auth/callback")).toBe(false)
+    expect(isAllowedReturnTo([])("exp://localhost:8081/--/auth/callback")).toBe(false)
+  })
 })
 
 describe("signBegin / verifyBegin", () => {
-  const state = {
+  const state = Schema.decodeUnknownSync(BeginState)({
     email: "Lukas@Example.com",
     challenge: RFC_CHALLENGE,
     returnTo: "exp://192.168.1.5:8081/--/auth/callback",
     expiresAt: 1_800_000_000,
-  }
+  })
 
   it.effect("verifies the same state (email case-insensitive)", () =>
     Effect.gen(function* () {
       const sig = yield* signBegin(SECRET, state)
-      expect(yield* verifyBegin(SECRET, { ...state, email: "lukas@example.com" }, sig)).toBe(true)
+      const lower = Schema.decodeUnknownSync(BeginState)({ ...state, email: "lukas@example.com" })
+      expect(yield* verifyBegin(SECRET, lower, sig)).toBe(true)
     }),
   )
 
@@ -101,7 +116,7 @@ describe("signBegin / verifyBegin", () => {
         { ...state, challenge: "A".repeat(43) },
         { ...state, returnTo: "exp://localhost:8081/--/auth/callback" },
         { ...state, expiresAt: state.expiresAt + 1 },
-      ]
+      ].map((variant) => Schema.decodeUnknownSync(BeginState)(variant))
       const results = yield* Effect.forEach(variants, (variant) =>
         verifyBegin(SECRET, variant, sig),
       )

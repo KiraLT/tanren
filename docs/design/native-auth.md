@@ -77,8 +77,8 @@ so `app.ts` and `index.ts` stay untouched (the OAuth provider passes every path 
 
 **`POST /api/native/begin`** body `NativeBeginRequest { email, challenge, returnTo }` → 200 `{ sent: true }`
 (replaces the app's direct `POST /api/auth/sign-in/magic-link`, NA-REV finding 1a).
-- Undecodable body → 400 `NativeBeginRejected{ reason: "malformed" }`; `returnTo` not allowed (host not
-  in `NATIVE_RETURN_HOSTS`) → 400 `{ reason: "return-to" }`, no email sent.
+- Undecodable body → 400 `NativeBeginRejected{ reason: "malformed" }`; `returnTo` not allowed (no
+  prefix in `NATIVE_RETURN_PREFIXES` matches) → 400 `{ reason: "return-to" }`, no email sent.
 - Else `exp = now + 15 min`, `sig = b64url(HMAC(secret, "tanren-native-begin-v1\n" + lower(email) + "\n" +
   challenge + "\n" + returnTo + "\n" + exp))`, and the worker calls `auth.api.signInMagicLink` itself with
   `callbackURL = /auth/native/complete?challenge&returnTo&exp&sig` (request headers forwarded).
@@ -95,10 +95,12 @@ so `app.ts` and `index.ts` stay untouched (the OAuth provider passes every path 
   charset=utf-8`, `cache-control: no-store`, `referrer-policy: no-referrer`. Never log the code.
 - Store outage → 503 `SessionStoreUnavailable` JSON; defect → 500 `InternalError` (as `authRoutes`).
 
-**`returnTo` allowlist:** `exp(s)://<host>[:port][/…]/--/auth/callback` with the hostname in
-`WorkerConfig.nativeReturnHosts` (var `NATIVE_RETURN_HOSTS`, comma list; unset = `localhost,127.0.0.1`
-locally, none elsewhere; `dev:phone` adds the LAN IP via `--var`; production = the EAS Update host, owner
-value in deploy.md §2), or `tanren://auth/callback`.
+**`returnTo` allowlist:** the `RETURN_TO` shape (`exp(s)://<host>[:port][/…]/--/auth/callback` or
+`tanren://auth/callback`) AND `returnTo.startsWith(prefix)` for a prefix in `WorkerConfig.nativeReturnPrefixes`
+(var `NATIVE_RETURN_PREFIXES`, comma list; unset = `exp://localhost:,exp://127.0.0.1:` locally, none elsewhere;
+`dev:phone` adds `exp://<LAN IP>:` via `--var`; production = `exps://u.expo.dev/<projectId>/`, owner value in
+deploy.md §2). A host alone is not enough: every EAS project shares `u.expo.dev` (NA-REV delta). `tanren://`
+is allowed only when listed.
 
 **Rate limit:** all three routes, 10 per minute per route per `cf-connecting-ip`, in isolate memory →
 429 `NativeRateLimited{ retryAfterSeconds }` + `Retry-After`. Production upgrade: the Workers
@@ -212,8 +214,12 @@ may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTranspo
   (a) the URL must carry a worker signature over (email, challenge, returnTo, expiry) that only
   `POST /api/native/begin` mints, it is checked against the session user's email, and the session must be
   ≤ 5 min old (made by that magic link), so a crafted URL or an old cookie yields no code; (b) `returnTo`
-  hosts are pinned (`NATIVE_RETURN_HOSTS`), so even a valid code can only go to an Expo Go loading this
-  project, and the page needs a tap (no meta refresh).
+  prefixes are pinned (`NATIVE_RETURN_PREFIXES`, down to the EAS project id), so even a valid code can only
+  go to an Expo Go loading this project, and the page needs a tap (no meta refresh).
+- Residual: any iOS app can register a custom scheme (`exp://`, `tanren://`), so a malicious app on the
+  owner's phone could still receive the deep link. The PKCE binding makes that code useless without the
+  verifier, but before a store build the hand-off should move to universal links
+  (`https://tanren.me/auth/callback` + AASA, ADR-0012); until then production lists no `tanren://` prefix.
 - The session token never appears in a `/api/auth/*` response header (`set-auth-token` stripped).
 - Rate limits: code space is 64^32 plus a MAC, brute force is moot. The native routes have their own
   per-isolate limiter (10/min/IP, 429 `NativeRateLimited`); Better Auth's limiter (forced on in
