@@ -134,6 +134,16 @@ to `mcp.handle` before `app.handler`. Facts:
    `database` for the in-memory adapter (`BetterAuth.ts:36-39`).
 7. Runtime proof: a workerd test boots `src/index.ts` and hits `/api/auth/get-session` (200 `null`).
 
+## Native auth: one-time code + Bearer (docs/design/native-auth.md; local run NA-4, 2026-10-21)
+
+- Native clients cannot use the cookie: `/auth/native/complete` turns the magic-link session into a one-time
+  code (Better Auth `oneTimeToken`, bound to a PKCE challenge); `POST /api/native/session` redeems it and
+  returns the raw session token, accepted as `Authorization: Bearer` (`bearer()`) by `SessionsLive`.
+  `NativeCode` is `^[A-Za-z0-9_-]{32}\.[A-Za-z0-9_-]{43}$` (OTT alphabet includes `-_`).
+- Local phone loop: `pnpm dev:phone` (LAN `BETTER_AUTH_URL`, `LAN_IP=…`/`PORT=…` overrides) pipes wrangler
+  through `apps/worker/scripts/linkQr.mjs` (`uqr`, devDependency, `.mjs` so not type-checked) to print the
+  magic link as a QR; `EmailSender` stays unchanged. Recipe: `docs/design/local-dev.md` §6a.
+
 ## OAuth provider + wrangler config layout (verified S5, 2026-10-21)
 
 **Config layout** (`apps/worker/wrangler.jsonc`, JSONC with comments):

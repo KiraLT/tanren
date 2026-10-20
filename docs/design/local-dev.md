@@ -137,6 +137,29 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
   `expo start --tunnel` tunnels Metro only; the API then needs `cloudflared tunnel --url
   http://localhost:8787` [UNV, no account?] or the preview environment.
 
+## 6a. Phone sign-in (Expo Go, native one-time-code flow; docs/design/native-auth.md §5)
+
+The magic link is built from `BETTER_AUTH_URL` and verify redirects relative to it, so for the phone the
+API must call itself by the Mac's LAN address. `pnpm dev:phone` does that: wrangler on `0.0.0.0:8787` with
+`BETTER_AUTH_URL=http://<LAN IP>:8787` and `ALLOWED_ORIGINS` extended by `http://<LAN IP>:8081`, its output
+piped through `apps/worker/scripts/linkQr.mjs`, which passes every line through and prints a terminal QR
+after each `magic link for <email>: <url>` line (`uqr`, a worker devDependency; never in the bundle).
+The LAN IP is detected (`ipconfig getifaddr en0`, Wi-Fi on macOS); override with `LAN_IP=192.168.x.y pnpm dev:phone`
+(other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (BETTER_AUTH_URL follows).
+
+1. Terminal A: `pnpm dev:phone` (API only; wait for `Ready on http://0.0.0.0:8787`).
+2. Terminal B: `pnpm -F @tanren/mobile dev`; scan the Expo QR with the iPhone camera → Expo Go.
+3. In Expo Go: Sign in → `dev@tanren.local` → send the link.
+4. Terminal A prints `magic link for dev@tanren.local: http://192.168.x.y:8787/api/auth/magic-link/verify?…`
+   and a QR. Scan that QR with the iPhone camera: it must open on the PHONE (Safari). On the Mac the
+   deep link has no Expo Go. No camera: copy the URL and paste it into iPhone Safari (Universal Clipboard).
+5. Safari shows "Open Tanren" → tap → "Open in Expo Go?" → Open: Expo Go lands on `/auth/callback`, the app
+   exchanges the one-time code for a session token and shows Today, signed in.
+6. Log a set; Terminal A shows `POST /sync/push 200` (wrangler request log).
+
+While `dev:phone` runs, web sign-in on `localhost:8790` does not work (the cookie lands on the LAN host);
+use `pnpm dev` for web. Production: link host `api.tanren.me`, same steps from Mail.
+
 ## 7. The local loop
 
 - Root `pnpm dev` = `pnpm --parallel -F @tanren/worker -F @tanren/mobile dev` (no new dependency).

@@ -33,6 +33,7 @@
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
+    "uqr": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

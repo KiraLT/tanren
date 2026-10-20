@@ -102,12 +102,13 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   (Better Auth `trustedOrigins` = worker `ALLOWED_ORIGINS`); the link's
   redirect is a full page load, so the runtime rebuilds and `CurrentUser`
   resolves the session. Adding a route needs one `expo start` to regenerate
-  `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. **Sign-in is web-only in v1**
-  (`signInSupported(platform)`, true only for web): on native Today shows "Sign in on the web app
-  for now" instead of the link, `/sign-in` shows the same notice, and no `exp://` callback is ever
-  sent (it would be 403 against `trustedOrigins`, and the emailed link opens in Safari, not Expo
-  Go). Native auth is a later task, two candidate designs: a deep link plus a one-time token
-  exchange, or running the auth flow in a WebView.
+  `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. **Native sign-in works via a
+  one-time code** (docs/design/native-auth.md): the emailed link opens in Safari, whose "Open Tanren"
+  button deep-links `exp://…/--/auth/callback?code=…` into Expo Go; `NativeSession` exchanges the code
+  (PKCE verifier) at `POST /api/native/session` and keeps the session token in `expo-secure-store`,
+  sent as `Authorization: Bearer` (`withSession`). Web keeps the cookie flow above. Phone recipe:
+  `docs/design/local-dev.md` §6a (`pnpm dev:phone`). Live Activities still need a dev build, not
+  Expo Go.
 - API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
   else `http://localhost:8787`.
 
@@ -126,7 +127,7 @@ server pull shows it. `localhost:8081` and `:8787` are the same site, so the
 SameSite=Lax cookie rides `credentials: "include"`. The seed plan has no session
 on Tuesdays: to test Today on a rest day, launch agent-browser with e.g.
 `TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Open: a manual rest → swipe
-pass on a phone in Expo Go (offline logging only; sign-in is web-only, see above).
+pass on a phone in Expo Go (offline logging; native sign-in arrived with native-auth, see above).
 
 Step 7 (2026-10-20, team plan-web): Plan screen (PlanWeekRepo + usePlanWeek),
 two-column layout at ≥ 900 px, web export served by the assets-only Worker on

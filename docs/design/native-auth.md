@@ -96,7 +96,7 @@ so `app.ts` and `index.ts` stay untouched (the OAuth provider passes every path 
 ```ts
 export const PkceVerifier  = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("PkceVerifier"))
 export const PkceChallenge = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("PkceChallenge"))
-export const NativeCode    = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9]{32}\.[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("NativeCode"))
+export const NativeCode    = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{32}\.[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("NativeCode"))
 export const SessionToken  = Schema.String.check(Schema.isMinLength(1)).pipe(Schema.brand("SessionToken")) // isMinLength as in common.ts:37
 export const NativeSessionRequest  = Schema.Struct({ code: NativeCode, verifier: PkceVerifier })
 export const NativeSessionResponse = Schema.Struct({ token: SessionToken, userId: UserId /* ids.ts */, expiresAt: Timestamp /* common.ts */ })
@@ -111,7 +111,7 @@ from `ids.ts:7`, `Timestamp` from `common.ts:9`; errors that leave the worker ar
 Wire example:
 ```http
 POST /api/native/session
-{"code":"Zk3…32 alnum….Qm9…43 b64url…","verifier":"dBjftJeZ4CVP-…43…"}
+{"code":"Zk3…32 b64url….Qm9…43 b64url…","verifier":"dBjftJeZ4CVP-…43…"}
 200 {"token":"aB3x…","userId":"00000000-0000-4000-8000-000000000001","expiresAt":"2026-10-28T07:02:11.000Z"}
 400 {"_tag":"NativeCodeRejected","reason":"invalid"}
 ```

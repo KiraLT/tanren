@@ -85,6 +85,14 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   (grep it) to see non-interactive rows (day rows, set rows, `complementary`).
 - Still open: EAS Update / Expo Go publish flow.
 
+## Native sign-in in Expo Go (docs/design/native-auth.md; recipe docs/design/local-dev.md §6a)
+
+- The emailed link must open on the PHONE (Safari), never the Mac: its "Open Tanren" button deep-links
+  `exp://<host>/--/auth/callback?code=…` into Expo Go, `app/auth/callback.tsx` hands the code to
+  `NativeSession`, which exchanges it (PKCE) and stores the token in `expo-secure-store` (Bearer via `withSession`).
+- Local: `pnpm dev:phone` + `pnpm -F @tanren/mobile dev`, scan the terminal QR on the iPhone. Live
+  Activities and other native modules still need a dev build, not Expo Go.
+
 ## Vendor plugin skills
 
 Mobile engineers load `expo:expo-overview` first, then `expo:expo-router`,
