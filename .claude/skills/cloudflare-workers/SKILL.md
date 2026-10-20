@@ -103,6 +103,37 @@ to `mcp.handle` before `app.handler`. Facts:
   `{"mcpServers":{"tanren-local":{"type":"http","url":"http://localhost:<port>/mcp",
   "headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`. Never `claude mcp add` in a task.
 
+## Workers Free limits that matter here (Cloudflare limits page, changelog 2026-02-11; verified S5-QA 2026-10-21)
+
+- Subrequests per invocation on Free: **1000 to Cloudflare services** (D1, KV, R2, DO; 50 only for
+  external `fetch`). There is no "50 D1 statements per request" limit: S5 escalated one, QA measured
+  `write_plan_week` 6×8 replace = 63 executions, and a Lead round trip later the docs said 1000.
+- D1: 100 bound parameters per statement, 100 KB SQL text, `batch()` members are separate
+  statements (whether they count as one or many subrequests is undocumented; assume many).
+- Bundle 3 MiB gzip; CPU 10 ms (Free). Measure with `src/testing/countingD1.ts`, as S5-T6 did.
+- Before escalating any quota: open `https://developers.cloudflare.com/workers/platform/limits/`
+  (and `/d1/platform/limits/`) via the Cloudflare docs MCP, quote the line in the report, then escalate
+  only if the measured number exceeds the quoted one.
+
+## Better Auth on Workers checklist (verified S3–S5; file:line from 2026-10-21)
+
+1. No `betterAuth()` at module scope: it validates the schema on construction and workerd forbids
+   I/O there (see "No I/O at module scope"); build inside the request, memoise with `Effect.cached`
+   (`apps/worker/src/auth/BetterAuth.ts` `makeAuth`).
+2. `onAPIError: { throw: true }` (`BetterAuth.ts:60`): without it a rejected `sendMagicLink` or D1
+   failure becomes an empty 500 instead of a catchable error your route can turn into 502/503.
+3. Rate limiter is **off unless `NODE_ENV === "production"`**, which a Worker never sets
+   (`dist/context/create-context.mjs:172`); enable it explicitly from `ENVIRONMENT`
+   (`BetterAuth.ts:25-28` `rateLimitFor`); workerd tests `vi.stubEnv("NODE_ENV","production")`
+   (`rateLimit.workerd.test.ts:16`).
+4. Limiter keys on `advanced.ipAddress.ipAddressHeaders`, default `x-forwarded-for` (caller-chosen);
+   set `["cf-connecting-ip"]` (`BetterAuth.ts:55`, `oauth/authorize.ts:113`).
+5. Call Better Auth over `auth.handler(new Request(...))`, not `auth.api.*`, when you want its rate
+   limit, origin check and `disabledPaths` (`auth.api.*` bypasses all three; S5-REV-A finding).
+6. Never import `better-auth/adapters/memory` (`export *` breaks in wrangler's bundle); omit
+   `database` for the in-memory adapter (`BetterAuth.ts:36-39`).
+7. Runtime proof: a workerd test boots `src/index.ts` and hits `/api/auth/get-session` (200 `null`).
+
 ## OAuth provider + wrangler config layout (verified S5, 2026-10-21)
 
 **Config layout** (`apps/worker/wrangler.jsonc`, JSONC with comments):

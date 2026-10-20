@@ -1,2 +1,3 @@
 - [Task sheet conventions](feedback_task_sheets.md) — charter fields, `accepted (Lead delegation)` wording, one owner per shared file, check existing sheets first
 - [Lead constraints v2](feedback_lead_constraints.md) — permissions line in every brief; opus only foundation+reviewer; sonnet from spec; ≤3 parallel
+- [Native auth facts](project_native_auth_facts.md) — better-auth bearer/oneTimeToken/disabledPaths; LAN BETTER_AUTH_URL for phone dev

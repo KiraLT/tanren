@@ -26,6 +26,12 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    user is, auth, headers, ports, seed data) is a question to the Lead
    **before** you brief, not a constant an engineer invents (step 6:
    `LOCAL_USER_ID` made every push `forbidden` until an integration task).
+   A path another team holds is released the moment that team's report is
+   **committed**: run `git log --oneline -3` and read its sheet instead of
+   waiting for the Lead's message (mcp-oauth started T1b at 23:59 on
+   plan-web's commit 154232c, 7 min before any Lead message would have
+   arrived); record it under Decisions with the commit hash. An uncommitted
+   report releases nothing: the files may still be moving.
 2. Write the team sheet (when the architect pre-wrote it, verify it and
    brief in your first turn: writing one from scratch cost 2.3–3.4 min
    before the first engineer started): tasks, model per task, parallel
@@ -111,7 +117,11 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
 8. Escalate to the Lead (in your final report, under "Escalations") when: a
    contract must change, a dependency or root-config change is needed, a
    task is blocked after the budgeted rounds, or a task needs a file outside
-   your owned paths. Do not work around the charter. One exception needs no
+   your owned paths. A quota or platform-limit escalation quotes the
+   limits-page line next to the measured number (mcp-oauth escalated a D1
+   "50-statement" limit that does not exist; Free allows 1000 subrequests to
+   Cloudflare services; one Lead round trip + a QA re-measure wasted). Do not
+   work around the charter. One exception needs no
    escalation: a port's memory/test implementation is owned by whoever
    changes the port. When a task grows a port you own (a new `SessionRepo`
    method) and its memory implementation sits in a Read-only path

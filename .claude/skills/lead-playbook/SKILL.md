@@ -56,6 +56,10 @@ lost 16 min (23:16 → 23:32) because the five side streams started in one
 turn after the owner's nudge although every input existed at fan-out.
 After any EM or retro edit to a role file, forward the deltas to live
 team-leads by SendMessage (they run on the file they were spawned with).
+A side stream that changes a shared schema or the `Env`/`EnvVars` type
+updates every consumer's fixtures and test vars in the same task (the brief
+greps the symbol across `apps/` and `packages/`); live teams get the file
+list by message (AUTH-1 ↔ T1b test-file overlap, V2-F1 `catalogId` → S5-T9).
 
 ## You do not research
 

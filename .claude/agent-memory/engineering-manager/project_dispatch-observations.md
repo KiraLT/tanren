@@ -22,3 +22,5 @@ Measured on TOOL-1 (engineer/sonnet, 2026-10-20 22:51, first agent after the all
 **Why:** retro arithmetic and "did the rule reach the agent" judgements were wrong three times before (S2-T3 timing, S6 researcher spawn, step 4/7 remembered times) for lack of these facts.
 
 **How to apply:** in Mode 2, write a ~30-line node script in the scratchpad that folds the jsonl per agent as above (fold + segments + per-agent tool timeline; ≈ 2 min); convert to Europe/Vilnius before comparing with the Log; before blaming a role file, compare its mtime (`stat -f '%Sm %N' -t '%H:%M:%S'`) to the agent's first timestamp. See also [[retro-baseline]].
+
+- 2026-10-21 S5 mcp-oauth (first team spawned after the retro deltas): 19/19 Agent calls background, 0 nudges, 26 SendMessage reuses. The deltas work when the team-lead file carries them at spawn. Recurring waste now shifts to Lead side streams (AUTH-1, V2-F1) changing shared Env/schema types under a live team: expect a fixture-fix task per step until lead-playbook makes the side stream own consumer fixtures. Platform-limit escalations without a docs quote: watch for repeats.

@@ -1,0 +1,1 @@
+- [Interim escalations](feedback_interim_escalation.md) — SendMessage "main" for interims; SubagentHandback only for the final report
