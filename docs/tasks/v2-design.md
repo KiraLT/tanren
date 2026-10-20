@@ -75,12 +75,16 @@ Parallel groups: A = {D1} · B = {D2, D3, D4} · C = {D5} · D = {REV, fixes, QA
 - [ ] `git diff 71adc34 -- <owned paths>` against `docs/design/design-system.md`; drift greps empty; both skills' checklists applied (no all-caps labels, one accent per screen, flat cards, four states per screen); package gate green; blocking findings routed within the team.
 
 ## Frozen contracts
-- `src/ui/index.ts` barrel + `tokens.ts` + `ColorRoles` + `breakpointFor` — FROZEN when D1 reports (fill time).
+- `src/ui/index.ts` barrel + `tokens.ts` + `ColorRoles` + `breakpointFor` — FROZEN 00:25. Exports: AppBar, Banner, Button, Card, EmptyState, Icon (23 names incl. `chart`, `settings`), IconButton, ListRow, Page, SegmentedControl, Skeleton, StatusPill, Stepper, Text, TimerRing · ThemeProvider, useTheme, useStyles, useReducedMotion, useThemePreference · space, gutter, radius, stroke, motion, sizes, breakpoints, elevation (overlay is a fn of the overlay colour), type, statusTone, illustration · breakpointFor, useBreakpoint · types ColorRoles, Tone, IconName, Theme, Scheme, ThemePreference, Breakpoint.
+- Theme preference (R2 for extras X4): `useThemePreference(): { preference: "system"|"light"|"dark"; setPreference(next) }`; web persists `localStorage["tanren.theme"]`, native session-only.
 
 ## Integration (Lead, after design + catalog + programs report)
 - Root `pnpm check` green; export + serve; agent-browser at 390/768/1280 light+dark across the five tabs and Sign-in; cross-team reviewer on `git diff 71adc34 -- apps/mobile`; one `qa` if combined diff > 800 lines. Add any `Tabs.Screen` line D4 left as `TODO`.
 
 ## Log
 `HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome`
+- 00:16→00:25 · D1 · engineer/opus · a14534ccab40424da · 163k · 61 · r1 · done: barrel frozen, 38 ui/layout tests green, biome green; tsc/tests red only in `src/services/LocalStore.ts` + 7 service/store test files from uncommitted `packages/shared` sync-table edits (programs/catalog foundation, not ours)
+- 00:25 · spec correction (D1): light `accent` #D9480F → #C2410C (4.30:1 with white failed §6; now 5.18 on bg / 4.71 on surface); dark onAccent/accent is 7.17 not 10:1; `elevation.overlay` is a function; `useStyles` bound is `Parameters<typeof StyleSheet.create>[0]` (no `NamedStyles` in RN 0.88). Hover: RNW `hovered` is runtime-only → D5 uses `onHoverIn/Out`.
+- Team decisions at dispatch: D2 owns all of `today.tsx` (incl. AppBar + `SignInEntry`, which lives in that file); D3 owns `plan.tsx` incl. its AppBar; D4 owns `sign-in.tsx`, `index.tsx`, `(tabs)/_layout.tsx` with all five `Tabs.Screen` lines (today, plan, programs, library, progress) and creates placeholder `(tabs)/{programs,library,progress}.tsx` ("coming soon") so X3 and teams catalog/programs replace a file and never touch the layout.
 
 ## Escalations

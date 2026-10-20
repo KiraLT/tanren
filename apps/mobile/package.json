@@ -29,6 +29,7 @@
     "react-native": "catalog:",
     "react-native-safe-area-context": "catalog:",
     "react-native-screens": "catalog:",
+    "react-native-svg": "catalog:",
     "react-native-web": "catalog:"
   },
   "devDependencies": {
