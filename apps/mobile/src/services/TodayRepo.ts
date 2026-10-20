@@ -7,8 +7,8 @@ import {
   newId,
   type PlannedSession,
   PlannedSessionRow,
-  type PlannedSet,
-  type PlannedSetId,
+  PlannedSet,
+  PlannedSetId,
   PlannedSetRow,
   Reps,
   Rpe,
@@ -35,7 +35,7 @@ import {
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
 import { decodeRecords, LocalStore } from "./LocalStore"
-import type { SqlRecord, StoreError } from "./SqlDriver"
+import { type SqlRecord, StoreError } from "./SqlDriver"
 
 export interface TodayExercise {
   readonly exercise: Exercise
@@ -114,7 +114,17 @@ export interface TodayRepoShape {
    * tombstoned exercise still render on `today` (history and plan stay readable).
    */
   readonly exerciseChoices: Effect.Effect<ReadonlyArray<Exercise>, StoreError>
+  /**
+   * Puts an exercise on today's planned session: appends `ADDED_SET_COUNT` planned sets (Exact
+   * `ADDED_SET_REPS` reps, no weight / RPE / rest / note) after the current max `order`, dirty.
+   * `true` when it is on today's session afterwards (already planned → no write); `false` when
+   * nothing is planned today.
+   */
+  readonly addExercise: (exerciseId: ExerciseId) => Effect.Effect<boolean, StoreError>
 }
+
+export const ADDED_SET_COUNT = 3
+export const ADDED_SET_REPS = 10
 
 export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@tanren/TodayRepo") {
   static readonly layerNoDeps = Layer.effect(
@@ -347,7 +357,71 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
         Effect.flatMap(decodeRecords(ExerciseRow)),
       )
 
-      return TodayRepo.of({ today, logSet, exerciseChoices })
+      /** Same lock as `logSet`: two quick adds must not both append or reuse an order. */
+      const addExercise = (exerciseId: ExerciseId) =>
+        logLock.withPermits(1)(
+          withDeps(
+            Effect.gen(function* () {
+              const found = yield* plannedSessionToday
+              if (Option.isNone(found)) {
+                return false
+              }
+              const plannedSessionId = found.value.id
+              const existing = yield* store.all(
+                q(
+                  `SELECT 1 FROM "planned_set"
+                   WHERE "plannedSessionId" = ? AND "exerciseId" = ? AND "deletedAt" IS NULL LIMIT 1`,
+                  plannedSessionId,
+                  exerciseId,
+                ),
+              )
+              if (Arr.isReadonlyArrayNonEmpty(existing)) {
+                return true
+              }
+              const now = yield* DateTime.now
+              const userId = yield* owner
+              // Tombstones count too: a revived order never collides with a synced row's.
+              const first = nextOrder(
+                yield* store.all(
+                  q(
+                    `SELECT COALESCE(MAX("order"), -1) + 1 AS "next" FROM "planned_set" WHERE "plannedSessionId" = ?`,
+                    plannedSessionId,
+                  ),
+                ),
+              )
+              const sets = yield* Effect.forEach(Arr.range(0, ADDED_SET_COUNT - 1), (offset) =>
+                newId(PlannedSetId).pipe(
+                  Effect.flatMap((id) =>
+                    PlannedSet.makeEffect({
+                      id,
+                      userId,
+                      createdAt: now,
+                      updatedAt: now,
+                      deletedAt: Option.none(),
+                      plannedSessionId,
+                      exerciseId,
+                      order: first + offset,
+                      targetWeightKg: Option.none(),
+                      targetReps: { _tag: "Exact", reps: Reps.make(ADDED_SET_REPS) },
+                      targetRpe: Option.none(),
+                      restSeconds: Option.none(),
+                      note: Option.none(),
+                    }),
+                  ),
+                  // Constant targets and a computed order: an invalid row is a store-side fault.
+                  Effect.mapError((cause) => new StoreError({ cause })),
+                ),
+              )
+              yield* store.write(
+                sets.map((row): SyncChange => ({ table: "plannedSet", row })),
+                { dirty: true },
+              )
+              return true
+            }),
+          ),
+        )
+
+      return TodayRepo.of({ today, logSet, exerciseChoices, addExercise })
     }),
   )
 

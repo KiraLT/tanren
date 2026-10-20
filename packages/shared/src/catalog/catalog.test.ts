@@ -1,0 +1,235 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Effect, Option, Schema } from "effect"
+import { failingPaths, roundTrips } from "../testing"
+import { CatalogExercise, type CatalogExerciseSpec } from "./CatalogExercise"
+import {
+  CATALOG,
+  CATALOG_BY_ID,
+  CATALOG_MODULES,
+  CatalogId,
+  CORE30_CATALOG_IDS,
+  findCatalogExercise,
+  Slug,
+  searchCatalog,
+  searchEntries,
+} from "./index"
+
+const spec = (overrides: Partial<CatalogExerciseSpec>): CatalogExerciseSpec => ({
+  catalogId: "plank",
+  name: "Plank",
+  aliases: [],
+  kind: "timed",
+  primaryMuscles: ["core"],
+  secondaryMuscles: [],
+  equipment: [],
+  movement: "antiExtension",
+  instructions: ["Hold your body straight.", "Breathe steadily."],
+  ...overrides,
+})
+
+const decode = Schema.decodeUnknownSync(CatalogExercise)
+const build = (overrides: Partial<CatalogExerciseSpec>) =>
+  decode({ illustrationId: overrides.catalogId ?? "plank", ...spec(overrides) })
+
+const ids = (entries: ReadonlyArray<CatalogExercise>) => entries.map((entry) => entry.catalogId)
+
+const duplicates = (values: ReadonlyArray<string>) =>
+  values.filter((value, i) => values.indexOf(value) !== i)
+
+describe("catalog data validation", () => {
+  it("has at least one entry per decoded spec (C2 tightens this to 200-300)", () => {
+    expect(CATALOG.length).toBeGreaterThanOrEqual(0)
+    expect(CATALOG.length).toBe(CATALOG_MODULES.flatMap((module) => module.entries).length)
+  })
+
+  it("has unique catalogIds", () => {
+    expect(duplicates(CATALOG.map((entry) => entry.catalogId))).toEqual([])
+    expect(CATALOG_BY_ID.size).toBe(CATALOG.length)
+  })
+
+  it("has unique names and aliases across the whole catalog, case-insensitively", () => {
+    const labels = CATALOG.flatMap((entry) => [entry.name, ...entry.aliases]).map((label) =>
+      label.toLowerCase(),
+    )
+    expect(duplicates(labels)).toEqual([])
+  })
+
+  it.effect("has a slug illustrationId and disjoint muscles on every entry", () =>
+    Effect.gen(function* () {
+      const paths = yield* Effect.forEach(CATALOG, (entry) =>
+        Effect.result(Schema.decodeUnknownEffect(Slug)(entry.illustrationId)),
+      )
+      expect(paths.filter((result) => result._tag === "Failure")).toEqual([])
+      expect(
+        CATALOG.filter((entry) =>
+          entry.secondaryMuscles.some((muscle) => entry.primaryMuscles.includes(muscle)),
+        ).map((entry) => entry.catalogId),
+      ).toEqual([])
+    }),
+  )
+
+  it("defaults illustrationId to the catalogId unless the spec sets one", () => {
+    const entry = build({ catalogId: "plank" })
+    expect(entry.illustrationId).toBe("plank")
+    expect(build({ catalogId: "plank", illustrationId: "front-plank" }).illustrationId).toBe(
+      "front-plank",
+    )
+  })
+
+  it("gives every CORE30 id that exists kind timed with core primary (C2: all must exist)", () => {
+    const present = CORE30_CATALOG_IDS.flatMap((id) => {
+      const found = CATALOG_BY_ID.get(id)
+      return found === undefined ? [] : [found]
+    })
+    expect(present.length).toBeGreaterThanOrEqual(3)
+    expect(present.filter((e) => e.kind !== "timed" || !e.primaryMuscles.includes("core"))).toEqual(
+      [],
+    )
+    expect(CORE30_CATALOG_IDS.length).toBe(24)
+    expect(duplicates(CORE30_CATALOG_IDS)).toEqual([])
+  })
+
+  it("has at least 12 entries in every non-empty module", () => {
+    // `core` holds only the 3 samples until C1-D fills it; C2 drops this exemption.
+    const stillSampleOnly = (module: {
+      readonly name: string
+      readonly entries: ReadonlyArray<unknown>
+    }) => module.name === "core" && module.entries.length <= 3
+    const small = CATALOG_MODULES.filter(
+      (module) =>
+        module.entries.length > 0 && module.entries.length < 12 && !stillSampleOnly(module),
+    ).map((module) => `${module.name}: ${module.entries.length}`)
+    expect(small).toEqual([])
+  })
+
+  it("ranks barbell-back-squat first for 'squat' once it exists", () => {
+    if (CATALOG_BY_ID.has(CatalogId.make("barbell-back-squat"))) {
+      expect(searchCatalog({ query: "squat" })[0]?.catalogId).toBe("barbell-back-squat")
+    }
+  })
+})
+
+describe("CatalogExercise schema", () => {
+  const wire = { ...spec({ aliases: ["Front plank"] }), illustrationId: "plank" }
+
+  it("decodes a valid spec", () => {
+    const entry = decode(wire)
+    expect(entry).toBeInstanceOf(CatalogExercise)
+    expect(entry.aliases).toEqual(["Front plank"])
+  })
+
+  it.effect("rejects a muscle that is both primary and secondary, pointing at it", () =>
+    Effect.gen(function* () {
+      const input = { ...wire, primaryMuscles: ["core"], secondaryMuscles: ["glutes", "core"] }
+      expect(yield* failingPaths(CatalogExercise, input)).toEqual([["secondaryMuscles", 1]])
+    }),
+  )
+
+  it.effect("rejects a duplicate alias and an alias equal to the name", () =>
+    Effect.gen(function* () {
+      const duplicate = { ...wire, aliases: ["Front plank", "front PLANK"] }
+      expect(yield* failingPaths(CatalogExercise, duplicate)).toEqual([["aliases", 1]])
+      const sameAsName = { ...wire, aliases: ["PLANK"] }
+      expect(yield* failingPaths(CatalogExercise, sameAsName)).toEqual([["aliases", 0]])
+    }),
+  )
+
+  it.effect("rejects a bad instruction count and an unknown muscle", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(CatalogExercise, { ...wire, instructions: ["Only one."] }),
+      ).toEqual([["instructions"]])
+      expect(yield* failingPaths(CatalogExercise, { ...wire, primaryMuscles: ["wings"] })).toEqual([
+        ["primaryMuscles", 0],
+      ])
+    }),
+  )
+
+  it.effect("round-trips value to wire to value", () => roundTrips(CatalogExercise, decode(wire)))
+})
+
+describe("searchEntries ranking", () => {
+  const squat = build({ catalogId: "squat", name: "Squat" })
+  const prefix = build({ catalogId: "squat-jump", name: "Squat Jump" })
+  const aliasPrefix = build({
+    catalogId: "knee-bend",
+    name: "Knee Bend",
+    aliases: ["Squatty bend"],
+  })
+  const substring = build({ catalogId: "back-squat", name: "Back Squat" })
+  const aliasSubstring = build({
+    catalogId: "box-sit",
+    name: "Box Sit",
+    aliases: ["Low squat"],
+    primaryMuscles: ["quads"],
+    secondaryMuscles: ["core"],
+    equipment: ["box"],
+    kind: "reps",
+  })
+  const none = build({ catalogId: "curl", name: "Curl" })
+  const all = [none, substring, aliasSubstring, aliasPrefix, prefix, squat]
+
+  it("orders exact name > name prefix > alias prefix > substring (name before alias is a tie)", () => {
+    expect(ids(searchEntries(all, { query: "squat" }))).toEqual([
+      "squat",
+      "squat-jump",
+      "knee-bend",
+      "back-squat",
+      "box-sit",
+    ])
+  })
+
+  it("is case-insensitive and trims the query", () => {
+    expect(ids(searchEntries(all, { query: "  SQUAT " }))[0]).toBe("squat")
+  })
+
+  it("keeps catalog order within a rank", () => {
+    const first = build({ catalogId: "a-press", name: "A Press" })
+    const second = build({ catalogId: "b-press", name: "B Press" })
+    expect(ids(searchEntries([second, first], { query: "press" }))).toEqual(["b-press", "a-press"])
+  })
+
+  it("filters by muscle (primary or secondary), equipment and kind", () => {
+    expect(ids(searchEntries(all, { muscle: "quads" }))).toEqual(["box-sit"])
+    expect(ids(searchEntries(all, { muscle: "core", kind: "reps" }))).toEqual(["box-sit"])
+    expect(ids(searchEntries(all, { equipment: "box" }))).toEqual(["box-sit"])
+    expect(ids(searchEntries(all, { query: "squat", muscle: "core", kind: "timed" }))).toEqual([
+      "squat",
+      "squat-jump",
+      "knee-bend",
+      "back-squat",
+    ])
+  })
+
+  it("returns everything in order for an empty filter and respects limit", () => {
+    expect(ids(searchEntries(all, {}))).toEqual(ids(all))
+    expect(ids(searchEntries(all, {}, 2))).toEqual(ids(all).slice(0, 2))
+    expect(searchEntries(all, { query: "zzz" })).toEqual([])
+  })
+})
+
+describe("searchCatalog on the catalog", () => {
+  it("returns the whole catalog in order for an empty filter", () => {
+    expect(ids(searchCatalog({}))).toEqual(ids(CATALOG))
+  })
+
+  it("ranks the exact name first and finds aliases", () => {
+    const plank = ids(searchCatalog({ query: "plank" }))
+    expect(plank[0]).toBe("plank")
+    expect(plank).toContain("side-plank")
+    expect(ids(searchCatalog({ query: "forearm" }))).toContain("plank")
+    expect(ids(searchCatalog({ query: "dead" }))[0]).toBe("dead-bug")
+  })
+
+  it("filters by muscle and kind and limits the result", () => {
+    expect(ids(searchCatalog({ muscle: "core", kind: "timed" }))).toEqual(
+      expect.arrayContaining(["plank", "side-plank", "dead-bug"]),
+    )
+    expect(searchCatalog({ muscle: "core" }, 1)).toHaveLength(Math.min(1, CATALOG.length))
+  })
+
+  it("looks an entry up by id", () => {
+    expect(Option.isSome(findCatalogExercise(CatalogId.make("plank")))).toBe(true)
+    expect(Option.isNone(findCatalogExercise(CatalogId.make("no-such-exercise")))).toBe(true)
+  })
+})

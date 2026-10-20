@@ -15,10 +15,15 @@ import {
 } from "effect"
 import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
+import { Account } from "./Account"
 import { CurrentUser } from "./CurrentUser"
+import { DataExporter } from "./DataExport"
+import { ExerciseLink } from "./ExerciseLink"
 import { HistoryRepo } from "./HistoryRepo"
 import { LocalStore } from "./LocalStore"
+import { PhaseAlerts } from "./PhaseAlerts"
 import { PlanWeekRepo } from "./PlanWeekRepo"
+import { ProgramRepo } from "./ProgramRepo"
 import { DATABASE_NAME, SqlDriver, StoreError } from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
 import { SyncEngine } from "./SyncEngine"
@@ -164,8 +169,15 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       TodayRepo.layerNoDeps,
+      ExerciseLink.layerNoDeps,
+      Layer.mergeAll(
+        ProgramRepo.layerNoDeps.pipe(Layer.provide(ExerciseLink.layerNoDeps)),
+        PhaseAlerts.layer,
+      ),
       PlanWeekRepo.layer,
       HistoryRepo.layer,
+      Account.layer,
+      DataExporter.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),
     ),
   ),
