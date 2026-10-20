@@ -57,6 +57,18 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
+## State at 01:10 (HEAD `9775900`)
+Native sign-in stream CLOSED and approved (4 fix rounds: signed begin route,
+project-prefix pinning, canonical URL, header strip, limiter). Team programs
+FINAL (Core 30, player, PhaseAlerts, Today banner; product numbers: work
+25–45 s, rest 5–15 s, recovery days 6 min — owner may retune). Design D5 +
+Progress + Settings landed; X5 PWA / X6 docs / REV in flight. Catalog 149
+exercises + Library landed; remaining modules + `search_exercises` in flight.
+Illustrations: I1 primitives in flight, then up to 5 sonnet batches; must
+exclude `**/*.svg` from Biome. Next: INT-X (`docs/tasks/v2-integration.md`)
+when design, catalog and illustrations report; then one EM batch, `/retro`
+v2, morning report.
+
 ## State at 00:52 (HEAD `ed6f22f`)
 Step 5 landed and committed (OAuth, write tools; Claude login = owner browser
 step). Native sign-in built on both sides, curl-proven, then NA-REV found a
