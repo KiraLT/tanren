@@ -279,6 +279,72 @@ describe("SyncStore.apply", () => {
     }).pipe(Effect.provide(StoreLayer)),
   )
 
+  it.effect(
+    "rejects a second active plan and accepts one activated after the first is archived",
+    () =>
+      Effect.gen(function* () {
+        yield* at(now)
+        const user = userOf(43)
+        const store = yield* SyncStore
+        yield* store.apply(UserId.make(user), [
+          { table: "plan", row: plan({ id: id(330), userId: user }) },
+        ])
+
+        const second = yield* store.apply(UserId.make(user), [
+          { table: "plan", row: plan({ id: id(331), userId: user, updatedAt: t2 }) },
+          ex(exercise({ id: id(332), userId: user, name: "Bystander" })),
+        ])
+        expect(second.accepted.map((a) => a.id)).toEqual([id(332)])
+        expect(second.rejected.map((r) => [r.id, r.reason])).toEqual([
+          [id(331), "invariantViolated"],
+        ])
+
+        const swap = yield* store.apply(UserId.make(user), [
+          { table: "plan", row: plan({ id: id(333), userId: user, updatedAt: now }) },
+          {
+            table: "plan",
+            row: plan({ id: id(330), userId: user, status: "archived", updatedAt: t2 }),
+          },
+        ])
+        expect(swap.rejected).toEqual([])
+        expect(swap.accepted.map((a) => a.id)).toEqual([id(330), id(333)])
+      }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("rejects a second live week with the same start, but not over a deleted one", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(44)
+      const store = yield* SyncStore
+      const week = (
+        n: number,
+        weekStart: string,
+        more: { updatedAt?: string; deletedAt?: string } = {},
+      ) =>
+        ({
+          table: "planWeek",
+          row: planWeek({ id: id(n), userId: user, planId: id(340), weekStart, ...more }),
+        }) satisfies SyncChange
+      yield* store.apply(UserId.make(user), [
+        { table: "plan", row: plan({ id: id(340), userId: user }) },
+        week(341, "2026-10-19"),
+        week(342, "2026-10-26", { deletedAt: t1 }),
+      ])
+
+      const result = yield* store.apply(UserId.make(user), [
+        week(343, "2026-10-19"), // held in D1 by 341
+        week(344, "2026-10-26"), // 342 is soft-deleted: free
+        week(345, "2026-10-26", { updatedAt: t2 }), // held by 344, accepted earlier in this push
+      ])
+
+      expect(result.accepted.map((a) => a.id)).toEqual([id(344)])
+      expect(result.rejected.map((r) => [r.id, r.reason])).toEqual([
+        [id(343), "invariantViolated"],
+        [id(345), "invariantViolated"],
+      ])
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
   it.effect("accepts re-upserts, a case-only self rename, and names freed by a soft delete", () =>
     Effect.gen(function* () {
       yield* at(now)
@@ -509,13 +575,17 @@ describe("SyncStore.apply", () => {
     Effect.gen(function* () {
       yield* at(now)
       const user = userOf(9)
-      // Two active plans violate `plan_user_active_unique` on the second insert (`decide` does not
-      // pre-check that index yet; exercise names are pre-checked, see the name tests above).
+      // `decide` pre-checks every constraint of the schema, so the failing statement comes from a
+      // test-only trigger it cannot see: the plan insert (last in push order) aborts the batch.
+      // DDL takes no bound parameters; `user` is a constant test UUID.
+      yield* (yield* SqlClient.SqlClient).unsafe(
+        `CREATE TRIGGER IF NOT EXISTS abort_plan_${id(60).slice(-4)} BEFORE INSERT ON plan
+          WHEN NEW.user_id = '${user}' BEGIN SELECT RAISE(ABORT, 'boom'); END`,
+      )
       const error = yield* Effect.flip(
         (yield* SyncStore).apply(UserId.make(user), [
           ex(exercise({ id: id(62), userId: user, name: "Bystander" })),
           { table: "plan", row: plan({ id: id(60), userId: user }) },
-          { table: "plan", row: plan({ id: id(61), userId: user }) },
         ]),
       )
       expect(error._tag).toBe("PersistenceError")
@@ -523,7 +593,6 @@ describe("SyncStore.apply", () => {
         yield* rowsOf(user, [
           ["exercise", id(62)],
           ["plan", id(60)],
-          ["plan", id(61)],
         ]),
       ).toEqual([])
       expect(yield* clockOf(user)).toEqual([])

@@ -37,6 +37,7 @@ import {
   Result,
   Schema,
 } from "effect"
+import type { Statement } from "effect/sql"
 import { type PersistenceError, persistenceError } from "../errors"
 import { bumpClock, upsertRow } from "../syncClock"
 import {
@@ -73,7 +74,8 @@ export interface SyncStoreShape {
    * Applies a push by the DM §10.2 rules: parents first, per-change `forbidden` / `invariantViolated`
    * / `missingParent` / `immutableFieldChanged` rejections (a repeated `(table, id)` after its first
    * change in request order is `invariantViolated`; a parent that is missing, another user's, or
-   * rejected in this push is `missingParent`), LWW on `updatedAt` (ties and older go to
+   * rejected in this push is `missingParent`; a live row taking a partial-unique-index slot another
+   * row holds at that point in accept order is `invariantViolated`), LWW on `updatedAt` (ties and older go to
    * `conflicts` with the server row), `updatedAt` > now + 5 min clamped to now. Every accepted row is
    * written in ONE `D1Client.batch` behind one clock bump, so all share one `server_seq`; a failing
    * statement aborts the whole push (`PersistenceError`, nothing written). No accepted rows: no write.
@@ -213,10 +215,11 @@ interface Outcome {
   /** The subset of `known` that is soft-deleted after the changes accepted so far. */
   readonly tombstoned: HashSet.HashSet<Key>
   /**
-   * Folded name → id of the live exercise holding it after the changes accepted so far, for the
-   * names this push uses (`exercise_user_name_unique` is `(user_id, lower(name))` over live rows).
+   * Partial-unique-index slot (`uniqueSlot`) → key of the row holding it after the changes
+   * accepted so far, for the slots this push uses. Batch statements run in accept order, so a
+   * slot held at this point by another row would abort the whole batch.
    */
-  readonly exerciseNames: HashMap.HashMap<string, string>
+  readonly held: HashMap.HashMap<string, Key>
 }
 
 interface Snapshot {
@@ -244,15 +247,42 @@ const reject = (
   ],
 })
 
-/** The name map after `change` is written: its id releases its old name, a live row takes its own. */
-const nextExerciseNames = (snapshot: Snapshot, outcome: Outcome, change: SyncChange) => {
-  if (change.table !== "exercise") {
-    return outcome.exerciseNames
-  }
-  const released = HashMap.filter(outcome.exerciseNames, (id) => id !== change.row.id)
-  return Option.isNone(change.row.deletedAt)
-    ? HashMap.set(released, foldName(snapshot, change.row.name), change.row.id)
-    : released
+const EXERCISE_NAME = "exercise_user_name_unique"
+const ACTIVE_PLAN = "plan_user_active_unique"
+const WEEK_START = "plan_week_plan_week_start_unique"
+
+const exerciseNameSlot = (folded: string) => `${EXERCISE_NAME}|${folded}`
+const weekStartSlot = (planId: string, weekStart: string) => `${WEEK_START}|${planId}|${weekStart}`
+
+/**
+ * The slot a row takes in a partial unique index of migration 0000 (all are scoped to live rows):
+ * `exercise (user_id, lower(name))`, `plan (user_id) WHERE status = 'active'`,
+ * `plan_week (plan_id, week_start)`. The user is implicit: one push is one user.
+ */
+const uniqueSlot = (snapshot: Snapshot, change: SyncChange): Option.Option<string> =>
+  Option.isSome(change.row.deletedAt)
+    ? Option.none()
+    : Match.value(change).pipe(
+        Match.discriminatorsExhaustive("table")({
+          profile: () => Option.none(),
+          exercise: ({ row }) => Option.some(exerciseNameSlot(foldName(snapshot, row.name))),
+          plan: ({ row }) => (row.status === "active" ? Option.some(ACTIVE_PLAN) : Option.none()),
+          planWeek: ({ row }) => Option.some(weekStartSlot(row.planId, row.weekStart)),
+          plannedSession: () => Option.none(),
+          plannedSet: () => Option.none(),
+          session: () => Option.none(),
+          set: () => Option.none(),
+        }),
+      )
+
+/** The held slots after `change` is written: it releases its old slot and takes its new one. */
+const nextHeld = (slot: Option.Option<string>, outcome: Outcome, change: SyncChange) => {
+  const key = changeKey(change)
+  const released = HashMap.filter(outcome.held, (holder) => holder !== key)
+  return Option.match(slot, {
+    onNone: () => released,
+    onSome: (s) => HashMap.set(released, s, key),
+  })
 }
 
 const accept = (
@@ -261,22 +291,14 @@ const accept = (
   change: SyncChange,
   updatedAt: DateTime.Utc,
 ): Outcome => {
-  // Statements run in accept order, so a live name another live exercise still holds at this
-  // point would abort the whole batch on `exercise_user_name_unique`: reject just this change.
-  const holder =
-    change.table === "exercise" && Option.isNone(change.row.deletedAt)
-      ? Option.filter(
-          HashMap.get(outcome.exerciseNames, foldName(snapshot, change.row.name)),
-          (id) => id !== change.row.id,
-        )
-      : Option.none()
+  const slot = uniqueSlot(snapshot, change)
+  const holder = Option.filter(
+    Option.flatMap(slot, (s) => HashMap.get(outcome.held, s)),
+    (key) => key !== changeKey(change),
+  )
   if (Option.isSome(holder)) {
-    return reject(
-      outcome,
-      change,
-      "invariantViolated",
-      `the name is taken by live exercise ${holder.value} (case-insensitive)`,
-    )
+    const taken = Option.getOrElse(slot, () => "")
+    return reject(outcome, change, "invariantViolated", `${taken} is held by ${holder.value}`)
   }
   return {
     ...outcome,
@@ -286,7 +308,7 @@ const accept = (
     tombstoned: Option.isSome(change.row.deletedAt)
       ? HashSet.add(outcome.tombstoned, changeKey(change))
       : HashSet.remove(outcome.tombstoned, changeKey(change)),
-    exerciseNames: nextExerciseNames(snapshot, outcome, change),
+    held: nextHeld(slot, outcome, change),
   }
 }
 
@@ -354,7 +376,7 @@ const splitDuplicates = (changes: ReadonlyArray<SyncChange>): Split => {
 
 const IdRecord = Schema.Struct({ id: Schema.String })
 const FoldedRecord = Schema.Struct({ name: Schema.String, folded: Schema.String })
-const HolderRecord = Schema.Struct({ id: Schema.String, folded: Schema.String })
+const HolderRecord = Schema.Struct({ id: Schema.String, value: Schema.String })
 const PositionRecord = Schema.Struct({ id: Schema.String, serverSeq: Schema.Number })
 
 interface Entry extends Position {
@@ -401,42 +423,83 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
         ),
       ).pipe(Effect.map((tables) => HashSet.fromIterable(Arr.flatten(Arr.flatten(tables)))))
 
+    const decodeAll =
+      <A>(schema: Schema.Decoder<A>) =>
+      (records: ReadonlyArray<unknown>) =>
+        Effect.forEach(records, (r) => Schema.decodeUnknownEffect(schema)(r))
+
+    /** `(slot, key)` pairs of the user's live rows that hold `values` of one index. */
+    const holdersOf = (
+      table: SyncTable,
+      toSlot: (value: string) => string,
+      values: ReadonlyArray<string>,
+      query: (json: string) => Statement.Statement<unknown>,
+    ) =>
+      Arr.isReadonlyArrayNonEmpty(values)
+        ? query(JSON.stringify(values)).pipe(
+            Effect.flatMap(decodeAll(HolderRecord)),
+            Effect.map(
+              Arr.map((r): readonly [string, Key] => [toSlot(r.value), keyOf(table, r.id)]),
+            ),
+          )
+        : Effect.succeed<ReadonlyArray<readonly [string, Key]>>([])
+
     /**
-     * SQLite's `lower()` of every live pushed exercise name, and the user's live exercises holding
-     * one of them. One bound JSON parameter each, so no `ID_CHUNK` split is needed.
+     * What `uniqueSlot` needs from D1: SQLite's `lower()` of every live pushed exercise name (so
+     * the check folds exactly like the index), and the user's live rows already holding a slot
+     * this push uses. One bound JSON parameter per query, so no `ID_CHUNK` split is needed.
      */
-    const exerciseNameState = (userId: UserId, changes: ReadonlyArray<SyncChange>) =>
+    const uniqueState = (userId: UserId, changes: ReadonlyArray<SyncChange>) =>
       Effect.gen(function* () {
+        const live = Arr.filter(changes, (c) => Option.isNone(c.row.deletedAt))
         const names = Arr.dedupe(
-          Arr.filterMap(changes, (c) =>
-            c.table === "exercise" && Option.isNone(c.row.deletedAt)
-              ? Result.succeed(c.row.name)
+          Arr.filterMap(live, (c) =>
+            c.table === "exercise" ? Result.succeed(c.row.name) : Result.failVoid,
+          ),
+        )
+        const weeks = Arr.dedupe(
+          Arr.filterMap(live, (c) =>
+            c.table === "planWeek"
+              ? Result.succeed(`${c.row.planId}|${c.row.weekStart}`)
               : Result.failVoid,
           ),
         )
-        if (!Arr.isReadonlyArrayNonEmpty(names)) {
-          return {
-            folded: HashMap.empty<string, string>(),
-            holders: HashMap.empty<string, string>(),
-          }
-        }
-        const json = JSON.stringify(names)
-        const folded = yield* sql`SELECT value AS name, lower(value) AS folded
-          FROM json_each(${json})`.pipe(
-          Effect.flatMap((rows) =>
-            Effect.forEach(rows, (r) => Schema.decodeUnknownEffect(FoldedRecord)(r)),
-          ),
+        const activePlan = Arr.some(live, (c) => c.table === "plan" && c.row.status === "active")
+        const folded = Arr.isReadonlyArrayNonEmpty(names)
+          ? yield* sql`SELECT value AS name, lower(value) AS folded
+              FROM json_each(${JSON.stringify(names)})`.pipe(
+              Effect.flatMap(decodeAll(FoldedRecord)),
+            )
+          : []
+        const exercises = yield* holdersOf(
+          "exercise",
+          exerciseNameSlot,
+          names,
+          (json) =>
+            sql`SELECT id, lower(name) AS value FROM exercise
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+              AND lower(name) IN (SELECT lower(value) FROM json_each(${json}))`,
         )
-        const holders = yield* sql`SELECT id, lower(name) AS folded FROM exercise
-          WHERE user_id = ${userId} AND deleted_at IS NULL
-            AND lower(name) IN (SELECT lower(value) FROM json_each(${json}))`.pipe(
-          Effect.flatMap((rows) =>
-            Effect.forEach(rows, (r) => Schema.decodeUnknownEffect(HolderRecord)(r)),
-          ),
+        const plans = yield* holdersOf(
+          "plan",
+          () => ACTIVE_PLAN,
+          activePlan ? ["active"] : [],
+          () =>
+            sql`SELECT id, status AS value FROM plan
+            WHERE user_id = ${userId} AND deleted_at IS NULL AND status = 'active'`,
+        )
+        const planWeeks = yield* holdersOf(
+          "planWeek",
+          (v) => `${WEEK_START}|${v}`,
+          weeks,
+          (json) =>
+            sql`SELECT id, plan_id || '|' || week_start AS value FROM plan_week
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+              AND plan_id || '|' || week_start IN (SELECT value FROM json_each(${json}))`,
         )
         return {
           folded: HashMap.fromIterable(Arr.map(folded, (r) => [r.name, r.folded] as const)),
-          holders: HashMap.fromIterable(Arr.map(holders, (r) => [r.folded, r.id] as const)),
+          held: HashMap.fromIterable([...exercises, ...plans, ...planWeeks]),
         }
       })
 
@@ -453,13 +516,13 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
         const sorted = Arr.sort(unique, pushOrder)
         const keys = Arr.map(sorted, (c) => ({ table: c.table, id: c.row.id }))
         const own = yield* ownRows(userId, Arr.appendAll(keys, Arr.flatMap(sorted, parentKeys)))
-        const names = yield* exerciseNameState(userId, sorted)
+        const slots = yield* uniqueState(userId, sorted)
         const snapshot: Snapshot = {
           userId,
           now,
           own: HashMap.fromIterable(Arr.map(own, (c) => [changeKey(c), c] as const)),
           foreign: yield* foreignKeys(userId, keys),
-          folded: names.folded,
+          folded: slots.folded,
         }
         const initial: Outcome = {
           accepted: [],
@@ -473,7 +536,7 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
               changeKey,
             ),
           ),
-          exerciseNames: names.holders,
+          held: slots.held,
         }
         const outcome = Arr.reduce(
           duplicates,
