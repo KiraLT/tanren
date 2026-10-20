@@ -192,8 +192,8 @@ pnpm -F @tanren/mobile start   # scan the QR with the iPhone camera → Expo Go
 ```
 1. In Expo Go: Sign in → email `dev@tanren.local` → "Open the link on this iPhone".
 2. The wrangler terminal prints `magic link for dev@tanren.local: http://192.168.x.y:8787/api/auth/magic-link/verify?…`
-   **and a terminal QR of the same URL** (decided: yes, NA-4, `uqr` `renderUnicodeCompact`, local
-   console sender only, VERIFY the export name). Scan it with the iPhone camera → it opens in the
+   **and a terminal QR of the same URL** (decided: yes, NA-4: `dev:phone` pipes wrangler through
+   `apps/worker/scripts/linkQr.mjs` using `uqr` `renderUnicodeCompact`, VERIFY the export name; never in the bundle). Scan it with the iPhone camera → it opens in the
    phone's Safari. Fallback without QR: copy the URL on the Mac and paste it into the iPhone Safari
    address bar (Universal Clipboard). It must open on the PHONE: on the Mac the deep link has no Expo Go.
 3. Safari shows "Open Tanren" → tap → "Open in Expo Go?" → Open → Today, signed in; log a set; the

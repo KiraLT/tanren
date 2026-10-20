@@ -17,7 +17,7 @@ Requests (Lead routes before dispatch):
 - R2 grant native-auth the NEW file `apps/mobile/app/auth/callback.tsx` (no existing file changes; ~25 lines, spec design §3.2); fallback: team design writes it from the spec.
 - R3 add `uqr: 0.1.3` to `apps/worker/package.json` deps for the terminal QR (NA-4); fallback: skip the QR, the Universal Clipboard paste in design §5 is enough.
 - R4 team design X4: native sign-out = `/api/auth/sign-out` through `withSession`, then `NativeSession.clear`, then forget owner; show Sign out on native (design §3.2).
-- R5 grant NA-4 one root script line `"dev:phone": "sh -c 'pnpm -F @tanren/worker exec wrangler dev --ip 0.0.0.0 --show-interactive-dev-session=false --var BETTER_AUTH_URL:http://$(ipconfig getifaddr en0):8787'"`.
+- R5 grant NA-4 one root script line `"dev:phone": "sh -c 'pnpm -F @tanren/worker exec wrangler dev --ip 0.0.0.0 --show-interactive-dev-session=false --var BETTER_AUTH_URL:http://$(ipconfig getifaddr en0):8787 | node apps/worker/scripts/linkQr.mjs'"`.
 Contracts (frozen when NA-1 step 1 compiles, ≈ 8 min in): design §2.4 shared names exactly; §2.3 routes, status codes and `NativeCodeRejected.reason` literals; §3.1 `NativeSession` shape, keys and `withSession`.
 Provides: `POST /api/native/session`, `GET /auth/native/complete`, Bearer auth on every authenticated route (Better Auth `bearer`), `NativeSession` + `withSession` for any mobile caller (X4 sign-out, future API calls).
 Assumes (cross-team):
@@ -48,7 +48,7 @@ Report: team report format from `.claude/agents/team-lead.md`.
 | NA-1 | Shared schemas; Better Auth `bearer` + `oneTimeToken` + `disabledPaths`; `nativeCode.ts`; `nativeAuthRoutes.ts` in `authRoutes`; Node + workerd tests | engineer / opus | — | `packages/shared/src/nativeAuth{,.test}.ts`, `index.ts` (1 line); `apps/worker/src/auth/{BetterAuth,authRoutes,nativeCode,nativeAuthRoutes}.ts` + tests, `auth/nativeAuth.workerd.test.ts` | §0, §2 | todo |
 | NA-2 | Mobile: `NativeSession` + `withSession`; `magicLink`, `CurrentUser`, `SyncTransport`; hooks `useSendMagicLink`, `useSignedIn`, `useNativeCallback`; `app/auth/callback.tsx` if R2 granted | engineer / sonnet | NA-1 step 1 (shared names), R1, R2 | `apps/mobile/src/services/{NativeSession,magicLink,CurrentUser,SyncTransport}{,.test}.ts`, `src/hooks/{useSendMagicLink,useSignedIn,useNativeCallback}.ts`, `app/auth/callback.tsx` | §3 | todo |
 | NA-3 | Runtime proof: curl flow on an isolated worker + iOS export bundle | engineer / sonnet | NA-1, NA-2 | none (scratch only); findings in the Log | charter "Runtime proof" | todo |
-| NA-4 | `dev:phone` script (R5), terminal QR in `EmailSender.layerConsole` (R3), docs | engineer / sonnet | NA-1 | `apps/worker/src/auth/EmailSender{,.test}.ts`, root `package.json` (1 line), `docs/design/local-dev.md` §6a, `apps/mobile/CLAUDE.md` (sign-in paragraph), two skill paragraphs | §5 | todo |
+| NA-4 | `dev:phone` script (R5), terminal QR via a dev-only pipe script (R3: `uqr` in worker scripts only, never in the bundle), docs | engineer / sonnet | NA-1 | new `apps/worker/scripts/linkQr.mjs` (reads wrangler stdout, prints a QR after each `magic link for` line), `apps/worker/package.json` (`uqr` devDependency), root `package.json` (1 line), `docs/design/local-dev.md` §6a, `apps/mobile/CLAUDE.md` (sign-in paragraph), two skill paragraphs | §5 | todo |
 | NA-REV | Review `git diff <baseline> -- <owned paths>` against design §2–§4; `pnpm check` | reviewer / opus | NA-2, NA-3, NA-4 | owned paths | §4 security first | todo |
 
 Parallel groups (≤ 2 engineers): A = {NA-1, NA-2 from NA-1 step 1} · B = {NA-3, NA-4} · C = {NA-REV, fixes}.
@@ -68,7 +68,7 @@ Parallel groups (≤ 2 engineers): A = {NA-1, NA-2 from NA-1 step 1} · B = {NA-
 ### NA-3 (time box 8 min)
 - [ ] Every step of the charter "Runtime proof" run on port 8796 with its own persist dir; each response status pasted (tokens and codes redacted to 6 chars); iOS export exits 0; kill only PIDs you started. Never run a command under permissions.ask: `git push|reset|checkout`, `rm -r*`, `wrangler deploy|login|secret|d1 execute`, `eas *`, Cloudflare MCP `execute`; `pnpm db:reset` is fine.
 ### NA-4 (time box 10 min)
-- [ ] `dev:phone` (R5) prints the LAN URL in the link; `layerConsole` also logs a compact QR of the URL when R3 is granted (test: the log contains the URL; QR rendering is not asserted beyond non-empty); local-dev §6a = design §5 recipe; mobile CLAUDE.md sign-in paragraph no longer says web-only; skill paragraphs ≤ 6 lines each.
+- [ ] `dev:phone` (R5) prints the LAN URL in the link; `dev:phone` pipes wrangler through `linkQr.mjs`, which passes every line through and prints a compact QR after each `magic link for <email>: <url>` line (`EmailSender` unchanged; `uqr` never imported under `src/`); local-dev §6a = design §5 recipe; mobile CLAUDE.md sign-in paragraph no longer says web-only; skill paragraphs ≤ 6 lines each.
 - [ ] `pnpm check` green, output pasted. Never run a command under permissions.ask: `git push|reset|checkout`, `rm -r*`, `wrangler deploy|login|secret|d1 execute`, `eas *`, Cloudflare MCP `execute`; `pnpm db:reset` is fine.
 ### NA-REV (time box 12 min)
 - [ ] Security checklist design §4 line by line (OTT not redeemable over HTTP, binding checked before consume, no code/token in logs, `returnTo` allowlist, HTML escaping, `no-store`); hard rules (no `throw`/`any`/`as`/`let`); verdict with blocking findings routed. Never run a command under permissions.ask: `git push|reset|checkout`, `rm -r*`, `wrangler deploy|login|secret|d1 execute`, `eas *`, Cloudflare MCP `execute`; `pnpm db:reset` is fine.
@@ -78,3 +78,4 @@ Parallel groups (≤ 2 engineers): A = {NA-1, NA-2 from NA-1 step 1} · B = {NA-
 
 ## Log
 - 2026-10-21 · architect · sheet + design written; R1–R5 open for the Lead
+- 2026-10-21 · Lead · R1–R5 granted: R1 via the live F2 engineer, R2 `app/auth/callback.tsx` is native-auth's, R3 `uqr` in worker scripts only (QR moved to `scripts/linkQr.mjs`), R4 → design X4, R5 root `dev:phone`; ADR-0015 written
