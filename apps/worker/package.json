@@ -12,11 +12,13 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -rf .wrangler/state && pnpm db:migrate && pnpm db:seed",
     "smoke": "tsx scripts/smoke.ts",
+    "deploy:preflight": "tsx scripts/deployPreflight.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --root ../.. --project @tanren/worker --project @tanren/worker-workerd",
     "check": "biome ci --error-on-warnings . && pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "catalog:",
     "@modelcontextprotocol/server": "catalog:",
     "@tanren/db": "workspace:*",
     "@tanren/shared": "workspace:*",

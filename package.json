@@ -16,6 +16,7 @@
     "db:seed": "pnpm -F @tanren/worker db:seed",
     "db:reset": "pnpm -F @tanren/worker db:reset",
     "smoke:worker": "pnpm -F @tanren/worker smoke",
+    "deploy:preflight": "pnpm -F @tanren/worker deploy:preflight",
     "web:export": "pnpm -F @tanren/mobile export:web",
     "web:serve": "pnpm -F @tanren/mobile serve:web",
     "format": "biome format --write .",

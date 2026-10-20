@@ -11,6 +11,9 @@ no preview. Production hostnames: `tanren.me` (web, assets Worker `tanren-web`),
 (REST + Better Auth + OAuth authorization server, Worker `tanren`), `mcp.tanren.me` (MCP resource,
 same Worker `tanren`).
 
+Run `pnpm deploy:preflight` first (add `--skip-gate` to skip `pnpm check`): a read-only checklist of
+everything below with the next command for each failure; it never deploys, logs in or writes a secret.
+
 ## 1. One-time accounts and DNS
 
 1. `tanren.me` is on Cloudflare DNS (plan: yes). Custom domains for Workers create the DNS records and

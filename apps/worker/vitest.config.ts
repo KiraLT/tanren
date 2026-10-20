@@ -5,7 +5,7 @@ import { defineProject } from "vitest/config"
 export default defineProject({
   test: {
     name: "@tanren/worker",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     exclude: ["src/**/*.workerd.test.ts", "**/node_modules/**"],
   },
 })
