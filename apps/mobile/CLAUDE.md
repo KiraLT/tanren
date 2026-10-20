@@ -221,6 +221,8 @@ INT-A (2026-10-20): owner recipe proven on the export via root `pnpm dev`
 v2 design + extras (2026-10-21, team design): `src/ui` design system (tokens, light/dark,
 theme preference, 15 primitives + Icon, desktop `AppBar` nav), Today/Plan/Sign-in/auth callback
 restyled, legacy `components/{theme,Screen,BigButton}` deleted; Progress tab, Settings, PWA
-manifest. Proven on the export at 390/768/1280 light+dark (30 screenshots). Known: `EmptyState`
-(`flex: 1`) collapses inside a `Page scroll` on web: give it a `minHeight` (see `progress.tsx`
-`INLINE_STATE`). Stale Metro after edits: restart the server, `--clear` is not enough.
+manifest. Proven on the export at 390/768/1280 light+dark (30 screenshots). `EmptyState` carries
+`minHeight: 240` in the primitive (UI-FIX-1), so it renders inside `Page scroll` and `FlatList`
+empty components without per-screen patches. Stale Metro after edits: restart the server,
+`--clear` is not enough. Empty-state proofs in the browser: signed out always seeds the demo
+plan, so use Library "no results" or a signed-in empty account.

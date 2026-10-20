@@ -61,8 +61,10 @@ Unattended-mode line in every brief. Commit after each landing.
 Native sign-in stream CLOSED and approved (4 fix rounds: signed begin route,
 project-prefix pinning, canonical URL, header strip, limiter). Team programs
 FINAL (Core 30, player, PhaseAlerts, Today banner; product numbers: work
-25–45 s, rest 5–15 s, recovery days 6 min — owner may retune). Design D5 +
-Progress + Settings landed; X5 PWA / X6 docs / REV in flight. Catalog 149
+25–45 s, rest 5–15 s, recovery days 6 min — owner may retune). Team design FINAL (D1–D5, L1, X3–X6, PWA
+installable; EmptyState min-height fix after). EM batch over native-auth,
+programs, design applied (auth/redirect checklist, one-pass security review,
+REV-<group> sheet rows, isolated-stack recipe). Catalog 149
 exercises + Library landed; remaining modules + `search_exercises` in flight.
 Illustrations: I1 primitives in flight, then up to 5 sonnet batches; must
 exclude `**/*.svg` from Biome. Next: INT-X (`docs/tasks/v2-integration.md`)
