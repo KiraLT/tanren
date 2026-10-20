@@ -68,5 +68,5 @@ Read v2-programs.md §2 (mobile store), §6; v2-catalog.md §5 (deps). Load `exp
 ## Reconciliation with `docs/tasks/v2-design.md` / `v2-extras.md` (architect, 2026-10-21; Lead confirms)
 - Design D1 owns `app/(tabs)/_layout.tsx` (five tabs incl. `programs`, `library`), `src/components/**`, `app/_layout.tsx` and the `react-native-svg` dep (15.16.0). **V2-F2 therefore drops** the tab stubs, `_layout.tsx` and `react-native-svg`; it keeps `expo-notifications`, `expo-haptics`, `expo-audio`, `expo-keep-awake`, `expo-widgets`, the store migration v2 and `app.json` plugins. Routes follow ADR-0014: `app/(tabs)/programs.tsx`, `app/(tabs)/library.tsx`.
 - Team components live in feature folders, not `src/components/**`: programs → `src/player/components/**`, catalog → `src/library/**` (incl. `ExerciseIllustration.tsx`).
-- Port clash: extras serves its export on 8798 (its sheet). Programs keeps 8798 (wrangler) + 8799 (web) here; the Lead reassigns one side before dispatch.
+- Ports (ADR-0013): extras (team design) 8793/8795, programs 8798 (wrangler) + 8799 (web), catalog 8797/8796.
 - `pnpm-lock.yaml` / catalog edits: F2 and design D1 both add deps — run D1 first or F2 first, never concurrently (lockfile is single-owner per wave).
