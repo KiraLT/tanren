@@ -22,6 +22,12 @@ export interface Env {
   readonly OAUTH_KV: KVNamespace
   /** Absolute URL of the MCP resource, e.g. `https://mcp.tanren.me/mcp` (`http:` only locally). */
   readonly MCP_RESOURCE_URL: string
+  /**
+   * Comma-separated hostnames the native sign-in may hand a code to (`exp(s)://<host>/…/--/auth/callback`).
+   * Unset: `localhost,127.0.0.1` when local, none elsewhere. `dev:phone` adds the Mac's LAN IP via
+   * `--var`; production lists the EAS Update host (owner value, docs/design/deploy.md).
+   */
+  readonly NATIVE_RETURN_HOSTS?: string
   /** Injected per request by `OAuthProvider`; absent in the module-scope `env`. */
   readonly OAUTH_PROVIDER?: OAuthHelpers
 }

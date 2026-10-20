@@ -10,6 +10,24 @@ class AuthStoreFailed extends Data.TaggedError("AuthStoreFailed")<{ readonly cau
 
 const isEmailSendFailed = Schema.is(EmailSendFailed)
 
+/**
+ * `bearer()` copies the session token into `set-auth-token` (and exposes it to CORS) on every
+ * cookie-setting response, which would hand the web app's JavaScript the token its httpOnly cookie
+ * hides. Native clients get their token only from `POST /api/native/session`, so it is dropped.
+ */
+export const withoutAuthToken = (
+  response: HttpServerResponse.HttpServerResponse,
+): HttpServerResponse.HttpServerResponse => {
+  const stripped = HttpServerResponse.removeHeader(response, "set-auth-token")
+  const exposed = (response.headers["access-control-expose-headers"] ?? "")
+    .split(",")
+    .map((header) => header.trim())
+    .filter((header) => header.length > 0 && header.toLowerCase() !== "set-auth-token")
+  return exposed.length === 0
+    ? HttpServerResponse.removeHeader(stripped, "access-control-expose-headers")
+    : HttpServerResponse.setHeader(stripped, "access-control-expose-headers", exposed.join(", "))
+}
+
 /** 503: the session store or auth service is down. */
 const unavailable = (cause: unknown) =>
   Effect.logError("auth handler failed", cause).pipe(
@@ -60,7 +78,7 @@ const betterAuthMount = Layer.unwrap(
           try: () => auth.handler(webRequest),
           catch: (cause) => (isEmailSendFailed(cause) ? cause : new AuthStoreFailed({ cause })),
         })
-        return HttpServerResponse.fromWeb(response)
+        return withoutAuthToken(HttpServerResponse.fromWeb(response))
       }).pipe(
         Effect.catchTag("EmailSendFailed", deliveryFailed),
         Effect.catch(unavailable),

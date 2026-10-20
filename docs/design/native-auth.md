@@ -75,15 +75,37 @@ the RFC, VERIFY).
 so `app.ts` and `index.ts` stay untouched (the OAuth provider passes every path except `/mcp`,
 `/authorize*`, token/register/well-known to `app.handler`; VERIFY no clash with `/auth/native/*`).
 
-**`GET /auth/native/complete?challenge=<PkceChallenge>&returnTo=<url>[&error=<string>]`**
-- `returnTo` fails `isAllowedReturnTo` or `challenge` fails `PkceChallenge` → 400 HTML "This sign-in
-  link is broken. Request a new one in the app." (no redirect: no open redirect).
-- `error` present (Better Auth sends expired/used links to the callbackURL with `?error=`) or no
-  session (`generateOneTimeToken` rejects) → 200 HTML with button to `returnTo?error=link_invalid`.
-- Else → 200 HTML: `<meta http-equiv="refresh" content="0;url=…">` + a big `<a href>` "Open Tanren"
-  to `returnTo?code=<NativeCode>` (attribute HTML-escaped). Headers: `content-type: text/html;
+**`POST /api/native/begin`** body `NativeBeginRequest { email, challenge, returnTo }` → 200 `{ sent: true }`
+(replaces the app's direct `POST /api/auth/sign-in/magic-link`, NA-REV finding 1a).
+- Undecodable body → 400 `NativeBeginRejected{ reason: "malformed" }`; `returnTo` not allowed (host not
+  in `NATIVE_RETURN_HOSTS`) → 400 `{ reason: "return-to" }`, no email sent.
+- Else `exp = now + 15 min`, `sig = b64url(HMAC(secret, "tanren-native-begin-v1\n" + lower(email) + "\n" +
+  challenge + "\n" + returnTo + "\n" + exp))`, and the worker calls `auth.api.signInMagicLink` itself with
+  `callbackURL = /auth/native/complete?challenge&returnTo&exp&sig` (request headers forwarded).
+  `EmailSendFailed` → 502 `EmailDeliveryFailed`; outage → 503.
+
+**`GET /auth/native/complete?challenge=<PkceChallenge>&returnTo=<url>&exp=<s>&sig=<mac>[&error=<string>]`**
+- `returnTo` not allowed, `challenge` not a `PkceChallenge`, `exp`/`sig` missing, or `sig` does not verify
+  against the **session user's email** → 400 HTML "This sign-in link is broken. Request a new one in
+  the app." (no redirect, no code).
+- `error` present, `exp` passed, no session, or the session is older than 5 min (`session.createdAt`;
+  the magic link just made it) → 200 HTML with a button to `returnTo?error=link_invalid`.
+- Else → 200 HTML with a big `<a href>` "Open Tanren" to `returnTo?code=<NativeCode>` (attribute
+  HTML-escaped). **No meta refresh**: the hand-off needs a tap. Headers: `content-type: text/html;
   charset=utf-8`, `cache-control: no-store`, `referrer-policy: no-referrer`. Never log the code.
 - Store outage → 503 `SessionStoreUnavailable` JSON; defect → 500 `InternalError` (as `authRoutes`).
+
+**`returnTo` allowlist:** `exp(s)://<host>[:port][/…]/--/auth/callback` with the hostname in
+`WorkerConfig.nativeReturnHosts` (var `NATIVE_RETURN_HOSTS`, comma list; unset = `localhost,127.0.0.1`
+locally, none elsewhere; `dev:phone` adds the LAN IP via `--var`; production = the EAS Update host, owner
+value in deploy.md §2), or `tanren://auth/callback`.
+
+**Rate limit:** all three routes, 10 per minute per route per `cf-connecting-ip`, in isolate memory →
+429 `NativeRateLimited{ retryAfterSeconds }` + `Retry-After`. Production upgrade: the Workers
+rate-limiting binding (apps/worker/CLAUDE.md).
+
+**`/api/auth/*`:** `set-auth-token` (added by `bearer()` to every cookie-setting response) is stripped
+and removed from `access-control-expose-headers`, so the web app's JS never sees the session token.
 
 **`POST /api/native/session`** body `NativeSessionRequest` → 200 `NativeSessionResponse`.
 - Undecodable body → 400 `NativeCodeRejected{ reason: "malformed" }`.
@@ -104,6 +126,13 @@ export const NativeSessionResponse = Schema.Struct({ token: SessionToken, userId
 export const PendingNativeSignIn   = Schema.Struct({ verifier: PkceVerifier, createdAt: Timestamp })
 export class NativeCodeRejected extends Schema.TaggedError<NativeCodeRejected>()(
   "NativeCodeRejected", { reason: Schema.Literals(["malformed", "mismatch", "invalid"]) }, { httpApiStatus: 400 }) {}
+// Added after NA-REV (session-export CSRF):
+export const NativeBeginRequest  = Schema.Struct({ email: Email, challenge: PkceChallenge, returnTo: Schema.String })
+export const NativeBeginResponse = Schema.Struct({ sent: Schema.Literal(true) })
+export class NativeBeginRejected extends Schema.TaggedError<NativeBeginRejected>()(
+  "NativeBeginRejected", { reason: Schema.Literals(["malformed", "return-to"]) }, { httpApiStatus: 400 }) {}
+export class NativeRateLimited extends Schema.TaggedError<NativeRateLimited>()(
+  "NativeRateLimited", { retryAfterSeconds: Schema.Number /* int ≥ 0 */ }, { httpApiStatus: 429 }) {}
 ```
 (`Schema.isPattern`, `Schema.brand`, `Schema.Literals` as used in `common.ts`/`errors.ts`; `UserId`
 from `ids.ts:7`, `Timestamp` from `common.ts:9`; errors that leave the worker are `Schema.TaggedError`.)
@@ -175,10 +204,22 @@ may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTranspo
 - The bare OTT cannot be redeemed over HTTP (`disabledPaths`, F3); the exchange is the only door.
 - Only the one-time code appears in a URL; the session token travels only in the exchange response
   body and `Authorization` headers. No token or code in logs.
-- `returnTo` allowlist (`RETURN_TO`) prevents an open redirect; `trustedOrigins` unchanged.
-- Rate limits: code space is 62^32 plus a MAC, brute force is moot; Better Auth's built-in limiter is
-  per-isolate memory on Workers (weak). Deploy note (owner action, `docs/design/deploy.md`): a
-  Cloudflare rate-limiting rule on `POST /api/auth/sign-in/*` and `POST /api/native/session`.
+- `returnTo` allowlist (`RETURN_TO` + pinned hosts) prevents an open redirect; `trustedOrigins` unchanged.
+- **Session-export CSRF** (NA-REV, 2026-10-21): Safari holds a Lax session cookie, and a top-level GET
+  sends it. With only (challenge, returnTo) in the URL, any page could navigate a signed-in owner to
+  `/auth/native/complete?challenge=<attacker's>&returnTo=exp://<attacker's dev server>` and receive a
+  code it can redeem with its own verifier, i.e. the owner's session. Closed by two independent layers:
+  (a) the URL must carry a worker signature over (email, challenge, returnTo, expiry) that only
+  `POST /api/native/begin` mints, it is checked against the session user's email, and the session must be
+  ≤ 5 min old (made by that magic link), so a crafted URL or an old cookie yields no code; (b) `returnTo`
+  hosts are pinned (`NATIVE_RETURN_HOSTS`), so even a valid code can only go to an Expo Go loading this
+  project, and the page needs a tap (no meta refresh).
+- The session token never appears in a `/api/auth/*` response header (`set-auth-token` stripped).
+- Rate limits: code space is 64^32 plus a MAC, brute force is moot. The native routes have their own
+  per-isolate limiter (10/min/IP, 429 `NativeRateLimited`); Better Auth's limiter (forced on in
+  production via `rateLimitFor`) is per-isolate memory too (weak). Deploy note (owner action,
+  `docs/design/deploy.md`): a Cloudflare rate-limiting rule on `POST /api/auth/sign-in/*` and
+  `/api/native/*`, or the Workers rate-limiting binding.
 - The session is a normal Better Auth session (7-day expiry, refreshed on use); the app session is
   the same row as Safari's cookie, so sign-out in the app ends both.
 

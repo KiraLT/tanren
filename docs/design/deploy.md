@@ -53,6 +53,10 @@ everything below with the next command for each failure; it never deploys, logs 
   }
 }
 ```
+Owner value: `"NATIVE_RETURN_HOSTS"` (in `apps/worker/wrangler.jsonc` `env.production.vars`, preset to
+`"u.expo.dev"`) lists the hosts a native sign-in code may be sent to; set it to the host of the
+`exps://…` URL Expo Go opens the project from after §6 (check the EAS dashboard link), comma-separated
+if there are several. A wrong value makes iPhone sign-in answer 400 `NativeBeginRejected{return-to}`.
 No `DEV_MCP_TOKEN`, no `BETTER_AUTH_SECRET` in vars (secrets below; `Config.ts` refuses a dev token
 outside `local`). `wrangler.web.jsonc` gets `"env": { "production": { "name": "tanren-web", "routes":
 [{ "pattern": "tanren.me", "custom_domain": true }] } }` (step 7 sheet D1). Placeholders make a

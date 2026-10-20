@@ -48,6 +48,23 @@ describe("native auth through the real default export", () => {
     expect(response.status).toBe(200)
   })
 
+  it("POST /api/native/begin sends the link for a pinned returnTo (wrangler.test.jsonc hosts)", async () => {
+    const begin = { email: "native@example.com", challenge: CHALLENGE, returnTo: RETURN_TO }
+    const response = await call("/api/native/begin", post(begin))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ sent: true })
+  })
+
+  it("POST /api/native/begin refuses an unpinned returnTo host", async () => {
+    const returnTo = "exp://evil.example:8081/--/auth/callback"
+    const response = await call(
+      "/api/native/begin",
+      post({ email: "native@example.com", challenge: CHALLENGE, returnTo }),
+    )
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ _tag: "NativeBeginRejected", reason: "return-to" })
+  })
+
   it("the bare one-time-token verify endpoint is 404", async () => {
     const response = await call("/api/auth/one-time-token/verify", post({ token: "x".repeat(32) }))
     expect(response.status).toBe(404)

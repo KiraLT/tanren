@@ -2,13 +2,31 @@ import { NativeCode, PkceChallenge, type PkceVerifier } from "@tanren/shared"
 import { Effect, Option, Redacted, Schema } from "effect"
 
 /**
- * Where the complete page may send the one-time code: Expo Go (`exp://<host>/--/auth/callback`,
- * `exps://` over EAS Update) or a dev build (`tanren://auth/callback`). Nothing else, so the page
- * is no open redirect.
+ * Where the complete page may send the one-time code: Expo Go (`exp://<host>[:port][/…]/--/auth/callback`,
+ * `exps://` over EAS Update) on a pinned host, or a dev build (`tanren://auth/callback`). Group 1 is
+ * the `host[:port]` of an Expo URL.
  */
-export const RETURN_TO = /^(?:exps?:\/\/[^\s?#]+\/--\/auth\/callback|tanren:\/\/\/?auth\/callback)$/
+export const RETURN_TO =
+  /^(?:exps?:\/\/([^/\s?#@]+)(?:\/[^\s?#]*)?\/--\/auth\/callback|tanren:\/\/\/?auth\/callback)$/
 
-export const isAllowedReturnTo = (raw: string): boolean => RETURN_TO.test(raw)
+/**
+ * `returnTo` is on the allowlist: the `tanren://` scheme, or an Expo URL whose hostname (port
+ * dropped, lower-cased) is in `hosts` (`WorkerConfig.nativeReturnHosts`). Pinning the host means a
+ * code can only reach an Expo Go loading this project, never an attacker's dev server.
+ */
+export const isAllowedReturnTo =
+  (hosts: ReadonlyArray<string>) =>
+  (raw: string): boolean => {
+    const match = RETURN_TO.exec(raw)
+    if (match === null) {
+      return false
+    }
+    const host = match[1]
+    if (host === undefined) {
+      return true // tanren://auth/callback
+    }
+    return hosts.includes(host.replace(/:\d+$/, "").toLowerCase())
+  }
 
 const encoder = new TextEncoder()
 
@@ -21,9 +39,13 @@ const b64url = (bytes: Uint8Array): string =>
 
 /** Inverse of `b64url`; None when the input is not base64url. */
 const fromB64url = (raw: string): Option.Option<Uint8Array<ArrayBuffer>> =>
-  Option.liftThrowable(() =>
-    Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/")), (char) => char.charCodeAt(0)),
-  )()
+  /^[A-Za-z0-9_-]+$/.test(raw)
+    ? Option.liftThrowable(() =>
+        Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/")), (char) =>
+          char.charCodeAt(0),
+        ),
+      )()
+    : Option.none()
 
 /** `b64url(SHA-256(ascii(verifier)))`, RFC 7636 §4.2 (S256). */
 export const challengeOf = (verifier: PkceVerifier): Effect.Effect<PkceChallenge> =>
@@ -44,9 +66,31 @@ const hmacKey = (secret: Redacted.Redacted<string>) =>
     ),
   )
 
-/** The MAC input: versioned, so a future binding format can never collide with this one. */
-const macInput = (ott: string, challenge: string) =>
-  encoder.encode(`tanren-native-v1:${ott}.${challenge}`)
+/** `b64url(HMAC-SHA256(secret, input))`, 43 chars. */
+const mac = (secret: Redacted.Redacted<string>, input: string) =>
+  Effect.gen(function* () {
+    const key = yield* hmacKey(secret)
+    const signature = yield* Effect.promise(() =>
+      crypto.subtle.sign("HMAC", key, encoder.encode(input)),
+    )
+    return b64url(new Uint8Array(signature))
+  })
+
+/** Constant-time check of `macText` against `input` (`subtle.verify`). */
+const macMatches = (secret: Redacted.Redacted<string>, input: string, macText: string) =>
+  Effect.gen(function* () {
+    const bytes = fromB64url(macText)
+    if (Option.isNone(bytes)) {
+      return false
+    }
+    const key = yield* hmacKey(secret)
+    return yield* Effect.promise(() =>
+      crypto.subtle.verify("HMAC", key, bytes.value, encoder.encode(input)),
+    )
+  })
+
+/** The code MAC input: versioned, so a future binding format can never collide with this one. */
+const codeInput = (ott: string, challenge: string) => `tanren-native-v1:${ott}.${challenge}`
 
 /** `ott + "." + b64url(HMAC-SHA256(secret, "tanren-native-v1:" + ott + "." + challenge))`. */
 export const signCode = (
@@ -54,19 +98,15 @@ export const signCode = (
   ott: string,
   challenge: PkceChallenge,
 ): Effect.Effect<NativeCode> =>
-  Effect.gen(function* () {
-    const key = yield* hmacKey(secret)
-    const mac = yield* Effect.promise(() =>
-      crypto.subtle.sign("HMAC", key, macInput(ott, challenge)),
-    )
+  mac(secret, codeInput(ott, challenge)).pipe(
     // The OTT is Better Auth's 32-char token and the MAC 43 base64url chars: always a NativeCode.
-    return yield* Effect.orDie(
-      Schema.decodeUnknownEffect(NativeCode)(`${ott}.${b64url(new Uint8Array(mac))}`),
-    )
-  })
+    Effect.flatMap((signature) =>
+      Effect.orDie(Schema.decodeUnknownEffect(NativeCode)(`${ott}.${signature}`)),
+    ),
+  )
 
 /**
- * Recomputes the binding from the verifier and checks it in constant time (`subtle.verify`).
+ * Recomputes the binding from the verifier and checks it in constant time.
  * Some(ott) when the code was issued for this verifier's challenge, None otherwise.
  */
 export const verifyCode = (
@@ -75,15 +115,37 @@ export const verifyCode = (
   verifier: PkceVerifier,
 ): Effect.Effect<Option.Option<string>> =>
   Effect.gen(function* () {
-    const [ott = "", mac = ""] = code.split(".")
-    const macBytes = fromB64url(mac)
-    if (Option.isNone(macBytes)) {
-      return Option.none()
-    }
+    const [ott = "", signature = ""] = code.split(".")
     const challenge = yield* challengeOf(verifier)
-    const key = yield* hmacKey(secret)
-    const valid = yield* Effect.promise(() =>
-      crypto.subtle.verify("HMAC", key, macBytes.value, macInput(ott, challenge)),
-    )
+    const valid = yield* macMatches(secret, codeInput(ott, challenge), signature)
     return valid ? Option.some(ott) : Option.none()
   })
+
+/** What `POST /api/native/begin` signs into the magic link's callbackURL. */
+export interface BeginState {
+  readonly email: string
+  readonly challenge: string
+  readonly returnTo: string
+  /** Unix seconds after which `/auth/native/complete` refuses the state. */
+  readonly expiresAt: number
+}
+
+const beginInput = (state: BeginState) =>
+  [
+    "tanren-native-begin-v1",
+    state.email.toLowerCase(),
+    state.challenge,
+    state.returnTo,
+    String(state.expiresAt),
+  ].join("\n")
+
+/** HMAC over (email, challenge, returnTo, expiry): only the worker can start a native sign-in. */
+export const signBegin = (secret: Redacted.Redacted<string>, state: BeginState) =>
+  mac(secret, beginInput(state))
+
+/** Constant-time check of a begin signature; `email` is the signed-in session's email. */
+export const verifyBegin = (
+  secret: Redacted.Redacted<string>,
+  state: BeginState,
+  signature: string,
+): Effect.Effect<boolean> => macMatches(secret, beginInput(state), signature)

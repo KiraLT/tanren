@@ -22,7 +22,12 @@ const RawEnv = Schema.Struct({
   RESEND_API_KEY: Schema.optionalKey(Schema.RedactedFromValue(Schema.NonEmptyString)),
   DEV_MCP_TOKEN: Schema.optionalKey(Schema.RedactedFromValue(Schema.NonEmptyString)),
   MCP_RESOURCE_URL: Schema.NonEmptyString,
+  NATIVE_RETURN_HOSTS: Schema.optionalKey(Schema.String),
 })
+
+/** Without `NATIVE_RETURN_HOSTS`: the simulator / USB hosts locally, nothing elsewhere. */
+const defaultNativeReturnHosts = (environment: Environment): ReadonlyArray<string> =>
+  environment === "local" ? ["localhost", "127.0.0.1"] : []
 
 export interface WorkerConfigShape {
   readonly environment: Environment
@@ -37,6 +42,8 @@ export interface WorkerConfigShape {
   readonly devMcpToken: Option.Option<Redacted.Redacted<string>>
   /** Absolute URL of the MCP resource (`https:`; `http:` only when `environment` is `local`). */
   readonly mcpResourceUrl: string
+  /** Hostnames a native sign-in code may be sent to (`exp(s)://<host>…`); lower-case, no port. */
+  readonly nativeReturnHosts: ReadonlyArray<string>
 }
 
 const splitOrigins = (raw: string): ReadonlyArray<string> =>
@@ -111,6 +118,10 @@ const decodeEnv = (env: unknown): Effect.Effect<WorkerConfigShape, ConfigError> 
       resendApiKey,
       devMcpToken,
       mcpResourceUrl,
+      nativeReturnHosts: Option.match(Option.fromNullishOr(raw.NATIVE_RETURN_HOSTS), {
+        onNone: () => defaultNativeReturnHosts(raw.ENVIRONMENT),
+        onSome: (hosts) => splitOrigins(hosts).map((host) => host.toLowerCase()),
+      }),
     }
   })
 

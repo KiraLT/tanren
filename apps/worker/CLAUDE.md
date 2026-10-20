@@ -76,6 +76,11 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
   project covers auth routes, those tasks also end with the smoke and paste it:
   `pnpm -F @tanren/worker exec wrangler dev --port <spare> &` → `curl -i localhost:<spare>/health`
   (expect 200) → one route behind `Authentication` (expect 401, never 500) → kill only that PID.
+- Native sign-in (`auth/nativeAuthRoutes.ts`, docs/design/native-auth.md §2.3): `/api/native/begin`,
+  `/auth/native/complete`, `/api/native/session` are rate-limited in isolate memory (10/min/route/IP,
+  429 `NativeRateLimited`). That is weak (one counter per isolate); the production upgrade is the Workers
+  rate-limiting binding (`ratelimits` in `wrangler.jsonc`, `env.<BINDING>.limit({ key })`) or a Cloudflare
+  WAF rate-limiting rule (owner). `NATIVE_RETURN_HOSTS` pins the hosts a code may be sent to.
 - Dev server: use a spare port when 8787 is busy (`wrangler dev --port`). Never kill processes you did not start.
 
 ## MCP (`/mcp`; contracts `docs/design/mcp.md`, `docs/design/oauth.md`)

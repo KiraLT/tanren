@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { PkceVerifier } from "@tanren/shared"
 import { Effect, Option, Redacted } from "effect"
-import { challengeOf, isAllowedReturnTo, signCode, verifyCode } from "./nativeCode"
+import {
+  challengeOf,
+  isAllowedReturnTo,
+  signBegin,
+  signCode,
+  verifyBegin,
+  verifyCode,
+} from "./nativeCode"
 
 // RFC 7636 Appendix B.
 const RFC_VERIFIER = PkceVerifier.make("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
@@ -43,24 +50,66 @@ describe("signCode / verifyCode", () => {
   )
 })
 
-describe("isAllowedReturnTo", () => {
+describe("isAllowedReturnTo (pinned hosts)", () => {
+  const allowed = isAllowedReturnTo(["192.168.1.5", "u.expo.dev", "localhost"])
+
   it.each([
     "exp://192.168.1.5:8081/--/auth/callback",
     "exps://u.expo.dev/x/--/auth/callback",
+    "exp://LOCALHOST:8081/--/auth/callback",
     "tanren://auth/callback",
     "tanren:///auth/callback",
   ])("accepts %s", (url) => {
-    expect(isAllowedReturnTo(url)).toBe(true)
+    expect(allowed(url)).toBe(true)
   })
 
   it.each([
+    "exp://evil.example:8081/--/auth/callback", // attacker's Expo dev server
+    "exp://192.168.1.6:8081/--/auth/callback",
+    "exp://user@192.168.1.5:8081/--/auth/callback",
     "https://evil.example/--/auth/callback",
-    "exp://h/--/auth/callback/x",
-    "exp://h/--/auth/callback?code=x",
+    "exp://192.168.1.5/--/auth/callback/x",
+    "exp://192.168.1.5/--/auth/callback?code=x",
     "javascript:alert(1)//--/auth/callback",
     "javascript:alert(1)",
     "",
   ])("rejects %s", (url) => {
-    expect(isAllowedReturnTo(url)).toBe(false)
+    expect(allowed(url)).toBe(false)
   })
+})
+
+describe("signBegin / verifyBegin", () => {
+  const state = {
+    email: "Lukas@Example.com",
+    challenge: RFC_CHALLENGE,
+    returnTo: "exp://192.168.1.5:8081/--/auth/callback",
+    expiresAt: 1_800_000_000,
+  }
+
+  it.effect("verifies the same state (email case-insensitive)", () =>
+    Effect.gen(function* () {
+      const sig = yield* signBegin(SECRET, state)
+      expect(yield* verifyBegin(SECRET, { ...state, email: "lukas@example.com" }, sig)).toBe(true)
+    }),
+  )
+
+  it.effect("refuses another email, challenge, returnTo, expiry or a tampered signature", () =>
+    Effect.gen(function* () {
+      const sig = yield* signBegin(SECRET, state)
+      const variants = [
+        { ...state, email: "other@example.com" },
+        { ...state, challenge: "A".repeat(43) },
+        { ...state, returnTo: "exp://localhost:8081/--/auth/callback" },
+        { ...state, expiresAt: state.expiresAt + 1 },
+      ]
+      const results = yield* Effect.forEach(variants, (variant) =>
+        verifyBegin(SECRET, variant, sig),
+      )
+      expect(results).toEqual([false, false, false, false])
+      // First char: the last one carries 2 padding bits that a decoder ignores.
+      const tampered = `${sig.startsWith("A") ? "B" : "A"}${sig.slice(1)}`
+      expect(yield* verifyBegin(SECRET, state, tampered)).toBe(false)
+      expect(yield* verifyBegin(SECRET, state, "not base64url!")).toBe(false)
+    }),
+  )
 })

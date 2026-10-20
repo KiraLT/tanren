@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { Timestamp } from "./common"
+import { Email, Timestamp } from "./common"
 import { UserId } from "./ids"
 
 /** RFC 7636 code verifier: base64url of 32 random bytes (43 chars). Never leaves the device. */
@@ -45,6 +45,37 @@ export type NativeSessionResponse = typeof NativeSessionResponse.Type
 /** Stored on the device between sending the link and the exchange (mobile only, not on the wire). */
 export const PendingNativeSignIn = Schema.Struct({ verifier: PkceVerifier, createdAt: Timestamp })
 export type PendingNativeSignIn = typeof PendingNativeSignIn.Type
+
+/**
+ * `POST /api/native/begin` body. The worker signs `(email, challenge, returnTo, expiry)` into the
+ * magic link's callbackURL and sends the link itself, so `/auth/native/complete` only issues a code
+ * for a sign-in the app started (session-export CSRF, design §4). `returnTo` must be an allowed
+ * `exp(s)://<pinned host>/…/--/auth/callback` or `tanren://auth/callback`.
+ */
+export const NativeBeginRequest = Schema.Struct({
+  email: Email,
+  challenge: PkceChallenge,
+  returnTo: Schema.String,
+})
+export type NativeBeginRequest = typeof NativeBeginRequest.Type
+
+/** `POST /api/native/begin` 200 body: the link went out. */
+export const NativeBeginResponse = Schema.Struct({ sent: Schema.Literal(true) })
+export type NativeBeginResponse = typeof NativeBeginResponse.Type
+
+/** `POST /api/native/begin` 400: undecodable body, or `returnTo` not on the allowlist. */
+export class NativeBeginRejected extends Schema.TaggedError<NativeBeginRejected>()(
+  "NativeBeginRejected",
+  { reason: Schema.Literals(["malformed", "return-to"]) },
+  { httpApiStatus: 400 },
+) {}
+
+/** 429 from any native sign-in route: too many requests from this IP; retry after the window. */
+export class NativeRateLimited extends Schema.TaggedError<NativeRateLimited>()(
+  "NativeRateLimited",
+  { retryAfterSeconds: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)) },
+  { httpApiStatus: 429 },
+) {}
 
 /** `POST /api/native/session` 400: undecodable body, binding mismatch, or unknown/used/expired code. */
 export class NativeCodeRejected extends Schema.TaggedError<NativeCodeRejected>()(

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import {
+  NativeBeginRejected,
+  NativeBeginRequest,
   NativeCode,
   NativeCodeRejected,
+  NativeRateLimited,
   NativeSessionRequest,
   NativeSessionResponse,
   PendingNativeSignIn,
@@ -70,6 +73,28 @@ describe("wire shapes", () => {
     wireRoundTrips(PendingNativeSignIn, {
       verifier: b64url43,
       createdAt: "2026-10-21T07:02:11.000Z",
+    }),
+  )
+})
+
+describe("native begin", () => {
+  it.effect("NativeBeginRequest decodes email + challenge + returnTo", () =>
+    accepts(NativeBeginRequest, {
+      email: "lukas@example.com",
+      challenge: b64url43,
+      returnTo: "exp://127.0.0.1:8081/--/auth/callback",
+    }),
+  )
+  it.effect("NativeBeginRequest rejects a bad email", () =>
+    rejects(NativeBeginRequest, { email: "nope", challenge: b64url43, returnTo: "x" }),
+  )
+  it.effect("NativeBeginRejected and NativeRateLimited round-trip", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(NativeBeginRejected, {
+        _tag: "NativeBeginRejected",
+        reason: "return-to",
+      })
+      yield* wireRoundTrips(NativeRateLimited, { _tag: "NativeRateLimited", retryAfterSeconds: 42 })
     }),
   )
 })

@@ -217,3 +217,19 @@ describe("WorkerConfig.fromEnvSync", () => {
     expect(() => WorkerConfig.fromEnvSync({})).toThrow(/ENVIRONMENT/)
   })
 })
+
+describe("NATIVE_RETURN_HOSTS", () => {
+  it.effect("defaults to localhost + 127.0.0.1 locally and to nothing in production", () =>
+    Effect.gen(function* () {
+      expect((yield* load(localEnv)).nativeReturnHosts).toEqual(["localhost", "127.0.0.1"])
+      expect((yield* load(productionEnv)).nativeReturnHosts).toEqual([])
+    }),
+  )
+
+  it.effect("splits, trims and lower-cases the comma list", () =>
+    Effect.gen(function* () {
+      const config = yield* load({ ...productionEnv, NATIVE_RETURN_HOSTS: " U.expo.dev, ,x.test" })
+      expect(config.nativeReturnHosts).toEqual(["u.expo.dev", "x.test"])
+    }),
+  )
+})
