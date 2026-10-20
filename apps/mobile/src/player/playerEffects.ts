@@ -33,6 +33,8 @@ export interface FinishedRun {
   readonly dayNumber: DayNumber
   readonly startedAtMs: number
   readonly durationSeconds: number
+  /** `PlayerRun.performedItems`: completed item-rounds; P5 logs only those. */
+  readonly performedItems: number
 }
 
 /** What the completion sheet shows. */
@@ -55,6 +57,7 @@ export const completeDay = (
       dayNumber: run.dayNumber,
       startedAt: DateTime.makeUnsafe(run.startedAtMs),
       durationSeconds: run.durationSeconds,
+      performedItems: run.performedItems,
     }),
   ).pipe(
     Effect.tap(() => SyncEngine.use((engine) => engine.requestSync)),

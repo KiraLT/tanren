@@ -154,6 +154,7 @@ const dayInput = (enrollmentId: ProgramEnrollmentId, dayNumber: number) => ({
   dayNumber,
   startedAt: DateTime.makeUnsafe(NOW - 900_000),
   durationSeconds: 840,
+  performedItems: 1,
 })
 
 describe("ProgramRepo", () => {
@@ -261,6 +262,7 @@ describe("ProgramRepo", () => {
             dayNumber: 1,
             startedAt: DateTime.makeUnsafe(NOW),
             durationSeconds: 60,
+            performedItems: 1,
           }),
         )
         expect(abandonError._tag).toBe("StoreError")
@@ -369,7 +371,7 @@ const ENROLLMENT = "00000000-0000-4000-8000-0000000000c1"
 /** The circuit's planned length: 3 × (7 × 30 + 6 × 15) + 2 × 60. */
 const CIRCUIT_SECONDS = 1020
 
-const completeCircuit = (startedAgoSeconds: number) =>
+const completeCircuit = (startedAgoSeconds: number, performedItems = 21) =>
   Effect.gen(function* () {
     const enrollment = yield* stored(ENROLLMENT, { programId: CIRCUIT_ID })
     const input = {
@@ -377,6 +379,7 @@ const completeCircuit = (startedAgoSeconds: number) =>
       dayNumber: 1,
       startedAt: DateTime.makeUnsafe(NOW - startedAgoSeconds * 1000),
       durationSeconds: startedAgoSeconds,
+      performedItems,
     }
     const before = yield* version
     const completion = yield* (yield* ProgramRepo).complete(input)
@@ -496,6 +499,37 @@ describe("ProgramRepo.complete logs the day as a session", () => {
         expect(yield* sessions).toHaveLength(1)
         expect(yield* sets).toHaveLength(21)
         expect(yield* version).toBe(before)
+      }),
+    ),
+  )
+
+  it.effect("an early finish logs only the first performedItems item-rounds, in order", () =>
+    run(
+      Effect.gen(function* () {
+        yield* completeCircuit(1200, 9)
+        const logged = yield* sets
+        expect(logged.map((set) => set.order)).toEqual(Array.from({ length: 9 }, (_, i) => i))
+        expect(logged.map((set) => set.exerciseId)).toEqual(
+          [...CIRCUIT_ITEMS, "plank", "dead-bug"].map(exerciseIdOf),
+        )
+        expect(logged.map((set) => millis(set.loggedAt))).toEqual(
+          plannedItems(CIRCUIT_DAY)
+            .slice(0, 9)
+            .map((planned) => NOW - 1_200_000 + planned.endOffset * 1000),
+        )
+      }),
+    ),
+  )
+
+  it.effect("performedItems 0 writes no session but still records the completion", () =>
+    run(
+      Effect.gen(function* () {
+        const { completion } = yield* completeCircuit(20, 0)
+        expect(completion.sessionId).toEqual(Option.none())
+        expect(yield* sessions).toHaveLength(0)
+        expect(yield* rows(`SELECT "dayNumber" FROM "program_day_completion"`)).toEqual([
+          { dayNumber: 1 },
+        ])
       }),
     ),
   )

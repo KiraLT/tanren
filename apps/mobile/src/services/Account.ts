@@ -34,8 +34,9 @@ export interface AccountShape {
   /** None when signed out; fails offline (the UI then shows "Signed in (offline)"). */
   readonly session: Effect.Effect<Option.Option<AccountUser>, SignOutFailed>
   /**
-   * `POST /api/auth/sign-out` (cookie on web, Bearer on native), then `NativeSession.clear`, then
-   * forgets the owner. Local rows are kept. Any failure leaves everything local as it was.
+   * `POST /api/auth/sign-out` (cookie on web, Bearer on native), then forgets the owner, then
+   * `NativeSession.clear`. Local rows are kept. Any HTTP failure, and a failed `forgetOwner`,
+   * leave the stored owner and the native token as they were.
    */
   readonly signOut: Effect.Effect<void, SignOutFailed>
 }
@@ -96,8 +97,10 @@ const make = (baseUrl: Effect.Effect<string>) =>
         Effect.mapError(() => failed("server")),
       )
       yield* send(request)
-      yield* native.clear
+      // Owner first: if it cannot be forgotten the token stays, so the user is still signed in
+      // locally and can retry. (The server session is already gone; a retry then gets a 401.)
       yield* driver.batch([forgetOwner]).pipe(Effect.mapError(() => failed("server")))
+      yield* native.clear
     })
 
     return { session, signOut } satisfies AccountShape

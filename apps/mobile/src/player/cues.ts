@@ -32,6 +32,11 @@ export interface PlayerRun {
   readonly previousNowMs: number
   /** Set by `start`; `Done` does not carry it and `ProgramRepo.complete` needs it. */
   readonly startedAtMs: Option.Option<number>
+  /**
+   * Item-rounds (round-major) whose work phase was completed, for `ProgramRepo.complete`. Frozen
+   * once `Done`: `finish` counts from the state the user saw, a natural end counts every one.
+   */
+  readonly performedItems: number
 }
 
 export const initialRun = (nowMs: number): PlayerRun => ({
@@ -40,7 +45,39 @@ export const initialRun = (nowMs: number): PlayerRun => ({
   nowMs,
   previousNowMs: nowMs,
   startedAtMs: Option.none(),
+  performedItems: 0,
 })
+
+/**
+ * Completed item-rounds before `state`: a Working item does not count yet, a Resting state counts
+ * the item just done; Paused counts its inner phase. Done is handled by `reduceRun`.
+ */
+export const performedBefore = (day: ProgramDay, state: PlayerState): number => {
+  const phase = state._tag === "Paused" ? state.inner : state
+  return Match.value(phase).pipe(
+    Match.tag("Working", (s) => s.round * day.items.length + s.itemIndex),
+    Match.tag("Resting", (s) => s.round * day.items.length + s.itemIndex + 1),
+    Match.orElse(() => 0),
+  )
+}
+
+const performedAfter = (
+  config: PlayerConfig,
+  run: PlayerRun,
+  event: PlayerEvent,
+  next: PlayerState,
+) => {
+  if (next._tag !== "Done") {
+    return performedBefore(config.day, next)
+  }
+  if (run.player._tag === "Done") {
+    return run.performedItems
+  }
+  // `finish` stops early; reaching Done by the last deadline or `next` completed every item.
+  return event._tag === "finish"
+    ? performedBefore(config.day, run.player)
+    : config.day.rounds * config.day.items.length
+}
 
 /** `step` plus bookkeeping; the `useReducer` reducer. */
 export const reduceRun =
@@ -56,6 +93,7 @@ export const reduceRun =
         run.player._tag === "Idle" && player._tag !== "Idle"
           ? Option.some(event.nowMs)
           : run.startedAtMs,
+      performedItems: performedAfter(config, run, event, player),
     }
   }
 
@@ -123,19 +161,18 @@ const tagCue = (next: PlayerState): Cue =>
   })
 
 /**
- * 3-2-1: the whole second (3, 2 or 1) left in a timed work phase that this tick crossed into,
- * comparing the remaining time at the previous and the current tick of the same phase.
+ * 3-2-1 before work (v2-programs.md §4): the whole second (3, 2 or 1) left in a rest that this
+ * tick crossed into, comparing the remaining time at the previous and the current tick of the
+ * same rest. Work phases end silently here (the rest cue marks them).
  */
 export const countdownCue = (run: PlayerRun): Option.Option<number> => {
   const { player, previous } = run
-  if (player._tag !== "Working" || phaseKey(player) !== phaseKey(previous)) {
+  if (player._tag !== "Resting" || phaseKey(player) !== phaseKey(previous)) {
     return Option.none()
   }
-  return Option.flatMap(player.endsAtMs, (endsAt) => {
-    const before = Math.ceil((endsAt - run.previousNowMs) / 1000)
-    const now = Math.ceil((endsAt - run.nowMs) / 1000)
-    return now < before && now >= 1 && now <= 3 ? Option.some(now) : Option.none()
-  })
+  const before = Math.ceil((player.endsAtMs - run.previousNowMs) / 1000)
+  const now = Math.ceil((player.endsAtMs - run.nowMs) / 1000)
+  return now < before && now >= 1 && now <= 3 ? Option.some(now) : Option.none()
 }
 
 /** One phase-end notification: when, and what it says. */

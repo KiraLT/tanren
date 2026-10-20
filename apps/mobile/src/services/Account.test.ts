@@ -6,7 +6,7 @@ import { OWNER_USER_ID_KEY, readOwner } from "../store/syncQueries"
 import { Account, AccountSessionBody, type AccountShape, forgetOwner } from "./Account"
 import { LocalStore } from "./LocalStore"
 import { NativeSession } from "./NativeSession"
-import { SqlDriver } from "./SqlDriver"
+import { SqlDriver, StoreError } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
 import { StoreEvents } from "./StoreEvents"
 
@@ -38,6 +38,21 @@ const json = (body: unknown, status = 200): Promise<Response> =>
     }),
   )
 
+/** node:sqlite whose `batch` fails for the `forgetOwner` statement only. */
+const forgetFailsDriver = Layer.effect(
+  SqlDriver,
+  Effect.gen(function* () {
+    const real = yield* SqlDriver
+    return SqlDriver.of({
+      ...real,
+      batch: (statements) =>
+        statements.some((statement) => statement.sql === forgetOwner.sql)
+          ? Effect.fail(new StoreError({ cause: "disk full" }))
+          : real.batch(statements),
+    })
+  }),
+).pipe(Layer.provide(nodeSqlDriverLayer))
+
 const unreachable: Respond = () => Promise.reject(new TypeError("Failed to fetch"))
 
 /**
@@ -46,7 +61,12 @@ const unreachable: Respond = () => Promise.reject(new TypeError("Failed to fetch
  */
 const scenario = <A, E>(
   use: (account: AccountShape) => Effect.Effect<A, E>,
-  options: { readonly respond: Respond; readonly entries?: Readonly<Record<string, string>> },
+  options: {
+    readonly respond: Respond
+    readonly entries?: Readonly<Record<string, string>>
+    /** `SqlDriver.batch` fails when asked to run `forgetOwner`. */
+    readonly failForget?: boolean
+  },
 ) =>
   Effect.gen(function* () {
     const kv = yield* Ref.make(options.entries ?? {})
@@ -66,7 +86,12 @@ const scenario = <A, E>(
       Layer.provideMerge(
         Layer.mergeAll(
           LocalStore.layerNoDeps.pipe(
-            Layer.provideMerge(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
+            Layer.provideMerge(
+              Layer.mergeAll(
+                options.failForget === true ? forgetFailsDriver : nodeSqlDriverLayer,
+                StoreEvents.layer,
+              ),
+            ),
           ),
           NativeSession.layerMemory(kv),
           FetchHttpClient.layer,
@@ -239,6 +264,22 @@ describe("Account.signOut", () => {
         reason: "server",
       })
       expect(owner).toEqual([USER])
+    }),
+  )
+
+  it.effect("fails server and keeps the native token when the owner cannot be forgotten", () =>
+    Effect.gen(function* () {
+      const { result, owner, tokens } = yield* scenario((account) => account.signOut, {
+        entries: SESSION_ENTRY,
+        failForget: true,
+        respond: () => json({ success: true }),
+      })
+      expect(Result.isFailure(result) && result.failure).toMatchObject({
+        _tag: "SignOutFailed",
+        reason: "server",
+      })
+      expect(owner).toEqual([USER])
+      expect(tokens).toEqual(SESSION_ENTRY)
     }),
   )
 

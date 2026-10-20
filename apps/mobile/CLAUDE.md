@@ -18,6 +18,7 @@ with the worker, Today and Plan screens, web export.
 ```
 app/
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
+  progress/[exerciseId].tsx (root Stack detail), settings.tsx (root Stack),
   (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{today,plan,programs,library,progress}.tsx
 src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
@@ -27,14 +28,17 @@ src/
   services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, StoreEvents,
               CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
               HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
-              pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf)
+              pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf),
+              ProgramRepo (enrol/active/todayFor/complete → completion + session + sets), PhaseAlerts
+              (+ .notifications adapter)
+  player/     playerMachine (pure), cues, playerEffects, useProgramDay, components/{ProgramHome,PlayerView}
+              — team programs; route app/programs/play.tsx, hook src/hooks/usePlayer.ts
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
               useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
   components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
               PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
-              planWeekFixture (tests only); built on `src/ui`. LEGACY `Screen`, `BigButton`, `theme.ts`
-              stay until `app/auth/callback.tsx` moves to `src/ui` (then delete the three files)
+              planWeekFixture (tests only); built on `src/ui`
 public/_headers (COOP/COEP, copied into dist/ by `expo export`)
 expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vitest.config.ts
 ```
@@ -129,11 +133,64 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 - API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
   else `http://localhost:8787`.
 
+## Programs (v2, team programs — docs/design/v2-programs.md)
+
+- Definitions are static shared data (`CORE30` in `@tanren/shared` `programs/`); progress is the
+  synced `program_enrollment` / `program_day_completion` rows. `ProgramRepo.complete` writes the
+  completion, bumps `currentDay` (never backwards; non-active enrollment → `StoreError`
+  `EnrollmentNotActive`), and logs one ordinary `session` + one `set` per *performed* item-round
+  (`CompletionInput.performedItems`, round-major; the player counts it, an early Finish logs less)
+  (`reps` = seconds, `weightKg` 0, `order` from 0, `loggedAt` = planned item end ≤ now) in one dirty
+  batch; exercises come from `ExerciseLink.ensure` (team catalog); ids missing from the catalog are
+  skipped, none left → `sessionId` None. A repeat for the same day writes nothing.
+- Player: `playerMachine` is pure (`step(config)(state, event)`), remaining = `endsAtMs − nowMs`,
+  a late `tick` chains every elapsed phase from the previous deadline; duration excludes pauses.
+  `phaseKey` also changes on pause/resume, so cues compare `_tag`s (`cues.ts`). `usePlayer` ticks
+  every 250 ms and on `AppState → active`; `KeepAwake` is mounted in `app/programs/play.tsx` only
+  while Working/Resting. The play screen latches the day it opened with.
+- `PhaseAlerts` (port, ADR-0012): one pending local notification at the phase end; the layer loads
+  `expo-notifications` via dynamic `import()` (node tests never load it; web or failed import →
+  no-op). No foreground notification handler. Live Activity adapter (P7) not built (gated).
+- `EXPO_PUBLIC_PLAYER_SPEED` (export-time inlined) divides every duration — browser proofs only.
+- The Today "Core 30 · Day N" banner belongs in `src/components/TodayReady.tsx` (design's file).
+
 ## Commands
 
 `pnpm -F @tanren/mobile web` · `dev` (Expo Go) · `test` · `typecheck` · UI acceptance via the `ui-check` skill (agent-browser).
 Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm web:export` → `apps/mobile/dist/` (git-ignored) · `pnpm web:serve` (= `wrangler dev -c wrangler.web.jsonc --port 8790`) · `pnpm -F @tanren/worker exec wrangler deploy --dry-run -c wrangler.web.jsonc`. Stopping a wrangler started via pnpm: kill its children too (`pkill -P <pid>`).
 Load `expo:expo-overview` before Expo work; our rules win on conflict.
+Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`); a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it.
+
+## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
+
+- Routes: `/progress` (tab; Exercises | Sessions, desktop aside); `/progress/[exerciseId]` (root Stack
+  detail; a direct load with no data goes back to `/progress`); `/settings` (root Stack, reached from the
+  gear `IconButton` "Settings" in the Progress AppBar, not a tab).
+- `HistoryRepo` (`src/services/HistoryRepo.ts`): local store only, live rows only, 8 Monday-based weeks;
+  a PR is a set that strictly beats every earlier set.
+- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`). `useHistory` (`src/hooks`): the screens' hook over `HistoryRepo`.
+- `chartGeometry` (`src/components/progress/`): pure geometry for the hand-rolled `react-native-svg`
+  charts (`WeekBars`, `Sparkline`); no chart library.
+- `Account` (`src/services/Account.ts`): `session`, `signOut`, `forgetOwner`.
+- `DataExporter` (`src/services/DataExport.ts`): named so because `DataExport` is the shared schema;
+  covers all 10 sync tables. Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
+  "Export on the web app".
+- Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
+  (`themePreferenceStore.web.ts`); native keeps it for the session only.
+- Sign-out policy: server first (`POST /api/auth/sign-out`; native goes through `withSession`), then
+  `forgetOwner`, then `NativeSession.clear` (a failed forget keeps the token: `SignOutFailed("server")`). Local rows are kept. Web then does a full reload to `/today`;
+  native shows the banner "Signed out. Reopen the app to finish." Offline or non-2xx gives `SignOutFailed`
+  and nothing local changes. A different user on the same device is not built. The sign-out runtime proof
+  is pending INT-X.
+- PWA: `public/manifest.json` (`theme_color` #C2410C = light accent, `background_color` #FFFFFF) and
+  `public/icons/{icon.svg, icon-192, icon-512, maskable-512, apple-touch-icon}.png`, rendered once from the
+  SVG with agent-browser. `public/index.html` comes from `expo customize` (works under the isolated linker)
+  and carries a `biome-ignore lint/a11y/useValidLang` comment for the `%LANG_ISO_CODE%` placeholder: re-add
+  it after any re-customize. `src/pwa/manifest.test.ts` keeps the colours equal to the tokens. There is no
+  service worker (an offline shell would be a Workbox step).
+- Verified 2026-10-21 (X5): `Page.getInstallabilityErrors` returns `[]` with no service worker (CDP via
+  `agent-browser get cdp-url`); Workers static assets serve `manifest.json` as `application/json`;
+  `crossOriginIsolated` stays true.
 
 ## Status
 

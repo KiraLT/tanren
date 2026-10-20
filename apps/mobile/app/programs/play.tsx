@@ -33,7 +33,7 @@ function Player({
   readonly session: PlayerSession
   readonly onClose: () => void
 }) {
-  const { run, remainingMs, send, completion } = usePlayer(session)
+  const { run, remainingMs, send, completion, retry } = usePlayer(session)
   const { player } = run
   // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
   useEffect(() => send("start"), [send])
@@ -58,7 +58,9 @@ function Player({
             <PlayerView day={session.day} state={player} remainingMs={remainingMs} send={send} />
           ),
         ),
-        Match.orElse((done) => <CompletionSheet completion={done} onClose={onClose} />),
+        Match.orElse((done) => (
+          <CompletionSheet completion={done} onClose={onClose} onRetry={retry} />
+        )),
       )}
     </View>
   )

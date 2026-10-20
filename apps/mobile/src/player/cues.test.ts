@@ -51,6 +51,61 @@ describe("reduceRun", () => {
   })
 })
 
+describe("performedItems", () => {
+  /** 3 items × 2 rounds from T0 = 1 000: W(0,0) –11 000 · R –16 000 · W(0,1) –26 000 · R –31 000 ·
+   * W(0,2) –41 000 · round rest –61 000 · round 2 … · Done at 136 000. */
+  const three = Schema.decodeUnknownSync(ProgramDay)({
+    dayNumber: 1,
+    title: "Day 1 · Foundation",
+    rounds: 2,
+    restBetweenRoundsSeconds: 20,
+    items: [
+      { kind: "timed", catalogId: "zz-a", seconds: 10, restSeconds: 5 },
+      { kind: "timed", catalogId: "zz-b", seconds: 10, restSeconds: 5 },
+      { kind: "timed", catalogId: "zz-c", seconds: 10, restSeconds: 5 },
+    ],
+  })
+  const performed = (events: ReadonlyArray<readonly [PlayerEventTag, number]>) =>
+    Arr.reduce(events, initialRun(0), (state, [tag, nowMs]) =>
+      reduceRun({ day: three, speed: 1 })(state, playerEvent(tag, nowMs)),
+    )
+  it("finish while working on round 1 item 3 counts the 2 items before it", () => {
+    const r = performed([
+      ["start", T0],
+      ["tick", 35_000],
+      ["finish", 35_000],
+    ])
+    expect(r.player._tag).toBe("Done")
+    expect(r.performedItems).toBe(2)
+  })
+  it("finish during the rest after item 3 counts it", () => {
+    const r = performed([
+      ["start", T0],
+      ["tick", 45_000],
+      ["finish", 45_000],
+    ])
+    expect(r.performedItems).toBe(3)
+  })
+  it("finish while paused counts the paused phase", () => {
+    const r = performed([
+      ["start", T0],
+      ["tick", 18_000],
+      ["pause", 18_000],
+      ["finish", 20_000],
+    ])
+    expect(r.performedItems).toBe(1)
+  })
+  it("a natural end counts rounds × items and stays frozen after Done", () => {
+    const r = performed([
+      ["start", T0],
+      ["tick", 200_000],
+      ["tick", 300_000],
+    ])
+    expect(r.player._tag).toBe("Done")
+    expect(r.performedItems).toBe(6)
+  })
+})
+
 describe("cueFor", () => {
   const cue = (events: ReadonlyArray<readonly [PlayerEventTag, number]>) => {
     const r = run(events)
@@ -104,31 +159,25 @@ describe("cueFor", () => {
 })
 
 describe("countdownCue", () => {
-  it("fires on 3, 2, 1 seconds left in a work phase, once each", () => {
-    const at = (nowMs: number, previousMs: number) =>
-      countdownCue(
-        run([
-          ["start", T0],
-          ["tick", previousMs],
-          ["tick", nowMs],
-        ]),
-      )
-    expect(at(28_250, 27_750)).toEqual(Option.some(3))
-    expect(at(28_500, 28_250)).toEqual(Option.none())
-    expect(at(29_250, 28_750)).toEqual(Option.some(2))
-    expect(at(30_250, 29_750)).toEqual(Option.some(1))
-    expect(at(20_250, 19_750)).toEqual(Option.none())
+  // R(0,0) runs 31 000–41 000, then work starts: the run-up to work is 38 000–41 000.
+  const at = (nowMs: number, previousMs: number) =>
+    countdownCue(
+      run([
+        ["start", T0],
+        ["tick", previousMs],
+        ["tick", nowMs],
+      ]),
+    )
+  it("fires on 3, 2, 1 seconds left in a rest, before the next work, once each", () => {
+    expect(at(38_250, 37_750)).toEqual(Option.some(3))
+    expect(at(38_500, 38_250)).toEqual(Option.none())
+    expect(at(39_250, 38_750)).toEqual(Option.some(2))
+    expect(at(40_250, 39_750)).toEqual(Option.some(1))
+    expect(at(35_250, 34_750)).toEqual(Option.none())
   })
-  it("never fires while resting", () => {
-    expect(
-      countdownCue(
-        run([
-          ["start", T0],
-          ["tick", 38_750],
-          ["tick", 39_250],
-        ]),
-      ),
-    ).toEqual(Option.none())
+  it("never fires at the end of a work phase", () => {
+    expect(at(28_250, 27_750)).toEqual(Option.none())
+    expect(at(30_250, 29_750)).toEqual(Option.none())
   })
 })
 

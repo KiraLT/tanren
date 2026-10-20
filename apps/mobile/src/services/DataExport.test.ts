@@ -200,7 +200,7 @@ const seed = (withOwner: boolean) =>
   })
 
 const exported = Effect.gen(function* () {
-  const json = yield* DataExporter.use((exporter) => exporter.exportAll)
+  const { json } = yield* DataExporter.use((exporter) => exporter.exportAll)
   return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(DataExport))(json)
 })
 
@@ -279,12 +279,13 @@ describe("exportFileName", () => {
     )
   })
 
-  it.effect("DataExporter.fileName uses the clock", () =>
+  it.effect("exportAll names the file after the exportedAt inside it", () =>
     Effect.gen(function* () {
-      yield* TestClock.setTime(Date.parse("2026-12-31T10:00:00.000Z"))
-      expect(yield* DataExporter.use((exporter) => exporter.fileName)).toBe(
-        "tanren-export-2026-12-31.json",
-      )
+      yield* TestClock.setTime(Date.parse("2026-12-31T23:59:59.999Z"))
+      const { json, fileName } = yield* DataExporter.use((exporter) => exporter.exportAll)
+      const file = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(DataExport))(json)
+      expect(DateTime.formatIso(file.exportedAt)).toBe("2026-12-31T23:59:59.999Z")
+      expect(fileName).toBe("tanren-export-2026-12-31.json")
     }).pipe(Effect.provide(TestLayer)),
   )
 })

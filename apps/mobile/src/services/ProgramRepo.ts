@@ -48,15 +48,20 @@ export interface CompletionInput {
   /** When the player started; P5 uses it for the logged session. */
   readonly startedAt: DateTime.Utc
   readonly durationSeconds: number
+  /**
+   * How many item-rounds, in sequence order (round-major, as `plannedItems`), finished their work
+   * phase. Only those are logged as sets (clamped to 0..total); 0 logs no session.
+   */
+  readonly performedItems: number
 }
 
-/** Internal: the enrollment is unknown, tombstoned or not the owner's. Carried as `StoreError.cause`. */
 /** Internal: `complete` on an enrollment that is `abandoned` or `completed`. Carried as `StoreError.cause`. */
 export class EnrollmentNotActive extends Data.TaggedError("EnrollmentNotActive")<{
   readonly id: ProgramEnrollmentId
   readonly status: ProgramEnrollment["status"]
 }> {}
 
+/** Internal: the enrollment is unknown, tombstoned or not the owner's. Carried as `StoreError.cause`. */
 export class EnrollmentNotFound extends Data.TaggedError("EnrollmentNotFound")<{
   readonly id: ProgramEnrollmentId
 }> {}
@@ -74,7 +79,7 @@ export interface ProgramRepoShape {
   readonly todayFor: (enrollment: ProgramEnrollment) => Option.Option<ProgramDay>
   /**
    * Records the day and moves `currentDay` to `dayNumber + 1` (status `completed` past the last
-   * day). Also logs the day as an ordinary session with one set per item per round (v2-programs.md
+   * day). Also logs the day as an ordinary session with one set per performed item-round (v2-programs.md
    * §5); the completion's `sessionId` points at it, or is `None` when nothing could be logged.
    * Session, sets, completion and enrollment go dirty in one batch (exercise links are written by
    * `ExerciseLink.ensure` just before). Logging never fails the call. A second call for a day that
@@ -285,7 +290,13 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
           return Option.none()
         }
         const { program, day } = found.value
-        const catalogIds = Arr.dedupe(Arr.map(day.items, (item) => item.catalogId))
+        const all = plannedItems(day)
+        /** Only item-rounds whose work phase finished are logged (an early Finish logs fewer). */
+        const performed = Arr.take(
+          all,
+          Math.min(Math.max(Math.floor(input.performedItems), 0), all.length),
+        )
+        const catalogIds = Arr.dedupe(Arr.map(performed, (planned) => planned.item.catalogId))
         const links = yield* Effect.forEach(catalogIds, (catalogId) =>
           Effect.map(linkOrSkip(catalogId), (exerciseId) => ({ catalogId, exerciseId })),
         )
@@ -294,7 +305,7 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
             Option.flatMap((entry) => entry.exerciseId),
           )
         const kept = Arr.getSomes(
-          Arr.map(plannedItems(day), (planned) =>
+          Arr.map(performed, (planned) =>
             Option.map(exerciseFor(planned.item.catalogId), (exerciseId) => ({
               ...planned,
               exerciseId,

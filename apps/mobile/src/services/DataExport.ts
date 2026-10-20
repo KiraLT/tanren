@@ -21,10 +21,14 @@ import { decodeRecords, LocalStore } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 
 export interface DataExporterShape {
-  /** Every live row of every synced table as a pretty-printed `DataExport` JSON document. */
-  readonly exportAll: Effect.Effect<string, StoreError>
-  /** `tanren-export-YYYY-MM-DD.json` (UTC date of now). */
-  readonly fileName: Effect.Effect<string>
+  /**
+   * Every live row of every synced table as a pretty-printed `DataExport` JSON document, with the
+   * file name taken from the same `exportedAt` (so it always names the day inside the file).
+   */
+  readonly exportAll: Effect.Effect<
+    { readonly json: string; readonly fileName: string },
+    StoreError
+  >
 }
 
 /** `tanren-export-YYYY-MM-DD.json` for the day of `at` (UTC). */
@@ -77,12 +81,10 @@ const make = Effect.gen(function* () {
       userId: yield* owner,
       rows,
     }).pipe(Effect.mapError(toStoreError))
-    return JSON.stringify(encoded, null, 2)
+    return { json: JSON.stringify(encoded, null, 2), fileName: exportFileName(exportedAt) }
   })
 
-  const fileName = Effect.map(DateTime.now, exportFileName)
-
-  return { exportAll, fileName } satisfies DataExporterShape
+  return { exportAll } satisfies DataExporterShape
 })
 
 /** Settings "Export my data": reads the local store only (works offline). Needs LocalStore. */

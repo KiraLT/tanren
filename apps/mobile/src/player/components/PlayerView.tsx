@@ -189,10 +189,11 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
 interface CompletionSheetProps {
   readonly completion: Exclude<CompletionState, { readonly _tag: "None" }>
   readonly onClose: () => void
+  readonly onRetry: () => void
 }
 
-/** After Done: duration and "logged as session", or the save error. */
-export function CompletionSheet({ completion, onClose }: CompletionSheetProps) {
+/** After Done: duration and "logged as session", or the save error with Retry. */
+export function CompletionSheet({ completion, onClose, onRetry }: CompletionSheetProps) {
   return (
     <Card tone={completion._tag === "Failed" ? "danger" : "success"}>
       <View accessible accessibilityLabel="Workout complete" style={{ gap: space.md }}>
@@ -207,7 +208,17 @@ export function CompletionSheet({ completion, onClose }: CompletionSheetProps) {
           Match.tagsExhaustive({
             Saving: () => <Text tone="muted">Saving…</Text>,
             Saved: () => <Text tone="success">Logged as session</Text>,
-            Failed: ({ message }) => <Banner tone="danger" title="Not saved" body={message} />,
+            Failed: ({ message }) => (
+              <View style={{ gap: space.sm }}>
+                <Banner tone="danger" title="Not saved" body={message} />
+                <Button
+                  label="Retry"
+                  accessibilityLabel="Retry saving workout"
+                  onPress={onRetry}
+                  size="lg"
+                />
+              </View>
+            ),
           }),
         )}
       </View>

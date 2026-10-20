@@ -34,6 +34,7 @@ const finished = {
   dayNumber: 3,
   startedAtMs: Date.UTC(2026, 9, 21, 7),
   durationSeconds: 912,
+  performedItems: 9,
 }
 
 const notUsed = Effect.die("not used in this test")
@@ -99,6 +100,7 @@ describe("completeDay", () => {
       const input = Option.getOrThrow(yield* Ref.get(seen))
       expect(DateTime.formatIso(input.startedAt)).toBe("2026-10-21T07:00:00.000Z")
       expect(input.dayNumber).toBe(3)
+      expect(input.performedItems).toBe(9)
     }),
   )
 
@@ -115,6 +117,30 @@ describe("completeDay", () => {
       )
       expect(result).toEqual({ _tag: "Failed", durationSeconds: 912, message: COMPLETION_FAILED })
       expect(yield* Ref.get(requests)).toBe(0)
+    }),
+  )
+
+  it.effect("retrying with the same input after a failure saves and syncs", () =>
+    Effect.gen(function* () {
+      const requests = yield* Ref.make(0)
+      const calls = yield* Ref.make(0)
+      const layer = Layer.merge(
+        repoLayer((input) =>
+          Ref.updateAndGet(calls, (n) => n + 1).pipe(
+            Effect.flatMap((n) =>
+              n === 1
+                ? Effect.fail(new StoreError({ cause: "locked" }))
+                : Effect.succeed(completion(input)),
+            ),
+          ),
+        ),
+        syncLayer(requests),
+      )
+      const first = yield* completeDay(finished).pipe(Effect.provide(layer))
+      const retried = yield* completeDay(finished).pipe(Effect.provide(layer))
+      expect(first._tag).toBe("Failed")
+      expect(retried).toEqual({ _tag: "Saved", durationSeconds: 912 })
+      expect(yield* Ref.get(requests)).toBe(1)
     }),
   )
 })
