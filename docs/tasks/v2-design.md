@@ -88,3 +88,8 @@ Parallel groups: A = {D1} · B = {D2, D3, D4} · C = {D5} · D = {REV, fixes, QA
 - Team decisions at dispatch: D2 owns all of `today.tsx` (incl. AppBar + `SignInEntry`, which lives in that file); D3 owns `plan.tsx` incl. its AppBar; D4 owns `sign-in.tsx`, `index.tsx`, `(tabs)/_layout.tsx` with all five `Tabs.Screen` lines (today, plan, programs, library, progress) and creates placeholder `(tabs)/{programs,library,progress}.tsx` ("coming soon") so X3 and teams catalog/programs replace a file and never touch the layout.
 
 ## Escalations
+- 00:27→00:31 · D2 · engineer/sonnet · ae41dded35567d0ac · 142k · 32 · r1 · done: Today on src/ui, labels unchanged, ui-check 390/1280 (log set → rest bar / ring), `components/Stepper.tsx` deleted; open: ring + Log set both accent on desktop
+- 00:27→00:29 · D3 · engineer/sonnet · a68df2a511fdf4ab4 · 108k · 21 · r1 · done: Plan on src/ui, ui-check /plan 390/1280 aside selection
+- 00:27→00:30 · D4 · engineer/sonnet · abfbfd203f478d95e · 103k · 24 · r1 · done: sign-in restyle, five themed tabs (`chart` for progress, not `flame` as line 10 says), placeholders programs/library/progress; ui-check 390 light/dark
+- 00:31 · finding for D5: `src/ui/{Icon,Skeleton}.tsx` pass `accessibilityElementsHidden`/`importantForAccessibility` to DOM on web → React unknown-prop console errors on every screen (tab icons). D5 fixes (wrap in View or `aria-hidden`).
+- 00:31 · gates D2–D4: biome green, tsc green outside `src/services|src/store` (foreign red: LocalStore.ts:39 from V2-F1 shared edits, CurrentUser.ts:131 `Stream` import type — another stream), vitest src/components+ui+hooks 82/82.

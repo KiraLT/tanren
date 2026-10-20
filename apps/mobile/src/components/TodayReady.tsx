@@ -1,20 +1,19 @@
-import type { PlannedSession } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { type ReactNode, useState } from "react"
-import { ScrollView, StyleSheet, Text, View } from "react-native"
+import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../hooks/useLayoutMode"
 import { useLogSet } from "../hooks/useLogSet"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
+import { Banner, gutter, Page, space, Text, useBreakpoint } from "../ui"
 import { clampPage, ExercisePager } from "./ExercisePager"
 import { RestTimerBar } from "./RestTimerBar"
-import { Screen } from "./Screen"
 import { SetList } from "./SetList"
-import { colors, space } from "./theme"
 
 interface TodayReadyProps {
-  readonly plannedSession: PlannedSession
   readonly exercises: ReadonlyArray<TodayExercise>
+  /** The screen's `AppBar`, rendered above both columns. */
+  readonly header: ReactNode
 }
 
 interface TodayAsideProps {
@@ -22,18 +21,30 @@ interface TodayAsideProps {
   readonly rest: ReactNode
 }
 
-/** Wide layout only: the current exercise's sets and the rest timer. Read-only, no log button. */
+/** Wide layout only: the current exercise's sets and the rest ring. Read-only, no log button. */
 function TodayAside({ current, rest }: TodayAsideProps) {
+  const breakpoint = useBreakpoint()
   return (
-    <View style={styles.aside}>
-      <ScrollView contentContainerStyle={styles.asideContent}>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: gutter[breakpoint],
+          paddingTop: space.xl,
+          gap: space.md,
+        }}
+      >
         {Option.match(current, {
           onNone: () => null,
           onSome: (item) => (
             <>
-              <Text style={styles.asideTitle} accessibilityRole="header">
-                Sets · {item.exercise.name}
-              </Text>
+              <View style={{ gap: space.xs }}>
+                <Text variant="subhead" tone="muted">
+                  Sets
+                </Text>
+                <Text variant="headline" accessibilityRole="header">
+                  {item.exercise.name}
+                </Text>
+              </View>
               <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} />
             </>
           ),
@@ -45,30 +56,36 @@ function TodayAside({ current, rest }: TodayAsideProps) {
 }
 
 /**
- * Today's session: title, the exercise pager, store errors, and the rest timer. In the two-column
- * layout the rest timer moves to the aside, next to the current exercise's sets.
+ * Today's session: the exercise pager, store errors, and the rest timer. In the two-column
+ * layout the rest timer becomes a ring in the aside, next to the current exercise's sets.
  */
-export function TodayReady({ plannedSession, exercises }: TodayReadyProps) {
+export function TodayReady({ exercises, header }: TodayReadyProps) {
   const { logSet, pending, error } = useLogSet()
   const { remaining, start, stop } = useRestTimer()
   const [page, setPage] = useState(0)
+  const [restTotal, setRestTotal] = useState(0)
   const wide = useLayoutMode() === "two-column"
+  const breakpoint = useBreakpoint()
   const current = Arr.get(exercises, clampPage(page, exercises.length))
-  const rest = <RestTimerBar remaining={remaining} onSkip={stop} />
+  const onLogged = (seconds: number) => {
+    setRestTotal(seconds)
+    start(seconds)
+  }
+  const rest = (layout: "bar" | "ring") => (
+    <RestTimerBar remaining={remaining} total={restTotal} layout={layout} onSkip={stop} />
+  )
   return (
-    <Screen aside={<TodayAside current={current} rest={rest} />}>
-      <View style={styles.root}>
-        <View style={styles.header}>
-          <Text style={styles.caption}>TODAY</Text>
-          <Text style={styles.title} accessibilityRole="header">
-            {plannedSession.name}
-          </Text>
-        </View>
+    <Page
+      padded={false}
+      header={header}
+      aside={<TodayAside current={current} rest={rest("ring")} />}
+    >
+      <View style={{ flex: 1 }}>
         <ExercisePager
           exercises={exercises}
           pending={pending}
           logSet={logSet}
-          onLogged={start}
+          onLogged={onLogged}
           index={page}
           onIndexChange={setPage}
           showSets={!wide}
@@ -76,24 +93,16 @@ export function TodayReady({ plannedSession, exercises }: TodayReadyProps) {
         {Option.match(error, {
           onNone: () => null,
           onSome: (message) => (
-            <Text style={styles.error} accessibilityRole="alert">
-              Could not log the set: {message}
-            </Text>
+            <Banner
+              tone="danger"
+              title="Could not log the set"
+              body={message}
+              style={{ marginHorizontal: gutter[breakpoint], marginBottom: space.md }}
+            />
           ),
         })}
-        {wide ? null : rest}
+        {wide ? null : rest("bar")}
       </View>
-    </Screen>
+    </Page>
   )
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  header: { paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: space.md },
-  caption: { color: colors.accent, fontSize: 14, fontWeight: "800", letterSpacing: 3 },
-  title: { color: colors.textMuted, fontSize: 20, fontWeight: "700" },
-  error: { color: colors.danger, fontSize: 18, fontWeight: "700", padding: space.md },
-  aside: { flex: 1 },
-  asideContent: { padding: space.md, paddingTop: space.lg, gap: space.md },
-  asideTitle: { color: colors.text, fontSize: 22, fontWeight: "900" },
-})

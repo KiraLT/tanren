@@ -1,26 +1,85 @@
 import { Match } from "effect"
-import { Link } from "expo-router"
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Screen } from "../../src/components/Screen"
+import { useRouter } from "expo-router"
+import { View } from "react-native"
 import { TodayReady } from "../../src/components/TodayReady"
-import { colors, radius, space } from "../../src/components/theme"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
+import {
+  AppBar,
+  EmptyState,
+  gutter,
+  IconButton,
+  Page,
+  Skeleton,
+  space,
+  Text,
+  useBreakpoint,
+} from "../../src/ui"
 
-interface MessageProps {
-  readonly title: string
-  readonly body: string
+/** Top-right sign-in control in the AppBar; hidden while loading and once signed in. */
+function SignInEntry() {
+  const signedIn = useSignedIn()
+  const router = useRouter()
+  if (signedIn._tag !== "SignedOut") {
+    return null
+  }
+  if (!SIGN_IN_SUPPORTED) {
+    return (
+      <Text variant="caption" tone="muted" accessibilityLabel={SIGN_IN_WEB_ONLY_NOTICE}>
+        {SIGN_IN_WEB_ONLY_NOTICE}
+      </Text>
+    )
+  }
+  return (
+    <IconButton
+      icon="user"
+      accessibilityLabel="Sign in"
+      onPress={() => router.navigate("/sign-in")}
+    />
+  )
 }
 
-function Message({ title, body }: MessageProps) {
+interface TodayBarProps {
+  readonly subtitle?: string
+}
+
+/** The Today title row, with the sign-in entry on the right, over every state. */
+function TodayBar({ subtitle }: TodayBarProps) {
   return (
-    <View style={styles.message}>
-      <Text style={styles.title} accessibilityRole="header">
-        {title}
-      </Text>
-      <Text style={styles.body}>{body}</Text>
+    <AppBar
+      title="Today"
+      {...(subtitle === undefined ? {} : { subtitle })}
+      trailing={<SignInEntry />}
+    />
+  )
+}
+
+/** Layout-shaped placeholder: exercise heading, three set rows, two steppers, the log button. */
+function TodaySkeleton() {
+  const breakpoint = useBreakpoint()
+  return (
+    <View
+      accessibilityLabel="Loading today"
+      style={{
+        flex: 1,
+        paddingHorizontal: gutter[breakpoint],
+        gap: space.xl,
+        paddingTop: space.lg,
+      }}
+    >
+      <View style={{ gap: space.sm }}>
+        <Skeleton width="70%" height={44} />
+        <Skeleton width="30%" height={20} />
+      </View>
+      <View style={{ gap: space.sm }}>
+        <Skeleton width="100%" height={56} />
+        <Skeleton width="100%" height={56} />
+        <Skeleton width="100%" height={56} />
+      </View>
+      <Skeleton width="100%" height={84} />
+      <Skeleton width="100%" height={84} />
+      <Skeleton width="100%" height={96} />
     </View>
   )
 }
@@ -28,90 +87,32 @@ function Message({ title, body }: MessageProps) {
 const renderState = Match.type<TodayState>().pipe(
   Match.tagsExhaustive({
     Loading: () => (
-      <Screen>
-        <View style={styles.message}>
-          <ActivityIndicator
-            size="large"
-            color={colors.accent}
-            accessibilityLabel="Loading today"
-          />
-        </View>
-      </Screen>
+      <Page padded={false} header={<TodayBar />}>
+        <TodaySkeleton />
+      </Page>
     ),
     Empty: () => (
-      <Screen>
-        <Message title="Nothing planned today" body="Rest up. Your next session shows up here." />
-      </Screen>
+      <Page header={<TodayBar />}>
+        <EmptyState
+          icon="calendar"
+          title="Nothing planned today"
+          body="Rest up. Your next session shows up here."
+        />
+      </Page>
     ),
     Failed: ({ message }) => (
-      <Screen>
-        <Message title="Could not load today" body={message} />
-      </Screen>
+      <Page header={<TodayBar />}>
+        <EmptyState icon="warning" title="Could not load today" body={message} />
+      </Page>
     ),
-    // Renders its own Screen: the wide aside follows the pager's current exercise.
+    // Renders its own Page: the wide aside follows the pager's current exercise.
     Ready: ({ plannedSession, exercises }) => (
-      <TodayReady plannedSession={plannedSession} exercises={exercises} />
+      <TodayReady header={<TodayBar subtitle={plannedSession.name} />} exercises={exercises} />
     ),
   }),
 )
 
-/** Top-right "Sign in" link over every Today state; hidden while loading and once signed in. */
-function SignInEntry() {
-  const signedIn = useSignedIn()
-  const insets = useSafeAreaInsets()
-  if (signedIn._tag !== "SignedOut") {
-    return null
-  }
-  if (!SIGN_IN_SUPPORTED) {
-    return (
-      <View style={[styles.entry, { top: insets.top + space.sm }]} pointerEvents="none">
-        <Text style={styles.notice} accessibilityLabel={SIGN_IN_WEB_ONLY_NOTICE}>
-          {SIGN_IN_WEB_ONLY_NOTICE}
-        </Text>
-      </View>
-    )
-  }
-  return (
-    <View style={[styles.entry, { top: insets.top + space.sm }]} pointerEvents="box-none">
-      <Link href="/sign-in" asChild>
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel="Sign in"
-          style={({ pressed }) => [styles.entryLink, pressed && styles.entryPressed]}
-        >
-          <Text style={styles.entryLabel}>Sign in</Text>
-        </Pressable>
-      </Link>
-    </View>
-  )
-}
-
 export default function TodayScreen() {
   const { state } = useToday()
-  return (
-    <View style={styles.root}>
-      {renderState(state)}
-      <SignInEntry />
-    </View>
-  )
+  return renderState(state)
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  entry: { position: "absolute", right: space.md, zIndex: 10 },
-  entryLink: {
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: space.md,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.accent,
-    backgroundColor: colors.background,
-  },
-  entryPressed: { opacity: 0.7 },
-  notice: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
-  entryLabel: { color: colors.accent, fontSize: 18, fontWeight: "800" },
-  message: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg, gap: 12 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "900", textAlign: "center" },
-  body: { color: colors.textMuted, fontSize: 20, textAlign: "center" },
-})

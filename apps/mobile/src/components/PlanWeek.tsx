@@ -1,11 +1,11 @@
 import type { LocalDate, PlannedSessionId } from "@tanren/shared"
 import { Option } from "effect"
-import { ScrollView, StyleSheet, Text, View } from "react-native"
+import { View } from "react-native"
 import type { PlanWeekView } from "../hooks/usePlanWeek"
+import { space, Text } from "../ui"
 import { PlanDayRow } from "./PlanDayRow"
 import { PlannedSessionCard } from "./PlannedSessionCard"
 import { formatWeekRange } from "./planFormat"
-import { colors, space } from "./theme"
 
 interface PlanWeekProps {
   readonly view: PlanWeekView
@@ -19,7 +19,8 @@ interface PlanWeekProps {
 
 /**
  * The current week: plan name, week range, the seven days exactly as given (`weekStart` is any
- * weekday, never snapped to Monday), then sessions without a date.
+ * weekday, never snapped to Monday), then sessions without a date. Scrolling belongs to the
+ * enclosing `Page scroll`.
  */
 export function PlanWeek({
   view,
@@ -38,23 +39,25 @@ export function PlanWeek({
     showBlocks,
   }
   return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">
+    <View>
+      <View style={{ paddingBottom: space.md, gap: space.xs }}>
+        <Text variant="title" accessibilityRole="header">
           {view.plan.name}
         </Text>
-        <Text style={styles.range}>{range}</Text>
+        <Text variant="subhead" tone="muted">
+          {range}
+        </Text>
         {Option.match(view.week.intent, {
           onNone: () => null,
-          onSome: (intent) => <Text style={styles.intent}>{intent}</Text>,
+          onSome: (intent) => <Text tone="muted">{intent}</Text>,
         })}
       </View>
       {view.days.map((day) => (
         <PlanDayRow key={day.date} day={day} isToday={day.date === today} {...selection} />
       ))}
       {view.unscheduled.length === 0 ? null : (
-        <View style={styles.unscheduled}>
-          <Text style={styles.unscheduledTitle} accessibilityRole="header">
+        <View style={{ paddingTop: space.xl, gap: space.sm }}>
+          <Text variant="headline" accessibilityRole="header">
             Unscheduled
           </Text>
           {view.unscheduled.map((item) => (
@@ -70,16 +73,6 @@ export function PlanWeek({
           ))}
         </View>
       )}
-    </ScrollView>
+    </View>
   )
 }
-
-const styles = StyleSheet.create({
-  content: { padding: space.md, paddingBottom: space.xl, gap: space.sm },
-  header: { paddingBottom: space.sm, gap: 4 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "900" },
-  range: { color: colors.accent, fontSize: 18, fontWeight: "800" },
-  intent: { color: colors.textMuted, fontSize: 16 },
-  unscheduled: { paddingTop: space.md, gap: space.sm },
-  unscheduledTitle: { color: colors.text, fontSize: 20, fontWeight: "900" },
-})

@@ -1,12 +1,10 @@
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
-import { ScrollView, StyleSheet, Text, View } from "react-native"
+import { ScrollView, View } from "react-native"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
-import { BigButton } from "./BigButton"
+import { Button, gutter, Stepper, sizes, space, Text, useBreakpoint } from "../ui"
 import { SetList } from "./SetList"
-import { Stepper } from "./Stepper"
 import { formatKg, stepReps, stepWeight } from "./stepMath"
-import { colors, sizes, space } from "./theme"
 
 interface ExercisePageProps {
   readonly item: TodayExercise
@@ -45,7 +43,7 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
     }).then((logged) => (logged ? onLogged(item.restSeconds) : undefined))
   }
   return (
-    <View style={styles.entry}>
+    <View style={{ gap: space.xl }}>
       <Stepper
         label="Weight"
         valueText={formatKg(weightKg)}
@@ -60,11 +58,11 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
         onDecrement={() => setReps(stepReps(reps, -1))}
         onIncrement={() => setReps(stepReps(reps, 1))}
       />
-      <BigButton
-        label={`LOG SET ${setNumber}`}
+      <Button
+        label={`Log set ${setNumber}`}
         accessibilityLabel={`Log set ${setNumber}: ${formatKg(weightKg)} kilograms, ${reps} reps`}
         variant="primary"
-        height={sizes.logButton}
+        size="xl"
         disabled={pending}
         onPress={() => {
           log()
@@ -93,13 +91,24 @@ export function ExercisePage({
   onLogged,
   showSets = true,
 }: ExercisePageProps) {
+  const breakpoint = useBreakpoint()
   return (
-    <ScrollView style={{ width }} contentContainerStyle={styles.content}>
-      <View style={styles.heading}>
-        <Text style={styles.name} accessibilityRole="header">
+    <ScrollView
+      style={{ width }}
+      contentContainerStyle={{
+        paddingHorizontal: gutter[breakpoint],
+        paddingTop: space.sm,
+        paddingBottom: sizes.logButton,
+        gap: space.xl,
+      }}
+    >
+      <View style={{ gap: space.xs }}>
+        <Text variant="display" accessibilityRole="header">
           {item.exercise.name}
         </Text>
-        <Text style={styles.progress}>{progressText(item)}</Text>
+        <Text variant="subhead" tone="muted">
+          {progressText(item)}
+        </Text>
       </View>
       {showSets ? <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} /> : null}
       <SetEntry
@@ -112,11 +121,3 @@ export function ExercisePage({
     </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  content: { padding: space.md, gap: space.lg, paddingBottom: space.xl },
-  heading: { gap: 4 },
-  name: { color: colors.text, fontSize: 36, fontWeight: "900", lineHeight: 42 },
-  progress: { color: colors.accent, fontSize: 18, fontWeight: "700" },
-  entry: { gap: space.lg },
-})

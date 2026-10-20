@@ -1,9 +1,9 @@
 import type { PlannedSessionId } from "@tanren/shared"
-import { StyleSheet, Text, View } from "react-native"
+import { View } from "react-native"
 import type { PlanDay } from "../hooks/usePlanWeek"
+import { space, stroke, Text, useBreakpoint, useTheme } from "../ui"
 import { PlannedSessionCard } from "./PlannedSessionCard"
 import { formatDayDate, weekdayLabel } from "./planFormat"
-import { colors, radius, space } from "./theme"
 
 interface PlanDayRowProps {
   readonly day: PlanDay
@@ -14,7 +14,13 @@ interface PlanDayRowProps {
   readonly showBlocks?: boolean
 }
 
-/** One day of the week: weekday + date on the left (accent when today), its session cards right. */
+/** Date column width: 64 on phone, 96 from tablet up (design §5). */
+const DATE_COLUMN = { phone: 64, tablet: 96, desktop: 96 } as const
+
+/**
+ * One day of the week as a grouped row with a hairline: weekday + date on the left (accent tone
+ * and an `accentSoft` background when today), its session cards on the right.
+ */
 export function PlanDayRow({
   day,
   isToday,
@@ -22,19 +28,39 @@ export function PlanDayRow({
   onSelectSession,
   showBlocks = true,
 }: PlanDayRowProps) {
+  const { colors } = useTheme()
+  const breakpoint = useBreakpoint()
   const dateText = formatDayDate(day.date)
   const dayLabel = `${weekdayLabel(day.weekday)} ${dateText}${isToday ? ", today" : ""}`
   return (
-    <View style={[styles.row, isToday && styles.rowToday]}>
-      <View accessible accessibilityLabel={dayLabel} style={styles.when}>
-        <Text style={[styles.weekday, isToday && styles.weekdayToday]}>
+    <View
+      style={{
+        flexDirection: "row",
+        gap: space.md,
+        paddingVertical: space.md,
+        paddingHorizontal: space.sm,
+        borderBottomWidth: stroke.hairline,
+        borderBottomColor: colors.border,
+        backgroundColor: isToday ? colors.accentSoft : "transparent",
+      }}
+    >
+      <View
+        accessible
+        accessibilityLabel={dayLabel}
+        style={{ width: DATE_COLUMN[breakpoint], paddingTop: space.xs }}
+      >
+        <Text variant="headline" tone={isToday ? "accent" : "default"}>
           {weekdayLabel(day.weekday)}
         </Text>
-        <Text style={styles.date}>{dateText}</Text>
+        <Text variant="subhead" tone="muted">
+          {dateText}
+        </Text>
       </View>
-      <View style={styles.sessions}>
+      <View style={{ flex: 1, gap: space.sm }}>
         {day.sessions.length === 0 ? (
-          <Text style={styles.rest}>Rest</Text>
+          <Text tone="muted" style={{ paddingTop: space.xs }}>
+            Rest
+          </Text>
         ) : (
           day.sessions.map((item) => (
             <PlannedSessionCard
@@ -52,22 +78,3 @@ export function PlanDayRow({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    gap: space.md,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.sm,
-    borderRadius: radius.md,
-    borderLeftWidth: 4,
-    borderLeftColor: "transparent",
-  },
-  rowToday: { backgroundColor: colors.surfaceRaised, borderLeftColor: colors.accent },
-  when: { width: 64, paddingTop: space.sm },
-  weekday: { color: colors.text, fontSize: 20, fontWeight: "900" },
-  weekdayToday: { color: colors.accent },
-  date: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
-  sessions: { flex: 1, gap: space.sm },
-  rest: { color: colors.textMuted, fontSize: 16, paddingTop: space.md },
-})

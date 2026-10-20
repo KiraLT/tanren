@@ -1,28 +1,35 @@
 import type { PlannedSessionId } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { useState } from "react"
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native"
+import { ScrollView, View } from "react-native"
 import { PlannedSessionCard } from "../../src/components/PlannedSessionCard"
 import { PlanWeek } from "../../src/components/PlanWeek"
 import { localDateOf } from "../../src/components/planFormat"
 import { selectedSession } from "../../src/components/planSelection"
-import { Screen } from "../../src/components/Screen"
-import { colors, space } from "../../src/components/theme"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { type PlanWeekState, type PlanWeekView, usePlanWeek } from "../../src/hooks/usePlanWeek"
+import { AppBar, EmptyState, gutter, Page, Skeleton, space } from "../../src/ui"
 
-interface MessageProps {
-  readonly title: string
-  readonly body: string
-}
+const PLAN_BAR = <AppBar title="Plan" />
 
-function Message({ title, body }: MessageProps) {
+/** Loading layout: a header block and five day rows; the container carries the accessible label. */
+function PlanSkeleton() {
   return (
-    <View style={styles.message}>
-      <Text style={styles.title} accessibilityRole="header">
-        {title}
-      </Text>
-      <Text style={styles.body}>{body}</Text>
+    <View
+      accessible
+      accessibilityLabel="Loading plan"
+      style={{ gap: space.lg, paddingTop: space.md }}
+    >
+      <View style={{ gap: space.sm }}>
+        <Skeleton width="60%" height={32} />
+        <Skeleton width="40%" height={16} />
+      </View>
+      {[0, 1, 2, 3, 4].map((row) => (
+        <View key={row} style={{ flexDirection: "row", gap: space.md }}>
+          <Skeleton width={64} height={44} />
+          <Skeleton width="100%" height={72} style={{ flexShrink: 1 }} />
+        </View>
+      ))}
     </View>
   )
 }
@@ -41,22 +48,22 @@ function PlanReady({ view }: PlanReadyProps) {
   const [selectedId, setSelectedId] = useState<Option.Option<PlannedSessionId>>(Option.none())
   const selected = selectedSession(view, today, selectedId)
   const aside = Option.match(selected, {
-    onNone: () => <Message title="No sessions" body="This week has no planned sessions yet." />,
+    onNone: () => <EmptyState title="No sessions" body="This week has no planned sessions yet." />,
     onSome: (item) => (
-      <ScrollView contentContainerStyle={styles.asideContent}>
+      <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
         <PlannedSessionCard item={item} />
       </ScrollView>
     ),
   })
   if (!wide) {
     return (
-      <Screen>
+      <Page scroll header={PLAN_BAR}>
         <PlanWeek view={view} today={today} />
-      </Screen>
+      </Page>
     )
   }
   return (
-    <Screen aside={aside}>
+    <Page scroll header={PLAN_BAR} aside={aside}>
       <PlanWeek
         view={view}
         today={today}
@@ -67,31 +74,29 @@ function PlanReady({ view }: PlanReadyProps) {
           onSome: (item) => ({ selectedSessionId: item.plannedSession.id }),
         })}
       />
-    </Screen>
+    </Page>
   )
 }
 
 const renderState = Match.type<PlanWeekState>().pipe(
   Match.tagsExhaustive({
     Loading: () => (
-      <Screen>
-        <View style={styles.message}>
-          <ActivityIndicator size="large" color={colors.accent} accessibilityLabel="Loading plan" />
-        </View>
-      </Screen>
+      <Page header={PLAN_BAR}>
+        <PlanSkeleton />
+      </Page>
     ),
     Empty: () => (
-      <Screen>
-        <Message
+      <Page header={PLAN_BAR}>
+        <EmptyState
           title="No plan this week"
           body="Ask Claude to write your plan. It shows up here."
         />
-      </Screen>
+      </Page>
     ),
     Failed: ({ message }) => (
-      <Screen>
-        <Message title="Could not load the plan" body={message} />
-      </Screen>
+      <Page header={PLAN_BAR}>
+        <EmptyState icon="warning" title="Could not load the plan" body={message} />
+      </Page>
     ),
     Ready: ({ view }) => <PlanReady view={view} />,
   }),
@@ -101,10 +106,3 @@ export default function PlanScreen() {
   const { state } = usePlanWeek()
   return renderState(state)
 }
-
-const styles = StyleSheet.create({
-  message: { flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg, gap: 12 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "900", textAlign: "center" },
-  body: { color: colors.textMuted, fontSize: 20, textAlign: "center" },
-  asideContent: { padding: space.md, paddingTop: space.lg },
-})

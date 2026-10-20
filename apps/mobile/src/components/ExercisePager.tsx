@@ -5,15 +5,12 @@ import {
   type NativeSyntheticEvent,
   ScrollView,
   type ScrollViewInstance,
-  StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
-import { BigButton } from "./BigButton"
+import { gutter, IconButton, sizes, space, Text, useBreakpoint } from "../ui"
 import { ExercisePage } from "./ExercisePage"
-import { colors, sizes, space } from "./theme"
 
 interface ExercisePagerProps {
   readonly exercises: ReadonlyArray<TodayExercise>
@@ -37,7 +34,7 @@ const pageIndex = (offsetX: number, width: number, count: number): number =>
 
 /**
  * One exercise per page, swipe horizontally (paging ScrollView: native on iOS, CSS scroll-snap on
- * web) or tap Prev / Next (mouse users on web).
+ * web) or tap the previous / next buttons (mouse users on web).
  */
 export function ExercisePager({
   exercises,
@@ -50,6 +47,7 @@ export function ExercisePager({
 }: ExercisePagerProps) {
   const scrollRef = useRef<ScrollViewInstance>(null)
   const { width: windowWidth } = useWindowDimensions()
+  const breakpoint = useBreakpoint()
   const width = Math.min(windowWidth, sizes.contentMaxWidth)
   const count = exercises.length
   const index = clampPage(rawIndex, count)
@@ -63,25 +61,36 @@ export function ExercisePager({
   const current = Arr.get(exercises, index)
 
   return (
-    <View style={styles.root}>
-      <View style={styles.nav}>
-        <BigButton
-          label="‹ PREV"
+    <View style={{ flex: 1 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: gutter[breakpoint],
+          paddingBottom: space.sm,
+        }}
+      >
+        <IconButton
+          icon="chevronLeft"
+          variant="filled"
           accessibilityLabel="Previous exercise"
           disabled={index <= 0}
           onPress={() => goTo(index - 1)}
         />
         <Text
-          style={styles.position}
+          variant="subhead"
+          tone="muted"
           accessibilityLabel={`Exercise ${index + 1} of ${count}${Option.match(current, {
             onNone: () => "",
             onSome: (item) => `: ${item.exercise.name}`,
           })}`}
         >
-          {index + 1} / {count}
+          {index + 1} of {count}
         </Text>
-        <BigButton
-          label="NEXT ›"
+        <IconButton
+          icon="chevronRight"
+          variant="filled"
           accessibilityLabel="Next exercise"
           disabled={index >= count - 1}
           onPress={() => goTo(index + 1)}
@@ -94,7 +103,7 @@ export function ExercisePager({
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={onScroll}
-        style={styles.pages}
+        style={{ flex: 1 }}
       >
         {exercises.map((item) => (
           <ExercisePage
@@ -111,21 +120,3 @@ export function ExercisePager({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  nav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: space.md,
-    paddingBottom: space.sm,
-  },
-  position: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
-    fontVariant: ["tabular-nums"],
-  },
-  pages: { flex: 1 },
-})
