@@ -184,8 +184,8 @@ Used by the catalog team to generate ≈ 250 files in parallel; every rule here 
 </svg>
 ```
 
-## 8. Open questions (for the Lead / spikes)
+## 8. Decided / open (ADR-0014, Lead 2026-10-21)
 
-- Q1 Where the 250 SVGs live and how they load (string map module vs `SvgXml` from static assets; `.svg` imports need a transformer we do not have) — catalog design decides; design only guarantees `react-native-svg` is installed (D1) and the two colours above.
-- Q2 Tab route names for Library and Programs (`library`, `programs`?) — D4 adds `Tabs.Screen` entries only when told; otherwise the integration task adds the two lines plus `Icon` names `grid`/`play`.
-- Q3 `NativeTabs` on iOS: spike later (icons need SF + Material pairs; web view exists in 58.0.24; not proven).
+- Q1 (decided: catalog architect's call, `docs/design/v2-catalog.md`) how the 250 SVGs are stored and loaded; design guarantees `react-native-svg` (D1) and the two colours above.
+- Q2 (decided) five JS tabs in `(tabs)/_layout.tsx`: `today`, `plan`, `programs`, `library`, `progress` with icons `timer`, `calendar`, `play`, `grid`, `flame`; Settings (`app/settings.tsx`, root Stack) opens from a gear `IconButton` in the Progress AppBar (`docs/design/v2-extras.md` §2). Desktop `AppBar nav` shows the same five links.
+- Q3 (open) `NativeTabs` on iOS: spike later (icons need SF + Material pairs; web view exists in 58.0.24; not proven).
