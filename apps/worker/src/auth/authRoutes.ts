@@ -1,9 +1,15 @@
-import { SessionStoreUnavailable } from "@tanren/shared"
-import { Effect, Layer } from "effect"
+import { EmailDeliveryFailed, InternalError, SessionStoreUnavailable } from "@tanren/shared"
+import { Data, Effect, Layer, Schema } from "effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { BetterAuth } from "./BetterAuth"
+import { EmailSendFailed } from "./Email"
 
-/** The 503 every failed `/api/auth/*` call answers, with the shared error as the JSON body. */
+/** Internal: the auth service or its store could not answer (D1 down, instance failed to build). */
+class AuthStoreFailed extends Data.TaggedError("AuthStoreFailed")<{ readonly cause: unknown }> {}
+
+const isEmailSendFailed = Schema.is(EmailSendFailed)
+
+/** 503: the session store or auth service is down. */
 const unavailable = (cause: unknown) =>
   Effect.logError("auth handler failed", cause).pipe(
     Effect.andThen(
@@ -14,21 +20,51 @@ const unavailable = (cause: unknown) =>
     ),
   )
 
+/** 502: the email provider refused the magic link. The body names only provider and reason. */
+const deliveryFailed = (error: EmailSendFailed) =>
+  Effect.logError("magic link email failed", error.message).pipe(
+    Effect.andThen(
+      HttpServerResponse.schemaJson(EmailDeliveryFailed)(
+        new EmailDeliveryFailed({ provider: error.provider, reason: error.reason }),
+        { status: 502 },
+      ),
+    ),
+  )
+
+/** 500: a bug. The cause (stack included) goes to the log; the body is a bare `InternalError`. */
+const internal = (defect: unknown) =>
+  Effect.logError("auth handler defect", defect).pipe(
+    Effect.andThen(
+      HttpServerResponse.schemaJson(InternalError)(new InternalError({}), { status: 500 }),
+    ),
+  )
+
 /**
  * `/api/auth/*` → Better Auth's own Web handler. Merge into the app's router layer.
- * A rejected handler (D1 down) or a lazy instance that fails to build is an outage of the auth
- * service: 503 `SessionStoreUnavailable`, never a bare 500.
+ * A rejected handler (D1 down), a lazy instance that fails to build or a request that cannot be
+ * converted is an auth outage: 503 `SessionStoreUnavailable`. A rejected magic-link send (Better
+ * Auth must run with `onAPIError.throw` for it to reach here) is 502 `EmailDeliveryFailed`. Any
+ * other defect is 500 `InternalError`.
  */
 export const authRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
     return HttpRouter.add("*", "/api/auth/*", (request) =>
       Effect.gen(function* () {
-        const auth = yield* betterAuth.auth
+        const auth = yield* betterAuth.auth.pipe(
+          Effect.catchDefect((cause) => Effect.fail(new AuthStoreFailed({ cause }))),
+        )
         const webRequest = yield* HttpServerRequest.toWeb(request)
-        const response = yield* Effect.tryPromise(() => auth.handler(webRequest))
+        const response = yield* Effect.tryPromise({
+          try: () => auth.handler(webRequest),
+          catch: (cause) => (isEmailSendFailed(cause) ? cause : new AuthStoreFailed({ cause })),
+        })
         return HttpServerResponse.fromWeb(response)
-      }).pipe(Effect.catch(unavailable), Effect.catchDefect(unavailable)),
+      }).pipe(
+        Effect.catchTag("EmailSendFailed", deliveryFailed),
+        Effect.catch(unavailable),
+        Effect.catchDefect(internal),
+      ),
     )
   }),
 )

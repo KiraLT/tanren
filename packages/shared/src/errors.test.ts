@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
 import { DateTime, Effect, Option, Schema } from "effect"
 import {
+  EmailDeliveryFailed,
   Forbidden,
+  InternalError,
   NotFound,
   SessionStoreUnavailable,
   SyncConflict,
@@ -31,6 +33,31 @@ describe("error wire shapes", () => {
     expect(Schema.encodeSync(SessionStoreUnavailable)(error)).toEqual({
       _tag: "SessionStoreUnavailable",
       message: "session store unavailable",
+    })
+  })
+
+  it("encodes EmailDeliveryFailed as _tag + provider + reason, status 502", () => {
+    const error = new EmailDeliveryFailed({ provider: "resend", reason: "rejected" })
+    expect(Schema.encodeSync(EmailDeliveryFailed)(error)).toEqual({
+      _tag: "EmailDeliveryFailed",
+      provider: "resend",
+      reason: "rejected",
+    })
+  })
+
+  it("rejects an EmailDeliveryFailed reason outside the literals", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(EmailDeliveryFailed)({
+        _tag: "EmailDeliveryFailed",
+        provider: "resend",
+        reason: "Resend responded 422: lukas@example.com",
+      }),
+    ).toThrow()
+  })
+
+  it("encodes InternalError as a bare _tag", () => {
+    expect(Schema.encodeSync(InternalError)(new InternalError({}))).toEqual({
+      _tag: "InternalError",
     })
   })
 

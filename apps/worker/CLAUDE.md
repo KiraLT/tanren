@@ -27,8 +27,9 @@ src/
   api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers
   repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests)
   auth/               Sessions port, SessionsLive (Better Auth), BetterAuth (lazy `Effect.cached` instance),
-                      EmailSender (console locally), authRoutes (any failure → 503 `SessionStoreUnavailable`
-                      from @tanren/shared, never 500)
+                      Email (MagicLinkEmail, EmailSendFailed, EmailSenderShape), EmailSender (console locally,
+                      Resend via `makeResendSender`), authRoutes (store/build/request failure → 503
+                      `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                tools.ts (four read tools, pure Effect over the repo ports) · McpAuth.ts (identity port) ·
                       server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime)

@@ -10,12 +10,7 @@ import {
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
 import { EmailSender } from "./EmailSender"
-import {
-  MAGIC_LINK_SUBJECT,
-  RESEND_EMAILS_URL,
-  ResendEmailSender,
-  resendBody,
-} from "./ResendEmailSender"
+import { MAGIC_LINK_SUBJECT, RESEND_EMAILS_URL, resendBody } from "./ResendEmailSender"
 
 const API_KEY = "re_test_only_secret_value"
 const providerEnv: EnvVars = {
@@ -26,6 +21,7 @@ const providerEnv: EnvVars = {
   EMAIL_MODE: "provider",
   EMAIL_FROM: "Tanren <login@tanren.me>",
   RESEND_API_KEY: API_KEY,
+  MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
 }
 const magicLink = {
   email: "lukas@example.com",
@@ -78,7 +74,7 @@ const sendWith = (reply: Reply) =>
       return yield* (yield* EmailSender).send(magicLink)
     }).pipe(
       Effect.provide(
-        ResendEmailSender.layer.pipe(
+        EmailSender.layerResend.pipe(
           Layer.provide(
             Layer.merge(
               Layer.orDie(WorkerConfig.layerFromEnv(providerEnv)),
@@ -137,6 +133,10 @@ describe("ResendEmailSender", () => {
       const error = yield* Effect.flip(send)
       expect(error._tag).toBe("EmailSendFailed")
       expect(error.status).toEqual(Option.some(422))
+      expect({ provider: error.provider, reason: error.reason }).toEqual({
+        provider: "resend",
+        reason: "rejected",
+      })
       expect(error.message).toContain("422")
       expect(error.message).toContain("domain not verified")
       expect(JSON.stringify(error)).not.toContain(API_KEY)
@@ -148,6 +148,7 @@ describe("ResendEmailSender", () => {
       const { send } = yield* sendWith({ _tag: "Status", status: 503, body: "" })
       const error = yield* Effect.flip(send)
       expect(error.status).toEqual(Option.some(503))
+      expect(error.reason).toBe("provider_error")
       expect(error.message).toContain("503")
       expect(error.message).not.toContain(API_KEY)
     }),
@@ -160,6 +161,7 @@ describe("ResendEmailSender", () => {
       expect(yield* requests).toHaveLength(1)
       expect(error._tag).toBe("EmailSendFailed")
       expect(error.status).toEqual(Option.none())
+      expect(error.reason).toBe("transport")
       expect(error.message).toContain("TransportError")
       expect(`${error.message} ${String(error)} ${JSON.stringify(error)}`).not.toContain(API_KEY)
     }),

@@ -63,6 +63,36 @@ export class SessionStoreUnavailable extends Schema.TaggedError<SessionStoreUnav
   { httpApiStatus: 503 },
 ) {}
 
+/**
+ * Why an email provider did not take a message: a 4xx (`rejected`, e.g. an unverified sender),
+ * a 5xx or other non-2xx (`provider_error`), no response at all (`transport`), or a worker
+ * misconfiguration such as a missing API key (`not_configured`).
+ */
+export const EmailFailureReason = Schema.Literals([
+  "rejected",
+  "provider_error",
+  "transport",
+  "not_configured",
+])
+export type EmailFailureReason = typeof EmailFailureReason.Type
+
+/**
+ * The upstream email provider failed, so no magic link went out: 502. Carries only the provider
+ * name and a short reason, never the recipient address, the API key or the provider's raw reply.
+ */
+export class EmailDeliveryFailed extends Schema.TaggedError<EmailDeliveryFailed>()(
+  "EmailDeliveryFailed",
+  { provider: Schema.String, reason: EmailFailureReason },
+  { httpApiStatus: 502 },
+) {}
+
+/** An unexpected server bug (a defect). Generic on purpose: the details go to the log only. */
+export class InternalError extends Schema.TaggedError<InternalError>()(
+  "InternalError",
+  {},
+  { httpApiStatus: 500 },
+) {}
+
 /** Optimistic concurrency for single-row writes; batched sync reports LWW outcomes instead. */
 export class SyncConflict extends Schema.TaggedError<SyncConflict>()(
   "SyncConflict",

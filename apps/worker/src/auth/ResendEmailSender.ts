@@ -1,7 +1,9 @@
-import { Effect, Layer, Option } from "effect"
+import { Effect, Option } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import { WorkerConfig } from "../Config"
-import { EmailSender, EmailSendFailed, type MagicLinkEmail } from "./EmailSender"
+import { type EmailSenderShape, EmailSendFailed, type MagicLinkEmail } from "./Email"
+
+const PROVIDER = "resend"
 
 /** https://resend.com/docs/api-reference/emails/send-email */
 export const RESEND_EMAILS_URL = "https://api.resend.com/emails"
@@ -23,7 +25,15 @@ export const resendBody = (from: string, { email, url }: MagicLinkEmail) => ({
   html: `<p><a href="${escapeHtml(url)}">Sign in to Tanren</a></p><p>The link expires soon. If you did not ask for it, ignore this email.</p>`,
 })
 
-const make = Effect.gen(function* () {
+/**
+ * `EMAIL_MODE=provider`: one `POST /emails` per magic link. `EmailSender.layerResend` wraps it in a
+ * layer; this module never imports `EmailSender`, so the two files have no import cycle.
+ */
+export const makeResendSender: Effect.Effect<
+  EmailSenderShape,
+  never,
+  WorkerConfig | HttpClient.HttpClient
+> = Effect.gen(function* () {
   const config = yield* WorkerConfig
   const client = yield* HttpClient.HttpClient
   const send = Effect.fn("ResendEmailSender.send")(function* (magicLink: MagicLinkEmail) {
@@ -32,6 +42,8 @@ const make = Effect.gen(function* () {
       onNone: () =>
         Effect.fail(
           new EmailSendFailed({
+            provider: PROVIDER,
+            reason: "not_configured",
             message: "RESEND_API_KEY is not configured",
             status: Option.none(),
           }),
@@ -47,6 +59,8 @@ const make = Effect.gen(function* () {
       Effect.mapError(
         (error) =>
           new EmailSendFailed({
+            provider: PROVIDER,
+            reason: "transport",
             message: `Resend request failed: ${error.reason._tag}`,
             status: Option.none(),
           }),
@@ -55,23 +69,12 @@ const make = Effect.gen(function* () {
     if (response.status < 200 || response.status >= 300) {
       const detail = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
       return yield* new EmailSendFailed({
+        provider: PROVIDER,
+        reason: response.status >= 400 && response.status < 500 ? "rejected" : "provider_error",
         message: `Resend responded ${response.status}: ${detail.slice(0, 500)}`,
         status: Option.some(response.status),
       })
     }
   })
-  return EmailSender.of({ send })
+  return { send }
 })
-
-export const ResendEmailSender = {
-  /**
-   * `EMAIL_MODE=provider`: one `POST /emails` per magic link. `Layer.suspend` because
-   * `EmailSender.ts` imports this module: `EmailSender` is not initialised yet when this file is
-   * evaluated through that cycle, so it may only be read once the layer is built.
-   */
-  layer: Layer.suspend(() => Layer.effect(EmailSender, make)) satisfies Layer.Layer<
-    EmailSender,
-    never,
-    WorkerConfig | HttpClient.HttpClient
-  >,
-}

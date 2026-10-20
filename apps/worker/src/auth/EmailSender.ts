@@ -1,24 +1,10 @@
-import { Context, Data, Effect, Layer, Match, type Option, Ref, Schema } from "effect"
+import { Context, Effect, Layer, Match, Ref } from "effect"
 import { FetchHttpClient } from "effect/http"
 import { WorkerConfig } from "../Config"
-import { ResendEmailSender } from "./ResendEmailSender"
+import type { EmailSenderShape, MagicLinkEmail } from "./Email"
+import { makeResendSender } from "./ResendEmailSender"
 
-/** One magic-link email: the recipient and the sign-in URL Better Auth generated. */
-export const MagicLinkEmail = Schema.Struct({ email: Schema.String, url: Schema.String })
-export type MagicLinkEmail = typeof MagicLinkEmail.Type
-
-/**
- * The provider did not accept the email: a non-2xx response (`status` is Some) or a transport
- * failure (None). Internal: Better Auth turns the rejected send into a failed sign-in request.
- */
-export class EmailSendFailed extends Data.TaggedError("EmailSendFailed")<{
-  readonly message: string
-  readonly status: Option.Option<number>
-}> {}
-
-export interface EmailSenderShape {
-  readonly send: (magicLink: MagicLinkEmail) => Effect.Effect<void, EmailSendFailed>
-}
+export type { EmailSenderShape } from "./Email"
 
 export class EmailSender extends Context.Service<EmailSender, EmailSenderShape>()(
   "@tanren/worker/EmailSender",
@@ -31,8 +17,11 @@ export class EmailSender extends Context.Service<EmailSender, EmailSenderShape>(
     }),
   )
 
+  /** Resend over whatever `HttpClient` the caller provides (tests pass a fake). */
+  static readonly layerResend = Layer.effect(this, makeResendSender)
+
   /** Production: Resend over the Workers `fetch` (docs/adr/0008). */
-  static readonly layerProvider = ResendEmailSender.layer.pipe(Layer.provide(FetchHttpClient.layer))
+  static readonly layerProvider = this.layerResend.pipe(Layer.provide(FetchHttpClient.layer))
 
   /** `EMAIL_MODE` from `WorkerConfig` picks the layer. */
   static readonly layer = Layer.unwrap(
