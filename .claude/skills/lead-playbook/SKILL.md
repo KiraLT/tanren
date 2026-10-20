@@ -107,6 +107,21 @@ task sheet. Tactics, in order of payoff:
    the task that depends on it (S2-T3: the workerd harness proof could have
    run during T1 ∥ T2; bundled, the task ran 24 min on a 20-min box).
 
+## Unattended mode (owner away; set 2026-10-21 00:35 for 8 h)
+
+- Nothing may hit a permission prompt: no agent runs `git push|reset|checkout`,
+  `rm -r*`, `wrangler deploy|login|secret|d1 execute`, `eas *`, or the
+  Cloudflare MCP `execute` tool; `pnpm db:reset` is fine (its `rm -rf` runs
+  inside the script). Put this line in every brief and charter.
+- Model defaults: sonnet for data entry, SVG batches, tests, docs and
+  restyles from a spec; opus for schema/sync/runtime-critical code and
+  team-leads; fable only for architecture and the EM; haiku for mechanical
+  edits. One reviewer per team, EM only on events, reports ≤ 40 lines.
+- Concurrency ≈ 3 teams × ≤ 3 engineers + 2 Lead side tasks. A rate limit
+  with nobody to resume costs hours.
+- The morning report leads with what the owner can tap through, then the
+  commits, then the owner actions.
+
 ## Cost discipline (every brief)
 
 - Every brief states a **time box** (10 min for a single-module change with
