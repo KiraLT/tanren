@@ -16,6 +16,7 @@ import {
 import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
 import { CurrentUser } from "./CurrentUser"
+import { HistoryRepo } from "./HistoryRepo"
 import { LocalStore } from "./LocalStore"
 import { PlanWeekRepo } from "./PlanWeekRepo"
 import { DATABASE_NAME, SqlDriver, StoreError } from "./SqlDriver"
@@ -164,6 +165,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
     Layer.mergeAll(
       TodayRepo.layerNoDeps,
       PlanWeekRepo.layer,
+      HistoryRepo.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),
     ),
   ),

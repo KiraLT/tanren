@@ -20,7 +20,9 @@ app/
   _layout.tsx, index.tsx, sign-in.tsx, (tabs)/_layout.tsx, (tabs)/today.tsx, (tabs)/plan.tsx
 src/
   services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, StoreEvents,
-              CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime
+              CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
+              HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
+              pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf)
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
               useRestTimer, useLayoutMode (+ pure layoutMode), useSignedIn, useSendMagicLink
