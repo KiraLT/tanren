@@ -1,5 +1,6 @@
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import { Icon, type IconName } from "./Icon"
+import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
 import { radius, sizes, space, stroke } from "./tokens"
@@ -33,6 +34,7 @@ interface StepButtonProps {
 
 function StepButton({ icon, accessibilityLabel, onPress, disabled, size }: StepButtonProps) {
   const { colors } = useTheme()
+  const { hovered, handlers, focusStyle } = usePressableInteraction()
   return (
     <Pressable
       accessibilityRole="button"
@@ -40,19 +42,25 @@ function StepButton({ icon, accessibilityLabel, onPress, disabled, size }: StepB
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      {...handlers}
       style={({ pressed }) => [
         {
           width: size,
           height: size,
           borderRadius: radius.lg,
           borderCurve: "continuous",
-          backgroundColor: pressed ? colors.accent : colors.surfaceRaised,
+          backgroundColor: pressed
+            ? colors.accent
+            : hovered && !disabled
+              ? colors.surface
+              : colors.surfaceRaised,
           borderWidth: stroke.outline,
           borderColor: pressed ? colors.accent : colors.border,
           alignItems: "center",
           justifyContent: "center",
         },
         disabled && { opacity: 0.4 },
+        focusStyle,
       ]}
     >
       {({ pressed }) => (

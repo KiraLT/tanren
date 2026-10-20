@@ -22,7 +22,11 @@ export function RestTimerBar({ remaining, total, layout, onSkip }: RestTimerBarP
       const label = `Rest, ${seconds} seconds left`
       return layout === "ring" ? (
         <View style={{ alignItems: "center", gap: space.lg, padding: space.xl }}>
-          <TimerRing progress={total > 0 ? seconds / total : 0} accessibilityLabel={label}>
+          <TimerRing
+            progress={total > 0 ? seconds / total : 0}
+            tone="neutral"
+            accessibilityLabel={label}
+          >
             <Text variant="subhead" tone="muted">
               Rest
             </Text>

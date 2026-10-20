@@ -3,7 +3,10 @@ import { type StyleProp, View, type ViewStyle } from "react-native"
 import Svg, { Circle } from "react-native-svg"
 import { useTheme } from "./theme"
 
-export type TimerRingTone = "accent" | "success"
+/** `neutral` draws the arc in `text`, for screens where an accented button sits beside the ring. */
+export type TimerRingTone = "accent" | "success" | "neutral"
+
+const toneRole = { accent: "accent", success: "success", neutral: "text" } as const
 
 export interface TimerRingProps {
   /** Fraction of the rest remaining, 0..1 (clamped). */
@@ -58,7 +61,7 @@ export function TimerRing({
           cx={centre}
           cy={centre}
           r={r}
-          stroke={colors[tone]}
+          stroke={colors[toneRole[tone]]}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={[circumference, circumference]}

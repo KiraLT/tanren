@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import type { ColorRoles } from "./colors"
 import { Icon, type IconName } from "./Icon"
+import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
 import { radius, sizes, space, stroke } from "./tokens"
@@ -26,6 +27,12 @@ const variants: { readonly [V in ButtonVariant]: VariantColors } = {
   ghost: { background: "transparent", foreground: "accent", outline: false },
   destructive: { background: "dangerSoft", foreground: "danger", outline: false },
 }
+
+/** Web hover: filled variants dim a touch, quiet ones (outline / ghost) take the `surface` tint. */
+const hoverStyle = (spec: VariantColors, colors: ColorRoles): ViewStyle =>
+  spec.background === "accent" || spec.background === "dangerSoft"
+    ? { opacity: 0.92 }
+    : { backgroundColor: colors.surface }
 
 export interface ButtonProps {
   readonly label: string
@@ -54,6 +61,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const { colors } = useTheme()
+  const { hovered, handlers, focusStyle } = usePressableInteraction()
   const spec = variants[variant]
   const foreground = colors[spec.foreground]
   const background = spec.background === "transparent" ? "transparent" : colors[spec.background]
@@ -64,6 +72,7 @@ export function Button({
       accessibilityState={{ disabled, busy: loading }}
       disabled={disabled}
       onPress={loading ? undefined : onPress}
+      {...handlers}
       style={({ pressed }) => [
         {
           minHeight: heights[size],
@@ -77,8 +86,10 @@ export function Button({
           alignItems: "center",
           justifyContent: "center",
         },
+        hovered && !disabled && hoverStyle(spec, colors),
         pressed && { opacity: 0.85 },
         disabled && { opacity: 0.4 },
+        focusStyle,
         style,
       ]}
     >

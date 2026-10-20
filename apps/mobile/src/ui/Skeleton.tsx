@@ -4,6 +4,7 @@ import {
   type DimensionValue,
   Platform,
   type StyleProp,
+  View,
   type ViewStyle,
 } from "react-native"
 import { useTheme } from "./theme"
@@ -41,14 +42,16 @@ export function Skeleton({ width, height, radius = radii.sm, style }: SkeletonPr
     loop.start()
     return () => loop.stop()
   }, [opacity, reducedMotion])
+  // The outer View carries the hiding props: `Animated.View` forwards them to the DOM on web,
+  // where React warns about unknown props, while `View` maps them to `aria-hidden`.
   return (
-    <Animated.View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[
-        { width, height, borderRadius: radius, backgroundColor: colors.surface, opacity },
-        style,
-      ]}
-    />
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Animated.View
+        style={[
+          { width, height, borderRadius: radius, backgroundColor: colors.surface, opacity },
+          style,
+        ]}
+      />
+    </View>
   )
 }

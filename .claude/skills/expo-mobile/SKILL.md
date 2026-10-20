@@ -93,6 +93,20 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 - Local: `pnpm dev:phone` + `pnpm -F @tanren/mobile dev`, scan the terminal QR on the iPhone. Live
   Activities and other native modules still need a dev build, not Expo Go.
 
+## Design system (v2, docs/design/design-system.md; proven on the export at 390/768/1280, light + dark)
+
+- Import UI only from `src/ui` (`Page`, `AppBar`, `Text`, `Button`, `Card`, ...); no raw RN `Text` with
+  font sizes, no hex or `rgb()` outside `src/ui/colors.ts` (drift grep: `grep -rn '#[0-9A-Fa-f]\{6\}'
+  apps/mobile/src/components apps/mobile/app` must be empty); colours and spacing come from `useTheme()` /
+  `useStyles` and the tokens; breakpoints from `useBreakpoint()` (phone < 600, tablet 600–899, desktop >= 900).
+- Web hover/focus: `usePressableInteraction()` (`onHoverIn/Out` state; RNW's `hovered` is runtime-only and
+  untyped; ring = `outline*` style, 2 px `colors.focus`, only for `:focus-visible`). New pressables use it.
+- DOM-prop rule: never give `accessibilityElementsHidden` / `importantForAccessibility` to `Svg`,
+  `Animated.View` or other DOM-forwarding elements (wrap in a `View`), and give a `Link asChild` child a
+  single style object, not an array (a thrown render error leaves the exported page blank and silent).
+  Check: `agent-browser errors --json` empty and no "does not recognize" in `console` (use a fresh
+  `--session`: `errors --clear` does not reset the buffer).
+
 ## Vendor plugin skills
 
 Mobile engineers load `expo:expo-overview` first, then `expo:expo-router`,

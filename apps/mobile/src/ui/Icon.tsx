@@ -1,3 +1,4 @@
+import { View } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { useTheme } from "./theme"
 import { sizes } from "./tokens"
@@ -44,22 +45,19 @@ export interface IconProps {
 /** A decorative stroke glyph; the surrounding control carries the accessibility label. */
 export function Icon({ name, size = sizes.iconMd, color }: IconProps) {
   const { colors } = useTheme()
+  // The View carries the hiding props: react-native-svg forwards them to the DOM `<svg>` on web,
+  // where React warns about unknown props; View maps them to `aria-hidden`.
   return (
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <Path
-        d={paths[name]}
-        stroke={color ?? colors.text}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d={paths[name]}
+          stroke={color ?? colors.text}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
   )
 }

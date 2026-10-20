@@ -1,5 +1,6 @@
 import { Pressable, type StyleProp, type ViewStyle } from "react-native"
 import { Icon, type IconName } from "./Icon"
+import { usePressableInteraction } from "./interaction"
 import { useTheme } from "./theme"
 import { radius, sizes, stroke } from "./tokens"
 
@@ -29,6 +30,7 @@ export function IconButton({
   style,
 }: IconButtonProps) {
   const { colors } = useTheme()
+  const { hovered, handlers, focusStyle } = usePressableInteraction()
   const filled = variant === "filled"
   return (
     <Pressable
@@ -37,6 +39,7 @@ export function IconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      {...handlers}
       style={({ pressed }) => [
         {
           width: boxes[size],
@@ -48,8 +51,9 @@ export function IconButton({
           borderWidth: filled ? stroke.hairline : 0,
           borderColor: colors.border,
         },
-        pressed && { backgroundColor: colors.surface },
+        (pressed || (hovered && !disabled)) && { backgroundColor: colors.surface },
         disabled && { opacity: 0.4 },
+        focusStyle,
         style,
       ]}
     >

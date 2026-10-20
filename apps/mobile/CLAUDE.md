@@ -17,18 +17,24 @@ with the worker, Today and Plan screens, web export.
 
 ```
 app/
-  _layout.tsx, index.tsx, sign-in.tsx, (tabs)/_layout.tsx, (tabs)/today.tsx, (tabs)/plan.tsx
+  _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
+  (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{today,plan,programs,library,progress}.tsx
 src/
+  ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
+              tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
+              desktop nav), Text, Card, Button, IconButton, Icon, ListRow, Stepper, SegmentedControl,
+              StatusPill, TimerRing, EmptyState, Banner, Skeleton, `interaction.ts` (web hover/focus)
   services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, StoreEvents,
               CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
               HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
               pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf)
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
-              useRestTimer, useLayoutMode (+ pure layoutMode), useSignedIn, useSendMagicLink
-  components/ Screen (optional `aside`), BigButton, Stepper, SetList, ExercisePage, ExercisePager,
-              RestTimerBar, TodayReady, PlanWeek, PlanDayRow, PlannedSessionCard (+ SessionBlocks),
-              theme, stepMath, setRows, planFormat, planSelection, planWeekFixture (tests only)
+              useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
+  components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
+              PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
+              planWeekFixture (tests only); built on `src/ui`. LEGACY `Screen`, `BigButton`, `theme.ts`
+              stay until `app/auth/callback.tsx` moves to `src/ui` (then delete the three files)
 public/_headers (COOP/COEP, copied into dist/ by `expo export`)
 expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vitest.config.ts
 ```
@@ -88,11 +94,22 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 - `EXPO_PUBLIC_API_URL` is inlined at export time (local export:
   `http://localhost:8787`; production: `https://api.tanren.me`). `__DEV__` is
   false in an export (no dev prefills).
-- Two columns iff `useWindowDimensions().width >= 900` (`WIDE_BREAKPOINT`):
-  `Screen` renders `aside` (max 480, gap 24) only then. Today aside = current
-  exercise's SetList + RestTimerBar (read-only, no Log set button); Plan aside
-  = the selected session's card (tap selects; default today's, else next
-  upcoming, else first). Ready states render their own `Screen`.
+- Breakpoints (`breakpointFor` / `useBreakpoint`, width from `useWindowDimensions`): phone < 600,
+  tablet 600–899, desktop >= 900. Phone: one full-width column, bottom tabs. Tablet: one column
+  centred at `contentMaxWidth` 560, gutter 24, bottom tabs. Desktop (`layoutModeFor` = two-column):
+  `Page` renders `aside` (max 480, gap 24) only then, the tab bar is hidden (`tabBarStyle display
+  none`) and `AppBar` renders the nav (`APP_NAV`: Today, Plan, Programs, Library, Progress; active
+  from `usePathname()`) itself, so every screen with an `AppBar` gets it. Today aside = current
+  exercise's SetList + RestTimerBar ring (neutral arc; read-only, no Log set button); Plan aside
+  = the selected session's card (tap selects; default today's, else next upcoming, else first).
+  Ready states render their own `Page`.
+- Theme and design: colours only from `useTheme().colors` / `useStyles` (`src/ui/colors.ts` is the one
+  place with hex; light and dark follow the device or `useThemePreference`). Web hover/focus come
+  from `usePressableInteraction` (`onHoverIn/Out` state, `:focus-visible` gated `outline*` ring in
+  `colors.focus`): RNW's `hovered` flag is not typed. Never pass `accessibilityElementsHidden` /
+  `importantForAccessibility` to a DOM-backed element (react-native-svg `Svg`, `Animated.View`): wrap
+  it in a `View` (React warns about unknown DOM props on web). A child of `Link asChild` must have an
+  object `style`, not an array (expo-router Slot shim throws, and in an export the page is just blank).
 - Plan screen reads only `PlanWeekRepo.currentWeek` (live active plan, live
   week with `weekStart <= today < weekStart + 7`, any weekday — ADR-0007),
   no endpoint. Status: done (live workout_session links it) > today > missed

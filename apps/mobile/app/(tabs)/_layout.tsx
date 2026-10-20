@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router"
-import { Icon, type IconName, sizes, stroke, type, useTheme } from "../../src/ui"
+import { Icon, type IconName, sizes, stroke, type, useBreakpoint, useTheme } from "../../src/ui"
 
 interface TabSpec {
   readonly name: string
@@ -18,6 +18,8 @@ const TABS: ReadonlyArray<TabSpec> = [
 
 export default function TabsLayout() {
   const { colors } = useTheme()
+  // At desktop the `AppBar` renders the nav links, so the bottom bar is hidden.
+  const desktop = useBreakpoint() === "desktop"
   return (
     <Tabs
       screenOptions={{
@@ -25,11 +27,13 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: type.caption,
-        tabBarStyle: {
-          backgroundColor: colors.surfaceRaised,
-          borderTopColor: colors.border,
-          borderTopWidth: stroke.hairline,
-        },
+        tabBarStyle: desktop
+          ? { display: "none" }
+          : {
+              backgroundColor: colors.surfaceRaised,
+              borderTopColor: colors.border,
+              borderTopWidth: stroke.hairline,
+            },
       }}
     >
       {TABS.map((tab) => (
