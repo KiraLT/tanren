@@ -105,6 +105,34 @@ const figure = (tiers: MuscleTiers, view: BodyView, label: string): string =>
     `Neutral grey, NOT coloured: ${[...names(tiers.grey, view), "hands, feet, knees, shins and head"].join("; ")}.`,
   ].join(" ")
 
+const TRUNK_MUSCLES: ReadonlyArray<MuscleGroup> = ["core", "lowerBack", "upperBack", "lats"]
+const LEG_MUSCLES: ReadonlyArray<MuscleGroup> = [
+  "quads",
+  "hamstrings",
+  "glutes",
+  "adductors",
+  "calves",
+]
+
+/**
+ * Extra "stays grey" sentences for the two regions the image model paints by habit (IMG-5d):
+ * the chest when a core or back muscle is primary and the chest is unlisted, and the legs when
+ * an upper-body move lists no leg muscle.
+ */
+export const neutralRules = (tiers: MuscleTiers): ReadonlyArray<string> => {
+  const listed = [...tiers.primary, ...tiers.secondary]
+  return [
+    ...(tiers.primary.some((m) => TRUNK_MUSCLES.includes(m)) && !listed.includes("chest")
+      ? ["The chest and pectorals stay neutral grey: do not colour any part of the chest."]
+      : []),
+    ...(listed.some((m) => LEG_MUSCLES.includes(m))
+      ? []
+      : [
+          "Thighs, knees, lower legs, glutes and feet stay neutral grey: do not colour any part of the legs.",
+        ]),
+  ]
+}
+
 /** The fixed layout and style, then each figure's three tiers and the "only these" rule. */
 export const muscleMapPrompt = (input: MuscleMapInput): string => {
   const tiers = muscleTiers(input)
@@ -116,8 +144,10 @@ export const muscleMapPrompt = (input: MuscleMapInput): string => {
     figure(tiers, "front", "LEFT figure (front view)"),
     figure(tiers, "back", "RIGHT figure (back view)"),
     "Only these muscles are coloured. Every other muscle stays the neutral grey; do not colour neighbouring muscles. Keep each colour strictly inside its own muscle's shape.",
+    ...neutralRules(tiers),
     "Background: fully transparent, no backdrop, no floor, no shadow, no frame.",
     "Strictly no text, labels, letters, numbers, arrows, logos or watermarks.",
+    "Final check: the image has no text, no title, no labels and no captions anywhere, only the two figures.",
   ].join("\n")
 }
 
@@ -219,6 +249,23 @@ export const selectMaps = <A extends MuscleMapInput>(
     ? Result.fail(`unknown catalog id ${unknown.join(", ")}`)
     : Result.succeed(found.flatMap(Option.toArray))
 }
+
+/**
+ * Catalog ids with no generated map: after two regenerations (IMG-5d, IMG-5e) the model still
+ * painted the chest or the legs against the catalog muscles, so `MuscleMapImage` shows the SVG
+ * map for them. Do not regenerate into these without checking the result on a sheet.
+ */
+export const MISSING_MUSCLE_MAPS: ReadonlyArray<string> = [
+  "barbell-wrist-curl",
+  "bird-dog",
+  "crunch",
+  "dumbbell-overhead-triceps-extension",
+  "hollow-hold",
+  "kettlebell-halo",
+  "plank",
+  "push-up",
+  "standing-cable-crunch",
+]
 
 /** Where the shrunk per-exercise maps live (committed assets). */
 export const MUSCLE_MAP_DIR = "assets/musclemaps"

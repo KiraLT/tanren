@@ -5,6 +5,7 @@ import { Array as Arr, Order, Result } from "effect"
 import { describe, expect, it } from "vitest"
 import {
   DRAWABLE_MUSCLES,
+  MISSING_MUSCLE_MAPS,
   MUSCLE_ANATOMY,
   MUSCLE_MAP_DIR,
   MUSCLE_MAP_FILE,
@@ -61,6 +62,40 @@ describe("muscleMapPrompt", () => {
     expect(prompt).toContain("#8A919B")
     expect(prompt).toContain("fully transparent")
     expect(prompt).toContain("no text")
+  })
+
+  it("keeps the chest grey when a trunk muscle is primary and the chest is unlisted", () => {
+    const plank = muscleMapPrompt({
+      catalogId: "x",
+      primaryMuscles: ["core"],
+      secondaryMuscles: ["shoulders"],
+    })
+    expect(plank).toContain("The chest and pectorals stay neutral grey")
+    const pushUp = muscleMapPrompt({
+      catalogId: "x",
+      primaryMuscles: ["core"],
+      secondaryMuscles: ["chest"],
+    })
+    expect(pushUp).not.toContain("The chest and pectorals stay neutral grey")
+  })
+
+  it("keeps the legs grey when no leg muscle is listed", () => {
+    const upper = muscleMapPrompt({
+      catalogId: "x",
+      primaryMuscles: ["triceps"],
+      secondaryMuscles: ["shoulders"],
+    })
+    expect(upper).toContain("Thighs, knees, lower legs, glutes and feet stay neutral grey")
+    const squat = muscleMapPrompt({
+      catalogId: "x",
+      primaryMuscles: ["quads"],
+      secondaryMuscles: [],
+    })
+    expect(squat).not.toContain("Thighs, knees, lower legs, glutes and feet stay neutral grey")
+  })
+
+  it("ends by repeating the no title, no labels rule", () => {
+    expect(prompt.split("\n").at(-1)).toContain("no text, no title, no labels")
   })
 
   it("names an empty tier explicitly instead of listing nothing", () => {
@@ -170,9 +205,14 @@ describe("generated muscle maps", () => {
     CATALOG.map((entry): string => entry.catalogId),
     Order.String,
   )
+  const expected = catalogIds.filter((id) => !MISSING_MUSCLE_MAPS.includes(id))
 
-  it("every catalog id has a muscle map file and every file is a catalog id", () => {
-    expect(files).toEqual(catalogIds)
+  it("every catalog id except MISSING_MUSCLE_MAPS has a file and every file is a catalog id", () => {
+    expect(files).toEqual(expected)
+  })
+
+  it("MISSING_MUSCLE_MAPS lists catalog ids only", () => {
+    expect(MISSING_MUSCLE_MAPS.filter((id) => !catalogIds.includes(id))).toEqual([])
   })
 
   it("the index has one require per file on disk and no extra keys", () => {
