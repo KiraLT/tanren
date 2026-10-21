@@ -57,6 +57,21 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
+## Morning session 09:45 → (HEAD `dd788d2`)
+Owner judged the stick-figure SVGs ugly. Decisions: (1) **MuscleMap** (front/back
+silhouettes, 22 regions, primary/secondary highlights) is committed and shown
+on Library detail, the player and the Progress exercise page; (2) **generated
+illustrations** via OpenAI `gpt-image-1` (`pnpm images:generate`, key in
+`apps/mobile/.env.images`, never read by agents; style in
+`apps/mobile/assets/illustrations/style.md`; ≈ $10 for 235 at medium): six
+samples approved with two prompt fixes (accent on the primary muscle, 3/4
+view); IMG-2 (engineer `a7ff4dd9659b0ed70`) runs the fixes, the full run and
+the Library wiring (static `require` map, `expo-image`/RN `Image`,
+placeholder for missing ids). Next: retire the SVG pipeline
+(`src/illustrations/{rig,glyphs,compose,build,scenes,generated}`,
+`assets/exercises`, the `illustrations:check` stage), keep `muscleMap/`,
+`imagePrompt.ts` and the scripts; commit.
+
 ## Closing state 09:30 (HEAD `10865e1`) — owner called time
 Committed and green (114 files / 1172 tests): steps 1–5 and 7; v2 design,
 programs (Core 30 + player), catalog (235 exercises, Library, MCP
