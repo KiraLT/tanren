@@ -11,7 +11,9 @@
     "serve:web": "pnpm -F @tanren/worker exec wrangler dev -c wrangler.web.jsonc --port 8790",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --root ../.. --project @tanren/mobile",
-    "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
+    "illustrations:build": "node scripts/illustrations.ts build",
+    "illustrations:check": "node scripts/illustrations.ts check",
+    "check": "pnpm illustrations:check && biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
   },
   "dependencies": {
     "@expo/metro-runtime": "catalog:",

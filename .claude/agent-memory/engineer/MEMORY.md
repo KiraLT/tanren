@@ -1,0 +1,1 @@
+- [No rm -r for probe cleanup](feedback_probe_cleanup.md) — probe single named files, delete with plain rm; rm -r is permissions.ask

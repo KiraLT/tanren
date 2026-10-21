@@ -18,3 +18,6 @@ coverage
 # Claude Code local-only files
 .claude/settings.local.json
 .claude/agent-memory-local
+
+# illustrations reviewer preview (rebuilt by illustrations:build)
+apps/mobile/assets/exercises/_contact-sheet.html
