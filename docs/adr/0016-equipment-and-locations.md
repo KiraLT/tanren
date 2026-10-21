@@ -43,6 +43,9 @@ static shared data (ADR-0013); the profile is a synced whole-row entity (sync.ts
 - A pre-v3 bundle cannot decode a v3 profile on pull (its `Profile` required `equipment`), so web
   and OTA ship together with the Worker. The old-client decode defaults stay and there is no server
   guard: no pre-v3 client ever wrote a dirty profile row (EQ-R2 review).
+- Removing the active location behaves differently by design: the app promotes the first remaining
+  location (one-tap UX), while MCP `update_profile` rejects a patch that drops the active location
+  unless `activeLocationId` is sent too (explicit API for Claude).
 - MCP tool count 5/3/8 → 6/3/9; docs/design/mcp.md and the read slice change.
 - **Promote locations to their own table when** any of: a second user/device edits locations
   concurrently (row-level LWW would drop edits), a session/plannedSession needs a `locationId`

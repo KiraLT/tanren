@@ -189,4 +189,32 @@ describe("ProfilePatch", () => {
       expect(cleared.activeLocationId).toEqual(Option.none())
     }),
   )
+
+  it.effect("decodes {} to no keys at all", () =>
+    Effect.gen(function* () {
+      const empty = yield* Schema.decodeUnknownEffect(ProfilePatch)({})
+      expect(Object.keys(empty)).toEqual([])
+    }),
+  )
+
+  it.effect("rejects a non-UUID activeLocationId and more than 10 locations, with paths", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(ProfilePatch, { activeLocationId: "x" })).toEqual([
+        ["activeLocationId"],
+      ])
+      const eleven = Array.from({ length: 11 }, (_, i) => ({
+        id: `00000000-0000-4000-8000-${i.toString().padStart(12, "0")}`,
+        name: `L${i}`,
+        equipment: [],
+      }))
+      expect(yield* failingPaths(ProfilePatch, { locations: eleven })).toEqual([["locations"]])
+    }),
+  )
+
+  it.effect("round-trips locations with a cleared active id (wire, decode, encode)", () =>
+    wireRoundTrips(ProfilePatch, {
+      locations: [{ id: gymId, name: "Gym", equipment: ["barbell", "rack"] }],
+      activeLocationId: null,
+    }),
+  )
 })

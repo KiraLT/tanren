@@ -198,8 +198,8 @@ interface Stamp {
  * Fixed location ids: drawing them from the seeded `Random` shifted every later seeded id, and a
  * stable id keeps `db:seed` over an existing DB idempotent.
  */
-const GYM_ID = LocationId.make("00000000-0000-4000-8000-0000000000a1")
-const HOME_ID = LocationId.make("00000000-0000-4000-8000-0000000000a2")
+const GYM_ID = LocationId.make("ab62ce42-4ce2-4c96-ba20-7a4311c1a832")
+const HOME_ID = LocationId.make("02a02c91-1187-4ae9-bb30-1e16ab801080")
 
 /** Two locations (equipment.md §3): "Gym" (commercialGym preset, active) and "Home". */
 const buildProfile = ({ userId, ms }: Stamp) =>

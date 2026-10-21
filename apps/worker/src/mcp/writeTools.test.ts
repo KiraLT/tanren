@@ -690,9 +690,15 @@ describe("update_profile", () => {
   it.effect("merges a patch: absent keys unchanged, createdAt kept, updatedAt = now", () =>
     Effect.gen(function* () {
       yield* setTime(NOW)
+      const gym = { id: id(0x403), name: "Gym", equipment: [] }
       yield* updateProfile.run(
         userA,
-        yield* profilePatch({ timezone: "Europe/Vilnius", constraints: ["no overhead"] }),
+        yield* profilePatch({
+          timezone: "Europe/Vilnius",
+          constraints: ["no overhead"],
+          locations: [gym],
+          activeLocationId: gym.id,
+        }),
       )
       yield* setTime(LATER)
       const merged = yield* updateProfile.run(
@@ -703,10 +709,17 @@ describe("update_profile", () => {
         timezone: "Europe/Vilnius",
         constraints: ["no overhead"],
         goals: [{ kind: "strength", note: Option.none() }],
+        locations: [gym],
+        activeLocationId: Option.some(gym.id),
         createdAt: NOW,
         updatedAt: LATER,
       })
-      expect(yield* (yield* ProfileRepo).get(userA)).toEqual(Option.some(merged))
+      const untouched = yield* updateProfile.run(userA, yield* profilePatch({}))
+      expect(untouched).toMatchObject({
+        locations: [gym],
+        activeLocationId: Option.some(gym.id),
+      })
+      expect(yield* (yield* ProfileRepo).get(userA)).toEqual(Option.some(untouched))
     }).pipe(Effect.provide(TestLayer)),
   )
 })

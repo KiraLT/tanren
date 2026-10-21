@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import { Exercise, ExerciseInsert, ExercisePatch, MuscleGroup } from "./exercise"
-import { failingPaths, roundTrips } from "./testing"
+import { failingPaths, roundTrips, wireRoundTrips } from "./testing"
 
 const exerciseWire = {
   id: "1b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d",
@@ -108,6 +108,49 @@ describe("ExercisePatch", () => {
       expect("notes" in keep).toBe(false)
       expect(clear.notes).toEqual(Option.none())
       expect(set.notes).toEqual(Option.some("brace, then sit back"))
+    }),
+  )
+
+  it.effect("decodes {} to no keys and {name} without a catalogId key", () =>
+    Effect.gen(function* () {
+      const decode = Schema.decodeUnknownEffect(ExercisePatch)
+      expect(Object.keys(yield* decode({}))).toEqual([])
+      expect(Object.keys(yield* decode({ name: "Bench" }))).toEqual(["name"])
+    }),
+  )
+
+  it.effect("catalogId: a slug links, null unlinks", () =>
+    Effect.gen(function* () {
+      const decode = Schema.decodeUnknownEffect(ExercisePatch)
+      expect((yield* decode({ catalogId: "barbell-back-squat" })).catalogId).toEqual(
+        Option.some("barbell-back-squat"),
+      )
+      expect((yield* decode({ catalogId: null })).catalogId).toEqual(Option.none())
+    }),
+  )
+
+  it.effect("rejects a bad field with its path", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(ExercisePatch, { catalogId: "Back Squat" })).toEqual([
+        ["catalogId"],
+      ])
+      expect(yield* failingPaths(ExercisePatch, { muscleGroups: ["chest", "chest"] })).toEqual([
+        ["muscleGroups"],
+      ])
+    }),
+  )
+
+  it.effect("round-trips the wire shape (wire, decode, encode)", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(ExercisePatch, {
+        name: "Squat",
+        aliases: ["Back Squat"],
+        muscleGroups: ["quads"],
+        notes: null,
+        catalogId: "barbell-back-squat",
+      })
+      yield* wireRoundTrips(ExercisePatch, { catalogId: null })
+      yield* wireRoundTrips(ExercisePatch, {})
     }),
   )
 })

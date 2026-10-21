@@ -2,7 +2,7 @@ import type { Location, LocationPreset } from "@tanren/shared"
 import { Option } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
-import { useProfile } from "../../hooks/useProfile"
+import { useProfileState } from "../../hooks/useProfile"
 import { Banner, Button, ListRow, StatusPill, space, Text } from "../../ui"
 import { equipmentCountLabel } from "./locationsState"
 import { SettingsSection } from "./SettingsSection"
@@ -20,8 +20,9 @@ const PRESET_BUTTONS: ReadonlyArray<{ readonly preset: LocationPreset; readonly 
  */
 export function EquipmentSection() {
   const router = useRouter()
-  const profile = useProfile()
+  const state = useProfileState()
   const { addPreset, error, dismiss } = useLocations()
+  const profile = state._tag === "Loaded" ? state.profile : Option.none()
   const locations: ReadonlyArray<Location> = Option.match(profile, {
     onNone: () => [],
     onSome: (found) => found.locations,
@@ -53,7 +54,7 @@ export function EquipmentSection() {
         )
       })}
       <View style={{ gap: space.sm, padding: space.lg }}>
-        {locations.length === 0 ? (
+        {state._tag === "Loaded" && locations.length === 0 ? (
           <Text variant="subhead" tone="muted">
             Tell Tanren what your gym has; the Library then shows what you can do there.
           </Text>

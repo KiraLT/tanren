@@ -290,6 +290,52 @@ describe("nested set routes with foreign or bogus ids", () => {
     expect(statuses).toEqual([400, 400, 400])
   })
 
+  it("PATCH /exercises/:id with only a name keeps the catalog link; null unlinks", async () => {
+    const app = newApp()
+    const created = idOf(
+      await (
+        await call(
+          app,
+          owner,
+          "POST",
+          "/exercises",
+          json({
+            name: "Squat",
+            aliases: [],
+            muscleGroups: [],
+            notes: null,
+            catalogId: "barbell-back-squat",
+          }),
+        )
+      ).json(),
+    ).id
+    const catalogIdOf = Schema.decodeUnknownSync(
+      Schema.Struct({ name: Schema.String, catalogId: Schema.NullOr(Schema.String) }),
+    )
+    const renamed = await call(
+      app,
+      owner,
+      "PATCH",
+      `/exercises/${created}`,
+      json({ name: "Bench" }),
+    )
+    expect(renamed.status).toBe(200)
+    expect(catalogIdOf(await renamed.json())).toEqual({
+      name: "Bench",
+      catalogId: "barbell-back-squat",
+    })
+    const stored = await call(app, owner, "GET", `/exercises/${created}`)
+    expect(catalogIdOf(await stored.json()).catalogId).toBe("barbell-back-squat")
+    const unlinked = await call(
+      app,
+      owner,
+      "PATCH",
+      `/exercises/${created}`,
+      json({ catalogId: null }),
+    )
+    expect(catalogIdOf(await unlinked.json())).toEqual({ name: "Bench", catalogId: null })
+  })
+
   it("writes an exercise with an 80-character name and 400s 81", async () => {
     const app = newApp()
     const create = (name: string) =>

@@ -70,8 +70,17 @@ export type ExerciseEncoded = (typeof Exercise)["Encoded"]
 export const ExerciseInsert = Exercise.mapFields(Struct.omit(ROW_COLUMNS)).check(aliasesAreDistinct)
 export type ExerciseInsert = typeof ExerciseInsert.Type
 
-/** Exact partial: absent key = unchanged. Alias rules need the stored row; the server checks them. */
-export const ExercisePatch = Exercise.mapFields(Struct.omit(ROW_COLUMNS)).mapFields(
-  Struct.map(Schema.optionalKey),
-)
+/**
+ * Exact partial: absent key = unchanged. Alias rules need the stored row; the server checks them.
+ * Built from the bare field schemas, not by mapping `ExerciseFields`: `catalogId` carries a decode
+ * default (`None`) that would turn an absent key into "unlink from the catalog". `catalogId: null`
+ * unlinks on purpose.
+ */
+export const ExercisePatch = Schema.Struct({
+  name: Schema.optionalKey(ExerciseFields.name),
+  aliases: Schema.optionalKey(ExerciseFields.aliases),
+  muscleGroups: Schema.optionalKey(ExerciseFields.muscleGroups),
+  notes: Schema.optionalKey(ExerciseFields.notes),
+  catalogId: Schema.optionalKey(Schema.OptionFromNullOr(CatalogId)),
+})
 export type ExercisePatch = typeof ExercisePatch.Type
