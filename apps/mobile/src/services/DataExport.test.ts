@@ -56,7 +56,6 @@ const wire = [
       goals: [{ kind: "strength", note: null }],
       constraints: [],
       availableDays: ["mon", "wed"],
-      equipment: [],
       locations: [],
       activeLocationId: null,
       timezone: "Europe/Vilnius",

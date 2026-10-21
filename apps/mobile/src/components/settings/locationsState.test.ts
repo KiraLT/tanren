@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
-import { LocationId } from "@tanren/shared"
-import { Option } from "effect"
+import { IdGenerator, LocationId } from "@tanren/shared"
+import { DateTime, Effect, Layer, Option } from "effect"
+import { CurrentUser } from "../../services/CurrentUser"
+import { LocalStore } from "../../services/LocalStore"
+import { ProfileRepo } from "../../services/ProfileRepo"
+import { nodeSqlDriverLayer } from "../../services/SqlDriver.testing"
+import { StoreEvents } from "../../services/StoreEvents"
 import {
+  addPresetLocation,
+  applyLocations,
   emptyLocations,
   type LocationsAction,
   type LocationsState,
@@ -87,4 +94,65 @@ describe("reduceLocations", () => {
     )
     expect(run([{ _tag: "SetActive", id: id(9) }], gymAndHome)).toEqual(gymAndHome)
   })
+})
+
+const RepoLayer = Layer.mergeAll(
+  ProfileRepo.layer.pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(
+        LocalStore.layerNoDeps.pipe(
+          Layer.provideMerge(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
+        ),
+        CurrentUser.layerTest(Option.none()),
+        DateTime.layerCurrentZoneNamed("Europe/Vilnius").pipe(Layer.orDie),
+      ),
+    ),
+  ),
+  IdGenerator.layerTest,
+)
+
+const dirtyRows = LocalStore.use((store) =>
+  store.all({ sql: `SELECT "_dirty" FROM "profile"`, params: [] }),
+)
+
+describe("applyLocations", () => {
+  it.effect("the first added location is saved as the active one", () =>
+    Effect.gen(function* () {
+      const added = yield* addPresetLocation("home")
+      const profile = yield* ProfileRepo.use((repo) => repo.get)
+      expect(Option.map(profile, (p) => p.activeLocationId)).toEqual(
+        Option.some(Option.some(added)),
+      )
+      expect(Option.map(profile, (p) => p.locations.map((l) => l.name))).toEqual(
+        Option.some(["Home"]),
+      )
+    }).pipe(Effect.provide(RepoLayer)),
+  )
+
+  it.effect("removing the active location saves no active one", () =>
+    Effect.gen(function* () {
+      const gym = yield* addPresetLocation("commercialGym")
+      yield* addPresetLocation("home")
+      const next = yield* applyLocations({ _tag: "Remove", id: gym })
+      expect(next.activeLocationId).toEqual(Option.none())
+      const profile = yield* ProfileRepo.use((repo) => repo.get)
+      expect(Option.map(profile, (p) => Option.isNone(p.activeLocationId))).toEqual(
+        Option.some(true),
+      )
+    }).pipe(Effect.provide(RepoLayer)),
+  )
+
+  it.effect("a save marks the profile row dirty", () =>
+    Effect.gen(function* () {
+      yield* addPresetLocation("bodyweightOnly")
+      expect(yield* dirtyRows).toEqual([{ _dirty: 1 }])
+    }).pipe(Effect.provide(RepoLayer)),
+  )
+
+  it.effect("a no-op action writes nothing", () =>
+    Effect.gen(function* () {
+      yield* applyLocations({ _tag: "SetActive", id: id(9) })
+      expect(yield* dirtyRows).toEqual([])
+    }).pipe(Effect.provide(RepoLayer)),
+  )
 })
