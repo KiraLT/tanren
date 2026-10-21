@@ -14,6 +14,15 @@ same Worker `tanren`).
 Run `pnpm deploy:preflight` first (add `--skip-gate` to skip `pnpm check`): a read-only checklist of
 everything below with the next command for each failure; it never deploys, logs in or writes a secret.
 
+Owner values it checks in `apps/worker/wrangler.jsonc` `env.production` (any `<owner: …>` placeholder or
+local value is a ✗): D1 `database_id` and KV `OAUTH_KV` `id` (real ids from §1.3); `vars.NATIVE_RETURN_PREFIXES`
+= `exps://u.expo.dev/<projectId>/` (every comma-separated entry starts with `exps://u.expo.dev/` and has the
+project path, §2); `vars.MCP_RESOURCE_URL` = `https://mcp.tanren.me/mcp`; `vars.EMAIL_MODE` = `provider`;
+`vars.EMAIL_FROM` on `tanren.me`; `vars.ALLOWED_ORIGINS` = `https://tanren.me` and nothing else. It also lists
+both secrets (§3), requires `wrangler.web.jsonc` to serve `../mobile/dist` on route `tanren.me`, and greps
+`apps/mobile/dist` for `api.tanren.me` so a bundle exported without `EXPO_PUBLIC_API_URL` is a ✗ whose fix is
+`EXPO_PUBLIC_API_URL=https://api.tanren.me pnpm web:export`.
+
 ## 1. One-time accounts and DNS
 
 1. `tanren.me` is on Cloudflare DNS (plan: yes). Custom domains for Workers create the DNS records and

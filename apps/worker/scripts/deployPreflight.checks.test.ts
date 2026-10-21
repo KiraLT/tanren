@@ -4,6 +4,7 @@ import {
   type Check,
   checkDns,
   checkExport,
+  checkExportApiUrl,
   checkGate,
   checkProduction,
   checkSecrets,
@@ -34,6 +35,7 @@ const production = (overrides: {
           EMAIL_MODE: "provider",
           EMAIL_FROM: "Tanren <login@tanren.me>",
           MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
+          NATIVE_RETURN_PREFIXES: "exps://u.expo.dev/3f2c1a9e-1111-4222-8333-444455556666/",
           ...overrides.vars,
         },
         d1_databases: [
@@ -103,6 +105,79 @@ describe("checkProduction", () => {
   })
 })
 
+describe("checkProduction native sign-in and tightened vars", () => {
+  const failingFor = (vars: Record<string, string>) =>
+    failing(checkProduction(parseWrangler(production({ vars }))))
+
+  it("fails NATIVE_RETURN_PREFIXES while the <owner: ...> placeholder is in it", () => {
+    expect(
+      failingFor({ NATIVE_RETURN_PREFIXES: "exps://u.expo.dev/<owner: eas projectId>/" }),
+    ).toEqual(["prod.var.NATIVE_RETURN_PREFIXES"])
+  })
+
+  it("fails NATIVE_RETURN_PREFIXES for the wrong scheme, a host-only value or localhost", () => {
+    const bad = ["exp://localhost:", "tanren://", "exps://u.expo.dev/", "exps://other.example/abc/"]
+    expect(bad.map((value) => failingFor({ NATIVE_RETURN_PREFIXES: value }))).toEqual(
+      bad.map(() => ["prod.var.NATIVE_RETURN_PREFIXES"]),
+    )
+  })
+
+  it("fails when NATIVE_RETURN_PREFIXES is missing", () => {
+    const text = production({}).replace(/"NATIVE_RETURN_PREFIXES":"[^"]*",?/, "")
+    expect(failing(checkProduction(parseWrangler(text)))).toEqual([
+      "prod.var.NATIVE_RETURN_PREFIXES",
+    ])
+  })
+
+  it("requires EMAIL_MODE provider", () => {
+    expect(failingFor({ EMAIL_MODE: "console" })).toEqual(["prod.var.EMAIL_MODE"])
+  })
+
+  it("requires EMAIL_FROM on tanren.me (bare or display-name form)", () => {
+    expect(failingFor({ EMAIL_FROM: "login@tanren.me" })).toEqual([])
+    expect(failingFor({ EMAIL_FROM: "Tanren <dev@tanren.local>" })).toEqual(["prod.var.EMAIL_FROM"])
+    expect(failingFor({ EMAIL_FROM: "Tanren <login@tanren.me.evil.com>" })).toEqual([
+      "prod.var.EMAIL_FROM",
+    ])
+  })
+
+  it("requires ALLOWED_ORIGINS to be exactly https://tanren.me", () => {
+    expect(failingFor({ ALLOWED_ORIGINS: "https://tanren.me,https://www.tanren.me" })).toEqual([
+      "prod.var.ALLOWED_ORIGINS",
+    ])
+    expect(failingFor({ ALLOWED_ORIGINS: "https://example.com" })).toEqual([
+      "prod.var.ALLOWED_ORIGINS",
+    ])
+  })
+
+  it("fails the local KV id and the placeholder D1 id with the create commands as next", () => {
+    const checks = checkProduction(
+      parseWrangler(production({ kv: "local-oauth-kv", d1: "<owner: wrangler d1 create>" })),
+    )
+    expect(failing(checks)).toEqual(["prod.d1", "prod.kv"])
+    const kv = checks.find((c) => c.id === "prod.kv")
+    expect(Option.getOrElse(kv?.next ?? Option.none(), () => "")).toContain("kv namespace create")
+  })
+})
+
+describe("checkExportApiUrl", () => {
+  it("is ok when the bundle mentions api.tanren.me", () => {
+    expect(checkExportApiUrl(Option.some(true)).status).toBe("ok")
+  })
+
+  it("fails with the export command when the bundle was built without the API url", () => {
+    const row = checkExportApiUrl(Option.some(false))
+    expect(row.status).toBe("fail")
+    expect(Option.getOrElse(row.next, () => "")).toBe(
+      "EXPO_PUBLIC_API_URL=https://api.tanren.me pnpm web:export",
+    )
+  })
+
+  it("is only info when there is no dist (the export row fails instead)", () => {
+    expect(checkExportApiUrl(Option.none()).status).toBe("info")
+  })
+})
+
 describe("checkWeb", () => {
   it("needs the mobile dist directory and the tanren.me route", () => {
     const good = parseWrangler(
@@ -120,7 +195,9 @@ describe("checkExport", () => {
     const stale = checkExport(Option.some(now - 3 * 60 * 60_000), now)
     expect(stale.status).toBe("fail")
     expect(stale.detail).toContain("stale")
-    expect(Option.getOrElse(stale.next, () => "")).toContain("pnpm web:export")
+    expect(Option.getOrElse(stale.next, () => "")).toBe(
+      "EXPO_PUBLIC_API_URL=https://api.tanren.me pnpm web:export",
+    )
     expect(checkExport(Option.none(), now).status).toBe("fail")
   })
 })
@@ -151,6 +228,9 @@ describe("checkSecrets, checkGate and ownerSession", () => {
     expect(rows.map((r) => r.status)).toEqual(["info", "info", "info"])
     expect(Option.getOrElse(rows[0]?.next ?? Option.none(), () => "")).toContain(
       "secret put BETTER_AUTH_SECRET --env production",
+    )
+    expect(Option.getOrElse(rows[1]?.next ?? Option.none(), () => "")).toContain(
+      "secret put RESEND_API_KEY --env production",
     )
     expect(checkSecrets([]).at(-1)?.status).toBe("ok")
   })

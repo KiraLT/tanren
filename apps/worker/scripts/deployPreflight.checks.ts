@@ -78,6 +78,38 @@ const EDIT = "edit apps/worker/wrangler.jsonc env.production (docs/design/deploy
 const isPlaceholder = (value: string): boolean =>
   value.trim() === "" || value.startsWith("<") || value === ZERO_D1_ID || value === "local-oauth-kv"
 
+/** Native sign-in codes may go only to this Expo Go origin (docs/design/deploy.md §2). */
+export const NATIVE_PREFIX_ROOT = "exps://u.expo.dev/"
+export const PROD_ORIGIN = "https://tanren.me"
+export const MAIL_DOMAIN = "tanren.me"
+
+const csv = (value: string): ReadonlyArray<string> =>
+  Arr.filter(
+    Arr.map(value.split(","), (part) => part.trim()),
+    (part) => part !== "",
+  )
+
+/** `exps://u.expo.dev/<projectId>/`: the project path is required and no placeholder is left. */
+export const isNativePrefixes = (value: string): boolean => {
+  const entries = csv(value)
+  return (
+    Arr.isReadonlyArrayNonEmpty(entries) &&
+    Arr.every(
+      entries,
+      (entry) =>
+        entry.startsWith(NATIVE_PREFIX_ROOT) &&
+        entry.length > NATIVE_PREFIX_ROOT.length &&
+        !entry.includes("<owner:") &&
+        !entry.includes("<") &&
+        !entry.includes(">"),
+    )
+  )
+}
+
+/** Accepts `login@tanren.me` and `Name <login@tanren.me>`. */
+export const isTanrenSender = (value: string): boolean =>
+  new RegExp(`^(?:[^<>]*<)?[^\\s<>@]+@${MAIL_DOMAIN.replace(".", "\\.")}>?$`).test(value.trim())
+
 const isLocal = (value: string): boolean => /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(value)
 
 const hasCustomDomain = (config: ProductionBlock, pattern: string): boolean =>
@@ -131,13 +163,27 @@ export const checkProduction = (config: Option.Option<WranglerConfig>): Readonly
     varCheck(
       vars,
       "ALLOWED_ORIGINS",
-      (v) => v.trim() !== "" && !isLocal(v),
-      '"https://tanren.me" (no localhost)',
+      (v) => {
+        const origins = csv(v)
+        return origins.length === 1 && origins[0] === PROD_ORIGIN
+      },
+      `"${PROD_ORIGIN}" only (no localhost, no other origin)`,
     ),
     // Config.ts accepts "console" | "provider"; "provider" is the Resend mode (deploy.md §2).
     varCheck(vars, "EMAIL_MODE", (v) => v === "provider", '"provider" (Resend)'),
-    varCheck(vars, "EMAIL_FROM", (v) => v.trim() !== "", '"Tanren <login@tanren.me>"'),
+    varCheck(
+      vars,
+      "EMAIL_FROM",
+      isTanrenSender,
+      `a sender on ${MAIL_DOMAIN}, e.g. "Tanren <login@tanren.me>"`,
+    ),
     varCheck(vars, "MCP_RESOURCE_URL", (v) => v === MCP_RESOURCE_URL, `"${MCP_RESOURCE_URL}"`),
+    varCheck(
+      vars,
+      "NATIVE_RETURN_PREFIXES",
+      isNativePrefixes,
+      `"${NATIVE_PREFIX_ROOT}<projectId>/" with the id from eas init (apps/mobile/app.json extra.eas.projectId)`,
+    ),
     Option.match(d1, {
       onNone: () => fail("prod.d1", "D1 binding DB", "missing", EDIT),
       onSome: (d) =>
@@ -260,6 +306,27 @@ export const checkExport = (
     },
   })
 
+/**
+ * The API base URL is inlined at export time, so a bundle built without
+ * `EXPO_PUBLIC_API_URL=https://api.tanren.me` talks to localhost. `scan` is `None` when
+ * `apps/mobile/dist` does not exist (the export row already fails then), else whether any file in
+ * it contains `api.tanren.me`.
+ */
+export const checkExportApiUrl = (scan: Option.Option<boolean>): Check =>
+  Option.match(scan, {
+    onNone: () =>
+      info("export.apiUrl", "web export targets api.tanren.me", "skipped (no apps/mobile/dist)"),
+    onSome: (found) =>
+      found
+        ? ok("export.apiUrl", "web export targets api.tanren.me", "found in apps/mobile/dist")
+        : fail(
+            "export.apiUrl",
+            "web export targets api.tanren.me",
+            "not found in apps/mobile/dist: built without EXPO_PUBLIC_API_URL",
+            EXPORT_CMD,
+          ),
+  })
+
 /* ---------- 6. wrangler whoami ---------- */
 
 export interface WhoamiRun {
@@ -319,7 +386,11 @@ export const ownerSession = (checks: ReadonlyArray<Check>): ReadonlyArray<Sessio
       "pnpm exec wrangler d1 create tanren && pnpm exec wrangler kv namespace create OAUTH_KV",
     done: allOk(checks, "prod.d1") && allOk(checks, "prod.kv"),
   },
-  { command: "paste both ids into wrangler.jsonc env.production", done: allOk(checks, "prod") },
+  {
+    command:
+      "paste both ids and the EAS project id (NATIVE_RETURN_PREFIXES) into wrangler.jsonc env.production",
+    done: allOk(checks, "prod"),
+  },
   {
     command: SECRETS.map((s) => `pnpm exec wrangler secret put ${s} --env production`).join(" && "),
     done: false,

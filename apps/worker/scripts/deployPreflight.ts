@@ -6,13 +6,14 @@
  */
 import { execFile } from "node:child_process"
 import { promises as dns } from "node:dns"
-import { access, readFile, stat } from "node:fs/promises"
+import { access, readdir, readFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 import { Array as Arr, Console, Effect, Option } from "effect"
 import {
   type Check,
   checkDns,
   checkExport,
+  checkExportApiUrl,
   checkGate,
   checkProduction,
   checkSecrets,
@@ -73,6 +74,27 @@ const exists = (path: string) =>
     Effect.match({ onFailure: () => false, onSuccess: () => true }),
   )
 
+const distDir = join(repoRoot, "apps/mobile/dist")
+
+/** `Some(found)` when the export exists: does any file in it mention `api.tanren.me`? */
+const scanDist = Effect.tryPromise(() =>
+  readdir(distDir, { recursive: true, withFileTypes: true }),
+).pipe(
+  Effect.flatMap((entries) =>
+    Effect.forEach(
+      Arr.filter(entries, (e) => e.isFile() && /\.(js|html|json)$/.test(e.name)),
+      (e) =>
+        Effect.tryPromise(() => readFile(join(e.parentPath, e.name), "utf8")).pipe(
+          Effect.map((text) => text.includes("api.tanren.me")),
+          Effect.orElseSucceed(() => false),
+        ),
+      { concurrency: 8 },
+    ),
+  ),
+  Effect.map((hits) => Option.some(Arr.some(hits, (hit) => hit))),
+  Effect.orElseSucceed(() => Option.none<boolean>()),
+)
+
 const resolveHost = (host: string) =>
   Effect.tryPromise({
     try: () => dns.resolve4(host),
@@ -105,6 +127,7 @@ const program = Effect.gen(function* () {
     Effect.map((s) => Option.some(s.mtimeMs)),
     Effect.orElseSucceed(() => Option.none<number>()),
   )
+  const distScan = yield* scanDist
   const dnsRows = yield* Effect.forEach(
     ["tanren.me", "api.tanren.me", "mcp.tanren.me"],
     resolveHost,
@@ -118,7 +141,7 @@ const program = Effect.gen(function* () {
     ["2. wrangler config", [...checkProduction(api), ...checkWeb(web)]],
     ["3. Secrets", checkSecrets(Arr.flatten(devVars))],
     ["4. DNS", dnsRows],
-    ["5. Web export", [checkExport(indexMtime, nowMs)]],
+    ["5. Web export", [checkExport(indexMtime, nowMs), checkExportApiUrl(distScan)]],
     ["6. Cloudflare login", [checkWhoami(whoami satisfies WhoamiRun)]],
   ]
   const all = Arr.flatMap(sections, ([, checks]) => checks)
