@@ -1,33 +1,6 @@
 import { Tabs } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import {
-  Icon,
-  type IconName,
-  sizes,
-  space,
-  stroke,
-  type,
-  useBreakpoint,
-  useTheme,
-} from "../../src/ui"
-
-interface TabSpec {
-  readonly name: string
-  readonly title: string
-  readonly icon: IconName
-}
-
-// Final five routes (ADR-0014); other teams replace the route files, never this list.
-const TABS: ReadonlyArray<TabSpec> = [
-  { name: "today", title: "Today", icon: "timer" },
-  { name: "plan", title: "Plan", icon: "calendar" },
-  { name: "programs", title: "Programs", icon: "play" },
-  { name: "library", title: "Library", icon: "grid" },
-  { name: "progress", title: "Progress", icon: "chart" },
-]
-
-/** Bar height without the safe-area inset: 24 px icon, 16 px caption, item padding, `space.sm` air. */
-const TAB_BAR_CONTENT = sizes.controlLg + space.sm
+import { APP_NAV, Icon, sizes, space, stroke, type, useBreakpoint, useTheme } from "../../src/ui"
 
 export default function TabsLayout() {
   const { colors } = useTheme()
@@ -40,14 +13,13 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: type.caption,
+        tabBarLabelStyle: type.label,
         tabBarStyle: desktop
           ? { display: "none" }
           : {
-              // The default 49 px bar squeezes the caption to 13 px (overflow hidden clips the
-              // descenders on web): size the content for icon + caption, then add the
-              // home-indicator inset on top (0 on web).
-              height: TAB_BAR_CONTENT + insets.bottom,
+              // 56 px of bar (24 px glyph + 12/16 label + air) plus the home-indicator inset
+              // (0 on web); the default 49 px bar squeezed the label and clipped descenders.
+              height: sizes.tabBar + insets.bottom,
               paddingTop: space.xs,
               paddingBottom: insets.bottom,
               backgroundColor: colors.surfaceRaised,
@@ -56,18 +28,20 @@ export default function TabsLayout() {
             },
       }}
     >
-      {TABS.map((tab) => (
+      {/* The five routes and their glyphs come from `APP_NAV` (ADR-0014, ui-direction-final §6). */}
+      {APP_NAV.map((tab) => (
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
           options={{
-            title: tab.title,
+            title: tab.label,
             // The navigator's `color` is a ColorValue; `Icon` takes a string, so derive it from the roles.
             tabBarIcon: ({ focused }) => (
               <Icon
                 name={tab.icon}
                 color={focused ? colors.accent : colors.textMuted}
                 size={sizes.iconMd}
+                strokeWidth={focused ? stroke.icon : stroke.iconThin}
               />
             ),
           }}

@@ -6,8 +6,9 @@ import { useBreakpoint } from "../hooks/useLayoutMode"
 import { APP_NAV, isActivePath } from "./appNav"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
+import { TimerRing } from "./TimerRing"
 import { useTheme } from "./theme"
-import { gutter, radius, sizes, space } from "./tokens"
+import { gutter, radius, sizes, space, stroke } from "./tokens"
 
 export interface AppBarNavItem {
   readonly href: Href
@@ -15,16 +16,26 @@ export interface AppBarNavItem {
   readonly active: boolean
 }
 
+/** Small line above the title: an optional 20 px progress ring and a muted caption. */
+export interface AppBarEyebrow {
+  readonly label: string
+  /** Fraction 0..1 for the ring; omit for text only. */
+  readonly progress?: number
+}
+
 export interface AppBarProps {
   readonly title: string
   readonly subtitle?: string
+  readonly eyebrow?: AppBarEyebrow
   readonly leading?: ReactNode
+  /** Right slot: a counter + segment bar, or a 24 px `more` glyph. */
   readonly trailing?: ReactNode
   /**
-   * Top-level links, rendered only at `desktop` (where the tab bar is hidden). Omit to get the
-   * app's five destinations (`APP_NAV`) with the active one taken from the current path.
+   * Show the top-level links at `desktop` (where the tab bar is hidden): the app's five
+   * destinations (`APP_NAV`) with the active one taken from the current path. Default true;
+   * the player passes false.
    */
-  readonly nav?: ReadonlyArray<AppBarNavItem>
+  readonly nav?: boolean
   readonly style?: StyleProp<ViewStyle>
 }
 
@@ -60,35 +71,54 @@ function NavLink({ item }: { readonly item: AppBarNavItem }) {
   )
 }
 
-/** Screen title row (56 high); at desktop it also carries the nav links. */
-export function AppBar({ title, subtitle, leading, trailing, nav, style }: AppBarProps) {
+/** Screen title row (56 min) with a hairline below; at desktop it also carries the nav links. */
+export function AppBar({
+  title,
+  subtitle,
+  eyebrow,
+  leading,
+  trailing,
+  nav = true,
+  style,
+}: AppBarProps) {
+  const { colors } = useTheme()
   const breakpoint = useBreakpoint()
   const pathname = usePathname()
-  const showNav = breakpoint === "desktop"
-  const items: ReadonlyArray<AppBarNavItem> =
-    nav ??
-    Arr.map(APP_NAV, (link) => ({
-      href: link.href,
-      label: link.label,
-      active: typeof link.href === "string" && isActivePath(pathname, link.href),
-    }))
+  const showNav = nav && breakpoint === "desktop"
+  const items: ReadonlyArray<AppBarNavItem> = Arr.map(APP_NAV, (link) => ({
+    href: link.href,
+    label: link.label,
+    active: typeof link.href === "string" && isActivePath(pathname, link.href),
+  }))
   return (
     <View
       style={[
         {
-          minHeight: sizes.controlLg,
+          minHeight: sizes.appBar,
           flexDirection: "row",
           alignItems: "center",
           gap: space.md,
           paddingHorizontal: gutter[breakpoint],
           paddingVertical: space.sm,
+          borderBottomWidth: stroke.hairline,
+          borderBottomColor: colors.border,
         },
         style,
       ]}
     >
       {leading}
       <View style={showNav ? { flexShrink: 0 } : { flex: 1 }}>
-        <Text variant="title" accessibilityRole="header" numberOfLines={1}>
+        {eyebrow === undefined ? null : (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            {eyebrow.progress === undefined ? null : (
+              <TimerRing progress={eyebrow.progress} size={sizes.ringSm} />
+            )}
+            <Text variant="caption" tone="muted" numberOfLines={1}>
+              {eyebrow.label}
+            </Text>
+          </View>
+        )}
+        <Text variant="title2" accessibilityRole="header" numberOfLines={1}>
           {title}
         </Text>
         {subtitle === undefined ? null : (

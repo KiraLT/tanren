@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { type StyleProp, View, type ViewStyle } from "react-native"
 import Svg, { Circle } from "react-native-svg"
 import { useTheme } from "./theme"
+import { sizes } from "./tokens"
 
 /** `neutral` draws the arc in `text`, for screens where an accented button sits beside the ring. */
 export type TimerRingTone = "accent" | "success" | "neutral"
@@ -23,11 +24,19 @@ export interface TimerRingProps {
 const clamp01 = (value: number): number =>
   Number.isNaN(value) ? 0 : Math.min(1, Math.max(0, value))
 
-/** Rest ring: a `border` track and an arc that shrinks clockwise from 12 o'clock; no animation. */
+/** Arc thickness per size (ui-direction-final §5): 20 px app-bar ring 3, 44 px card ring 4, big 12. */
+export const ringStrokeFor = (size: number): number =>
+  size <= sizes.ringSm ? 3 : size <= sizes.ringMd ? 4 : 12
+
+/**
+ * Rest ring: a `border` track and an arc that shrinks clockwise from 12 o'clock; no animation.
+ * Sizes `sizes.ringSm` (20, app bars) and `sizes.ringMd` (44, cards) are the progress marks;
+ * the default 220 is the rest screen.
+ */
 export function TimerRing({
   progress,
   size = 220,
-  strokeWidth = 12,
+  strokeWidth = ringStrokeFor(size),
   tone = "accent",
   children,
   accessibilityLabel,
