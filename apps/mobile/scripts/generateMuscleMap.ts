@@ -1,9 +1,11 @@
 /**
- * `node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts --out <dir>` (from apps/mobile;
- * no package.json script yet, IMG-3 is a sample): the IMG-3 sample muscle maps (`SAMPLE_MAPS`, 3 images) from
- * OpenAI `gpt-image-1` (`POST /v1/images/generations`, plain fetch, transparent webp), written to
- * `<dir>/<name>.webp`. Existing files are skipped. Cost: 3 medium 1024² images per run (about
- * $0.13). Pure logic: src/illustrations/muscleMapPrompt.ts.
+ * `node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts --out <dir> [--catalog <id,…> |
+ * --catalog --all]` (from apps/mobile; no package.json script yet): one per-exercise muscle map (front +
+ * back figure in one square, catalog primary/secondary muscles) from OpenAI `gpt-image-1`
+ * (`POST /v1/images/generations`, plain fetch, transparent webp), written to `<dir>/<catalogId>.webp`.
+ * No `--catalog`: the 5 `SAMPLE_IDS`. Existing files are skipped, so a re-run retries only failures.
+ * Cost: about $0.04 per medium 1024² image (5 samples ≈ $0.21; `--all`, 291 ids ≈ $12).
+ * Pure logic: src/illustrations/muscleMapPrompt.ts.
  *
  * The key comes from `node --env-file-if-exists=.env.images`; this script never prints it, and API
  * error text goes through `redactSecrets`.
@@ -33,16 +35,18 @@ registerHooks({
   },
 })
 
+const { CATALOG } = await import("@tanren/shared")
 const P = await import("../src/illustrations/imagePrompt")
 const M = await import("../src/illustrations/muscleMapPrompt")
 
-const outDir = resolve(
-  Result.getOrElse(M.parseMuscleArgs(process.argv.slice(2)), (message): never => {
-    console.error(`images:muscle: ${message}`)
-    console.error(M.MUSCLE_USAGE)
-    return process.exit(2)
-  }),
-)
+const usageExit = (message: string): never => {
+  console.error(`images:muscle: ${message}`)
+  console.error(M.MUSCLE_USAGE)
+  return process.exit(2)
+}
+const args = Result.getOrElse(M.parseMuscleArgs(process.argv.slice(2)), usageExit)
+const maps = Result.getOrElse(M.selectMaps(args.selection, CATALOG), usageExit)
+const outDir = resolve(args.out)
 mkdirSync(outDir, { recursive: true })
 
 /** Internal: one image request failed; reported per map. */
@@ -51,7 +55,8 @@ class MapFailed extends Data.TaggedError("MapFailed")<{
   readonly reason: string
 }> {}
 
-const generate = Effect.fn("generate")(function* (spec: (typeof M.SAMPLE_MAPS)[number]) {
+const generate = Effect.fn("generate")(function* (entry: (typeof maps)[number]) {
+  const spec = { name: entry.catalogId }
   const file = join(outDir, `${spec.name}.webp`)
   if (existsSync(file)) return yield* Console.log(`  skip ${spec.name} (exists)`)
   const started = performance.now()
@@ -62,7 +67,7 @@ const generate = Effect.fn("generate")(function* (spec: (typeof M.SAMPLE_MAPS)[n
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model: P.IMAGE_MODEL,
-          prompt: M.muscleMapPrompt(spec),
+          prompt: M.muscleMapPrompt(entry),
           n: 1,
           size: P.IMAGE_SIZE,
           quality: P.IMAGE_QUALITY,
@@ -104,9 +109,9 @@ const generate = Effect.fn("generate")(function* (spec: (typeof M.SAMPLE_MAPS)[n
 
 const program = Effect.gen(function* () {
   yield* Console.log(
-    `images:muscle ${P.IMAGE_MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} webp transparent: ${M.SAMPLE_MAPS.length} maps into ${outDir}`,
+    `images:muscle ${P.IMAGE_MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} webp transparent: ${maps.length} maps into ${outDir}`,
   )
-  const results = yield* Effect.forEach(M.SAMPLE_MAPS, (s) => Effect.result(generate(s)), {
+  const results = yield* Effect.forEach(maps, (s) => Effect.result(generate(s)), {
     concurrency: 3,
   })
   const failures = results.flatMap((r) => (Result.isFailure(r) ? [r.failure] : []))
