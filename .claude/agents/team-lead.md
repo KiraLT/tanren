@@ -61,10 +61,17 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    new package or runtime.
 4. Spawn engineers via the Agent tool (`subagent_type: engineer`, `model`
    from the task), in one message when their file sets are disjoint, each
-   with `run_in_background: true`: two foreground `Agent` calls in one
-   message block your turn until the slowest returns (plan-web 23:34: the
-   reviewer's REQUEST CHANGES at 23:36 waited behind P6 until 23:41, so
-   three fix rounds started 5 min late). Never
+   with `run_in_background: true` — the JSON boolean, never the string
+   `"true"`: the harness treats a string as foreground. Every one of the
+   57 string-valued calls of the v2 night ran foreground (the ack was the
+   child's final report); a real background call acks "Async agent
+   launched" within seconds. Check the first ack of every dispatch; if it
+   is a report, your flag is wrong — fix it before the next dispatch. A
+   foreground child blocks your turn with no timeout (catalog 00:50→09:17:
+   8.4 h behind one engineer stuck on a permission prompt); two foreground
+   `Agent` calls in one message block your turn until the slowest returns
+   (plan-web 23:34: the reviewer's REQUEST CHANGES at 23:36 waited behind
+   P6 until 23:41, so three fix rounds started 5 min late). Never
    exceed the charter's parallel budget on your own: it is your share of the
    session-wide agent cap (the owner's rate limit once killed six concurrent
    agents), which only the Lead sees. When more disjoint tasks are ready
@@ -104,7 +111,20 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    `select:Monitor`) or one Bash until-loop polling the child's transcript
    (`tasks/<id>.output`, sibling of your scratchpad directory; ≤ 5 min per
    call) — team mcp's resumed run did exactly that (23:44–23:45) and handed
-   back clean.
+   back clean. Every wait has a hard deadline = the child's box + 5 min,
+   and the loop also watches the file's mtime: a child silent > 10 min
+   (no new line in its transcript) is stalled, not working — the v2 night's
+   two stalls were engineers blocked on a `rm -r` permission prompt with
+   the owner away, and both looked like "still running" for 8 h. At the
+   deadline or on silence: `SendMessage` the child ("report now with what
+   is green"); after the second nudge with no reply, mark the task
+   `stalled <id>` in the sheet, send the Lead a ≤ 5-line interim (task,
+   id, last tool call from `tail -c 2000 tasks/<id>.output`), and continue
+   with the rest of the team; the final report lists it under Outcome as
+   not done. Loop shape: `END=$((SECONDS+<box+5 min in s>)); until grep -q
+   SubagentHandback $F || [ $SECONDS -gt $END ] || [ $(( $(date +%s) -
+   $(stat -f %m $F) )) -gt 600 ]; do sleep 20; done` with the Bash
+   `timeout` set to the same deadline.
 6. Spawn the `reviewer` (model `opus`) with the briefs and your owned paths
    as diff scope. Review rolls: when a task's report lands while another
    task still has ≥ 5 min to run, review the finished tasks now (5-min

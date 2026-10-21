@@ -283,7 +283,10 @@ Template in `.claude/skills/lead-playbook/SKILL.md` ("Charter template").
   cannot, so a team lead orchestrates with nested agents, not workflows.
   `team-build` has never run and is not used (step-2 retro): it barriers on
   all team reports and serialises integration; direct team-leads until it is
-  revised.
+  revised. Background dispatch is proven by the ack text ("Async agent
+  launched"), not by the flag: a string `"true"` runs in the foreground
+  (v2-night retro). Unattended runs need the Lead's mtime watchdog and the
+  ask list switched to deny by the owner.
 - **Git worktrees** (`isolation: "worktree"`) when teams must touch
   overlapping paths. This needs commits on feature branches, so the Lead
   asks the owner once for standing permission to commit on `wip/*` branches.

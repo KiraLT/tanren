@@ -130,6 +130,18 @@ task sheet. Tactics, in order of payoff:
   with nobody to resume costs hours.
 - The morning report leads with what the owner can tap through, then the
   commits, then the owner actions.
+- **Never end a turn with live agents when unattended.** Before every wait,
+  start a background Bash watchdog over the live agents' `tasks/a*.output`
+  mtimes (exit, which wakes you, when any is silent > 15 min or at a
+  deadline; resumed agents may write elsewhere, so watch fresh ids). On the
+  night of 2026-10-21 two engineers hit permission prompts on `rm -r`
+  sub-commands (forbidden only in text), two team-leads had passed
+  `run_in_background` as the string `"true"` (a foreground call: the ack is
+  the child's final report, not "Async agent launched"), and the Lead slept
+  7 h 48 m. Ask the owner to switch the ask list to deny for the night
+  (`.claude/settings.local.json`); the Lead cannot edit its own permissions.
+- Background dispatch is proven by the ack text, never by the flag; the retro
+  counts acks.
 
 ## Cost discipline (every brief)
 

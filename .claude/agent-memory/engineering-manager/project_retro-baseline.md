@@ -1,6 +1,6 @@
 ---
 name: retro-baseline
-description: Owner primary process metric (wall-clock per step), baselines for step 1, step 2 (company mode) and steps 4 ∥ 7 (parallel teams), the experiments set for step 5 and the closing phase, and the repeat-waste watchlist for the next retro
+description: Owner primary process metric (wall-clock per step), baselines for step 1, step 2 (company mode), steps 4 ∥ 7 (parallel teams) and the v2 unattended night (ratio 0.16, 8-h permission-prompt stall), the experiments set for the closing phase and the next unattended run, and the repeat-waste watchlist
 metadata:
   type: project
 ---
@@ -22,3 +22,5 @@ Watchlist for the next retro:
 6. `.biome/noMutation.grit` check 4 syntactic (`push` names): no new bites this step; drop from the list after one more clean step.
 7. context7: engineers still 0 calls through step 4/7 (plan-web engineers loaded expo/frontend-design skills instead). One more clean step → propose dropping "verify via context7" from engineer.md in favour of `.d.ts` + vendor skills.
 8. Concurrency: peak ≈ 12 agents (23:34–23:45) with no rate-limit kill (S1 died at 6). Record the peak each retro; if a kill recurs, cap at the last safe peak.
+
+**v2 night baseline (docs/retro/2026-10-21-v2-night.md):** 00:03→09:21 unattended; productive 87 min, idle 7 h 48 m, ratio ≈ 0.16; 74 agents, 12.9M uncached / 287.7M cache-read; teams mcp-oauth 46/90, design 57/110, programs 34/100; rolling review held on fix-round wait (median ≈ 1 min, was 10) but finals 51–52 % because dispatches were foreground. Experiments now: closing phase "one owner session" (unchanged); next unattended run "no silent agent > 15 min" (max transcript gap ≤ 15 min, 0 ask-list sub-commands, 0 report-acks on Agent calls, watchdog wake ≤ 15 min). Watchlist additions: (9) count Agent acks per team-lead — any "report" ack = string flag regression; (10) grep ask-list sub-commands in every engineer transcript; (11) native-auth follow-up: next auth diff ≤ 2 review rounds; (12) Lead proposals P1–P3 (watchdog, ask→deny, dev-system sentence) — check they landed before the next unattended run.

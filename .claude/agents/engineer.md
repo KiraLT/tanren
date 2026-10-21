@@ -69,10 +69,24 @@ Lead had to route it back through the team-lead, one extra turn each way).
    outside this repository, or read `.env*` / `.dev.vars*`. Do not create
    README files or ad-hoc docs; put decisions in the report so the Lead can
    turn them into ADRs.
-9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`) and stop only its PID. Name scratchpad pid/log files after your task id
+9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`), always backgrounded with its PID written to a pid file at start (`(pnpm exec wrangler dev --port <n> > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid)`), readiness checked with a bounded loop (`timeout 60 sh -c 'until curl -sf localhost:<n>/health; do sleep 1; done'`), never a foreground server and never an `until` loop without `timeout`. Stop servers only by the PIDs recorded in those pid files (`kill $(cat $S/<task>-wrangler.pid)`), never by a computed process tree: INT-X2's hand-written `ps | awk` ancestry script over-matched and ran `kill` on ~20 unrelated PIDs (its own shell exited 144). Name scratchpad pid/log files after your task id
    (`$S/<task>-wrangler.pid`, `$S/<task>-wrangler.log`): a bare `wrangler.pid` in the shared scratchpad
    may belong to another agent (INT-2b found one). `pnpm db:reset` wipes the local D1 every running
    `wrangler dev` shares; in company mode, check for other pid files first.
+9b. A permission prompt blocks your run until a human answers; with the owner
+   away that is forever (v2 night: C5 ran `rm -rf $S/v2c5-state` and I1 ran
+   `rm -r assets/exercises/_probe` inside otherwise harmless compound
+   commands at 00:53 and 01:04; both prompts sat until 09:00, two teams and
+   the Lead idled 8 h). The ask list (`.claude/settings.json`
+   `permissions.ask`) is matched per sub-command, so `… && rm -rf dir` is
+   prompted even when the rest is allowed. Never emit `rm -r*`/`rm -fr`
+   /`rm -Rf`, `git push|reset|checkout`, `wrangler deploy|login|secret|d1
+   execute`, `eas *` or the Cloudflare `execute` tool, and never delete a
+   directory: create scratch dirs with `mktemp -d "$S/<task>-XXXX"` and leave
+   them (the scratchpad is session-scoped; `--persist-to` gets a fresh
+   `mktemp -d`, not copy + `rm -rf`); put probe files in `$S`, not in the
+   repo; delete single files with plain `rm <file>`. Before any Bash call
+   with `&&`/`;`, scan every sub-command against that list.
 10. Use the `superpowers:test-driven-development` skill when a brief has
    behavioural done-criteria, `superpowers:systematic-debugging` when the gate
    fails for a non-obvious reason, and `superpowers:verification-before-completion`
