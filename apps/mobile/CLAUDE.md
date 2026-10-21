@@ -226,3 +226,9 @@ manifest. Proven on the export at 390/768/1280 light+dark (30 screenshots). `Emp
 empty components without per-screen patches. Stale Metro after edits: restart the server,
 `--clear` is not enough. Empty-state proofs in the browser: signed out always seeds the demo
 plan, so use Library "no results" or a signed-in empty account.
+
+INT-X1 (2026-10-21, partial, time-boxed): on the export via `pnpm dev`, root gate green (1172 tests);
+magic-link sign-in, Library search/filter/detail and "Add to today's session" (navigates to Today)
+proven at 390 px. Library detail shows the placeholder: `src/library/illustrationMap.ts` is still `{}`
+(INTEGRATION line, illustrations uncommitted). Not proven: the added exercise visible on Today,
+Programs player, Progress PR, Settings export/sign-out, dark/1280.

@@ -237,6 +237,21 @@ pnpm dev             # API on http://localhost:8787 (wrangler prints 0.0.0.0:878
    with `{"mcpServers":{"tanren-local":{"type":"http","url":"http://localhost:8787/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`
    (the form INT-A ran).
 
+### v2 additions (proven by INT-X1, 2026-10-21, on the export at 390 px; the rest is still unproven)
+
+Same three commands (`pnpm db:reset` seeds 14 exercises, 15 sessions; `pnpm web:export`; `pnpm dev`).
+
+6. `curl -si localhost:8790/manifest.json` → `200`, `Content-Type: application/json`, `theme_color` `#C2410C`.
+7. Signed out, Today shows the demo "Full body A"; **Sign in** (a button) → `/sign-in` → `dev@tanren.local`
+   → **Send magic link** → open the printed link → `/today` shows "Lower A" (Back Squat 107.5 kg × 5).
+8. Tabs: Today, Plan, Programs, Library, Progress. **Library**: type `squat` in "Search exercises" →
+   15 hits (Barbell Back Squat, Front Squat, Goblet, Hack, …); muscle tab **Chest** with `squat` leaves only
+   Burpee; tap **Barbell Back Squat** → `/library/barbell-back-squat` with "Illustration placeholder"
+   (illustrations not wired yet) and **Add to today's session** → returns to `/today`.
+9. Not yet proven by INT-X1 (stopped at the time box): the added exercise appearing on Today, Programs
+   (Core 30 enrol, day 1, timer, rest ring, finish), the "Core 30 · Day N" banner, Progress chart + PR,
+   Settings theme/export/sign-out, 1280 px and dark mode.
+
 `pnpm dev` runs the root scripts `dev:api` (`wrangler dev --ip 0.0.0.0`, also reachable from the phone on the
 LAN) and `dev:web` (`pnpm web:serve`) in parallel through pnpm's regex script selector. For the Expo dev
 server instead of the export: `pnpm dev:api` plus `pnpm -F @tanren/mobile web` (`:8081`).
