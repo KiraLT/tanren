@@ -1,14 +1,81 @@
-import type { ReactNode } from "react"
+import { Array as Arr } from "effect"
+import { Children, createContext, type ReactNode, use } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
+import {
+  type DiscState,
+  discStyle,
+  listGroupStyle,
+  listSeparatorStyle,
+  rowPressedBackground,
+  rowStyle,
+} from "./controls"
+import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
-import { space, stroke } from "./tokens"
+import { sizes } from "./tokens"
+
+export type { DiscState } from "./controls"
+
+/** True inside a `ListGroup`: the row drops its own hairline (the group draws them). */
+const GroupedContext = createContext(false)
+
+export interface ListGroupProps {
+  readonly children: ReactNode
+  readonly style?: StyleProp<ViewStyle>
+}
+
+/** A grouped list (§5): `surface`, radius 16, hairlines between rows, never a border per row. */
+export function ListGroup({ children, style }: ListGroupProps) {
+  const { colors } = useTheme()
+  const rows = Arr.flatMap(Children.toArray(children), (child, index) =>
+    index === 0
+      ? [child]
+      : [<View key={`separator-${index}`} style={listSeparatorStyle(colors)} />, child],
+  )
+  return (
+    <GroupedContext value={true}>
+      <View style={[listGroupStyle(colors), style]}>{rows}</View>
+    </GroupedContext>
+  )
+}
+
+export interface RowDisc {
+  readonly state: DiscState
+  /** 1-based number shown on `now`/`todo`; `done` shows a check. */
+  readonly index: number
+}
+
+function Disc({ state, index }: RowDisc) {
+  const { colors } = useTheme()
+  const spec = discStyle(state, colors)
+  const color = colors[spec.foreground]
+  return (
+    <View
+      style={spec.container}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {state === "done" ? (
+        <Icon name="check" size={sizes.iconXs} color={color} />
+      ) : (
+        <Text variant="label" style={{ color, fontVariant: ["tabular-nums"] }}>
+          {String(index)}
+        </Text>
+      )}
+    </View>
+  )
+}
 
 export interface ListRowProps {
   readonly title: string
   readonly subtitle?: string
+  /** Free leading slot; `disc` / `icon` are the standard ones and win over it. */
   readonly leading?: ReactNode
+  /** Numbered disc: done (check), now (accent), todo (outline). */
+  readonly disc?: RowDisc
+  /** 20 px leading glyph in `textMuted`. */
+  readonly icon?: IconName
   readonly trailing?: ReactNode
   readonly onPress?: () => void
   readonly selected?: boolean
@@ -16,11 +83,13 @@ export interface ListRowProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
-/** One row of a grouped list: hairline bottom border, grows with Dynamic Type (min 56). */
+/** One row (min 52, grows with Dynamic Type); put rows in a `ListGroup` for hairline grouping. */
 export function ListRow({
   title,
   subtitle,
   leading,
+  disc,
+  icon,
   trailing,
   onPress,
   selected = false,
@@ -28,21 +97,20 @@ export function ListRow({
   style,
 }: ListRowProps) {
   const { colors } = useTheme()
+  const grouped = use(GroupedContext)
   const { hovered, handlers, focusStyle } = usePressableInteraction()
-  const base: ViewStyle = {
-    minHeight: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-    borderBottomWidth: stroke.hairline,
-    borderBottomColor: colors.border,
-    backgroundColor: selected ? colors.accentSoft : "transparent",
-  }
+  const base = rowStyle(grouped, selected, colors)
+  const lead =
+    disc !== undefined ? (
+      <Disc state={disc.state} index={disc.index} />
+    ) : icon !== undefined ? (
+      <Icon name={icon} size={sizes.iconSm} color={colors.textMuted} />
+    ) : (
+      leading
+    )
   const content = (
     <>
-      {leading}
+      {lead}
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="headline">{title}</Text>
         {subtitle === undefined ? null : (
@@ -71,7 +139,7 @@ export function ListRow({
       {...handlers}
       style={({ pressed }) => [
         base,
-        (hovered || pressed) && { backgroundColor: colors.surface },
+        (hovered || pressed) && { backgroundColor: rowPressedBackground(grouped, colors) },
         focusStyle,
         style,
       ]}

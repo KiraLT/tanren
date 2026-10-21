@@ -1,43 +1,40 @@
 import { type StyleProp, View, type ViewStyle } from "react-native"
-import type { ColorRoles } from "./colors"
+import { pillForeground } from "./controls"
+import { Icon, type IconName } from "./Icon"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
-import { radius, space, type Tone } from "./tokens"
-
-const toneRoles: {
-  readonly [T in Tone]: { readonly bg: keyof ColorRoles; readonly fg: keyof ColorRoles }
-} = {
-  neutral: { bg: "border", fg: "textMuted" },
-  accent: { bg: "accentSoft", fg: "accent" },
-  success: { bg: "successSoft", fg: "success" },
-  danger: { bg: "dangerSoft", fg: "danger" },
-}
+import { radius, sizes, space, type Tone } from "./tokens"
 
 export interface StatusPillProps {
   readonly label: string
   readonly tone: Tone
+  /** Leading 16 px glyph, e.g. `check` on "Available at Home". */
+  readonly icon?: IconName
   readonly style?: StyleProp<ViewStyle>
 }
 
-/** A capsule status label (`statusTone[status]` for plan statuses). */
-export function StatusPill({ label, tone, style }: StatusPillProps) {
+/** A capsule status label: tone-coloured text (and glyph) on `surface` (§2; `statusTone[status]`). */
+export function StatusPill({ label, tone, icon, style }: StatusPillProps) {
   const { colors } = useTheme()
-  const roles = toneRoles[tone]
+  const color = colors[pillForeground[tone]]
   return (
     <View
       style={[
         {
           minHeight: 24,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.xs,
           paddingHorizontal: space.sm,
           borderRadius: radius.full,
-          backgroundColor: colors[roles.bg],
+          backgroundColor: colors.surface,
           alignSelf: "flex-start",
-          justifyContent: "center",
         },
         style,
       ]}
     >
-      <Text variant="caption" style={{ color: colors[roles.fg] }}>
+      {icon === undefined ? null : <Icon name={icon} size={sizes.iconXs} color={color} />}
+      <Text variant="caption" style={{ color }}>
         {label}
       </Text>
     </View>

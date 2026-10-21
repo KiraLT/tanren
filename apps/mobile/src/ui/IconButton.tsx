@@ -2,7 +2,7 @@ import { Pressable, type StyleProp, type ViewStyle } from "react-native"
 import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
 import { useTheme } from "./theme"
-import { radius, sizes, stroke } from "./tokens"
+import { radius, sizes } from "./tokens"
 
 export type IconButtonSize = "md" | "lg"
 export type IconButtonVariant = "ghost" | "filled"
@@ -47,11 +47,11 @@ export function IconButton({
           borderRadius: radius.full,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: filled ? colors.surfaceRaised : "transparent",
-          borderWidth: filled ? stroke.hairline : 0,
-          borderColor: colors.border,
+          backgroundColor: filled ? colors.surface : "transparent",
         },
-        (pressed || (hovered && !disabled)) && { backgroundColor: colors.surface },
+        (pressed || (hovered && !disabled)) && {
+          backgroundColor: filled ? colors.surfaceRaised : colors.surface,
+        },
         disabled && { opacity: 0.4 },
         focusStyle,
         style,

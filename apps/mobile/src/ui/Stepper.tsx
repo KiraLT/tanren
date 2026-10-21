@@ -1,16 +1,19 @@
-import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
+import * as Haptics from "expo-haptics"
+import { Platform, Pressable, type StyleProp, View, type ViewStyle } from "react-native"
+import {
+  STEPPER_GLYPH_STROKE,
+  type StepperSize,
+  stepButtonStyle,
+  stepGlyphColor,
+  stepperSizes,
+} from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
-import { radius, sizes, space, stroke } from "./tokens"
+import { space } from "./tokens"
 
-export type StepperSize = "lg" | "xl"
-
-const buttonSizes: { readonly [S in StepperSize]: number } = {
-  lg: sizes.controlLg,
-  xl: sizes.stepperButton,
-}
+export type { StepperSize } from "./controls"
 
 export interface StepperProps {
   readonly label: string
@@ -29,9 +32,17 @@ interface StepButtonProps {
   readonly accessibilityLabel: string
   readonly onPress: () => void
   readonly disabled: boolean
-  readonly size: number
+  readonly size: StepperSize
 }
 
+/** A light selection tick on native; web has no haptics. */
+const tick = (): void => {
+  if (Platform.OS !== "web") {
+    Haptics.selectionAsync().catch(() => undefined)
+  }
+}
+
+/** Borderless icon-only ± (§5, owner 11:55): 64 px invisible hit area, `surface` circle when pressed. */
 function StepButton({ icon, accessibilityLabel, onPress, disabled, size }: StepButtonProps) {
   const { colors } = useTheme()
   const { hovered, handlers, focusStyle } = usePressableInteraction()
@@ -41,40 +52,25 @@ function StepButton({ icon, accessibilityLabel, onPress, disabled, size }: StepB
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       disabled={disabled}
+      onPressIn={tick}
       onPress={onPress}
       {...handlers}
       style={({ pressed }) => [
-        {
-          width: size,
-          height: size,
-          borderRadius: radius.lg,
-          borderCurve: "continuous",
-          backgroundColor: pressed
-            ? colors.accent
-            : hovered && !disabled
-              ? colors.surface
-              : colors.surfaceRaised,
-          borderWidth: stroke.outline,
-          borderColor: pressed ? colors.accent : colors.border,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        disabled && { opacity: 0.4 },
+        stepButtonStyle(size, { pressed, hovered, disabled }, colors),
         focusStyle,
       ]}
     >
-      {({ pressed }) => (
-        <Icon
-          name={icon}
-          size={size >= sizes.stepperButton ? sizes.iconLg : sizes.iconMd}
-          color={pressed ? colors.onAccent : colors.text}
-        />
-      )}
+      <Icon
+        name={icon}
+        size={stepperSizes[size].glyph}
+        strokeWidth={STEPPER_GLYPH_STROKE}
+        color={stepGlyphColor(disabled, colors)}
+      />
     </Pressable>
   )
 }
 
-/** A value with a big minus left and plus right, readable at arm's length (API of the v1 Stepper). */
+/** A value between a borderless minus and plus, readable at arm's length (API of the v1 Stepper). */
 export function Stepper({
   label,
   valueText,
@@ -85,19 +81,18 @@ export function Stepper({
   size = "xl",
   style,
 }: StepperProps) {
-  const buttonSize = buttonSizes[size]
   return (
-    <View style={[{ gap: space.sm }, style]}>
+    <View style={[{ gap: space.xs }, style]}>
       <Text variant="subhead" tone="muted">
         {label}
       </Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
         <StepButton
           icon="minus"
           accessibilityLabel={`Decrease ${label}`}
           onPress={onDecrement}
           disabled={disabled}
-          size={buttonSize}
+          size={size}
         />
         <View
           style={{ flex: 1, alignItems: "center" }}
@@ -105,10 +100,15 @@ export function Stepper({
           accessibilityRole="adjustable"
           accessibilityLabel={`${label}: ${valueText} ${unit}`}
         >
-          <Text variant="numeral" adjustsFontSizeToFit numberOfLines={1}>
+          <Text
+            variant="numeral"
+            adjustsFontSizeToFit
+            numberOfLines={1}
+            style={{ fontVariant: ["tabular-nums"] }}
+          >
             {valueText}
           </Text>
-          <Text variant="caption" tone="muted">
+          <Text variant="label" tone="muted">
             {unit}
           </Text>
         </View>
@@ -117,7 +117,7 @@ export function Stepper({
           accessibilityLabel={`Increase ${label}`}
           onPress={onIncrement}
           disabled={disabled}
-          size={buttonSize}
+          size={size}
         />
       </View>
     </View>

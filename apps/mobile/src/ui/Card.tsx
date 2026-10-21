@@ -1,9 +1,10 @@
 import type { ReactNode } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import type { ColorRoles } from "./colors"
+import { CARD_PADDING, cardStyle } from "./controls"
 import { usePressableInteraction } from "./interaction"
 import { useTheme } from "./theme"
-import { radius, space, stroke, type Tone } from "./tokens"
+import type { Tone } from "./tokens"
 
 const toneBackground: { readonly [T in Tone]: keyof ColorRoles } = {
   neutral: "surface",
@@ -23,24 +24,20 @@ export interface CardProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
-/** Flat surface with a hairline border, no shadow; `selected` adds a 2 px accent outline. */
+/** Flat `surface`, radius 16, padding 16; hairline in light, none in dark (§4); `selected` = accent. */
 export function Card({
   children,
   onPress,
   accessibilityLabel,
   selected = false,
   tone = "neutral",
-  padding = space.lg,
+  padding = CARD_PADDING,
   style,
 }: CardProps) {
-  const { colors } = useTheme()
+  const { colors, scheme } = useTheme()
   const base: ViewStyle = {
+    ...cardStyle(scheme, colors, selected, colors[toneBackground[tone]]),
     padding,
-    borderRadius: radius.md,
-    borderCurve: "continuous",
-    backgroundColor: selected ? colors.accentSoft : colors[toneBackground[tone]],
-    borderWidth: selected ? stroke.outline : stroke.hairline,
-    borderColor: selected ? colors.accent : colors.border,
   }
   if (onPress === undefined) {
     return <View style={[base, style]}>{children}</View>

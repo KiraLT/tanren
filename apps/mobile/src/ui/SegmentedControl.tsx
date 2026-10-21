@@ -1,5 +1,6 @@
 import { Array as Arr } from "effect"
 import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from "react-native"
+import { segmentedInset } from "./controls"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
 import { radius, sizes, space } from "./tokens"
@@ -14,6 +15,8 @@ export interface SegmentedControlProps {
   readonly value: string
   readonly onChange: (value: string) => void
   readonly accessibilityLabel: string
+  /** Inside a card: 16 px side margins, so the control lines up with the card's text edge (§5). */
+  readonly inset?: boolean
   readonly style?: StyleProp<ViewStyle>
 }
 
@@ -26,6 +29,7 @@ export function SegmentedControl({
   value,
   onChange,
   accessibilityLabel,
+  inset = false,
   style,
 }: SegmentedControlProps) {
   const { colors } = useTheme()
@@ -51,7 +55,7 @@ export function SegmentedControl({
             backgroundColor: selected ? colors.surfaceRaised : "transparent",
           },
           !scrolls && { flex: 1 },
-          pressed && !selected && { opacity: 0.7 },
+          pressed && { opacity: 0.7 },
         ]}
       >
         <Text variant="subhead" tone={selected ? "default" : "muted"} numberOfLines={1}>
@@ -76,7 +80,7 @@ export function SegmentedControl({
         showsHorizontalScrollIndicator={false}
         accessibilityRole="tablist"
         accessibilityLabel={accessibilityLabel}
-        style={style}
+        style={[segmentedInset(inset), style]}
         contentContainerStyle={container}
       >
         {segments}
@@ -87,7 +91,7 @@ export function SegmentedControl({
     <View
       accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel}
-      style={[container, style]}
+      style={[container, segmentedInset(inset), style]}
     >
       {segments}
     </View>
