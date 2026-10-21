@@ -2,7 +2,7 @@
  * `node scripts/muscleMapSheet.ts`: writes `src/illustrations/muscleMap/_contact-sheet.html`, the
  * muscle map for eight catalog exercises in light and dark, painted exactly like `MuscleMap.tsx`
  * (same geometry, tones and style constants). Dev-time only (git-ignored output); node:fs is fine.
- * Same extensionless-import resolve hook as `illustrations.ts`.
+ * Same extensionless-import resolve hook as `resolveTs.ts`.
  */
 import { existsSync, writeFileSync } from "node:fs"
 import { registerHooks } from "node:module"

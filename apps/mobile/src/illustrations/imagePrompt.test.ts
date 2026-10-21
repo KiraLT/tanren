@@ -151,6 +151,15 @@ describe("prompt", () => {
     expect(prompt).not.toContain("rope")
   })
 
+  it("uses a neutral image-only name for entries rejected twice", () => {
+    const crunch = Option.getOrThrow(findCatalogExercise(CatalogId.make("cable-crunch")))
+    const pump = Option.getOrThrow(findCatalogExercise(CatalogId.make("frog-pump")))
+    expect(exercisePrompt(guide, crunch)).toContain("kneeling cable abdominal curl")
+    expect(exercisePrompt(guide, crunch)).not.toContain("Cable Crunch")
+    expect(exercisePrompt(guide, pump)).toContain("hip bridge, lying on the back")
+    expect(exercisePrompt(guide, pump)).not.toContain("Frog Pump")
+  })
+
   it("calls an empty equipment list bodyweight", () => {
     const plank = Option.getOrThrow(findCatalogExercise(CatalogId.make("plank")))
     expect(exercisePrompt(guide, plank)).toContain("bodyweight, no equipment")

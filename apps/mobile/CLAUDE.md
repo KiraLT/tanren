@@ -36,9 +36,13 @@ src/
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
               useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
+  library/    CatalogList/Filter/Detail, ExerciseIllustration (webp or placeholder), illustration.ts
+  illustrations/ imagePrompt (pure half of the generator), images.ts (generated map), muscleMap/
   components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
               PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
               planWeekFixture (tests only); built on `src/ui`
+scripts/     generateIllustrations, shrinkImages, imageMap, contactSheet, muscleMapSheet, resolveTs
+assets/illustrations/  <catalogId>.webp (512x512) + style.md
 public/_headers (COOP/COEP, copied into dist/ by `expo export`)
 expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vitest.config.ts
 ```
@@ -161,6 +165,25 @@ Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm web:export` → `apps
 Load `expo:expo-overview` before Expo work; our rules win on conflict.
 Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`); a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it.
 
+## Illustrations
+
+- Exercise images are generated, not drawn: `pnpm images:generate [--samples | --only <id,…> | --all]`
+  (`scripts/generateIllustrations.ts`) calls OpenAI `gpt-image-1` (1024², medium, webp) from the prompt
+  template in `assets/illustrations/style.md` and the catalog entry (`src/illustrations/imagePrompt.ts`;
+  per-id wording in `PROMPT_INSTRUCTIONS` / `NAME_OVERRIDES`). The key is `OPENAI_API_KEY` in the
+  git-ignored `apps/mobile/.env.images`, read only by that script (`node --env-file-if-exists`); agents
+  never open the file. Runs are capped at 8 images unless `--all`; existing files are skipped.
+- Then `pnpm images:shrink` (sharp, 512² q80, idempotent: files <= 520 px are skipped; ~2 MB for 233) and
+  `pnpm images:map` (rewrites `src/illustrations/images.ts`, a literal `require` per webp that Metro
+  bundles; `src/library/illustration.test.ts` checks the map against the files and the catalog).
+  `assets/illustrations/_contact-sheet.html` is the reviewer preview.
+- `ExerciseIllustration` shows `IMAGES[catalogId]` on the library detail, or a neutral placeholder when
+  an id has no file: `frog-pump` and `cable-crunch` are refused by the safety system even with neutral
+  wording (IMG-2 + this round), so they stay on the placeholder.
+- The body diagram is `src/illustrations/muscleMap/` (front/back silhouettes, 22 regions, primary and
+  secondary highlights from the catalog taxonomy); `scripts/muscleMapSheet.ts` writes its git-ignored
+  preview. The old hand-built SVG pipeline (scenes, rig, `illustrations:check`) is retired.
+
 ## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
 
 - Routes: `/progress` (tab; Exercises | Sessions, desktop aside); `/progress/[exerciseId]` (root Stack
@@ -229,6 +252,5 @@ plan, so use Library "no results" or a signed-in empty account.
 
 INT-X1 (2026-10-21, partial, time-boxed): on the export via `pnpm dev`, root gate green (1172 tests);
 magic-link sign-in, Library search/filter/detail and "Add to today's session" (navigates to Today)
-proven at 390 px. Library detail shows the placeholder: `src/library/illustrationMap.ts` is still `{}`
-(INTEGRATION line, illustrations uncommitted). Not proven: the added exercise visible on Today,
+proven at 390 px. Library detail then showed the placeholder (the SVG map was empty; since replaced by generated webps, see Illustrations). Not proven: the added exercise visible on Today,
 Programs player, Progress PR, Settings export/sign-out, dark/1280.

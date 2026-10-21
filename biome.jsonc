@@ -22,7 +22,7 @@
       "!!**/.biome/fixtures",
       // drizzle-kit output (SQL + meta JSON): generated, rewritten on every `generate`.
       "!!**/packages/db/migrations",
-      // Generated exercise illustrations: `illustrations:check` validates them (design-system §7).
+      // SVG assets (public/icons/icon.svg) are not Biome files.
       "!**/*.svg"
     ]
   },

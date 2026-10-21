@@ -12,9 +12,3 @@ export const illustrationImage = <Source>(
   map: Readonly<Record<string, Source>>,
   catalogId: string,
 ): Option.Option<Source> => Rec.get(map, catalogId)
-
-/** The SVG for an id, from a map of generated drawings; none when it has not been drawn yet. */
-export const illustrationXml = (
-  map: Readonly<Record<string, string>>,
-  id: string,
-): Option.Option<string> => Rec.get(map, id)

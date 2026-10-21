@@ -195,7 +195,7 @@ export const accentTarget = (
  * Image-only instruction wording for entries whose catalog text the OpenAI safety system rejected
  * (IMG-2 full run, HTTP 400): frog-pump ("sexual") and cable-crunch ("rope beside your head":
  * "self-harm"). The catalog text stays as it is for the app. Both were still rejected with this
- * wording (IMG-2), so they show the placeholder; the next attempt should also change the name line.
+ * wording (IMG-2); `NAME_OVERRIDES` also neutralises the name line.
  */
 export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
   "frog-pump": [
@@ -208,15 +208,26 @@ export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>
   ],
 }
 
+/**
+ * Image-only neutral name for the two entries the safety system rejected with a reworded
+ * instruction (IMG-2). Still rejected with this too (frog-pump: sexual; cable-crunch: violence,
+ * self-harm), so both show the placeholder. The catalog name stays for the app.
+ */
+export const NAME_OVERRIDES: Readonly<Record<string, string>> = {
+  "frog-pump": "hip bridge, lying on the back, knees bent, soles together",
+  "cable-crunch": "kneeling cable abdominal curl",
+}
+
 /** Style block, a blank line, then the template filled with the exercise's facts. */
 export const exercisePrompt = (guide: StyleGuide, facts: PromptFacts): string => {
   const instructions = PROMPT_INSTRUCTIONS[facts.catalogId] ?? facts.instructions
+  const name = NAME_OVERRIDES[facts.catalogId] ?? facts.name
   const equipment =
     facts.equipment.length === 0
       ? "bodyweight, no equipment"
       : facts.equipment.map(humanize).join(" and ")
   const filled = guide.template
-    .replaceAll("{{name}}", facts.name)
+    .replaceAll("{{name}}", name)
     .replaceAll("{{equipment}}", equipment)
     .replaceAll("{{instructions}}", Arr.take(instructions, 2).map(sentence).join(" "))
     .replaceAll("{{primary}}", facts.primaryMuscles.map(humanize).join(" and "))

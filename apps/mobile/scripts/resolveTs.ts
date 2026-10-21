@@ -2,7 +2,7 @@
  * Preload for the image scripts (`node --import ./scripts/resolveTs.ts …`): `@tanren/shared` and our
  * sources use extensionless relative imports (`moduleResolution: bundler`), which Node's ESM
  * resolver rejects, so this sync resolve hook retries `<specifier>.ts` and `<specifier>/index.ts`.
- * Same hook as scripts/illustrations.ts, which registers its own copy.
+ * `generateIllustrations.ts` and `muscleMapSheet.ts` register their own copy of this hook.
  */
 import { existsSync } from "node:fs"
 import { registerHooks } from "node:module"

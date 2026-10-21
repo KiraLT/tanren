@@ -266,6 +266,9 @@ catalogs:
     react-native-web:
       specifier: 0.21.4
       version: 0.21.4
+    sharp:
+      specifier: 0.35.5
+      version: 0.35.5
     tsx:
       specifier: 4.23.15
       version: 4.23.15
@@ -380,6 +383,9 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
+      sharp:
+        specifier: 'catalog:'
+        version: 0.35.5(@types/node@24.19.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2

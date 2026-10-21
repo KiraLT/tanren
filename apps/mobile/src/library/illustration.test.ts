@@ -4,8 +4,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { CATALOG } from "@tanren/shared"
 import { Array as Arr, Option, Order } from "effect"
 import { IMAGE_DIR, IMAGE_MAP_FILE } from "../illustrations/imagePrompt"
-import { illustrationImage, illustrationXml, placeholderSvg } from "./illustration"
-import { ILLUSTRATIONS } from "./illustrationMap"
+import { illustrationImage, placeholderSvg } from "./illustration"
 
 const packageRoot = join(import.meta.dirname, "../..")
 
@@ -33,18 +32,6 @@ describe("illustration image", () => {
 })
 
 describe("illustration", () => {
-  it("finds a drawn id and reports a missing one as none", () => {
-    const map = { plank: "<svg/>" }
-    expect(illustrationXml(map, "plank")).toEqual(Option.some("<svg/>"))
-    expect(illustrationXml(map, "squat")).toEqual(Option.none())
-  })
-
-  it("the generated map draws plank as an svg and leaves an undrawn id to the placeholder", () => {
-    const plank = illustrationXml(ILLUSTRATIONS, "plank")
-    expect(Option.isSome(plank) && plank.value.startsWith("<svg")).toBe(true)
-    expect(illustrationXml(ILLUSTRATIONS, "no-such-exercise")).toEqual(Option.none())
-  })
-
   it("placeholder is a single self-contained svg in the given colour", () => {
     const svg = placeholderSvg("#71717A")
     expect(svg.startsWith("<svg ")).toBe(true)

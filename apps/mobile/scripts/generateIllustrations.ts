@@ -6,7 +6,7 @@
  *
  * The key comes from `node --env-file-if-exists=.env.images` (package.json). This script never prints
  * it: logs carry the model, size and file names only, and API error text is redacted.
- * Runs on plain Node 24 (type stripping), with the same resolve hook as scripts/illustrations.ts.
+ * Runs on plain Node 24 (type stripping), with the same resolve hook as scripts/resolveTs.ts.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { registerHooks } from "node:module"

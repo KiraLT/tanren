@@ -11,11 +11,10 @@
     "serve:web": "pnpm -F @tanren/worker exec wrangler dev -c wrangler.web.jsonc --port 8790",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --root ../.. --project @tanren/mobile",
-    "illustrations:build": "node scripts/illustrations.ts build",
-    "illustrations:check": "node scripts/illustrations.ts check",
     "images:generate": "node --env-file-if-exists=.env.images scripts/generateIllustrations.ts",
+    "images:shrink": "node scripts/shrinkImages.ts",
     "images:map": "node --import ./scripts/resolveTs.ts scripts/imageMap.ts",
-    "check": "pnpm illustrations:check && biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
+    "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
   },
   "dependencies": {
     "@expo/metro-runtime": "catalog:",
@@ -45,6 +44,7 @@
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "sharp": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -43,7 +43,7 @@ export const core: ReadonlyArray<CatalogExerciseSpec> = [
     aliases: ["Dying bug"],
     kind: "timed",
     primaryMuscles: ["core"],
-    secondaryMuscles: ["quads"],
+    secondaryMuscles: [],
     equipment: [],
     movement: "antiExtension",
     instructions: [
