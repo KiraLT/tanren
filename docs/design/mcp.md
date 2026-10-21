@@ -98,8 +98,11 @@ export const LogSessionInput = Schema.Struct({ startedAt: Timestamp, finishedAt:
     rpe: Schema.OptionFromNullOr(Rpe), note: Schema.OptionFromNullOr(Note) })) })
 export const UpdateProfileInput = ProfilePatch
 
+// search_exercises (v2, docs/design/v2-catalog.md §6): read scope, static catalog, 0 D1 statements.
+// Input keys all optional (query, muscle, equipment, kind, limit default 20); output { results: CatalogMatch[], total }
+// where total = matches before the limit. Registered with the other read tools (kept contiguous: slice(0, 5)).
 export const MCP_TOOLS = ["get_overview", "get_exercise_history", "list_sessions", "get_current_plan",
-  "write_plan_week", "log_session", "update_profile"] as const
+  "search_exercises", "write_plan_week", "log_session", "update_profile"] as const
 export const McpToolName = Schema.Literals(MCP_TOOLS)
 ```
 Names checked against `plan.ts`/`user.ts`/`common.ts` today (`PlannedSetFields`, `PlannedSessionFields`,
@@ -169,6 +172,13 @@ claude mcp add --transport http tanren-local http://localhost:8787/mcp \
     "best": { "weightKg": 110, "reps": 5, "loggedAt": "2026-10-17T17:21:04.000Z" },
     "lastLoggedAt": "2026-10-17T17:21:04.000Z" } ],
   "currentPlan": { "planId": "a1b2…", "name": "Upper / lower, autumn block", "weeks": 5 } }
+```
+`search_exercises` (v2): request `"arguments": { "query": "ohp", "limit": 5 }`, `structuredContent`:
+```json
+{ "results": [ { "catalogId": "overhead-press", "name": "Overhead Press",
+    "aliases": ["OHP", "Military Press"], "kind": "reps", "primaryMuscles": ["shoulders", "triceps"],
+    "secondaryMuscles": ["upperBack", "core", "chest"], "equipment": ["barbell"], "movement": "verticalPush" } ],
+  "total": 1 }
 ```
 Unauthenticated: `HTTP/1.1 401`, `WWW-Authenticate: Bearer`, empty body. Unknown exercise:
 `{ "isError": true, "content": [{ "type": "text", "text": "NotFound: exercise 7d4e… not found" }] }`.

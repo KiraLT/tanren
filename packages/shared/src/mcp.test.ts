@@ -15,6 +15,8 @@ import {
   McpToolName,
   OAuthProps,
   Overview,
+  SearchExercisesInput,
+  SearchExercisesResult,
   SessionList,
   UpdateProfileResult,
   WritePlanWeekInput,
@@ -324,11 +326,75 @@ describe("OAuthProps", () => {
   )
 })
 
-describe("MCP_TOOLS", () => {
-  it.effect("names the seven plan tools and McpToolName accepts exactly those", () =>
+describe("SearchExercisesInput", () => {
+  it.effect("accepts an empty input and every key at once", () =>
     Effect.gen(function* () {
-      expect(MCP_TOOLS).toHaveLength(7)
-      expect(new Set(MCP_TOOLS).size).toBe(7)
+      yield* accepts(SearchExercisesInput, {})
+      yield* accepts(SearchExercisesInput, {
+        query: "row",
+        muscle: "lats",
+        equipment: "cable",
+        kind: "reps",
+        limit: 5,
+      })
+    }),
+  )
+
+  it.effect("rejects an unknown muscle at path muscle", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(SearchExercisesInput, { muscle: "wings" })).toEqual([["muscle"]])
+    }),
+  )
+
+  it.effect("rejects an unknown equipment, kind and an out-of-range limit at their paths", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(SearchExercisesInput, { equipment: "jetpack" })).toEqual([
+        ["equipment"],
+      ])
+      expect(yield* failingPaths(SearchExercisesInput, { kind: "swim" })).toEqual([["kind"]])
+      expect(yield* failingPaths(SearchExercisesInput, { limit: 0 })).toEqual([["limit"]])
+      expect(yield* failingPaths(SearchExercisesInput, { query: "" })).toEqual([["query"]])
+    }),
+  )
+})
+
+/** docs/design/v2-catalog.md §6 wire example, full match shape. */
+const catalogMatchWire: (typeof SearchExercisesResult)["Encoded"]["results"][number] = {
+  catalogId: "overhead-press",
+  name: "Overhead Press",
+  aliases: ["OHP", "military press"],
+  kind: "reps",
+  primaryMuscles: ["shoulders", "triceps"],
+  secondaryMuscles: ["upperBack", "core"],
+  equipment: ["barbell"],
+  movement: "verticalPush",
+}
+
+describe("SearchExercisesResult", () => {
+  it.effect("round-trips the design sample and an empty result", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(SearchExercisesResult, { results: [catalogMatchWire], total: 1 })
+      yield* wireRoundTrips(SearchExercisesResult, { results: [], total: 0 })
+    }),
+  )
+
+  it.effect("rejects a match with an unknown movement at its path", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(SearchExercisesResult, {
+          results: [{ ...catalogMatchWire, movement: "teleport" }],
+          total: 1,
+        }),
+      ).toEqual([["results", 0, "movement"]])
+    }),
+  )
+})
+
+describe("MCP_TOOLS", () => {
+  it.effect("names the eight tools and McpToolName accepts exactly those", () =>
+    Effect.gen(function* () {
+      expect(MCP_TOOLS).toHaveLength(8)
+      expect(new Set(MCP_TOOLS).size).toBe(8)
       yield* Effect.forEach(MCP_TOOLS, (name) => Schema.decodeUnknownEffect(McpToolName)(name))
       yield* rejects(McpToolName, "delete_everything")
     }),

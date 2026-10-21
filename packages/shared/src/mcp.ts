@@ -4,6 +4,7 @@
  * write tools and OAuth props follow docs/design/oauth.md §4–§5.
  */
 import { Schema, Struct } from "effect"
+import { CatalogEquipment, CatalogExercise, ExerciseKind } from "./catalog"
 import {
   Label,
   LocalDate,
@@ -183,11 +184,44 @@ export type McpScope = typeof McpScope.Type
 export const OAuthProps = Schema.Struct({ userId: UserId, scopes: Schema.Array(McpScope) })
 export type OAuthProps = typeof OAuthProps.Type
 
+// search_exercises (docs/design/v2-catalog.md §6): the static catalog, no database
+/** Every key optional; `query` matches names and aliases; `limit` defaults to 20. */
+export const SearchExercisesInput = Schema.Struct({
+  query: Schema.optionalKey(Label),
+  muscle: Schema.optionalKey(MuscleGroup),
+  equipment: Schema.optionalKey(CatalogEquipment),
+  kind: Schema.optionalKey(ExerciseKind),
+  limit: Schema.optionalKey(PageLimit),
+})
+export type SearchExercisesInput = typeof SearchExercisesInput.Type
+/** The catalog fields Claude needs to pick an exercise (no instructions or illustration). */
+export const CatalogMatch = CatalogExercise.mapFields(
+  Struct.pick([
+    "catalogId",
+    "name",
+    "aliases",
+    "kind",
+    "primaryMuscles",
+    "secondaryMuscles",
+    "equipment",
+    "movement",
+  ]),
+)
+export type CatalogMatch = typeof CatalogMatch.Type
+/** Best match first; `total` counts every match before `limit` cut the list. */
+export const SearchExercisesResult = Schema.Struct({
+  results: Schema.Array(CatalogMatch),
+  total: Schema.Number,
+})
+export type SearchExercisesResult = typeof SearchExercisesResult.Type
+
+/** The read tools come first and stay contiguous (`slice(0, 5)`), then the write tools. */
 export const MCP_TOOLS = [
   "get_overview",
   "get_exercise_history",
   "list_sessions",
   "get_current_plan",
+  "search_exercises",
   "write_plan_week",
   "log_session",
   "update_profile",
