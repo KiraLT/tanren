@@ -14,7 +14,9 @@ import sharp from "sharp"
 const TARGET = 512
 /** Files at or below this width count as already shrunk. */
 const SKIP_AT_OR_BELOW = 520
-const QUALITY = 80
+const QUALITY = 75
+/** Transparent output: the alpha plane is lossless by default and costs ~half the bytes; 80 is invisible on soft edges. */
+const ALPHA_QUALITY = 80
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "illustrations")
 
@@ -34,7 +36,7 @@ const shrink = (file: string): Effect.Effect<Outcome, ShrinkFailed> =>
       if (width <= SKIP_AT_OR_BELOW) return "skipped"
       const output = await sharp(path)
         .resize(TARGET, TARGET, { fit: "cover" })
-        .webp({ quality: QUALITY })
+        .webp({ quality: QUALITY, alphaQuality: ALPHA_QUALITY })
         .toBuffer()
       await writeFile(path, output)
       return "shrunk"

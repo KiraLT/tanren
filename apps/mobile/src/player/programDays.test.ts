@@ -5,10 +5,13 @@ import {
   dayCardLine,
   dayDisc,
   dayMinutes,
+  dayStateLabel,
   daysDone,
   dayTrailing,
   doneLabel,
   programProgress,
+  WEEK_LENGTH,
+  weekWindow,
 } from "./programDays"
 
 const firstDay = Option.getOrThrow(Arr.head(CORE30.days))
@@ -39,6 +42,43 @@ describe("progress", () => {
 
   it("words the counter above the day list", () => {
     expect(doneLabel(2, 30)).toBe("1 of 30 done")
+  })
+})
+
+describe("weekWindow", () => {
+  const days = Arr.makeBy(30, (index) => ({ dayNumber: index + 1 }))
+  const numbers = (current: number, source: ReadonlyArray<{ readonly dayNumber: number }> = days) =>
+    weekWindow(source, current).map((day) => day.dayNumber)
+
+  it("shows 3 days before and 3 after the current day", () => {
+    expect(numbers(10)).toEqual([7, 8, 9, 10, 11, 12, 13])
+  })
+
+  it("slides inside the program at the start and the end", () => {
+    expect(numbers(1)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(numbers(2)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(numbers(30)).toEqual([24, 25, 26, 27, 28, 29, 30])
+  })
+
+  it("shows the last week for an enrollment past the last day", () => {
+    expect(numbers(31)).toEqual([24, 25, 26, 27, 28, 29, 30])
+  })
+
+  it("keeps every day of a program shorter than a week", () => {
+    expect(numbers(2, Arr.take(days, 4))).toEqual([1, 2, 3, 4])
+    expect(weekWindow([], 1)).toEqual([])
+  })
+
+  it("is exactly WEEK_LENGTH days for Core 30", () => {
+    expect(weekWindow(CORE30.days, 15)).toHaveLength(WEEK_LENGTH)
+  })
+})
+
+describe("dayStateLabel", () => {
+  it("words each disc state for screen readers", () => {
+    expect(dayStateLabel("done")).toBe("done")
+    expect(dayStateLabel("now")).toBe("up next")
+    expect(dayStateLabel("todo")).toBe("upcoming")
   })
 })
 

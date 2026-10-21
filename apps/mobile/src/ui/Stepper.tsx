@@ -1,17 +1,27 @@
 import * as Haptics from "expo-haptics"
-import { Platform, Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import {
+  Platform,
+  Pressable,
+  type StyleProp,
+  type TextStyle,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from "react-native"
+import {
+  numeralScale,
   STEPPER_GLYPH_STROKE,
   type StepperSize,
   stepButtonStyle,
   stepGlyphColor,
+  stepperCaption,
   stepperSizes,
 } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
-import { space } from "./tokens"
+import { space, type } from "./tokens"
 
 export type { StepperSize } from "./controls"
 
@@ -37,11 +47,20 @@ interface StepButtonProps {
 
 /**
  * Shrink-to-fit on native only. On web RNW ignores `adjustsFontSizeToFit` and turns `numberOfLines`
- * into `overflow: hidden`, which would clip the dark-theme glow to the glyph box; the value column
- * (390 − 2 × 16 gutter − 2 × 64 buttons ≈ 214 px) holds "107.5" at 72 px without it.
+ * into `overflow: hidden`, which would clip the dark-theme glow to the glyph box; there the numeral
+ * scales with the window below `NUMERAL_FULL_WIDTH` instead (`webNumeralSize`).
  */
 const numeralFit =
   Platform.OS === "web" ? {} : ({ adjustsFontSizeToFit: true, numberOfLines: 1 } as const)
+
+/** Web only: the numeral ramp entry scaled by `numeralScale`; native keeps the ramp (fit handles it). */
+const webNumeralSize = (windowWidth: number): TextStyle => {
+  const scale = numeralScale(windowWidth)
+  const { fontSize, lineHeight } = type.numeral
+  return Platform.OS !== "web" || scale === 1 || fontSize === undefined || lineHeight === undefined
+    ? {}
+    : { fontSize: Math.floor(fontSize * scale), lineHeight: Math.floor(lineHeight * scale) }
+}
 
 /** A light selection tick on native; web has no haptics. */
 const tick = (): void => {
@@ -89,11 +108,9 @@ export function Stepper({
   size = "xl",
   style,
 }: StepperProps) {
+  const { width } = useWindowDimensions()
   return (
     <View style={[{ gap: space.xs }, style]}>
-      <Text variant="subhead" tone="muted">
-        {label}
-      </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
         <StepButton
           icon="minus"
@@ -112,12 +129,12 @@ export function Stepper({
             variant="numeral"
             glow
             {...numeralFit}
-            style={{ fontVariant: ["tabular-nums"], flexShrink: 0 }}
+            style={[{ fontVariant: ["tabular-nums"], flexShrink: 0 }, webNumeralSize(width)]}
           >
             {valueText}
           </Text>
           <Text variant="label" tone="muted">
-            {unit}
+            {stepperCaption(label, unit)}
           </Text>
         </View>
         <StepButton

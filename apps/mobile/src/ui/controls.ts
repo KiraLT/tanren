@@ -9,6 +9,9 @@ import { elevation, radius, sizes, space, stroke } from "./tokens"
  * state → style tables, so node tests can pin them. The `.tsx` primitives only wire these up.
  */
 
+/** One dimming for every disabled control (stepper buttons, rows). */
+export const DISABLED_OPACITY = 0.4
+
 // Stepper -------------------------------------------------------------------------------------
 
 export type StepperSize = "lg" | "xl"
@@ -20,6 +23,20 @@ export const stepperSizes: {
   lg: { hit: sizes.controlLg, glyph: sizes.iconMd },
   xl: { hit: sizes.stepperButton, glyph: sizes.stepperGlyph },
 }
+
+/** The line under the value: "Weight · kg", or just "Reps" when the unit repeats the label. */
+export const stepperCaption = (label: string, unit: string): string =>
+  unit.toLowerCase() === label.toLowerCase() ? label : `${label} · ${unit}`
+
+/** Narrowest window whose value column holds "107.5" at the full 72 px numeral (UI-R 2). */
+export const NUMERAL_FULL_WIDTH = 375
+
+/**
+ * Web numeral scale (RNW has no fit-to-width): 1 from `NUMERAL_FULL_WIDTH` up, linear below it,
+ * so "107.5" stays inside the value column on 320–374 px windows.
+ */
+export const numeralScale = (windowWidth: number): number =>
+  windowWidth >= NUMERAL_FULL_WIDTH ? 1 : Math.max(0, windowWidth) / NUMERAL_FULL_WIDTH
 
 /** ± glyph stroke (§5: 2.5, heavier than the 2 px icon default). */
 export const STEPPER_GLYPH_STROKE = 2.5
@@ -38,7 +55,7 @@ export const stepButtonStyle = (
     !state.disabled && (state.pressed || state.hovered) ? colors.surface : "transparent",
   alignItems: "center",
   justifyContent: "center",
-  opacity: state.disabled ? 0.4 : 1,
+  opacity: state.disabled ? DISABLED_OPACITY : 1,
 })
 
 export const stepGlyphColor = (disabled: boolean, colors: ColorRoles): string =>
@@ -46,8 +63,7 @@ export const stepGlyphColor = (disabled: boolean, colors: ColorRoles): string =>
 
 // Button --------------------------------------------------------------------------------------
 
-/** `ghost` is a deprecated alias of `text` (kept for existing screens; UI-R removes it). */
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "text" | "ghost"
+export type ButtonVariant = "primary" | "secondary" | "destructive" | "text"
 export type ButtonSize = "md" | "lg" | "xl"
 
 export const buttonHeights: { readonly [S in ButtonSize]: number } = {
@@ -66,7 +82,6 @@ export const buttonVariants: { readonly [V in ButtonVariant]: ButtonColors } = {
   secondary: { background: "surface", foreground: "text" },
   destructive: { background: "dangerSoft", foreground: "danger" },
   text: { background: "transparent", foreground: "accent" },
-  ghost: { background: "transparent", foreground: "accent" },
 }
 
 /** Pill (`radius.full`), height per size; the dark primary pill carries the `glow` shadow. */
@@ -154,11 +169,19 @@ export const rowStyle = (grouped: boolean, selected: boolean, colors: ColorRoles
   gap: space.md,
   paddingHorizontal: space.lg,
   paddingVertical: space.sm,
-  backgroundColor: selected ? colors.accentSoft : "transparent",
+  backgroundColor: rowBackground(selected, colors),
   ...(grouped ? {} : { borderBottomWidth: stroke.hairline, borderBottomColor: colors.border }),
 })
 
 export type RowTone = "default" | "danger"
+
+/** Title ramp of a row: `headline` by default; `body` for dense lists (Library steps). */
+export type RowTitleVariant = "headline" | "body" | "subhead"
+export const ROW_TITLE_VARIANT: RowTitleVariant = "headline"
+
+/** Background of a row: `accentSoft` when selected, otherwise transparent whatever the tone. */
+export const rowBackground = (selected: boolean, colors: ColorRoles): string =>
+  selected ? colors.accentSoft : "transparent"
 
 /** Per tone: the title's `Text` tone and the colour role of the leading glyph. */
 export const rowTones: {

@@ -1,40 +1,9 @@
 import { Option } from "effect"
-import { View } from "react-native"
 import type { ExerciseSummary, SessionSummary } from "../../hooks/useHistory"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
-import { Icon, ListRow, radius, StatusPill, sizes, Text, useTheme } from "../../ui"
+import { ListRow, StatusPill, sizes, Text } from "../../ui"
+import { illustrationIdFor } from "../todayHeader"
 import { formatE1Rm, formatLoggedDate, formatSetText, formatVolume } from "./progressFormat"
-
-interface ExerciseThumbProps {
-  readonly catalogId: ExerciseSummary["exercise"]["catalogId"]
-  readonly size: number
-  /** The tile sits on `surface` (a grouped row): the fallback uses `surfaceRaised`, else `surface`. */
-  readonly onSurface?: boolean
-}
-
-/** The catalog illustration; a custom exercise (no catalog entry) gets a neutral dumbbell tile. */
-export function ExerciseThumb({ catalogId, size, onSurface = false }: ExerciseThumbProps) {
-  const { colors } = useTheme()
-  return Option.match(catalogId, {
-    onSome: (id) => <ExerciseIllustration catalogId={id} size={size} />,
-    onNone: () => (
-      <View
-        accessibilityElementsHidden
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius.md,
-          borderCurve: "continuous",
-          backgroundColor: onSurface ? colors.surfaceRaised : colors.surface,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Icon name="dumbbell" size={sizes.iconMd} color={colors.textMuted} />
-      </View>
-    ),
-  })
-}
 
 interface ExerciseRowProps {
   readonly summary: ExerciseSummary
@@ -50,10 +19,9 @@ export function ExerciseRow({ summary, selected, onPress }: ExerciseRowProps) {
   return (
     <ListRow
       leading={
-        <ExerciseThumb
-          catalogId={summary.exercise.catalogId}
+        <ExerciseIllustration
+          catalogId={illustrationIdFor(summary.exercise)}
           size={sizes.illustrationSm}
-          onSurface
         />
       }
       title={summary.exercise.name}

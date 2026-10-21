@@ -1,4 +1,5 @@
 import { dayDurationSeconds, type ProgramDay } from "@tanren/shared"
+import { Match } from "effect"
 import type { RowDisc } from "../ui"
 
 /**
@@ -11,6 +12,34 @@ export const dayDisc = (dayNumber: number, currentDay: number): RowDisc => ({
   state: dayNumber < currentDay ? "done" : dayNumber === currentDay ? "now" : "todo",
   index: dayNumber,
 })
+
+/** Days in the phone's "This week" list. */
+export const WEEK_LENGTH = 7
+
+/**
+ * The `WEEK_LENGTH` consecutive days around `currentDay` (3 before, 3 after), slid back inside the
+ * program at either end; a program shorter than a week, or an enrollment past the last day, shows
+ * what fits (the last week). Days keep their order.
+ */
+export const weekWindow = <Day extends { readonly dayNumber: number }>(
+  days: ReadonlyArray<Day>,
+  currentDay: number,
+): ReadonlyArray<Day> => {
+  const start = Math.max(
+    0,
+    Math.min(currentDay - 1 - Math.floor(WEEK_LENGTH / 2), days.length - WEEK_LENGTH),
+  )
+  return days.slice(start, start + WEEK_LENGTH)
+}
+
+/** Screen-reader suffix of a day row: "done", "up next" or "upcoming". */
+export const dayStateLabel = (state: RowDisc["state"]): string =>
+  Match.value(state).pipe(
+    Match.when("done", () => "done"),
+    Match.when("now", () => "up next"),
+    Match.when("todo", () => "upcoming"),
+    Match.exhaustive,
+  )
 
 /** Days finished, never past the program length (an enrollment can sit one past the last day). */
 export const daysDone = (currentDay: number, totalDays: number): number =>

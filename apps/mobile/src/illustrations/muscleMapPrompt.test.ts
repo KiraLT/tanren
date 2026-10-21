@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest"
 import {
   DRAWABLE_MUSCLES,
   MUSCLE_ANATOMY,
+  MUSCLE_MAP_DIR,
+  muscleMapImagesSource,
   muscleMapPrompt,
   muscleTiers,
   parseMuscleArgs,
@@ -131,5 +133,23 @@ describe("selectMaps", () => {
     expect(selectMaps({ _tag: "Ids", ids: ["plank", "nope"] }, CATALOG)).toEqual(
       Result.fail("unknown catalog id nope"),
     )
+  })
+})
+
+describe("muscleMapImagesSource", () => {
+  const source = muscleMapImagesSource(["bench-press", "plank"])
+
+  it("writes one literal require per id, in the given order", () => {
+    expect(source).toContain(
+      `  "bench-press": require("../../${MUSCLE_MAP_DIR}/bench-press.webp"),\n  "plank": require("../../${MUSCLE_MAP_DIR}/plank.webp"),`,
+    )
+    expect(source.indexOf("bench-press")).toBeLessThan(source.indexOf("plank"))
+  })
+
+  it("exports the typed record and an empty id list gives an empty record", () => {
+    expect(source).toContain(
+      "export const MUSCLE_MAP_IMAGES: Readonly<Record<string, ImageSourcePropType>> = {",
+    )
+    expect(muscleMapImagesSource([])).toContain("= {\n\n}")
   })
 })

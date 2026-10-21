@@ -1,6 +1,7 @@
 import type { Program, ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { View } from "react-native"
+import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import { Button, Card, ListGroup, ListRow, ProgressRing, sizes, space, Text } from "../../ui"
 import { exerciseName, itemAmount } from "../cues"
@@ -8,10 +9,12 @@ import {
   dayCardLine,
   dayDisc,
   dayMinutes,
+  dayStateLabel,
   daysDone,
   dayTrailing,
   doneLabel,
   programProgress,
+  weekWindow,
 } from "../programDays"
 
 /** "≈ 15 min" from the planned length. */
@@ -35,12 +38,7 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
     <Card>
       <View style={{ gap: space.lg }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          {Option.match(firstCatalogId(program), {
-            onNone: () => null,
-            onSome: (catalogId) => (
-              <ExerciseIllustration catalogId={catalogId} size={sizes.illustrationSm} />
-            ),
-          })}
+          <ExerciseIllustration catalogId={firstCatalogId(program)} size={sizes.illustrationSm} />
           <View style={{ flex: 1, gap: space.xs }}>
             <Text variant="title2" accessibilityRole="header">
               {program.name}
@@ -125,6 +123,7 @@ export function DayItems({ day }: DayItemsProps) {
           <ListRow
             key={`${item.catalogId}-${index}`}
             title={exerciseName(item.catalogId)}
+            titleVariant="body"
             accessibilityLabel={`${exerciseName(item.catalogId)}, ${itemAmount(item)}`}
             trailing={
               <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
@@ -143,9 +142,15 @@ interface DayListProps {
   readonly currentDay: number
 }
 
-/** Every day of the program as disc rows (done / now / todo) with the done counter above. */
+/**
+ * Day rows (done / now / todo) with the done counter above. The desktop aside lists every day
+ * ("Days"); a phone or tablet shows "This week", the 7 days around the current one. The current
+ * row is bold (headline, the rest body) with a chevron, no filled background.
+ */
 export function DayList({ program, currentDay }: DayListProps) {
   const total = program.days.length
+  const wide = useBreakpoint() === "desktop"
+  const days = wide ? program.days : weekWindow(program.days, currentDay)
   return (
     <View style={{ gap: space.sm }}>
       <View
@@ -156,22 +161,23 @@ export function DayList({ program, currentDay }: DayListProps) {
         }}
       >
         <Text variant="caption" tone="muted" accessibilityRole="header">
-          Days
+          {wide ? "Days" : "This week"}
         </Text>
         <Text variant="caption" tone="accent">
           {doneLabel(currentDay, total)}
         </Text>
       </View>
       <ListGroup>
-        {Arr.map(program.days, (day) => {
+        {Arr.map(days, (day) => {
           const disc = dayDisc(day.dayNumber, currentDay)
+          const current = disc.state === "now"
           return (
             <ListRow
               key={day.dayNumber}
               title={day.title}
+              titleVariant={current ? "headline" : "body"}
               disc={disc}
-              selected={disc.state === "now"}
-              accessibilityLabel={`${day.title}, ${disc.state === "done" ? "done" : disc.state === "now" ? "up next" : "upcoming"}`}
+              accessibilityLabel={`${day.title}, ${dayStateLabel(disc.state)}`}
               trailing={
                 <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
                   {dayTrailing(day)}

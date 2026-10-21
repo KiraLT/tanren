@@ -12,11 +12,18 @@ export { APP_NAV } from "./appNav"
 export { Banner } from "./Banner"
 export { Button, type ButtonSize, type ButtonVariant } from "./Button"
 export { Card } from "./Card"
-export { type ColorRoles, illustration } from "./colors"
+export type { ColorRoles } from "./colors"
 export { EmptyState } from "./EmptyState"
 export { Icon, type IconName } from "./Icon"
 export { IconButton } from "./IconButton"
-export { type DiscState, ListGroup, ListRow, type RowDisc } from "./ListRow"
+export {
+  type DiscState,
+  ListGroup,
+  ListRow,
+  type RowDisc,
+  type RowTitleVariant,
+  useGrouped,
+} from "./ListRow"
 export { Page } from "./Page"
 export { ProgressRing, type RingSize } from "./ProgressRing"
 export { SegmentBar } from "./SegmentBar"

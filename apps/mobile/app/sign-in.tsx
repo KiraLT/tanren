@@ -104,7 +104,7 @@ export default function SignInScreen() {
               onPress={() => send(email)}
             />
             <Status state={state} />
-            <Button label="Back to Today" variant="ghost" onPress={backToToday} />
+            <Button label="Back to Today" variant="text" onPress={backToToday} />
           </>
         ),
       }),

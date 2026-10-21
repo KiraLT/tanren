@@ -3,7 +3,6 @@ import { Match, Option } from "effect"
 import { ScrollView, View } from "react-native"
 import { useAddToToday } from "../hooks/useAddToToday"
 import { useProfile } from "../hooks/useProfile"
-import { MuscleMap } from "../illustrations/muscleMap/MuscleMap"
 import {
   Banner,
   Button,
@@ -20,9 +19,16 @@ import {
 import { type AddOutcome, NO_SESSION_TITLE, noticeCopy } from "./addToToday"
 import { equipmentLabel, humanize, needsLine } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
+import { MuscleMapImage } from "./MuscleMapImage"
 
-/** ui-direction-final §7: the hero reserves 72×168 on the right for the muscle map. */
-const MAP_SLOT = { width: 72, height: 168 } as const
+/**
+ * The hero reserves a 160 × 176 slot (as tall as the illustration) on the right for the muscle map.
+ * The generated map (IMG-5b) is square, front and back figure side by side, drawn at 160 px so the
+ * row (176 + 160) fits a 343 px content width (375 px phones). Without a file the SVG fallback is
+ * the front view only, ≈ 67 px wide, centred in the same slot.
+ */
+const MAP_SIZE = 160
+const MAP_SLOT = { width: MAP_SIZE, height: sizes.illustrationLg } as const
 
 export interface CatalogDetailProps {
   readonly entry: CatalogExercise
@@ -59,21 +65,21 @@ function Meta({ icon, label }: { readonly icon: IconName; readonly label: string
   )
 }
 
-/** Background-free 176 px illustration, the muscle-map slot on the right, then the meta row. */
+/**
+ * The 176 px illustration (on the page; a raised backdrop only in dark), the muscle-map slot on the
+ * right, then the meta row.
+ */
 export function CatalogHero({ entry }: { readonly entry: CatalogExercise }) {
   return (
     <View style={{ gap: space.md }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <ExerciseIllustration
-          catalogId={entry.catalogId}
-          size={sizes.illustrationLg}
-          framed={false}
-        />
+        <ExerciseIllustration catalogId={entry.catalogId} size={sizes.illustrationLg} />
         <View style={{ ...MAP_SLOT, alignItems: "center", justifyContent: "center" }}>
-          <MuscleMap
+          <MuscleMapImage
+            catalogId={entry.catalogId}
             primary={entry.primaryMuscles}
             secondary={entry.secondaryMuscles}
-            size={MAP_SLOT.width}
+            size={MAP_SIZE}
           />
         </View>
       </View>
@@ -112,6 +118,7 @@ export function CatalogDetail({ entry, hero = true }: CatalogDetailProps) {
             <ListRow
               key={line}
               title={line}
+              titleVariant="body"
               disc={{ state: "todo", index: index + 1 }}
               accessibilityLabel={`Step ${index + 1}: ${line}`}
             />

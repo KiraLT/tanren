@@ -6,6 +6,7 @@ import { useLogSet } from "../hooks/useLogSet"
 import { useProfileState } from "../hooks/useProfile"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
+import { segmentsFilled } from "../player/playerHeader"
 import { useProgramDay } from "../player/useProgramDay"
 import { AppBar, Banner, gutter, Page, SegmentBar, space, Text, useBreakpoint } from "../ui"
 import { clampPage, ExercisePager } from "./ExercisePager"
@@ -48,7 +49,11 @@ function ExerciseCounter({ index, count, name }: ExerciseCounterProps) {
         </Text>{" "}
         of {count}
       </Text>
-      <SegmentBar total={count} filled={index + 1} accessibilityLabel={position} />
+      <SegmentBar
+        total={count}
+        filled={segmentsFilled(index + 1, count)}
+        accessibilityLabel={position}
+      />
     </View>
   )
 }

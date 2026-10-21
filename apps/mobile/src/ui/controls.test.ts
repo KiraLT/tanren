@@ -7,11 +7,15 @@ import {
   cardStyle,
   chipColors,
   chipStyle,
+  DISABLED_OPACITY,
   discStyle,
   listSeparatorStyle,
+  numeralScale,
   pillForeground,
+  ROW_TITLE_VARIANT,
   ringGeometry,
   ringSizes,
+  rowBackground,
   rowChevron,
   rowPressedBackground,
   rowStyle,
@@ -22,6 +26,7 @@ import {
   setDotStyle,
   stepButtonStyle,
   stepGlyphColor,
+  stepperCaption,
   stepperSizes,
 } from "./controls"
 
@@ -53,7 +58,7 @@ describe("Stepper", () => {
   it("disabled: no pressed circle, 0.4 opacity, muted glyph", () => {
     expect(
       stepButtonStyle("xl", { pressed: true, hovered: true, disabled: true }, lightColors),
-    ).toMatchObject({ backgroundColor: "transparent", opacity: 0.4 })
+    ).toMatchObject({ backgroundColor: "transparent", opacity: DISABLED_OPACITY })
     expect(stepGlyphColor(true, lightColors)).toBe(lightColors.textMuted)
     expect(stepGlyphColor(false, lightColors)).toBe(lightColors.text)
   })
@@ -78,7 +83,7 @@ describe("Button", () => {
     expect(buttonVariants.secondary).toEqual({ background: "surface", foreground: "text" })
     expect(buttonVariants.destructive).toEqual({ background: "dangerSoft", foreground: "danger" })
     expect(buttonVariants.text.background).toBe("transparent")
-    expect(buttonVariants.ghost).toEqual(buttonVariants.text)
+    expect(Object.keys(buttonVariants)).toEqual(["primary", "secondary", "destructive", "text"])
   })
 
   it("only the dark primary pill glows", () => {
@@ -139,8 +144,34 @@ describe("ListRow", () => {
     expect(rowTones.default).toEqual({ title: "default", icon: "textMuted" })
   })
 
-  it("danger rows keep a transparent background (no filled slab)", () => {
-    expect(rowStyle(true, false, lightColors).backgroundColor).toBe("transparent")
+  it("danger rows keep a transparent background (no filled slab), even pressed", () => {
+    // The row background takes no tone: a danger row is transparent at rest …
+    expect(rowBackground(false, lightColors)).toBe("transparent")
+    expect(rowStyle(false, false, lightColors).backgroundColor).toBe("transparent")
+    // … and its tone-dependent press tint is a neutral raise, never a danger fill.
+    const pressed = rowPressedBackground(false, darkColors, "danger")
+    expect(pressed).toBe(darkColors.surfaceRaised)
+    expect([darkColors.danger, darkColors.dangerSoft]).not.toContain(pressed)
+  })
+
+  it("stepper caption names label and unit once: 'Weight · kg', 'Reps'", () => {
+    expect(stepperCaption("Weight", "kg")).toBe("Weight · kg")
+    expect(stepperCaption("Reps", "reps")).toBe("Reps")
+  })
+
+  it("web numeral keeps 72 px from 375 up and scales linearly below", () => {
+    expect(numeralScale(390)).toBe(1)
+    expect(numeralScale(375)).toBe(1)
+    expect(numeralScale(300)).toBeCloseTo(0.8)
+    expect(numeralScale(-1)).toBe(0)
+  })
+
+  it("title variant defaults to headline", () => {
+    expect(ROW_TITLE_VARIANT).toBe("headline")
+  })
+
+  it("disabled rows and steppers share one opacity", () => {
+    expect(DISABLED_OPACITY).toBe(0.4)
   })
 
   it("chevron is a 20 px muted glyph", () => {

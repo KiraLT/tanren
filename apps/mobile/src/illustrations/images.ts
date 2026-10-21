@@ -41,6 +41,7 @@ export const IMAGES: Readonly<Record<string, ImageSourcePropType>> = {
   burpee: require("../../assets/illustrations/burpee.webp"),
   "butterfly-stretch": require("../../assets/illustrations/butterfly-stretch.webp"),
   "cable-chest-press": require("../../assets/illustrations/cable-chest-press.webp"),
+  "cable-crunch": require("../../assets/illustrations/cable-crunch.webp"),
   "cable-curl": require("../../assets/illustrations/cable-curl.webp"),
   "cable-deadlift": require("../../assets/illustrations/cable-deadlift.webp"),
   "cable-external-rotation": require("../../assets/illustrations/cable-external-rotation.webp"),

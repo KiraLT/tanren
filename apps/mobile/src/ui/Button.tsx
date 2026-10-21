@@ -19,7 +19,7 @@ export interface ButtonProps {
   /** Defaults to `label`. */
   readonly accessibilityLabel?: string
   readonly onPress: () => void
-  /** `ghost` is a deprecated alias of `text`. */
+  /** primary (default) · secondary · destructive · text (no fill). */
   readonly variant?: ButtonVariant
   /** md 48 · lg 56 (primary elsewhere) · xl 64 (Log set). */
   readonly size?: ButtonSize

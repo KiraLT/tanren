@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { CATALOG } from "@tanren/shared"
 import { Array as Arr, Option, Order } from "effect"
 import { IMAGE_DIR, IMAGE_MAP_FILE } from "../illustrations/imagePrompt"
-import { illustrationImage, placeholderSvg } from "./illustration"
+import { illustrationImage, muscleMapImageFor } from "./illustration"
 
 const packageRoot = join(import.meta.dirname, "../..")
 
@@ -31,13 +31,10 @@ describe("illustration image", () => {
   })
 })
 
-describe("illustration", () => {
-  it("placeholder is a single self-contained svg in the given colour", () => {
-    const svg = placeholderSvg("#71717A")
-    expect(svg.startsWith("<svg ")).toBe(true)
-    expect(svg.endsWith("</svg>")).toBe(true)
-    expect(svg).toContain('viewBox="0 0 120 120"')
-    expect(svg).toContain('stroke="#71717A"')
-    expect(svg).not.toMatch(/<script|<image|style=/)
+describe("muscle map image", () => {
+  it("finds the generated map for a catalog id and falls back to the SVG when there is none", () => {
+    const maps = { "barbell-back-squat": 3 }
+    expect(muscleMapImageFor(maps, "barbell-back-squat")).toEqual(Option.some(3))
+    expect(muscleMapImageFor(maps, "no-such-exercise")).toEqual(Option.none())
   })
 })

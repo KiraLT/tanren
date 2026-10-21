@@ -36,7 +36,7 @@ src/
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
               useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
-  library/    CatalogList/Filter/Detail, ExerciseIllustration (webp or placeholder), illustration.ts
+  library/    CatalogList/Filter/Detail, ExerciseIllustration (webp or fallback tile), MuscleMapImage (webp or SVG), illustration.ts
   illustrations/ imagePrompt (pure half of the generator), images.ts (generated map), muscleMap/
   components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
               PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
@@ -173,16 +173,26 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   per-id wording in `PROMPT_INSTRUCTIONS` / `NAME_OVERRIDES`). The key is `OPENAI_API_KEY` in the
   git-ignored `apps/mobile/.env.images`, read only by that script (`node --env-file-if-exists`); agents
   never open the file. Runs are capped at 8 images unless `--all`; existing files are skipped.
-- Then `pnpm images:shrink` (sharp, 512² q80, idempotent: files <= 520 px are skipped; ~2 MB for 233) and
+- Add `--transparent` (RGBA, works on both themes) and `--out <dir>` (generate into a scratch dir, then copy over the assets) for a full regeneration.
+- Then `pnpm images:shrink` (sharp, 512² q75 + alphaQuality 80, idempotent: files <= 520 px are skipped; 3.9 MB for 291) and
   `pnpm images:map` (rewrites `src/illustrations/images.ts`, a literal `require` per webp that Metro
   bundles; `src/library/illustration.test.ts` checks the map against the files and the catalog).
   `assets/illustrations/_contact-sheet.html` is the reviewer preview.
 - `ExerciseIllustration` shows `IMAGES[catalogId]` on the library detail, or a neutral placeholder when
-  an id has no file: `cable-crunch` is refused by the safety system even with neutral wording (three
-  rounds), so it stays on the placeholder; 290 of 291 catalog ids have a file (3.1 MB after
-  `images:shrink`). `frog-pump` and `cable-shrug` needed `NAME_OVERRIDES` / `PROMPT_INSTRUCTIONS` rewording.
+  an id has no file. The safety system refuses some ids at random (`cable-crunch` three times, then
+  passed in the IMG-4 transparent run; `cable-chest-press`, `standing-cable-crunch` once): rerun the
+  failed ids. All 291 catalog ids have a transparent file (IMG-4). `frog-pump` and `cable-shrug` needed `NAME_OVERRIDES` / `PROMPT_INSTRUCTIONS` rewording.
+- Muscle maps (IMG-5b/5c): per-exercise gpt-image-1 images in `assets/musclemaps/<catalogId>.webp`
+  (384 px square, transparent, front and back figure side by side; generator `scripts/generateMuscleMap.ts`,
+  shrink `scripts/shrinkMuscleMaps.ts`, index `scripts/muscleMapIndex.ts` writes
+  `src/illustrations/muscleMapImages.ts`, a `require` per file). `MuscleMapImage` (`src/library/`) shows
+  the file for a catalog id (`muscleMapImageFor`, pure, takes the map) and falls back to the SVG
+  `MuscleMap` (front view) with the entry's primary/secondary muscles when the id has no file; used in
+  `CatalogHero` (160 px slot) and the Progress exercise detail (176 px). `ExerciseIllustration`'s fallback tile
+  is `surfaceRaised` inside a `ListGroup` (`useGrouped()` from `src/ui`).
 - The body diagram is `src/illustrations/muscleMap/` (front/back silhouettes, 22 regions, primary and
-  secondary highlights from the catalog taxonomy); `scripts/muscleMapSheet.ts` writes its git-ignored
+  secondary highlights from the catalog taxonomy). `MuscleMap view`: `"both"` (default, square, front +
+  back) or `"front"` / `"back"` (cropped to one figure, about 0.38 × `size` wide); `scripts/muscleMapSheet.ts` writes its git-ignored
   preview. The old hand-built SVG pipeline (scenes, rig, `illustrations:check`) is retired.
 
 ## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)

@@ -137,12 +137,10 @@ function ExerciseHead({ item }: { readonly item: TodayExercise }) {
         borderBottomColor: colors.border,
       }}
     >
-      {Option.match(illustrationIdFor(item.exercise), {
-        onNone: () => null,
-        onSome: (catalogId) => (
-          <ExerciseIllustration catalogId={catalogId} size={sizes.illustrationMd} />
-        ),
-      })}
+      <ExerciseIllustration
+        catalogId={illustrationIdFor(item.exercise)}
+        size={sizes.illustrationMd}
+      />
       <View style={{ flex: 1, gap: space.xs }}>
         <Text variant="display" accessibilityRole="header">
           {item.exercise.name}

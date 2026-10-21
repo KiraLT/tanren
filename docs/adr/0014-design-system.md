@@ -50,6 +50,8 @@ semantic-colour API the Expo skills describe, and ships `NativeTabs` only under
 - Dark mode and reduced motion are proven in CI-like fashion with `agent-browser set media`.
 - A later `NativeTabs` switch touches only `(tabs)/_layout.tsx`; a theme toggle touches only
   `ThemeProvider`.
+- A `ListRow` outside a `ListGroup` draws its own hairline: this is the plain-list variant, kept for
+  the long virtualised Library `FlatList` (a group cannot wrap virtualised rows).
 - Hand-written icon paths cost one opus task once; no font download or FOUT on web.
 - VERIFY left to engineers (design §2.2, §5): `boxShadow`/`borderCurve` in RN 0.88 style types,
   RNW `Pressable` `hovered`/`focused` in the style function, web `<body>` background.

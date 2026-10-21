@@ -71,7 +71,7 @@ export function Banner({ tone = "info", title, body, action, onDismiss, style }:
           <Button
             label={action.label}
             onPress={action.onPress}
-            variant="ghost"
+            variant="text"
             style={{ alignSelf: "flex-start", paddingHorizontal: 0 }}
           />
         )}

@@ -2,7 +2,8 @@ import type { ExerciseId } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import { View } from "react-native"
 import { type ExerciseHistory, type HistoryState, useExerciseHistory } from "../../hooks/useHistory"
-import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
+import { ExerciseIllustration } from "../../library/ExerciseIllustration"
+import { MuscleMapImage } from "../../library/MuscleMapImage"
 import {
   Card,
   EmptyState,
@@ -14,7 +15,7 @@ import {
   space,
   Text,
 } from "../../ui"
-import { ExerciseThumb } from "./ProgressRows"
+import { illustrationIdFor } from "../todayHeader"
 import { bestSetParts, formatE1Rm, formatLoggedDate, formatSetText } from "./progressFormat"
 import { Sparkline } from "./Sparkline"
 import { WeekBars } from "./WeekBars"
@@ -119,12 +120,20 @@ function DetailReady({ history }: DetailProps) {
   return (
     <View style={{ gap: space.lg }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-        <ExerciseThumb catalogId={history.exercise.catalogId} size={sizes.illustrationMd} />
+        <ExerciseIllustration
+          catalogId={illustrationIdFor(history.exercise)}
+          size={sizes.illustrationMd}
+        />
         <Text variant="title2" accessibilityRole="header" style={{ flex: 1 }}>
           {history.exercise.name}
         </Text>
       </View>
-      <MuscleMap primary={history.exercise.muscleGroups} secondary={[]} size={200} />
+      <MuscleMapImage
+        catalogId={illustrationIdFor(history.exercise)}
+        primary={history.exercise.muscleGroups}
+        secondary={[]}
+        size={sizes.illustrationLg}
+      />
       <BestSetCard history={history} />
       <Card style={{ gap: space.md }}>
         <Text variant="headline">Volume, last 8 weeks</Text>

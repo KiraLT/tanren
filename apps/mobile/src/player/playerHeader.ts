@@ -4,6 +4,13 @@ import type { PlayerProgress } from "./playerMachine"
 export const eyebrowLabel = (p: PlayerProgress): string =>
   `Round ${p.round}/${p.rounds} · Exercise ${p.item}/${p.items}`
 
+/**
+ * The one app-bar segment-bar rule, on Today and in the player (UI-R 3): segments up to and
+ * including the current exercise are lit, so exercise 1 of N shows 1 filled. `position` is 1-based.
+ */
+export const segmentsFilled = (position: number, total: number): number =>
+  Math.max(0, Math.min(total, Math.floor(position)))
+
 /** Day progress for the 20 px eyebrow ring: finished exercises over all of them, clamped to 0..1. */
 export const dayFraction = (p: PlayerProgress): number => {
   const total = p.rounds * p.items

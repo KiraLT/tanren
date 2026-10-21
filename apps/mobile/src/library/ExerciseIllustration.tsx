@@ -1,30 +1,50 @@
 import type { CatalogId } from "@tanren/shared"
 import { Option } from "effect"
 import { Image, View } from "react-native"
-import { SvgXml } from "react-native-svg"
 import { IMAGES } from "../illustrations/images"
-import { illustration, radius, useTheme } from "../ui"
-import { illustrationImage, placeholderSvg } from "./illustration"
+import { Icon, radius, useGrouped, useTheme } from "../ui"
+import { illustrationImage } from "./illustration"
 
 /** v2-catalog.md §7: the detail illustration was 240 px; callers pass `sizes.illustration*`. */
 export const DEFAULT_ILLUSTRATION_SIZE = 240
 
+/** The fallback glyph's share of the tile edge. */
+const FALLBACK_GLYPH_RATIO = 0.4
+
 export interface ExerciseIllustrationProps {
-  readonly catalogId: CatalogId
+  /** A bare id or an `Option` (exercises without a catalog entry pass `None`). */
+  readonly catalogId: CatalogId | Option.Option<CatalogId>
   /** Edge length in px (square); defaults to `DEFAULT_ILLUSTRATION_SIZE`. */
   readonly size?: number
-  /** `false` drops the `surface` tile (the detail hero: transparent assets sit on `bg`). */
+  /**
+   * `true` puts a `surface` tile behind an image. Default `false`: the transparent (IMG-4) figure
+   * sits on the page, with a `surfaceRaised` backdrop in dark only so the slate figure reads.
+   */
   readonly framed?: boolean
 }
 
-/** The entry's gpt-image-1 illustration (`pnpm images:map`), or a neutral placeholder without one. */
+/**
+ * The entry's gpt-image-1 illustration (`pnpm images:map`). The one fallback, for no catalog id or
+ * an id without a file: a `surface` tile (`surfaceRaised` inside a `ListGroup`) with the `dumbbell` glyph in `textMuted`.
+ */
 export function ExerciseIllustration({
   catalogId,
   size = DEFAULT_ILLUSTRATION_SIZE,
-  framed = true,
+  framed = false,
 }: ExerciseIllustrationProps) {
-  const { colors } = useTheme()
-  const image = illustrationImage(IMAGES, catalogId)
+  const { colors, scheme } = useTheme()
+  const grouped = useGrouped()
+  const id = Option.isOption(catalogId) ? catalogId : Option.some(catalogId)
+  const image = Option.flatMap(id, (value) => illustrationImage(IMAGES, value))
+  // Inside a `ListGroup` (also `surface`) the fallback tile is raised so it does not vanish.
+  const tile = grouped ? colors.surfaceRaised : colors.surface
+  const backdrop =
+    framed || Option.isNone(image)
+      ? Option.some(tile)
+      : scheme === "dark"
+        ? Option.some(colors.surfaceRaised)
+        : Option.none()
+  const tiled = Option.isSome(backdrop)
   return (
     <View
       accessibilityRole="image"
@@ -34,11 +54,13 @@ export function ExerciseIllustration({
       style={{
         width: size,
         height: size,
-        borderRadius: framed ? radius.md : 0,
+        borderRadius: tiled ? radius.md : 0,
         borderCurve: "continuous",
-        backgroundColor: framed ? colors.surface : "transparent",
+        backgroundColor: Option.getOrElse(backdrop, () => "transparent"),
         overflow: "hidden",
         alignSelf: "center",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       {Option.match(image, {
@@ -46,7 +68,11 @@ export function ExerciseIllustration({
           <Image source={source} style={{ width: size, height: size }} resizeMode="cover" />
         ),
         onNone: () => (
-          <SvgXml xml={placeholderSvg(illustration.figure)} width={size} height={size} />
+          <Icon
+            name="dumbbell"
+            size={Math.round(size * FALLBACK_GLYPH_RATIO)}
+            color={colors.textMuted}
+          />
         ),
       })}
     </View>

@@ -14,7 +14,7 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined)
  * The bundled Barlow Condensed faces, keyed by the family names `type` uses. expo-font registers
  * each key as the family on native and injects an `@font-face` with that name on web. `weight` only
  * reaches the web `@font-face`: without it the face is declared 400 and the browser fakes bold on
- * top of the `fontWeight: "800"` in `type`.
+ * top of the 800 weight the display variants in `type` carry.
  */
 const FONT_MAP = {
   [fonts.display]: { uri: require("../assets/fonts/BarlowCondensed-ExtraBold.ttf"), weight: 800 },
@@ -30,7 +30,7 @@ function ThemedStatusBar() {
 export default function RootLayout() {
   useSync()
   const [fontsLoaded, fontError] = useFonts(FONT_MAP)
-  // A failed load still renders: `type` keeps `fontWeight: "800"`, so the system face stands in.
+  // A failed load still renders: `type` keeps the 800 weight, so the system face stands in heavy.
   const ready = fontsLoaded || fontError !== null
   useEffect(() => {
     if (ready) {

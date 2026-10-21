@@ -119,7 +119,7 @@ export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFi
         {hasFilter(state) ? (
           <Button
             label="Clear filters"
-            variant="ghost"
+            variant="text"
             onPress={() => dispatch({ _tag: "Cleared" })}
           />
         ) : null}

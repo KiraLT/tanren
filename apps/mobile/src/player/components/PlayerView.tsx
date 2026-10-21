@@ -3,49 +3,12 @@ import { Match, Option } from "effect"
 import { View } from "react-native"
 import type { CompletionState } from "../../hooks/usePlayer"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
-import {
-  Banner,
-  Button,
-  Card,
-  IconButton,
-  radius,
-  sizes,
-  space,
-  Text,
-  TimerRing,
-  useTheme,
-} from "../../ui"
+import { Banner, Button, Card, IconButton, sizes, space, Text, TimerRing } from "../../ui"
 import { clock, exerciseName, itemAmount } from "../cues"
 import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
 
 /** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
 const WORK_ILLUSTRATION = 120
-
-/** Tile behind the name when an item has no catalog entry (the `ExerciseIllustration` placeholder otherwise). */
-function NameTile({ name }: { readonly name: string }) {
-  const { colors } = useTheme()
-  return (
-    <View
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={`${name} illustration`}
-      style={{
-        width: WORK_ILLUSTRATION,
-        height: WORK_ILLUSTRATION,
-        borderRadius: radius.lg,
-        borderCurve: "continuous",
-        backgroundColor: colors.surface,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: space.md,
-      }}
-    >
-      <Text variant="subhead" style={{ textAlign: "center" }}>
-        {name}
-      </Text>
-    </View>
-  )
-}
 
 /** Length of the running phase (for the ring); 1 when there is no countdown. */
 const phaseTotalMs = (state: PlayerState): number => {
@@ -127,12 +90,10 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
         </View>
       ) : (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-          {Option.match(item, {
-            onNone: () => <NameTile name={name} />,
-            onSome: (i) => (
-              <ExerciseIllustration catalogId={i.catalogId} size={WORK_ILLUSTRATION} />
-            ),
-          })}
+          <ExerciseIllustration
+            catalogId={Option.map(item, (i) => i.catalogId)}
+            size={WORK_ILLUSTRATION}
+          />
           <View accessible accessibilityRole="header" style={{ flex: 1, gap: space.xs }}>
             <Text variant="caption" tone={paused ? "muted" : "accent"}>
               {phaseLabel(paused, resting)}

@@ -7,7 +7,7 @@ import { type PlayerSession, usePlayer } from "../../src/hooks/usePlayer"
 import { CompletionSheet, PlayerView } from "../../src/player/components/PlayerView"
 import { approxMinutes } from "../../src/player/components/ProgramHome"
 import { isRunning } from "../../src/player/cues"
-import { dayFraction, eyebrowLabel } from "../../src/player/playerHeader"
+import { dayFraction, eyebrowLabel, segmentsFilled } from "../../src/player/playerHeader"
 import { progress } from "../../src/player/playerMachine"
 import { useProgramDay } from "../../src/player/useProgramDay"
 import {
@@ -53,7 +53,7 @@ function Player({
           trailing: (
             <SegmentBar
               total={p.items}
-              filled={p.item - 1}
+              filled={segmentsFilled(p.item, p.items)}
               accessibilityLabel={`Exercise ${p.item} of ${p.items}`}
             />
           ),

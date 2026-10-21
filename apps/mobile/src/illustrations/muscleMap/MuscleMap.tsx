@@ -2,15 +2,48 @@ import type { MuscleGroup } from "@tanren/shared"
 import { View } from "react-native"
 import Svg, { Path } from "react-native-svg"
 import { useTheme } from "../../ui"
-import { DETAILS, MUSCLE_MAP_STYLE, PANELS, REGIONS, SILHOUETTE, VIEW_BOX_SIZE } from "./body"
+import {
+  DETAILS,
+  MUSCLE_MAP_STYLE,
+  PANEL_WIDTH,
+  PANELS,
+  type Panel,
+  REGIONS,
+  SILHOUETTE,
+  VIEW_BOX_SIZE,
+} from "./body"
 import { muscleMapLabel, type RegionTone, regionTone } from "./regions"
 
 export interface MuscleMapProps {
   readonly primary: ReadonlyArray<MuscleGroup>
   readonly secondary: ReadonlyArray<MuscleGroup>
-  /** Width and height in px (the map is square: front and back figures side by side). */
+  /**
+   * Height in px. `both` (default) is square: front and back figures side by side. A single view
+   * is cropped to the figure and drawn at the same height, about 0.38 × `size` wide (the figure
+   * is then ~1.7× larger than in `both`).
+   */
   readonly size: number
+  readonly view?: "both" | Panel
 }
+
+/** Viewbox crop of one panel: the figure spans x 30–170 and y 12–392 of its 200 × 400 panel. */
+const CROP = { x: 26, y: 8, width: 148, height: 388 } as const
+
+interface Frame {
+  readonly viewBox: string
+  readonly width: number
+  /** viewBox units per screen px (stroke widths are authored in px). */
+  readonly scale: number
+}
+
+const frameFor = (view: "both" | Panel, size: number): Frame =>
+  view === "both"
+    ? { viewBox: `0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`, width: size, scale: VIEW_BOX_SIZE / size }
+    : {
+        viewBox: `${CROP.x + (view === "front" ? 0 : PANEL_WIDTH)} ${CROP.y} ${CROP.width} ${CROP.height}`,
+        width: (size * CROP.width) / CROP.height,
+        scale: CROP.height / size,
+      }
 
 const OPACITY: Readonly<Record<RegionTone, number>> = {
   primary: MUSCLE_MAP_STYLE.primaryOpacity,
@@ -19,19 +52,21 @@ const OPACITY: Readonly<Record<RegionTone, number>> = {
 }
 
 /** Front and back silhouettes; primary muscles in the accent, secondary in a light accent tint. */
-export function MuscleMap({ primary, secondary, size }: MuscleMapProps) {
+export function MuscleMap({ primary, secondary, size, view = "both" }: MuscleMapProps) {
   const { colors } = useTheme()
   const tone = regionTone(primary, secondary)
-  const scale = VIEW_BOX_SIZE / size
+  const frame = frameFor(view, size)
+  const scale = frame.scale
   const seamWidth = MUSCLE_MAP_STYLE.seamWidth * scale
+  const panels = view === "both" ? PANELS : [view]
   return (
     <View
       accessibilityRole="image"
       accessibilityLabel={muscleMapLabel(primary, secondary)}
-      style={{ width: size, height: size, alignSelf: "center" }}
+      style={{ width: frame.width, height: size, alignSelf: "center" }}
     >
-      <Svg width={size} height={size} viewBox={`0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`}>
-        {PANELS.map((panel) => [
+      <Svg width={frame.width} height={size} viewBox={frame.viewBox}>
+        {panels.map((panel) => [
           ...SILHOUETTE[panel].fill.map((d) => (
             <Path key={`${panel}-fill-${d}`} d={d} fill={colors.surface} />
           )),

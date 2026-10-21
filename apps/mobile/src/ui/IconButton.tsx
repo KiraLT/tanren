@@ -5,7 +5,8 @@ import { useTheme } from "./theme"
 import { radius, sizes } from "./tokens"
 
 export type IconButtonSize = "md" | "lg"
-export type IconButtonVariant = "ghost" | "filled"
+/** `plain`: glyph only (surface tint on press/hover); `filled`: a `surface` disc. */
+export type IconButtonVariant = "plain" | "filled"
 
 const boxes: { readonly [S in IconButtonSize]: number } = { md: sizes.tap, lg: sizes.controlLg }
 
@@ -25,7 +26,7 @@ export function IconButton({
   accessibilityLabel,
   onPress,
   size = "md",
-  variant = "ghost",
+  variant = "plain",
   disabled = false,
   style,
 }: IconButtonProps) {

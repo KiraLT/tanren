@@ -1,5 +1,6 @@
 import { CATALOG, type CatalogExercise, type CatalogId, type Exercise } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
+import { programProgress } from "../player/programDays"
 import type { ProgramDayState } from "../player/useProgramDay"
 import { formatKg } from "./stepMath"
 
@@ -9,14 +10,14 @@ export interface TodayEyebrow {
   readonly progress: number
 }
 
-/** Only for an active enrollment that still has a day to do (same rule as the program banner). */
+/** Only for an active enrollment that still has a day to do; the ring is `programProgress`. */
 export const todayEyebrowOf = (state: ProgramDayState): Option.Option<TodayEyebrow> =>
   state._tag === "Ready"
     ? Option.map(state.day, (day) => {
         const total = state.program.days.length
         return {
           label: `${state.program.name} · Day ${day.dayNumber} of ${total}`,
-          progress: total > 0 ? (day.dayNumber - 1) / total : 0,
+          progress: programProgress(day.dayNumber, total),
         }
       })
     : Option.none()

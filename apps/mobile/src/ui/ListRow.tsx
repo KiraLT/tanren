@@ -2,10 +2,13 @@ import { Array as Arr } from "effect"
 import { Children, createContext, type ReactNode, use } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import {
+  DISABLED_OPACITY,
   type DiscState,
   discStyle,
   listGroupStyle,
   listSeparatorStyle,
+  ROW_TITLE_VARIANT,
+  type RowTitleVariant,
   type RowTone,
   rowChevron,
   rowPressedBackground,
@@ -18,10 +21,16 @@ import { Text } from "./Text"
 import { useTheme } from "./theme"
 import { sizes } from "./tokens"
 
-export type { DiscState } from "./controls"
+export type { DiscState, RowTitleVariant } from "./controls"
 
 /** True inside a `ListGroup`: the row drops its own hairline (the group draws them). */
 const GroupedContext = createContext(false)
+
+/**
+ * Whether the caller sits inside a `ListGroup` (a `surface` card): leading art that needs its own
+ * tile uses `surfaceRaised` there, since a `surface` tile would vanish into the group.
+ */
+export const useGrouped = (): boolean => use(GroupedContext)
 
 export interface ListGroupProps {
   readonly children: ReactNode
@@ -75,6 +84,8 @@ function Disc({ state, index }: RowDisc) {
 
 export interface ListRowProps {
   readonly title: string
+  /** Title ramp: `headline` (default), `body` for dense lists, `subhead`. */
+  readonly titleVariant?: RowTitleVariant
   readonly subtitle?: string
   /** Free leading slot; `disc` / `icon` are the standard ones and win over it. */
   readonly leading?: ReactNode
@@ -98,6 +109,7 @@ export interface ListRowProps {
 /** One row (min 52, grows with Dynamic Type); put rows in a `ListGroup` for hairline grouping. */
 export function ListRow({
   title,
+  titleVariant = ROW_TITLE_VARIANT,
   subtitle,
   leading,
   disc,
@@ -112,9 +124,9 @@ export function ListRow({
   style,
 }: ListRowProps) {
   const { colors } = useTheme()
-  const grouped = use(GroupedContext)
+  const grouped = useGrouped()
   const { hovered, handlers, focusStyle } = usePressableInteraction()
-  const base = [rowStyle(grouped, selected, colors), disabled && { opacity: 0.4 }]
+  const base = [rowStyle(grouped, selected, colors), disabled && { opacity: DISABLED_OPACITY }]
   const toneSpec = rowTones[tone]
   const lead =
     disc !== undefined ? (
@@ -128,7 +140,7 @@ export function ListRow({
     <>
       {lead}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="headline" tone={toneSpec.title}>
+        <Text variant={titleVariant} tone={toneSpec.title}>
           {title}
         </Text>
         {subtitle === undefined ? null : (

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest"
+import { describe, expect, expectTypeOf, it } from "@effect/vitest"
+import type { CatalogEquipment } from "@tanren/shared"
 import { Option } from "effect"
 import {
   APPEARANCE_OPTIONS,
@@ -55,5 +56,13 @@ describe("equipmentGlyph", () => {
     expect(equipmentGlyph("kettlebell")).toEqual(Option.some("kettlebell"))
     expect(equipmentGlyph("barbell")).toEqual(Option.some("dumbbell"))
     expect(equipmentGlyph("cable")).toEqual(Option.none())
+  })
+
+  it("leaves bench bare (the home glyph was the wrong picture)", () => {
+    expect(equipmentGlyph("bench")).toEqual(Option.none())
+  })
+
+  it("takes only catalog equipment literals", () => {
+    expectTypeOf(equipmentGlyph).parameter(0).toEqualTypeOf<CatalogEquipment>()
   })
 })

@@ -71,6 +71,3 @@ export const darkColors: ColorRoles = {
   overlay: "rgba(0,0,0,0.6)",
   glow: "rgba(255,176,32,0.35)",
 }
-
-/** Static illustration colours, the same in both schemes (ui-direction-final §7–§8). */
-export const illustration = { figure: "#8A919B", accent: "#F0632A" } as const

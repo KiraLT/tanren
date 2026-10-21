@@ -118,7 +118,7 @@ export function AppBar({
             </Text>
           </View>
         )}
-        <Text variant="title2" accessibilityRole="header" numberOfLines={1}>
+        <Text variant="title" accessibilityRole="header" numberOfLines={2}>
           {title}
         </Text>
         {subtitle === undefined ? null : (
