@@ -10,6 +10,7 @@ import {
   type Profile,
 } from "@tanren/shared"
 import { Effect, Match, Option } from "effect"
+import type { ProfileState } from "../../hooks/useProfile"
 import { type ProfileInvalid, ProfileRepo } from "../../services/ProfileRepo"
 import type { StoreError } from "../../services/SqlDriver"
 
@@ -26,7 +27,8 @@ export type LocationsAction =
 
 /** `Profile.locations` holds at most 10 (shared `Locations`). */
 export const MAX_LOCATIONS = 10
-const MAX_NAME = 80
+/** Longest location name (shared `Location.name`); the editor's `maxLength` too. */
+export const MAX_LOCATION_NAME = 80
 
 export const emptyLocations: LocationsState = { locations: [], activeLocationId: Option.none() }
 
@@ -45,18 +47,28 @@ const freshName = (base: string, taken: ReadonlyArray<Location>): string => {
   return suffix === undefined || suffix === 1 ? base : `${base} ${suffix}`
 }
 
+/** Edits one location; an unknown id, or an `f` that returns its input, gives `state` itself. */
 const mapLocation = (
   state: LocationsState,
   id: LocationId,
   f: (location: Location) => Location,
-): LocationsState => ({
-  ...state,
-  locations: state.locations.map((location) => (location.id === id ? f(location) : location)),
-})
+): LocationsState => {
+  const target = state.locations.find((location) => location.id === id)
+  if (target === undefined) return state
+  const edited = f(target)
+  return edited === target
+    ? state
+    : {
+        ...state,
+        locations: state.locations.map((location) => (location === target ? edited : location)),
+      }
+}
 
 /**
  * Pure edits of the locations; the first added location becomes active, removing the active one
- * clears it, and no-ops (unknown id, blank name, an 11th location) return the state unchanged.
+ * promotes the first remaining location (none left → no active one), and no-ops (unknown id, blank
+ * or unchanged name, an 11th location) return the very same state object, so callers can skip
+ * the write with `next === current`.
  */
 export const reduceLocations = (state: LocationsState, action: LocationsAction): LocationsState =>
   Match.valueTags(action, {
@@ -72,10 +84,12 @@ export const reduceLocations = (state: LocationsState, action: LocationsAction):
       }
     },
     Rename: ({ id, name }) => {
-      const trimmed = name.trim().slice(0, MAX_NAME)
+      const trimmed = name.trim().slice(0, MAX_LOCATION_NAME)
       return trimmed.length === 0
         ? state
-        : mapLocation(state, id, (location) => ({ ...location, name: trimmed }))
+        : mapLocation(state, id, (location) =>
+            location.name === trimmed ? location : { ...location, name: trimmed },
+          )
     },
     Toggle: ({ id, equipment }) =>
       mapLocation(state, id, (location) => ({
@@ -84,36 +98,81 @@ export const reduceLocations = (state: LocationsState, action: LocationsAction):
           ? location.equipment.filter((tag) => tag !== equipment)
           : [...location.equipment, equipment],
       })),
-    Remove: ({ id }) => ({
-      locations: state.locations.filter((location) => location.id !== id),
-      activeLocationId: Option.filter(state.activeLocationId, (active) => active !== id),
-    }),
+    Remove: ({ id }) => {
+      if (!state.locations.some((location) => location.id === id)) return state
+      const locations = state.locations.filter((location) => location.id !== id)
+      return {
+        locations,
+        activeLocationId: Option.contains(state.activeLocationId, id)
+          ? Option.map(Option.fromNullishOr(locations[0]), (first) => first.id)
+          : state.activeLocationId,
+      }
+    },
     SetActive: ({ id }) =>
       state.locations.some((location) => location.id === id)
         ? { ...state, activeLocationId: Option.some(id) }
         : state,
   })
 
+/** What the location editor route shows. */
+export type LocationLookup =
+  | { readonly _tag: "Loading" }
+  | { readonly _tag: "NotFound" }
+  | { readonly _tag: "Found"; readonly location: Location; readonly active: boolean }
+
 /**
- * Reads the profile, applies the action and saves the whole row dirty (`ProfileRepo.save` creates
- * the profile on first use). A no-op action writes nothing. Succeeds with the resulting slice.
+ * Finds the route's location. `id` is the raw search param: a repeated `?id=` gives an array,
+ * which names no location.
+ */
+export const lookupLocation = (
+  state: ProfileState<LocationsState>,
+  id: string | ReadonlyArray<string> | undefined,
+): LocationLookup =>
+  Match.valueTags(state, {
+    Loading: (): LocationLookup => ({ _tag: "Loading" }),
+    Loaded: ({ profile }): LocationLookup => {
+      const location = Option.flatMap(profile, (found) =>
+        Option.fromNullishOr(
+          typeof id === "string"
+            ? found.locations.find((candidate) => candidate.id === id)
+            : undefined,
+        ),
+      )
+      return Option.match(location, {
+        onNone: () => ({ _tag: "NotFound" }),
+        onSome: (found) => ({
+          _tag: "Found",
+          location: found,
+          active: Option.exists(profile, (p) => Option.contains(p.activeLocationId, found.id)),
+        }),
+      })
+    },
+  })
+
+const sliceOf = (profile: Option.Option<Profile>): LocationsState =>
+  Option.match(profile, {
+    onNone: () => emptyLocations,
+    onSome: ({ locations, activeLocationId }): LocationsState => ({ locations, activeLocationId }),
+  })
+
+/**
+ * Applies the action to the stored profile under `ProfileRepo.modify`'s lock (fast taps never lose
+ * an edit) and saves the whole row dirty, creating the profile on first use. A no-op action writes
+ * nothing. Succeeds with the resulting slice.
  */
 export const applyLocations = (
   action: LocationsAction,
 ): Effect.Effect<LocationsState, StoreError | ProfileInvalid, ProfileRepo> =>
   Effect.gen(function* () {
     const repo = yield* ProfileRepo
-    const current = Option.match(yield* repo.get, {
-      onNone: () => emptyLocations,
-      onSome: ({ locations, activeLocationId }): LocationsState => ({
-        locations,
-        activeLocationId,
-      }),
+    const saved = yield* repo.modify((profile) => {
+      const current = sliceOf(profile)
+      const next = reduceLocations(current, action)
+      return next === current
+        ? Option.none()
+        : Option.some({ locations: next.locations, activeLocationId: next.activeLocationId })
     })
-    const next = reduceLocations(current, action)
-    if (next === current) return current
-    yield* repo.save({ locations: next.locations, activeLocationId: next.activeLocationId })
-    return next
+    return sliceOf(saved)
   })
 
 /** Adds a location from a preset with a fresh id (IdGenerator); succeeds with that id. */

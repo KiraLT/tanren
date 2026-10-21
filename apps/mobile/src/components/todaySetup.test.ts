@@ -10,15 +10,23 @@ const home = Schema.decodeUnknownSync(Location)({
 })
 
 describe("needsEquipmentSetup", () => {
+  it("hides the card while the profile is loading", () => {
+    expect(needsEquipmentSetup({ _tag: "Loading" })).toBe(false)
+  })
+
   it("shows the card when there is no profile yet", () => {
-    expect(needsEquipmentSetup(Option.none())).toBe(true)
+    expect(needsEquipmentSetup({ _tag: "Loaded", profile: Option.none() })).toBe(true)
   })
 
   it("shows the card while the profile has no location", () => {
-    expect(needsEquipmentSetup(Option.some({ locations: [] }))).toBe(true)
+    expect(needsEquipmentSetup({ _tag: "Loaded", profile: Option.some({ locations: [] }) })).toBe(
+      true,
+    )
   })
 
   it("hides the card once a location exists, even a bodyweight one", () => {
-    expect(needsEquipmentSetup(Option.some({ locations: [home] }))).toBe(false)
+    expect(
+      needsEquipmentSetup({ _tag: "Loaded", profile: Option.some({ locations: [home] }) }),
+    ).toBe(false)
   })
 })

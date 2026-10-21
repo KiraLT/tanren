@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../hooks/useLayoutMode"
 import { useLogSet } from "../hooks/useLogSet"
-import { useProfile } from "../hooks/useProfile"
+import { useProfileState } from "../hooks/useProfile"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
 import { programBannerOf } from "../player/programBanner"
@@ -74,7 +74,7 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
   const breakpoint = useBreakpoint()
   const current = Arr.get(exercises, clampPage(page, exercises.length))
   const program = programBannerOf(useProgramDay().state)
-  const setup = needsEquipmentSetup(useProfile())
+  const setup = needsEquipmentSetup(useProfileState())
   const router = useRouter()
   const onLogged = (seconds: number) => {
     setRestTotal(seconds)

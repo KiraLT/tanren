@@ -1,8 +1,42 @@
 import { describe, expect, it } from "@effect/vitest"
-import { EQUIPMENT_GROUPS, LOCATION_PRESETS } from "./presets"
+import { Effect, Schema } from "effect"
+import { rejects } from "../testing"
+import { EQUIPMENT_GROUPS, EquipmentGroup, LOCATION_PRESETS, LocationPreset } from "./presets"
 import { CatalogEquipment } from "./taxonomy"
 
 const grouped = Object.values(EQUIPMENT_GROUPS).flat()
+
+describe("EquipmentGroup", () => {
+  it.effect("decodes a known group", () =>
+    Effect.gen(function* () {
+      expect(yield* Schema.decodeUnknownEffect(EquipmentGroup)("cables")).toBe("cables")
+    }),
+  )
+
+  it.effect("rejects an unknown group", () =>
+    Effect.gen(function* () {
+      yield* rejects(EquipmentGroup, "weights")
+      const error = yield* Effect.flip(Schema.decodeUnknownEffect(EquipmentGroup)("weights"))
+      expect(error.message).toMatch(/^Expected "freeWeights" \| "benchesRacks"/)
+    }),
+  )
+})
+
+describe("LocationPreset", () => {
+  it.effect("decodes a known preset", () =>
+    Effect.gen(function* () {
+      expect(yield* Schema.decodeUnknownEffect(LocationPreset)("home")).toBe("home")
+    }),
+  )
+
+  it.effect("rejects an unknown preset", () =>
+    Effect.gen(function* () {
+      yield* rejects(LocationPreset, "garage")
+      const error = yield* Effect.flip(Schema.decodeUnknownEffect(LocationPreset)("garage"))
+      expect(error.message).toMatch(/^Expected "commercialGym" \| "home" \| "bodyweightOnly"/)
+    }),
+  )
+})
 
 describe("EQUIPMENT_GROUPS", () => {
   it("lists every CatalogEquipment literal in exactly one group", () => {

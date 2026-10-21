@@ -111,8 +111,18 @@ export type ProfileEncoded = (typeof Profile)["Encoded"]
 export const ProfileInsert = Profile.mapFields(Struct.omit(ROW_COLUMNS))
 export type ProfileInsert = typeof ProfileInsert.Type
 
-/** Exact partial: absent key = unchanged. */
-export const ProfilePatch = Profile.mapFields(Struct.omit(ROW_COLUMNS)).mapFields(
-  Struct.map(Schema.optionalKey),
-)
+/**
+ * Exact partial: absent key = unchanged. Built from the bare field schemas, not by mapping
+ * `ProfileFields`: `locations` and `activeLocationId` carry decoding defaults (`[]`, `None`) that
+ * would turn an absent key into "clear it" and wipe the stored locations on every patch.
+ * `activeLocationId: null` clears the active location.
+ */
+export const ProfilePatch = Schema.Struct({
+  goals: Schema.optionalKey(ProfileFields.goals),
+  constraints: Schema.optionalKey(ProfileFields.constraints),
+  availableDays: Schema.optionalKey(ProfileFields.availableDays),
+  locations: Schema.optionalKey(Locations),
+  activeLocationId: Schema.optionalKey(Schema.OptionFromNullOr(LocationId)),
+  timezone: Schema.optionalKey(ProfileFields.timezone),
+})
 export type ProfilePatch = typeof ProfilePatch.Type

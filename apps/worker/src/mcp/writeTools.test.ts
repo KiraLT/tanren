@@ -657,6 +657,36 @@ describe("update_profile", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect(
+    "rejects a patch that drops the active location without resetting activeLocationId",
+    () =>
+      Effect.gen(function* () {
+        yield* setTime(NOW)
+        const gym = { id: id(0x401), name: "Gym", equipment: [] }
+        const home = { id: id(0x402), name: "Home", equipment: [] }
+        yield* updateProfile.run(
+          userA,
+          yield* profilePatch({
+            timezone: "Europe/Vilnius",
+            locations: [gym, home],
+            activeLocationId: gym.id,
+          }),
+        )
+        const error = yield* Effect.flip(
+          updateProfile.run(userA, yield* profilePatch({ locations: [home] })),
+        )
+        expect(error).toMatchObject({
+          _tag: "ValidationError",
+          issues: [{ path: ["activeLocationId"] }],
+        })
+        const cleared = yield* updateProfile.run(
+          userA,
+          yield* profilePatch({ locations: [home], activeLocationId: null }),
+        )
+        expect(cleared.activeLocationId).toEqual(Option.none())
+      }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("merges a patch: absent keys unchanged, createdAt kept, updatedAt = now", () =>
     Effect.gen(function* () {
       yield* setTime(NOW)

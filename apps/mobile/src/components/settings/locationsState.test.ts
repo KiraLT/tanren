@@ -12,6 +12,7 @@ import {
   emptyLocations,
   type LocationsAction,
   type LocationsState,
+  lookupLocation,
   MAX_LOCATIONS,
   reduceLocations,
 } from "./locationsState"
@@ -77,10 +78,21 @@ describe("reduceLocations", () => {
     ])
   })
 
-  it("Remove of the active location clears the active id", () => {
+  it("Remove of the active location promotes the first remaining one", () => {
     const removed = run([{ _tag: "Remove", id: id(1) }], gymAndHome)
     expect(removed.locations.map((l) => l.name)).toEqual(["Home"])
-    expect(removed.activeLocationId).toEqual(Option.none())
+    expect(removed.activeLocationId).toEqual(Option.some(id(2)))
+  })
+
+  it("Remove of the last location clears the active id", () => {
+    const removed = run(
+      [
+        { _tag: "Remove", id: id(1) },
+        { _tag: "Remove", id: id(2) },
+      ],
+      gymAndHome,
+    )
+    expect(removed).toEqual(emptyLocations)
   })
 
   it("Remove of another location keeps the active id", () => {
@@ -111,6 +123,38 @@ const RepoLayer = Layer.mergeAll(
   IdGenerator.layerTest,
 )
 
+/**
+ * The node driver is synchronous, so two fibers never interleave between read and save. This store
+ * yields before every read, which lets a second fiber read the same profile: the lost-update race.
+ */
+const YieldingReadsLayer = Layer.mergeAll(
+  ProfileRepo.layer.pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(
+        Layer.effect(
+          LocalStore,
+          Effect.gen(function* () {
+            const inner = yield* LocalStore
+            return LocalStore.of({
+              ...inner,
+              all: (statement) => Effect.andThen(Effect.yieldNow, inner.all(statement)),
+            })
+          }),
+        ).pipe(
+          Layer.provide(
+            LocalStore.layerNoDeps.pipe(
+              Layer.provide(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
+            ),
+          ),
+        ),
+        CurrentUser.layerTest(Option.none()),
+        DateTime.layerCurrentZoneNamed("Europe/Vilnius").pipe(Layer.orDie),
+      ),
+    ),
+  ),
+  IdGenerator.layerTest,
+)
+
 const dirtyRows = LocalStore.use((store) =>
   store.all({ sql: `SELECT "_dirty" FROM "profile"`, params: [] }),
 )
@@ -129,16 +173,14 @@ describe("applyLocations", () => {
     }).pipe(Effect.provide(RepoLayer)),
   )
 
-  it.effect("removing the active location saves no active one", () =>
+  it.effect("removing the active location saves the next one as active", () =>
     Effect.gen(function* () {
       const gym = yield* addPresetLocation("commercialGym")
-      yield* addPresetLocation("home")
+      const home = yield* addPresetLocation("home")
       const next = yield* applyLocations({ _tag: "Remove", id: gym })
-      expect(next.activeLocationId).toEqual(Option.none())
+      expect(next.activeLocationId).toEqual(Option.some(home))
       const profile = yield* ProfileRepo.use((repo) => repo.get)
-      expect(Option.map(profile, (p) => Option.isNone(p.activeLocationId))).toEqual(
-        Option.some(true),
-      )
+      expect(Option.map(profile, (p) => p.activeLocationId)).toEqual(Option.some(Option.some(home)))
     }).pipe(Effect.provide(RepoLayer)),
   )
 
@@ -152,7 +194,79 @@ describe("applyLocations", () => {
   it.effect("a no-op action writes nothing", () =>
     Effect.gen(function* () {
       yield* applyLocations({ _tag: "SetActive", id: id(9) })
+      yield* applyLocations({ _tag: "Remove", id: id(9) })
+      yield* applyLocations({ _tag: "Toggle", id: id(9), equipment: "bench" })
       expect(yield* dirtyRows).toEqual([])
     }).pipe(Effect.provide(RepoLayer)),
   )
+
+  it.effect("renaming to the same name or removing an unknown id writes nothing", () =>
+    Effect.gen(function* () {
+      const home = yield* addPresetLocation("home")
+      // Mark the row synced, so a stray save would flip `_dirty` back to 1.
+      const saved = yield* ProfileRepo.use((repo) => repo.get)
+      yield* LocalStore.use((store) =>
+        store.write(
+          Option.match(saved, {
+            onNone: () => [],
+            onSome: (row) => [{ table: "profile" as const, row }],
+          }),
+          { dirty: false },
+        ),
+      )
+      yield* applyLocations({ _tag: "Rename", id: home, name: " Home " })
+      yield* applyLocations({ _tag: "Remove", id: id(9) })
+      expect(yield* dirtyRows).toEqual([{ _dirty: 0 }])
+    }).pipe(Effect.provide(RepoLayer)),
+  )
+
+  it.effect("two concurrent toggles both land", () =>
+    Effect.gen(function* () {
+      const home = yield* addPresetLocation("home")
+      yield* Effect.all(
+        [
+          applyLocations({ _tag: "Toggle", id: home, equipment: "legPress" }),
+          applyLocations({ _tag: "Toggle", id: home, equipment: "cable" }),
+        ],
+        { concurrency: "unbounded" },
+      )
+      const profile = yield* ProfileRepo.use((repo) => repo.get)
+      const equipment = Option.map(profile, (p) => p.locations[0]?.equipment ?? [])
+      expect(Option.map(equipment, (tags) => tags.includes("legPress"))).toEqual(Option.some(true))
+      expect(Option.map(equipment, (tags) => tags.includes("cable"))).toEqual(Option.some(true))
+    }).pipe(Effect.provide(YieldingReadsLayer)),
+  )
+})
+
+describe("lookupLocation", () => {
+  const loaded = { _tag: "Loaded" as const, profile: Option.some(gymAndHome) }
+
+  it("is Loading while the profile loads", () => {
+    expect(lookupLocation({ _tag: "Loading" }, id(1))._tag).toBe("Loading")
+  })
+
+  it("finds a known id and says whether it is active", () => {
+    expect(lookupLocation(loaded, id(2))).toMatchObject({ _tag: "Found", active: false })
+    expect(lookupLocation(loaded, id(1))).toMatchObject({ _tag: "Found", active: true })
+  })
+
+  it("is NotFound for an unknown id, a repeated param or no profile", () => {
+    expect(lookupLocation(loaded, id(9))._tag).toBe("NotFound")
+    expect(lookupLocation(loaded, [id(1), id(2)])._tag).toBe("NotFound")
+    expect(lookupLocation({ _tag: "Loaded", profile: Option.none() }, id(1))._tag).toBe("NotFound")
+  })
+})
+
+describe("reduceLocations no-ops", () => {
+  it("returns the same state for an unknown id or an unchanged name", () => {
+    const unknown = id(9)
+    expect(reduceLocations(gymAndHome, { _tag: "Rename", id: id(2), name: "Home" })).toBe(
+      gymAndHome,
+    )
+    expect(reduceLocations(gymAndHome, { _tag: "Rename", id: unknown, name: "X" })).toBe(gymAndHome)
+    expect(reduceLocations(gymAndHome, { _tag: "Toggle", id: unknown, equipment: "bench" })).toBe(
+      gymAndHome,
+    )
+    expect(reduceLocations(gymAndHome, { _tag: "Remove", id: unknown })).toBe(gymAndHome)
+  })
 })

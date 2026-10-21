@@ -7,7 +7,7 @@ import {
 } from "@tanren/shared"
 import { Option } from "effect"
 import { useEffect, useState } from "react"
-import { Pressable, TextInput, View } from "react-native"
+import { TextInput, View } from "react-native"
 import { facetLabel } from "../../library/catalogFormat"
 import {
   Banner,
@@ -18,45 +18,13 @@ import {
   space,
   stroke,
   Text,
+  ToggleChip,
   type,
   useTheme,
 } from "../../ui"
+import { MAX_LOCATION_NAME } from "./locationsState"
 import { SettingsSection } from "./SettingsSection"
 import { useLocations } from "./useLocations"
-
-interface ChipProps {
-  readonly label: string
-  readonly selected: boolean
-  readonly onPress: () => void
-}
-
-/** A toggle chip: filled accent when the location has the item. */
-function Chip({ label, selected, onPress }: ChipProps) {
-  const { colors } = useTheme()
-  return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: selected }}
-      // react-native-web drops `accessibilityState.checked`; `aria-checked` reaches the DOM too.
-      aria-checked={selected}
-      onPress={onPress}
-      style={{
-        minHeight: sizes.tap,
-        justifyContent: "center",
-        paddingHorizontal: space.md,
-        borderRadius: radius.full,
-        borderWidth: stroke.hairline,
-        borderColor: selected ? colors.accent : colors.border,
-        backgroundColor: selected ? colors.accentSoft : colors.surfaceRaised,
-      }}
-    >
-      <Text variant="subhead" tone={selected ? "accent" : "default"}>
-        {label}
-      </Text>
-    </Pressable>
-  )
-}
 
 export interface LocationEditorProps {
   readonly location: Location
@@ -88,7 +56,7 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
           onChangeText={setName}
           onBlur={rename}
           onSubmitEditing={rename}
-          maxLength={80}
+          maxLength={MAX_LOCATION_NAME}
           accessibilityLabel="Location name"
           placeholder="Home"
           placeholderTextColor={colors.textMuted}
@@ -136,7 +104,7 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
             style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, padding: space.md }}
           >
             {EQUIPMENT_GROUPS[group].map((equipment) => (
-              <Chip
+              <ToggleChip
                 key={equipment}
                 label={facetLabel(equipment)}
                 selected={location.equipment.includes(equipment)}

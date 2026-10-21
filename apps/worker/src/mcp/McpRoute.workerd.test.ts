@@ -300,7 +300,9 @@ describe("get_profile and search_exercises availableAt over /mcp (equipment.md Â
   it("get_profile is null before update_profile, then the profile with both locations", async () => {
     const before = await callTool("get_profile", {})
     expect(before.isError).toBeUndefined()
-    expect(JSON.stringify(before.content)).toContain("null")
+    // A null result goes out as text only (no structuredContent): the text is exactly `null`.
+    expect(before.structuredContent).toBeUndefined()
+    expect(before.content).toEqual([{ type: "text", text: "null" }])
     await Effect.runPromise(
       Effect.gen(function* () {
         const now = yield* DateTime.now

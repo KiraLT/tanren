@@ -298,6 +298,12 @@ export const searchExercises: Tool<typeof SearchExercisesInput, typeof SearchExe
   }),
 }
 
+/** The user's profile unless it is tombstoned (`ProfileRepo.get` has no `deleted_at` filter). */
+const liveProfile = Effect.fn("liveProfile")(function* (userId: UserId) {
+  const profile = yield* (yield* ProfileRepo).get(userId)
+  return Option.filter(profile, (p) => Option.isNone(p.deletedAt))
+})
+
 /**
  * The equipment `availableAt` stands for; `None` = no filter (`"active"` without an active
  * location, or no profile yet). A location id the profile does not have is `NotFound`.
@@ -306,7 +312,7 @@ const equipmentAt = Effect.fn("search_exercises.equipmentAt")(function* (
   userId: UserId,
   availableAt: LocationId | "active",
 ) {
-  const profile = yield* (yield* ProfileRepo).get(userId)
+  const profile = yield* liveProfile(userId)
   if (availableAt === "active") {
     return Option.map(Option.flatMap(profile, activeLocation), (location) => location.equipment)
   }
@@ -329,7 +335,7 @@ export const getProfile: Tool<typeof GetProfileInput, typeof GetProfileResult> =
   output: GetProfileResult,
   run: Effect.fn("get_profile")(function* (userId: UserId, _input: GetProfileInput) {
     // One D1 statement; `GetProfileResult` is `OptionFromNullOr`, so `None` is `null` on the wire.
-    return yield* (yield* ProfileRepo).get(userId)
+    return yield* liveProfile(userId)
   }),
 }
 

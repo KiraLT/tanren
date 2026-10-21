@@ -121,10 +121,6 @@ export const seedIfEmpty: Effect.Effect<
         goals: [{ kind: "strength", note: null }],
         constraints: [],
         availableDays: ["mon", "wed", "fri"],
-        equipment: [
-          { kind: "barbell", note: null },
-          { kind: "rack", note: null },
-        ],
         timezone: DateTime.zoneToString(zone),
       },
     },

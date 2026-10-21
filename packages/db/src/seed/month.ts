@@ -194,11 +194,16 @@ interface Stamp {
   readonly ms: number
 }
 
+/**
+ * Fixed location ids: drawing them from the seeded `Random` shifted every later seeded id, and a
+ * stable id keeps `db:seed` over an existing DB idempotent.
+ */
+const GYM_ID = LocationId.make("00000000-0000-4000-8000-0000000000a1")
+const HOME_ID = LocationId.make("00000000-0000-4000-8000-0000000000a2")
+
 /** Two locations (equipment.md §3): "Gym" (commercialGym preset, active) and "Home". */
 const buildProfile = ({ userId, ms }: Stamp) =>
   Effect.gen(function* () {
-    const gymId = yield* newId(LocationId)
-    const homeId = yield* newId(LocationId)
     const { commercialGym, home } = LOCATION_PRESETS
     return yield* Profile.makeEffect({
       id: userId,
@@ -210,10 +215,10 @@ const buildProfile = ({ userId, ms }: Stamp) =>
       constraints: ["Left shoulder gets tight: no overhead work above RPE 9."],
       availableDays: ["mon", "wed", "fri", "sat"],
       locations: [
-        { id: gymId, name: commercialGym.name, equipment: commercialGym.equipment },
-        { id: homeId, name: home.name, equipment: home.equipment },
+        { id: GYM_ID, name: commercialGym.name, equipment: commercialGym.equipment },
+        { id: HOME_ID, name: home.name, equipment: home.equipment },
       ],
-      activeLocationId: Option.some(gymId),
+      activeLocationId: Option.some(GYM_ID),
       timezone: TimeZone.make("Europe/Berlin"),
     }).pipe(Effect.orDie)
   })

@@ -9,6 +9,7 @@ import {
   Option,
   Schema,
   type SchemaIssue,
+  Semaphore,
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
 import { decodeRecords, LocalStore } from "./LocalStore"
@@ -27,6 +28,14 @@ export interface ProfileRepoShape {
    * goals/constraints/availableDays/locations empty, timezone = device zone, id = userId = owner.
    */
   readonly save: (patch: ProfilePatch) => Effect.Effect<Profile, StoreError | ProfileInvalid>
+  /**
+   * Read-modify-write under the repo's lock, so concurrent edits never lose one another: `f` gets
+   * the current profile and returns the patch to save, or `None` to write nothing. Succeeds with
+   * the saved profile, or the unchanged one when `f` returned `None`.
+   */
+  readonly modify: (
+    f: (current: Option.Option<Profile>) => Option.Option<ProfilePatch>,
+  ) => Effect.Effect<Option.Option<Profile>, StoreError | ProfileInvalid>
 }
 
 /** The device zone as an IANA name; an offset-only zone (rare) falls back to UTC. */
@@ -57,11 +66,13 @@ export class ProfileRepo extends Context.Service<ProfileRepo, ProfileRepoShape>(
         return Arr.head(rows)
       })
 
-      const save = (patch: ProfilePatch) =>
+      // One permit: every read-modify-write of the profile runs alone (`save` and `modify`).
+      const lock = yield* Semaphore.make(1)
+
+      const write = (current: Option.Option<Profile>, patch: ProfilePatch) =>
         Effect.gen(function* () {
           const userId = yield* owner
           const now = yield* DateTime.now
-          const current = yield* get
           const base = Option.match(current, {
             onNone: () => ({
               id: userId,
@@ -71,7 +82,6 @@ export class ProfileRepo extends Context.Service<ProfileRepo, ProfileRepoShape>(
               goals: [],
               constraints: [],
               availableDays: [],
-              equipment: [],
               locations: [],
               activeLocationId: Option.none(),
               timezone: deviceTimeZone(zone),
@@ -85,7 +95,20 @@ export class ProfileRepo extends Context.Service<ProfileRepo, ProfileRepoShape>(
           return profile
         })
 
-      return ProfileRepo.of({ get, save })
+      const save = (patch: ProfilePatch) =>
+        lock.withPermits(1)(Effect.flatMap(get, (current) => write(current, patch)))
+
+      const modify = (f: (current: Option.Option<Profile>) => Option.Option<ProfilePatch>) =>
+        lock.withPermits(1)(
+          Effect.flatMap(get, (current) =>
+            Option.match(f(current), {
+              onNone: () => Effect.succeed(current),
+              onSome: (patch) => Effect.map(write(current, patch), Option.some),
+            }),
+          ),
+        )
+
+      return ProfileRepo.of({ get, save, modify })
     }),
   )
 }

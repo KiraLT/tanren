@@ -180,4 +180,13 @@ describe("ProfilePatch", () => {
       expect(set.timezone).toBe("Europe/Vilnius")
     }),
   )
+
+  it.effect("leaves locations and activeLocationId absent unless sent; null clears", () =>
+    Effect.gen(function* () {
+      const other = yield* Schema.decodeUnknownEffect(ProfilePatch)({ constraints: ["x"] })
+      expect(Object.keys(other)).toEqual(["constraints"])
+      const cleared = yield* Schema.decodeUnknownEffect(ProfilePatch)({ activeLocationId: null })
+      expect(cleared.activeLocationId).toEqual(Option.none())
+    }),
+  )
 })

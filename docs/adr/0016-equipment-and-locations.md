@@ -37,6 +37,12 @@ static shared data (ADR-0013); the profile is a synced whole-row entity (sync.ts
   together; an old client's `equipment` key is an ignored excess property.
 - D1 and the local store carry a dead `equipment` column until a table rebuild; documented in
   the Drizzle schema. `ProfileRow` must still encode `equipment: "[]"` (design §2 VERIFY).
+- A profile that fails `uniqueLocationIds` / `activeLocationExists` on push fails the whole
+  `PushRequest` decode (HttpApi 400) like every schema check, so a client must build profiles
+  through `Profile.makeEffect` (mobile does).
+- A pre-v3 bundle cannot decode a v3 profile on pull (its `Profile` required `equipment`), so web
+  and OTA ship together with the Worker. The old-client decode defaults stay and there is no server
+  guard: no pre-v3 client ever wrote a dirty profile row (EQ-R2 review).
 - MCP tool count 5/3/8 → 6/3/9; docs/design/mcp.md and the read slice change.
 - **Promote locations to their own table when** any of: a second user/device edits locations
   concurrently (row-level LWW would drop edits), a session/plannedSession needs a `locationId`

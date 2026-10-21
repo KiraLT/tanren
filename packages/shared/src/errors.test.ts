@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { DateTime, Effect, Option, Schema } from "effect"
+import { EntityName } from "./common"
 import {
   EmailDeliveryFailed,
   Forbidden,
@@ -10,6 +11,7 @@ import {
   ValidationError,
 } from "./errors"
 import { Uuid } from "./ids"
+import { accepts } from "./testing"
 import { Goal, Profile } from "./user"
 
 const id = Uuid.make("0a1b2c3d-6d43-4c1a-9a3e-2f4f1a2b3c4d")
@@ -19,6 +21,15 @@ describe("error wire shapes", () => {
     const error = new NotFound({ entity: "exercise", id })
     expect(Schema.encodeSync(NotFound)(error)).toEqual({ _tag: "NotFound", entity: "exercise", id })
   })
+
+  it("accepts the location entity and round-trips NotFound for it on the wire", () => {
+    const error = new NotFound({ entity: "location", id })
+    const wire = Schema.encodeSync(NotFound)(error)
+    expect(wire).toEqual({ _tag: "NotFound", entity: "location", id })
+    expect(Schema.decodeUnknownSync(NotFound)(wire)).toEqual(error)
+  })
+
+  it.effect("EntityName accepts location", () => accepts(EntityName, "location"))
 
   it("encodes Forbidden as _tag + message", () => {
     const error = new Forbidden({ message: "not your row" })

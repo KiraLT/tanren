@@ -34,6 +34,7 @@ export {
   useThemePreference,
 } from "./ThemeProvider"
 export { TimerRing } from "./TimerRing"
+export { ToggleChip } from "./ToggleChip"
 export {
   breakpoints,
   elevation,

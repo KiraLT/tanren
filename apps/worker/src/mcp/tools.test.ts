@@ -410,6 +410,15 @@ describe("get_profile", () => {
       expect(yield* run(getProfile.run(userB, {}))).toEqual(Option.none())
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("is null for a tombstoned profile", () =>
+    Effect.gen(function* () {
+      yield* putProfile(
+        Profile.make({ ...profileOf(userA, Option.some(gymId)), deletedAt: Option.some(NOW) }),
+      )
+      expect(yield* run(getProfile.run(userA, {}))).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })
 
 describe("search_exercises availableAt", () => {
@@ -467,6 +476,20 @@ describe("search_exercises availableAt", () => {
       const unknown = LocationId.make(id(903))
       const error = yield* Effect.flip(searchExercises.run(userA, { availableAt: unknown }))
       expect(error).toMatchObject({ _tag: "NotFound", entity: "location", id: unknown })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("ignores a tombstoned profile: active filters nothing, a location id is NotFound", () =>
+    Effect.gen(function* () {
+      yield* putProfile(
+        Profile.make({ ...profileOf(userA, Option.some(homeId)), deletedAt: Option.some(NOW) }),
+      )
+      const filtered = yield* run(
+        searchExercises.run(userA, { query: "press", availableAt: "active" }),
+      )
+      expect(filtered).toEqual(yield* run(searchExercises.run(userA, { query: "press" })))
+      const error = yield* Effect.flip(searchExercises.run(userA, { availableAt: homeId }))
+      expect(error).toMatchObject({ _tag: "NotFound", entity: "location", id: homeId })
     }).pipe(Effect.provide(TestLayer)),
   )
 })
