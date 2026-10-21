@@ -11,7 +11,8 @@ Verified 2026-10-20 with agent-browser 0.39.1 (docs/research/2026-10-20-agent-br
 
 ```
 CI=1 pnpm -F @tanren/mobile web --port 8089 &        # wait for "Waiting on http://localhost:8089"; note the PID
-ab() { agent-browser --session qa "$@"; }
+ab() { agent-browser --session <your task id> "$@"; }   # ALWAYS your own session: the default session is shared by every
+                                                        # live agent — IMG-3 screenshotted and closed UI-C's page through it
 ab open http://localhost:8089/today && ab snapshot -i   # elements appear as role + accessibilityLabel + @ref
 ab find role button click --name "Log set 1: 100 kilograms, 5 reps"
 ab set offline on        # act offline; `ab set offline off` to return
