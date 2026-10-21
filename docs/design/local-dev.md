@@ -145,7 +145,10 @@ API must call itself by the Mac's LAN address. `pnpm dev:phone` does that: wrang
 piped through `apps/worker/scripts/linkQr.mjs`, which passes every line through and prints a terminal QR
 after each `magic link for <email>: <url>` line (`uqr`, a worker devDependency; never in the bundle).
 The LAN IP is detected (`ipconfig getifaddr en0`, Wi-Fi on macOS); override with `LAN_IP=192.168.x.y pnpm dev:phone`
-(other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (BETTER_AUTH_URL follows).
+(other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (BETTER_AUTH_URL follows; `MCP_RESOURCE_URL` does NOT, so the MCP dev token
+answers 401 "Token audience does not match resource server" on a non-default port until dev:phone also passes
+`--var MCP_RESOURCE_URL:http://localhost:$P/mcp`, verified INT-X2). `/api/native/begin` needs `email`, a 43-char
+base64url `challenge` and `returnTo`; an unpinned host gives 400 `NativeBeginRejected{reason:"return-to"}`.
 `dev:phone` also sets `NATIVE_RETURN_PREFIXES=exp://localhost:,exp://127.0.0.1:,exp://<LAN IP>:`, because the
 worker only links back to pinned prefixes (`exp://<host>:<port>/--/auth/callback`), and Expo Go's host here is the Mac's LAN IP.
 
