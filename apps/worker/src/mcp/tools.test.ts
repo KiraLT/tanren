@@ -298,7 +298,7 @@ describe("search_exercises", () => {
 
   it.effect("finds at least three rows for the query 'row'", () =>
     Effect.gen(function* () {
-      const found = yield* search({ query: "row" })
+      const found = yield* search({ query: "row", limit: 500 })
       expect(found.results.length).toBeGreaterThanOrEqual(3)
       expect(found.total).toBe(found.results.length)
       expect(found.results.every((match) => /row/i.test(match.name + match.aliases.join()))).toBe(

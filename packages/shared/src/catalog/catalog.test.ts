@@ -6,6 +6,7 @@ import {
   CATALOG,
   CATALOG_BY_ID,
   CATALOG_MODULES,
+  CatalogEquipment,
   CatalogId,
   CORE30_CATALOG_IDS,
   findCatalogExercise,
@@ -36,11 +37,82 @@ const ids = (entries: ReadonlyArray<CatalogExercise>) => entries.map((entry) => 
 const duplicates = (values: ReadonlyArray<string>) =>
   values.filter((value, i) => values.indexOf(value) !== i)
 
+/** Machine, cable and Smith implements (EQ-C); the dedicated stations a location may or may not have. */
+const STATION_TAGS: ReadonlyArray<CatalogEquipment> = [
+  "smithMachine",
+  "legPress",
+  "hackSquat",
+  "legExtension",
+  "legCurl",
+  "chestPressMachine",
+  "pecDeck",
+  "shoulderPressMachine",
+  "hipAbductorMachine",
+  "calfRaiseMachine",
+  "abCrunchMachine",
+  "assistedPullUpMachine",
+  "cable",
+  "latPulldown",
+  "seatedRowMachine",
+  "backExtensionBench",
+  "gluteHamDeveloper",
+]
+
+/** The entries that carried the removed coarse `machine` tag, each with its specific implement. */
+const FORMER_MACHINE_ENTRIES: ReadonlyArray<readonly [string, CatalogEquipment]> = [
+  ["machine-triceps-dip", "dipStation"],
+  ["machine-row", "seatedRowMachine"],
+  ["machine-high-row", "seatedRowMachine"],
+  ["assisted-pull-up", "assistedPullUpMachine"],
+  ["machine-chest-press", "chestPressMachine"],
+  ["pec-deck", "pecDeck"],
+  ["back-extension", "backExtensionBench"],
+  ["reverse-hyperextension", "gluteHamDeveloper"],
+  ["hip-abduction-machine", "hipAbductorMachine"],
+  ["hip-adduction-machine", "hipAbductorMachine"],
+  ["hack-squat", "hackSquat"],
+  ["leg-press", "legPress"],
+  ["single-leg-press", "legPress"],
+  ["leg-extension", "legExtension"],
+  ["lying-leg-curl", "legCurl"],
+  ["seated-leg-curl", "legCurl"],
+  ["glute-ham-raise", "gluteHamDeveloper"],
+  ["standing-calf-raise", "calfRaiseMachine"],
+  ["seated-calf-raise", "calfRaiseMachine"],
+  ["donkey-calf-raise", "calfRaiseMachine"],
+  ["leg-press-calf-raise", "legPress"],
+  ["machine-shoulder-press", "shoulderPressMachine"],
+  ["machine-lateral-raise", "shoulderPressMachine"],
+  ["reverse-pec-deck", "pecDeck"],
+]
+
 describe("catalog data validation", () => {
-  it("has 200 to 300 entries, one per module entry", () => {
-    expect(CATALOG.length).toBeGreaterThanOrEqual(200)
+  it("has 285 to 300 entries, one per module entry", () => {
+    expect(CATALOG.length).toBeGreaterThanOrEqual(285)
     expect(CATALOG.length).toBeLessThanOrEqual(300)
     expect(CATALOG.length).toBe(CATALOG_MODULES.flatMap((module) => module.entries).length)
+  })
+
+  it("has at least 100 entries on a machine, cable or Smith station", () => {
+    const stationed = CATALOG.filter((entry) =>
+      entry.equipment.some((tag) => STATION_TAGS.includes(tag)),
+    )
+    expect(stationed.length).toBeGreaterThanOrEqual(100)
+  })
+
+  it("retags each former `machine` entry with exactly its specific implement", () => {
+    const actual = FORMER_MACHINE_ENTRIES.map(([id]) => [
+      id,
+      CATALOG_BY_ID.get(CatalogId.make(id))?.equipment,
+    ])
+    expect(actual).toEqual(FORMER_MACHINE_ENTRIES.map(([id, tag]) => [id, [tag]]))
+    // `machine` is no longer a literal, so nothing can still carry it.
+    expect(CatalogEquipment.literals.map(String)).not.toContain("machine")
+  })
+
+  it("uses every specific machine literal on at least one entry", () => {
+    const used = new Set(CATALOG.flatMap((entry) => entry.equipment))
+    expect(STATION_TAGS.filter((tag) => !used.has(tag))).toEqual([])
   })
 
   it("has unique catalogIds", () => {
