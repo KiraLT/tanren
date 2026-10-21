@@ -324,9 +324,11 @@ Log in `docs/tasks/step-2.md`.
   Pipelines: `pnpm images:generate --transparent --all`, `images:shrink`, `images:map`;
   `node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts --catalog --all --out <dir>` →
   `scripts/shrinkMuscleMaps.ts` → `scripts/muscleMapIndex.ts` (IMG-5d is adding `muscle:*` package scripts).
-- Live: UI-X2 (qa: final screenshot set light/dark 390+1280 → send to the owner), EM step-UI retro (fable:
-  apply `## Proposals for the Lead`, commit), IMG-5d (opus: look at all 291 map tiles, regenerate clear
-  errors once, package scripts, catalog-vs-files test).
+- Done since: UI-X2 PASS (44 screenshots, no defects, sent 13:00); EM step-UI retro applied + committed
+  (`c1a926c`; retro `docs/retro/2026-10-21-ui-forge.md`); IMG-5d visual QA of all 291 maps (26 regenerated,
+  13 fixed, `muscle:*` scripts, catalog↔files↔index test; `95ccc58`). Live: IMG-5e (sonnet: prompt
+  exclusions for the two bleed patterns, regenerate the 13 still-wrong maps once, `MISSING_MUSCLE_MAPS` +
+  SVG fallback for persistent failures).
 - Then: commit IMG-5d + EM edits, `/retro`-style log, owner report with the final contact sheets; owner
   recipe unchanged (`pnpm db:reset && pnpm web:export && pnpm dev`). Owner-gated items unchanged
   (Expo Go font-load check on a real device, Live Activities dev build, universal links, production deploy).
