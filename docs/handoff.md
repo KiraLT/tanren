@@ -57,6 +57,27 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
+## State at 10:40 (HEAD `2be4082`) — compact-safe
+Landed and committed this morning: MuscleMap on three screens; 233
+generated images (512 px, 2 MB) wired into Library detail, two ids
+placeholder (safety-refused); SVG stick-figure pipeline retired; catalog
+final incl. the ExerciseLink history-corruption fix; `deploy:preflight`
+covers all production vars. Live now (both report to the Lead; resume by
+SendMessage, same ids): **INT-X3** `ae94e5feb4d6553e0` (finishes the v2
+web recipe proof b–g: Programs, Progress, Settings, sign-out/in, 1280 +
+dark, PWA, OAuth metadata on a matching port; settles whether adding a
+seeded exercise shows a new Today heading; lands `dev:phone`
+`MCP_RESOURCE_URL`, tool counts 5 read / 3 write) and **EM batch**
+`a029399c68683d7ff` (secrets pattern rule, expo-mobile illustration
+section, ui-check fixes: no `timeout` on macOS, `export:web` name,
+interim-commit-before-review proposal, size-budget line). On each report:
+commit by path, apply EM proposals to lead-playbook, then refresh this
+file and tell the owner. Watchdog `bx32b6me3` watches both. Owner is
+present and said "work on your own". Open product items after that:
+frog-pump/cable-crunch images (hand-draw or keep placeholders), Live
+Activities (owner dev build), universal links before a store build,
+production deploy (owner session via `docs/design/deploy.md`).
+
 ## Morning session 09:45 → (HEAD `dd788d2`)
 Owner judged the stick-figure SVGs ugly. Decisions: (1) **MuscleMap** (front/back
 silhouettes, 22 regions, primary/secondary highlights) is committed and shown
