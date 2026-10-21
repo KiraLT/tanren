@@ -68,6 +68,16 @@ engineer can act on without asking questions.
   inside a derived Patch: EQ-R2 approved `update_profile` while every patch
   wiped `locations`; the fix engineer found it writing the merge-path test,
   and `ExercisePatch` had the same bug.
+- UI diffs that touch several screens on shared primitives: cross-screen
+  consistency before per-file reading. For each changed primitive, list its
+  call-sites (`grep -rn "<Primitive" apps/mobile/src apps/mobile/app`) and
+  check that one element resolves to one variant on every screen (AppBar
+  title face, row title variant, illustration fallback, segment-fill rule):
+  UI-R found `title2` on every AppBar and three divergent fallbacks that six
+  parallel screen engineers had each accepted locally. Then check each
+  component on every surface it sits on — bare page, `Card`, `ListGroup` — a
+  `surface` tile inside a `surface` group vanishes (UI-R2). Name the one
+  variant in the finding so a single fix engineer closes every screen.
 - Docs: decisions surfaced in the report (so the Lead can file an ADR); the
   package `CLAUDE.md` still describes reality.
 

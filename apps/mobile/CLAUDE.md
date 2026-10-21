@@ -24,7 +24,10 @@ src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
               tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
               desktop nav), Text, Card, Button, IconButton, Icon, ListRow, Stepper, SegmentedControl,
-              StatusPill, TimerRing, EmptyState, Banner, Skeleton, `interaction.ts` (web hover/focus)
+              StatusPill, TimerRing, EmptyState, Banner, Skeleton, `interaction.ts` (web hover/focus);
+              Forge (docs/design/ui-direction-final.md): `controls.ts` pure style tables (+ test), `iconPaths.ts`
+              glyph table, ListGroup (+ `useGrouped`), ToggleChip, ProgressRing, SegmentBar, SetDots; fonts Barlow
+              Condensed 700/800 (`assets/fonts/`, `useFonts` in `app/_layout.tsx`)
   services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, StoreEvents,
               CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
               HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over

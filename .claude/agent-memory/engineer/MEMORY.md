@@ -1,3 +1,5 @@
 - [No rm -r for probe cleanup](feedback_probe_cleanup.md) — probe single named files, delete with plain rm; rm -r is permissions.ask
 - [Probe ports with curl+ps, not lsof](feedback_port_probe.md) — lsof misses other agents' wranglers; unique --inspector-port each
 - [pnpm exec wrangler PID is a shim](feedback_wrangler_pid.md) — kill leaves pnpm-native+wrangler on the port; re-check ps, kill the pnpm-native PID
+- [zsh: no word splitting](feedback_zsh_wrapper.md) — `$A` with spaces fails; wrapper script in $S; start servers only after the probe
+- [agent-browser needs --session](feedback_agent_browser_session.md) — default session is shared with other agents; screenshot showed a foreign page

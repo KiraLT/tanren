@@ -113,6 +113,16 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   `selected`/`disabled` do map. After editing a component, restart the dev server (kill the pid, start
   on a new port) before re-snapshotting: a stale Metro bundle cost EQ-2a a round (8187 → 8188). Plain
   RN-web `Text` is absent from `ab snapshot`: read copy with `ab eval 'document.body.innerText'`.
+- RN-web text facts (Forge, 2026-10-21): `numberOfLines` becomes `overflow: hidden` on web and clips `textShadow`
+  (the numeral glow) — pass it on native only or pad the `Text`. Web font proof: `[...document.fonts].map(f =>
+  [f.family, f.status])` must list the `useFonts` keys (`BarlowCondensed-Bold`, `BarlowCondensed-ExtraBold`) as
+  `loaded`; `document.fonts.check('700 20px "Barlow Condensed"')` is `true` for any family the page never declared,
+  so it proves nothing (UI-1a's brief criterion could not fail). One `FontResource` per weight, each its own family
+  with `weight`, or the web fake-bolds.
+- Mobile vitest is Node-only (no renderer): every style, geometry or copy decision a screen makes lives in a pure
+  `.ts` table next to the component (`src/ui/controls.ts`, `src/ui/iconPaths.ts`, `src/components/todayHeader.ts`,
+  `src/player/playerHeader.ts`, `src/components/progress/chartGeometry.ts`) with a `*.test.ts`; the `.tsx` maps
+  props to the table and is proven with ui-check measurements (`docs/design/ui-measure.js`: `small` [] + ramp-only).
 
 ## Programs / player (v2, docs/design/v2-programs.md §4)
 

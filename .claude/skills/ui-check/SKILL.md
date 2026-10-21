@@ -65,7 +65,7 @@ cd apps/worker; nohup node_modules/.bin/wrangler dev --port $W --inspector-port 
   --var ALLOWED_ORIGINS:http://localhost:$A --var BETTER_AUTH_URL:http://localhost:$W \
   --show-interactive-dev-session=false > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid
 # fresh --persist-to has no D1 rows: apply migrations/seed against it before use (see packages/db/CLAUDE.md), or copy the state dir
-# dev server:  cd ../mobile; CI=1 nohup pnpm web --port $A ...   (as above)
+# dev server:  cd ../mobile; CI=1 nohup node_modules/.bin/expo start --web --port $A ...   (as above; never `pnpm web`: the shim lands in `$!`)
 # exported build: CI=1 pnpm -F @tanren/mobile export:web --output-dir $S/<task>-dist   (root alias: pnpm web:export)
 #   cd apps/worker; node_modules/.bin/wrangler dev -c wrangler.web.jsonc --port $A --assets $S/<task>-dist   # config hardcodes ../mobile/dist; --assets overrides it
 ```
@@ -75,6 +75,12 @@ port (no host rewrite needed). Point the app at `http://localhost:$W` through it
 API-base env (`grep -rn 8787 apps/mobile/src/services` for the variable name). `ALLOWED_ORIGINS` must list
 `http://localhost:$A` or the sign-in POST fails `trustedOrigins`. A new route needs `CI=1 expo start` once
 until `.expo/types/router.d.ts` lists it.
+
+Shell facts (UI-2a, 2026-10-21): every Bash tool call is a fresh zsh, so re-define `ab()` in each call or write a
+wrapper once (`printf '#!/bin/sh\nexec agent-browser --session <task> "$@"\n' > $S/<task>-ab.sh; chmod +x $S/<task>-ab.sh`)
+and call `$S/<task>-ab.sh …`; never `A="agent-browser --session x"; $A …` — zsh does not word-split `$A`, the call
+fails. Probe the port (`ps -ef | grep "port $A"`, `curl`) in one call and start the server in the next: inside one
+call a BUSY result cannot stop the start.
 
 macOS facts (2026-10-21): zsh has no `timeout` — wait with
 `for i in $(seq 1 60); do curl -sf localhost:$W/health && break; sleep 1; done`; `wrangler dev` via `pnpm exec`

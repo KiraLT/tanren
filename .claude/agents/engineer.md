@@ -56,6 +56,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    Never rewrite a file with a scripted regex/sed/python replace: the repo may have no commit
    to restore from (untracked files are lost for good). Use Edit; `Write` a whole file only
    after reading it.
+   A one-line `sed -i '' 's/old/new/' <file>` on a TRACKED file is tolerated only when the same call ends with
+   `grep -n 'new' <file>` and `pnpm exec biome check --write <file>`; never `sed -i.bak` (stray file), never on an
+   untracked file, never more than one line: UI-1c, UI-4b and IMG-3 each slipped "once" (IMG-3 on its own new
+   file) and each needed a second call to re-check. Appending a Log line to `docs/tasks/*.md` with a heredoc or
+   `printf >>` is fine and needs no mention in the report.
    Parallel engineers share the workspace: a gate or test failure in a file outside your brief
    is probably another engineer mid-edit. Re-run once after a minute; if it persists, report it
    as foreign and move on. Do not diagnose or touch it.
@@ -94,6 +99,10 @@ Lead had to route it back through the team-lead, one extra turn each way).
    `mktemp -d`, not copy + `rm -rf`); put probe files in `$S`, not in the
    repo; delete single files with plain `rm <file>`. Before any Bash call
    with `&&`/`;`, scan every sub-command against that list.
+9c. A long external run (bulk image generation, a script over hundreds of files) is backgrounded with a pid
+   file like a server; poll it with `sleep` <= 60 per Bash call and print `date +%T` plus a progress count on
+   every poll. A `sleep 295` loop leaves the transcript silent for 5 min and the Lead's watchdog reads it as a
+   stall (IMG-4 and IMG-5b were watched by file counts and nudged). Report the run's start and end from `date`.
 10. Use the `superpowers:test-driven-development` skill when a brief has
    behavioural done-criteria, `superpowers:systematic-debugging` when the gate
    fails for a non-obvious reason, and `superpowers:verification-before-completion`

@@ -159,7 +159,10 @@ task sheet. Tactics, in order of payoff:
   15–20 min only for a task with a runtime proof or a new package/runtime;
   `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a turn is
   one API round, not one tool call; sonnet ≈ 7 turns/min, opus ≈ 6 (EQ-1: 89
-  turns in 14.5 min), so 120 ≈ 17–20 min and **no brief box exceeds 20 min** —
+  turns in 14.5 min), so 120 ≈ 17–20 min and **no brief box exceeds 20 min** for
+  dense tool use; a brief that waits on an external run (bulk image generation:
+  IMG-4 25 min, IMG-5b 34 min at ≈ 1 turn/min) states the run's expected duration
+  and sets box = run + 10 —
   a larger sheet box (EQ-2: 75 → 40) is split into disjoint parts before
   dispatch, never carried as a number the harness cannot honour) and
   the bar: *compiles, gate green, exactly the tests `.claude/rules/tests.md`
@@ -176,6 +179,16 @@ task sheet. Tactics, in order of payoff:
   steps touching several packages or diffs > ~800 lines.
 - Prefer resuming an agent (SendMessage) over re-dispatching: it keeps the
   context and the files it already wrote.
+
+## Design directions (owner picks from mockups)
+
+When the owner rejects a design ("does not look designed"), a fable architect renders ≤ 4
+clearly different directions of the same two screens as HTML mockups at 390 and one contact
+sheet (UI-B, 5 min). The sheet carries **one merge candidate** and the question is "a letter,
+or merge X + Y?": the Forge pick was a merge and cost a second mockup round (UI-C, 11.7 of the
+37 min from pick to proof). Architect boxes for mockup tasks: 15 min, not 25–30. The merged
+spec carries width arithmetic per row at 390 and every prop the mockup rows need, so no
+primitive-gap task (UI-1d) follows.
 
 ## Choosing the role and the model
 
@@ -322,6 +335,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
 - [ ] (bundled assets or generated files) size budget as a number + the command that measures it
       (`du -sh apps/mobile/assets/illustrations` <= 3 MB; `wc -c` for one file) — IMG-2 read
       "a few MB" and shipped 11 MB
+- [ ] every proof names the output that would fail it; a check that cannot fail is not a criterion
+      (UI-1a: `document.fonts.check('700 20px "Barlow Condensed"')` is true for any undeclared family —
+      use `[...document.fonts].map(f => [f.family, f.status])`)
 - [ ] no files outside Scope changed
 
 ## Report

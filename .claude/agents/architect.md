@@ -32,6 +32,13 @@ an API.
    table-name literal union. Team mcp's design wrote `name: EntityName`;
    the slip was copied into `mcp.ts`, frozen, and found by the S4-T3
    engineer (one Lead re-route, one design fix mid-run).
+   A UI spec (mockups + token deltas) carries, for every mockup row, its
+   width arithmetic at 390 (gutters, gaps and slots sum <= the content width:
+   UI-C's library hero put 176 + 176 into a 343 px row and IMG-5c drew the
+   map at 160), and its primitive section lists every prop the mockups' rows
+   need (`chevron`, `tone="danger"`, `titleVariant`, `disabled`): UI-C's
+   `ListRow` lacked them, three screen engineers built local workarounds, and
+   closing the gap cost UI-1d plus half of UI-F1.
 3. **Task breakdown** for the Lead: an ordered list where each task has an id
    (`S<step>-T<n>`), title, role, suggested model, file set, dependencies,
    interfaces, and done-criteria. Tasks must be independently briefable and
