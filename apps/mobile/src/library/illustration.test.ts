@@ -8,7 +8,12 @@ describe("illustration", () => {
     const map = { plank: "<svg/>" }
     expect(illustrationXml(map, "plank")).toEqual(Option.some("<svg/>"))
     expect(illustrationXml(map, "squat")).toEqual(Option.none())
-    expect(illustrationXml(ILLUSTRATIONS, "plank")).toEqual(Option.none())
+  })
+
+  it("the generated map draws plank as an svg and leaves an undrawn id to the placeholder", () => {
+    const plank = illustrationXml(ILLUSTRATIONS, "plank")
+    expect(Option.isSome(plank) && plank.value.startsWith("<svg")).toBe(true)
+    expect(illustrationXml(ILLUSTRATIONS, "no-such-exercise")).toEqual(Option.none())
   })
 
   it("placeholder is a single self-contained svg in the given colour", () => {
