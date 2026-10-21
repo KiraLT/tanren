@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { CATALOG } from "@tanren/shared"
 import { Array as Arr, Order, Result } from "effect"
 import { describe, expect, it } from "vitest"
@@ -5,6 +7,7 @@ import {
   DRAWABLE_MUSCLES,
   MUSCLE_ANATOMY,
   MUSCLE_MAP_DIR,
+  MUSCLE_MAP_FILE,
   muscleMapImagesSource,
   muscleMapPrompt,
   muscleTiers,
@@ -151,5 +154,33 @@ describe("muscleMapImagesSource", () => {
       "export const MUSCLE_MAP_IMAGES: Readonly<Record<string, ImageSourcePropType>> = {",
     )
     expect(muscleMapImagesSource([])).toContain("= {\n\n}")
+  })
+})
+
+// muscleMapImages.ts holds Metro `require`s of .webp files, which Node cannot load: read it as text.
+describe("generated muscle maps", () => {
+  const packageRoot = join(import.meta.dirname, "../..")
+  const files = Arr.sort(
+    readdirSync(join(packageRoot, MUSCLE_MAP_DIR))
+      .filter((file) => file.endsWith(".webp"))
+      .map((file) => file.replace(/\.webp$/, "")),
+    Order.String,
+  )
+  const catalogIds = Arr.sort(
+    CATALOG.map((entry): string => entry.catalogId),
+    Order.String,
+  )
+
+  it("every catalog id has a muscle map file and every file is a catalog id", () => {
+    expect(files).toEqual(catalogIds)
+  })
+
+  it("the index has one require per file on disk and no extra keys", () => {
+    const source = readFileSync(join(packageRoot, MUSCLE_MAP_FILE), "utf8")
+    const keys = [
+      // Biome unquotes identifier keys and may wrap a long entry, hence `"?` and `\s*`.
+      ...source.matchAll(/"?([a-z0-9-]+)"?:\s*require\(\s*"[^"]+\/\1\.webp",?\s*\)/g),
+    ].flatMap((match) => (match[1] === undefined ? [] : [match[1]]))
+    expect(Arr.sort(keys, Order.String)).toEqual(files)
   })
 })

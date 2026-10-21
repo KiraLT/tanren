@@ -14,6 +14,9 @@
     "images:generate": "node --env-file-if-exists=.env.images scripts/generateIllustrations.ts",
     "images:shrink": "node scripts/shrinkImages.ts",
     "images:map": "node --import ./scripts/resolveTs.ts scripts/imageMap.ts",
+    "muscle:generate": "node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts",
+    "muscle:shrink": "node scripts/shrinkMuscleMaps.ts",
+    "muscle:index": "node --import ./scripts/resolveTs.ts scripts/muscleMapIndex.ts",
     "check": "biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
   },
   "dependencies": {
