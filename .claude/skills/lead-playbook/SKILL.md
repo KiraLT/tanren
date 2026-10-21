@@ -303,6 +303,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       them) + foreign reds listed with their owner", never "package gate green" (F2 r2, 00:45)
 - [ ] tests: for every exported Schema — decode-ok, decode-fail with the path asserted, and a round-trip (`.claude/rules/tests.md`); plus <behaviour-specific cases>
 - [ ] runtime smoke shown in the report when the task touches an entry point, auth or an import path (worker: `wrangler dev --port <n>` + `curl`; mobile/web: `ui-check`); Node tests alone do not count
+- [ ] (bundled assets or generated files) size budget as a number + the command that measures it
+      (`du -sh apps/mobile/assets/illustrations` <= 3 MB; `wc -c` for one file) — IMG-2 read
+      "a few MB" and shipped 11 MB
 - [ ] no files outside Scope changed
 
 ## Report
@@ -318,8 +321,14 @@ the architect first.
 Check, in order: (1) verification output present and green; (2) done
 criteria each addressed with evidence; (3) files changed ⊆ scope, or the
 deviation is explained; (4) decisions made are ones you can ratify, else
-turn them into an ADR; (5) the agent committed nothing (the Lead commits at
-milestones). Then dispatch the reviewer with the brief and `git diff` scope.
+turn them into an ADR; (5) the agent committed nothing. The Lead commits a
+team's files only after that team's reviewer has passed them; an interim
+commit before review (safety against a bad edit, end of an unattended run)
+is prefixed `WIP:` with the unreviewed paths in the message and a `review
+pending` row in the sheet, and is followed by the reviewed commit before the
+owner is told anything is done (catalog `ed6f22f` carried a
+history-corrupting ExerciseLink bug in HEAD for ~9 h). Then dispatch the
+reviewer with the brief and `git diff` scope.
 Never relay "done" to the owner on an engineer's word alone. Log duration
 and tokens from the task notification and tool calls from the transcript
 (`grep -c '"type":"tool_use"' <output file>`), never from the agent's own

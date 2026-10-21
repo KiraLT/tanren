@@ -138,6 +138,35 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   scratch dir with `--output-dir`, serve it with a scratch copy of `wrangler.web.jsonc` whose
   `assets.directory` is absolute, on a spare port.
 
+## Illustrations and muscle map (v2, verified 2026-10-21; details in apps/mobile/CLAUDE.md "Illustrations")
+
+- The SVG stick-figure pipeline (scenes, rig, `illustrations:check`, `assets/exercises/*.svg`) is
+  retired (commit "Illustrations: images re-encoded…"); do not revive or reference it.
+- Pipeline: `pnpm images:generate [--samples | --only <id,…>] [--limit N] [--all]` (OpenAI
+  `gpt-image-1`, 1024², medium, webp `output_compression` 80, key via `node --env-file-if-exists
+  =.env.images`, `.claude/rules/secrets.md`) → `pnpm images:shrink` (sharp, 512² q80, idempotent) →
+  `pnpm images:map` (rewrites `src/illustrations/images.ts`: one literal `require` per webp so Metro
+  bundles it; `src/library/illustration.test.ts` checks map ↔ files ↔ catalog). Pure logic in
+  `src/illustrations/imagePrompt.ts` (flags, selection, prompt from `assets/illustrations/style.md`,
+  response schemas, `redactSecrets`); the script only does I/O.
+- Cost guard: runs cap at 8 images unless `--all`, existing files are skipped, header states the
+  estimate (235 @ medium ≈ $10). Size target: **≤ 3 MB for the whole `assets/illustrations/`
+  folder** (`du -sh apps/mobile/assets/illustrations`), i.e. ≈ 10 KB per 512² webp; IMG-2 shipped
+  11 MB at 1024² before `images:shrink` existed because "a few MB" was an estimate, not a check.
+  A brief that adds bundled assets names the budget and the `du` command in Done-when.
+- `ExerciseIllustration` (`src/library/`) renders `IMAGES[catalogId]` or the neutral placeholder;
+  ids the safety system refuses (`frog-pump`, `cable-crunch`) stay on the placeholder — do not
+  retry them with other wording.
+- `MuscleMap` (`src/illustrations/muscleMap/MuscleMap.tsx`): props `{ primary, secondary:
+  ReadonlyArray<MuscleGroup>; size: number }` (square; front and back figures side by side).
+  `regions.ts`: `MUSCLE_REGION_MAP` maps each catalog `MuscleGroup` to 1–n of 22 `RegionId`s
+  (`shoulders` → front/side/rear delts, `core` → abs+obliques, `fullBody` → all, `cardio` → heart);
+  `regionsFor`, `regionTone` (primary wins over secondary), `muscleMapLabel` (a11y text).
+  `body.ts` holds the paths and `MUSCLE_MAP_STYLE`. Paths are judged visually: preview with
+  `node --import ./scripts/resolveTs.ts scripts/muscleMapSheet.ts` + agent-browser screenshot (MAP-1
+  needed 3 path rounds; `set media dark` and `set viewport` switch live). Used on Library detail,
+  the player and Progress exercise page (MAP-2).
+
 ## Vendor plugin skills
 
 Mobile engineers load `expo:expo-overview` first, then `expo:expo-router`,

@@ -59,7 +59,7 @@ cd apps/worker; nohup pnpm exec wrangler dev --port $W --persist-to $S/<task>-st
   --var ALLOWED_ORIGINS:http://localhost:$A --show-interactive-dev-session=false > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid
 # fresh --persist-to has no D1 rows: apply migrations/seed against it before use (see packages/db/CLAUDE.md), or copy the state dir
 # dev server:  cd ../mobile; CI=1 nohup pnpm web --port $A ...   (as above)
-# exported build: CI=1 pnpm -F @tanren/mobile export --platform web --output-dir $S/<task>-dist
+# exported build: CI=1 pnpm -F @tanren/mobile export:web --output-dir $S/<task>-dist   (root alias: pnpm web:export)
 #   cd apps/worker; pnpm exec wrangler dev -c wrangler.web.jsonc --port $A --assets $S/<task>-dist   # config hardcodes ../mobile/dist; --assets overrides it
 ```
 
@@ -68,6 +68,13 @@ The magic link carries the worker's base URL (`:8787`): rewrite the host before 
 API-base env (`grep -rn 8787 apps/mobile/src/services` for the variable name). `ALLOWED_ORIGINS` must list
 `http://localhost:$A` or the sign-in POST fails `trustedOrigins`. A new route needs `CI=1 expo start` once
 until `.expo/types/router.d.ts` lists it.
+
+macOS facts (2026-10-21): zsh has no `timeout` — wait with
+`for i in $(seq 1 60); do curl -sf localhost:$W/health && break; sleep 1; done`; `wrangler dev` via pnpm
+leaves a `workerd` child, so if `kill $(cat …pid)` leaves the port busy, stop the listener with
+`kill $(lsof -tiTCP:$W -sTCP:LISTEN)` (your own port only); `ab set media dark|light` and `ab set viewport
+W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use a tall viewport
+(`set viewport 390 1600`) or `ab screenshot "<selector>" file.png` per element.
 
 Rules: controls need `accessibilityLabel`s (that is what makes them targetable);
 report the snapshot lines that prove the behaviour, not a narrative; never kill
