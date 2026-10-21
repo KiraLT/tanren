@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router"
+import { View } from "react-native"
 import { AboutSection } from "../src/components/settings/AboutSection"
 import { AccountSection } from "../src/components/settings/AccountSection"
 import { AppearanceSection } from "../src/components/settings/AppearanceSection"
 import { DataSection } from "../src/components/settings/DataSection"
 import { EquipmentSection } from "../src/components/settings/EquipmentSection"
-import { AppBar, IconButton, Page } from "../src/ui"
+import { AppBar, IconButton, Page, space } from "../src/ui"
 
 /** Root-Stack route reached from the Progress header: Account, Appearance, Units, Data, About. */
 export default function SettingsScreen() {
@@ -21,11 +22,13 @@ export default function SettingsScreen() {
         />
       }
     >
-      <AccountSection />
-      <EquipmentSection />
-      <AppearanceSection />
-      <DataSection />
-      <AboutSection />
+      <View style={{ gap: space.xl }}>
+        <AccountSection />
+        <EquipmentSection />
+        <AppearanceSection />
+        <DataSection />
+        <AboutSection />
+      </View>
     </Page>
   )
 }

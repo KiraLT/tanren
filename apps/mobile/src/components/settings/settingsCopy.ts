@@ -1,4 +1,5 @@
-import type { ThemePreference } from "../../ui"
+import { Option } from "effect"
+import type { IconName, ThemePreference } from "../../ui"
 
 /** Why a sign-out did not happen (the `SignOutFailed` reasons), as the copy the screen shows. */
 export const signOutFailureTitle = (reason: "offline" | "server"): string =>
@@ -27,6 +28,23 @@ export const APPEARANCE_OPTIONS: ReadonlyArray<{
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ]
+
+/** Preset row subtitle: "Bodyweight only", "1 item", "24 items". */
+export const presetItemsLabel = (count: number): string =>
+  count === 0 ? "Bodyweight only" : `${count} ${count === 1 ? "item" : "items"}`
+
+/** The leading glyph of an equipment chip, where the icon set has one. */
+export const equipmentGlyph = (equipment: string): Option.Option<IconName> =>
+  Option.fromNullishOr(EQUIPMENT_GLYPHS[equipment])
+
+const EQUIPMENT_GLYPHS: Readonly<Record<string, IconName | undefined>> = {
+  barbell: "dumbbell",
+  dumbbell: "dumbbell",
+  kettlebell: "kettlebell",
+  band: "band",
+  bench: "home",
+  pullUpBar: "bodyweight",
+}
 
 /** `Tanren 0.1.0`; just `Tanren` when the app config has no version. */
 export const aboutTitle = (version: string | undefined): string =>

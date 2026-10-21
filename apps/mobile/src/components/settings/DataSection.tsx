@@ -10,9 +10,12 @@ export function DataSection() {
   return (
     <SettingsSection title="Data">
       {Option.match(exportData, {
-        onNone: () => <ListRow title={EXPORT_NATIVE_TITLE} subtitle={EXPORT_NATIVE_NOTE} />,
+        onNone: () => (
+          <ListRow icon="list" title={EXPORT_NATIVE_TITLE} subtitle={EXPORT_NATIVE_NOTE} />
+        ),
         onSome: ({ state, start }) => (
           <ListRow
+            icon="list"
             title="Export my data"
             accessibilityLabel="Export my data"
             subtitle={Match.value(state).pipe(

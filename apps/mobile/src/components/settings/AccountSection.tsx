@@ -2,8 +2,8 @@ import { Match } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { type AccountState, type SignOutState, useAccount } from "../../hooks/useAccount"
-import { Banner, Button, ListRow, space, Text } from "../../ui"
-import { SettingsSection } from "./SettingsSection"
+import { Banner, ListRow, space } from "../../ui"
+import { Chevron, DestructiveRow, SettingsSection } from "./SettingsSection"
 import {
   KEPT_DATA_NOTE,
   SIGNED_OUT_NATIVE_TITLE,
@@ -16,29 +16,27 @@ interface SignOutProps {
   readonly onPress: () => void
 }
 
-/** Sign-out button plus the one status line a sign-out can leave (failure, or native "done"). */
+/** Destructive text row plus the one status line a sign-out can leave (a failure banner). */
 function SignOut({ state, onPress }: SignOutProps) {
   const signingOut = state._tag === "SigningOut"
   return (
-    <View style={{ gap: space.md, padding: space.lg }}>
-      <Button
-        label={signingOut ? "Signing out…" : "Sign out"}
+    <View>
+      <DestructiveRow
+        title={signingOut ? "Signing out…" : "Sign out"}
+        subtitle={KEPT_DATA_NOTE}
         accessibilityLabel="Sign out"
-        variant="destructive"
-        loading={signingOut}
         disabled={signingOut}
         onPress={onPress}
       />
       {state._tag === "Failed" ? (
-        <Banner
-          tone="danger"
-          title={signOutFailureTitle(state.reason)}
-          body={signOutFailureBody(state.reason)}
-        />
+        <View style={{ padding: space.lg }}>
+          <Banner
+            tone="danger"
+            title={signOutFailureTitle(state.reason)}
+            body={signOutFailureBody(state.reason)}
+          />
+        </View>
       ) : null}
-      <Text variant="subhead" tone="muted">
-        {KEPT_DATA_NOTE}
-      </Text>
     </View>
   )
 }
@@ -50,36 +48,41 @@ interface AccountRowsProps {
   readonly signIn: () => void
 }
 
+/** Rows are returned as an array: a fragment would be one `ListGroup` child (no hairlines). */
 const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsProps) =>
   Match.value(account).pipe(
     Match.tagsExhaustive({
-      Loading: () => <ListRow title="Account" subtitle="Checking…" />,
-      SignedOut: () => (
-        <>
-          <ListRow
-            title="Not signed in"
-            subtitle="Sign in to sync this data across devices"
-            onPress={signIn}
-          />
-          {signOut._tag === "Done" ? (
-            <View style={{ padding: space.lg }}>
-              <Banner tone="success" title={SIGNED_OUT_NATIVE_TITLE} body={KEPT_DATA_NOTE} />
-            </View>
-          ) : null}
-        </>
-      ),
-      SignedIn: ({ email }) => (
-        <>
-          <ListRow title="Signed in" subtitle={email} />
-          <SignOut state={signOut} onPress={requestSignOut} />
-        </>
-      ),
-      SignedInOffline: () => (
-        <>
-          <ListRow title="Signed in (offline)" subtitle="Your email shows when you are online" />
-          <SignOut state={signOut} onPress={requestSignOut} />
-        </>
-      ),
+      Loading: () => [<ListRow key="account" icon="user" title="Account" subtitle="Checking…" />],
+      SignedOut: () => [
+        <ListRow
+          key="signin"
+          icon="user"
+          title="Not signed in"
+          subtitle="Sign in to sync this data across devices"
+          trailing={<Chevron />}
+          onPress={signIn}
+        />,
+        ...(signOut._tag === "Done"
+          ? [
+              <View key="done" style={{ padding: space.lg }}>
+                <Banner tone="success" title={SIGNED_OUT_NATIVE_TITLE} body={KEPT_DATA_NOTE} />
+              </View>,
+            ]
+          : []),
+      ],
+      SignedIn: ({ email }) => [
+        <ListRow key="who" icon="user" title="Signed in" subtitle={email} />,
+        <SignOut key="out" state={signOut} onPress={requestSignOut} />,
+      ],
+      SignedInOffline: () => [
+        <ListRow
+          key="who"
+          icon="user"
+          title="Signed in (offline)"
+          subtitle="Your email shows when you are online"
+        />,
+        <SignOut key="out" state={signOut} onPress={requestSignOut} />,
+      ],
     }),
   )
 

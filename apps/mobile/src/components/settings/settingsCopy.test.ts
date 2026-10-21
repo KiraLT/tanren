@@ -1,7 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
+import { Option } from "effect"
 import {
   APPEARANCE_OPTIONS,
   aboutTitle,
+  equipmentGlyph,
+  presetItemsLabel,
   signOutFailureBody,
   signOutFailureTitle,
 } from "./settingsCopy"
@@ -36,5 +39,21 @@ describe("aboutTitle", () => {
 describe("APPEARANCE_OPTIONS", () => {
   it("offers System, Light and Dark in that order", () => {
     expect(APPEARANCE_OPTIONS.map((option) => option.value)).toEqual(["system", "light", "dark"])
+  })
+})
+
+describe("presetItemsLabel", () => {
+  it("counts items and says bodyweight only for none", () => {
+    expect(presetItemsLabel(0)).toBe("Bodyweight only")
+    expect(presetItemsLabel(1)).toBe("1 item")
+    expect(presetItemsLabel(24)).toBe("24 items")
+  })
+})
+
+describe("equipmentGlyph", () => {
+  it("maps equipment with a drawn glyph and leaves the rest bare", () => {
+    expect(equipmentGlyph("kettlebell")).toEqual(Option.some("kettlebell"))
+    expect(equipmentGlyph("barbell")).toEqual(Option.some("dumbbell"))
+    expect(equipmentGlyph("cable")).toEqual(Option.none())
   })
 })
