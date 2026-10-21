@@ -33,8 +33,8 @@ Order: UI-1 → {UI-2, UI-3, UI-4} in parallel → UI-R → UI-X. UI-2/3/4 may b
 - `TypeVariant = "numeral" | "display" | "title" | "title2" | "headline" | "body" | "subhead" | "caption" | "label"` with the §2.1 values; `Text` `variant` prop unchanged otherwise.
 - `sizes = { tap: 44, control: 48, controlLg: 56, stepperButton: 64, logButton: 64, iconSm: 20, iconMd: 24, iconLg: 28, contentMaxWidth: 600, asideMaxWidth: 480, tabBar: 56, appBar: 56 }`; `radius.lg = 16`; `gutter.desktop = 32`.
 - `Button` `size: "md" | "lg" | "xl"` → 48/56/64; `variant: "primary" | "secondary" | "destructive" | "text"` (`text` **new**: no fill, `headline` label, for the Settings sign-out row; VERIFY current variant set in `Button.tsx` and add only what is missing).
-- `Stepper` renders unit inline after the value (`label` variant, muted); props unchanged.
-- `ListRow` groups: a parent `View` with `surface` background, `radius.md`, hairline `border` between rows (the row itself has no border). VERIFY `ListRow` prop names before relying on `trailing`/`subtitle`.
+- `Stepper` renders the unit UNDER the value (`label` variant, muted) per ui-direction-final §5 (built by UI-1c; the earlier "inline" wording is superseded); props unchanged; hairlines above/below stepper rows are the screen's job (two stacked steppers draw one line between them).
+- `ListRow` groups: `ListGroup` (built by UI-1c) — `surface` background, `radius.lg` (16), hairline between rows; a row inside a group has no border of its own (a standalone row keeps the old hairline until UI-R removes it). `ListRow` props: `disc {state: done|now|todo, index}`, `icon`, `subtitle`, `trailing`, `chevron`. `Button` `ghost` is a deprecated alias of `text`.
 - `AppBar` gains `nav?: boolean` (default true); `false` hides the desktop nav pills (player).
 - Colours: dark `accentSoft` `#2E1C10` (VERIFY 4.5:1 for `accent` text on it in `colors.test.ts`; else keep `#3A2316`).
 
