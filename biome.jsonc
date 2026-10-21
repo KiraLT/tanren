@@ -21,7 +21,9 @@
       // Plugin self-test fixtures violate the rules on purpose; .biome/selftest.mjs lints them.
       "!!**/.biome/fixtures",
       // drizzle-kit output (SQL + meta JSON): generated, rewritten on every `generate`.
-      "!!**/packages/db/migrations"
+      "!!**/packages/db/migrations",
+      // Generated exercise illustrations: `illustrations:check` validates them (design-system §7).
+      "!**/*.svg"
     ]
   },
   "formatter": {

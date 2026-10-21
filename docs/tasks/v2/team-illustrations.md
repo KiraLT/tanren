@@ -44,3 +44,9 @@ I1 is done. The I2 batches (b01–b12+) and I3 were not started: 229 ids are mis
 - [ ] `apps/mobile/src/library/illustrationMap.ts` (team catalog) · replace the empty map with `export { ILLUSTRATIONS } from "../illustrations/generated"` and update `illustration.test.ts` line asserting `plank` is none · verify `pnpm -F @tanren/mobile check`
 - [ ] root `package.json` `check` · `illustrations:check` runs only via the mobile `check` (which the root gate runs through vitest/tsc stages? verify) · decide whether the root gate needs it explicitly
 - [ ] `docs/design/design-system.md` §7 · allowed-element list and root unchanged; note `biome.jsonc` excludes `**/*.svg` and that `illustrations:check` is the gate for them
+
+## Final (09:28, owner called time)
+- 09:21→~09:27 · I2-b01..b05 · engineer/sonnet · aeea12265156fab12, a75d766b27451aeff, a719538fab81d9566, aef8158ea8e2ef8c2, aeeadf11df2f8436f · 119–152k tok, 29–35 tool uses, 4.5–6.4 min each · r1 · done, 0 failures
+- Validator: count 72, max 974 B (dumbbell-fly), total 48 422 B, missing 163, extra 0, failures 0. Mobile check green (58 files / 519 tests).
+- Not started: b06–b17 (back-2, hips, shoulders, arms, fullBody, cardio, mobility, core). Briefs are in the team-lead scratchpad and the template is reproducible from this sheet. I3, REV and the Demo were not done.
+- Weak drawings to redo: curtsy-lunge, hack-squat, glute-ham-raise, chest-dip, decline-push-up, meadows-row. Glyphs requested: inclineBench/declineBench, dipStation, wall, sled/platform, arrow(from,to) helper; plus a front-view prone pose and a seated front pose. Use `agent-browser --session <task>`, because the default session is shared.
