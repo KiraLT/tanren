@@ -4,7 +4,7 @@ import { Exercise } from "./exercise"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
 import { ProgramDayCompletion, ProgramEnrollment } from "./program"
 import { Session, WorkoutSet } from "./session"
-import { Profile } from "./user"
+import { Locations, Profile } from "./user"
 
 /**
  * DB row codecs (DB §5). A DB record has camelCase keys (after `transformResultNames`) and
@@ -27,6 +27,8 @@ export const ProfileRow = Schema.Struct({
   constraints: jsonColumn(Profile.fields.constraints),
   availableDays: jsonColumn(Profile.fields.availableDays),
   equipment: jsonColumn(Profile.fields.equipment),
+  locations: jsonColumn(Locations),
+  activeLocationId: Schema.NullOr(Schema.String),
 }).pipe(Schema.decodeTo(Profile))
 
 export const ExerciseRow = Schema.Struct({

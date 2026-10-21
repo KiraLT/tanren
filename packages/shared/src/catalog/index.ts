@@ -1,5 +1,6 @@
 import { Array as Arr, Option, pipe, Schema } from "effect"
 import type { MuscleGroup } from "../exercise"
+import { isAvailableWith } from "./availability"
 import { CatalogExercise, type CatalogExerciseSpec } from "./CatalogExercise"
 import { arms } from "./data/arms"
 import { back } from "./data/back"
@@ -13,8 +14,10 @@ import { mobility } from "./data/mobility"
 import { shoulders } from "./data/shoulders"
 import type { CatalogEquipment, CatalogId, ExerciseKind } from "./taxonomy"
 
+export * from "./availability"
 export * from "./CatalogExercise"
 export * from "./core30Ids"
+export * from "./presets"
 export * from "./taxonomy"
 
 /** The data modules in catalog order; the per-module test reads this. */
@@ -58,6 +61,8 @@ export interface CatalogFilter {
   readonly muscle?: MuscleGroup
   readonly equipment?: CatalogEquipment
   readonly kind?: ExerciseKind
+  /** Only entries doable with this equipment (`isAvailableWith`); absent = no restriction. */
+  readonly availableEquipment?: ReadonlyArray<CatalogEquipment>
 }
 
 /** 0 exact name, 1 name prefix, 2 alias prefix, 3 substring in name or aliases; none = no match. */
@@ -76,7 +81,8 @@ const matchesFacets = (entry: CatalogExercise, filter: CatalogFilter): boolean =
     entry.primaryMuscles.includes(filter.muscle) ||
     entry.secondaryMuscles.includes(filter.muscle)) &&
   (filter.equipment === undefined || entry.equipment.includes(filter.equipment)) &&
-  (filter.kind === undefined || entry.kind === filter.kind)
+  (filter.kind === undefined || entry.kind === filter.kind) &&
+  (filter.availableEquipment === undefined || isAvailableWith(filter.availableEquipment)(entry))
 
 /** `searchCatalog` over any entry list: the ranking rules, testable without the real data. */
 export const searchEntries = (

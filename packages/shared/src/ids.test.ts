@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
-import { IdGenerator, newId, SetId, Uuid } from "./ids"
+import { IdGenerator, LocationId, newId, SetId, Uuid } from "./ids"
 
 describe("SetId", () => {
   it.effect("accepts a UUID", () =>
@@ -12,6 +12,22 @@ describe("SetId", () => {
   it.effect("rejects a non-UUID string", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(Schema.decodeUnknownEffect(SetId)("set-1"))
+      expect(error).toBeInstanceOf(Schema.SchemaError)
+    }),
+  )
+})
+
+describe("LocationId", () => {
+  it.effect("accepts a UUID and encodes it back unchanged", () =>
+    Effect.gen(function* () {
+      const raw = "2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d"
+      const id = yield* Schema.decodeUnknownEffect(LocationId)(raw)
+      expect(yield* Schema.encodeEffect(LocationId)(id)).toBe(raw)
+    }),
+  )
+  it.effect("rejects a non-UUID string", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Schema.decodeUnknownEffect(LocationId)("home"))
       expect(error).toBeInstanceOf(Schema.SchemaError)
     }),
   )

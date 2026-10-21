@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
-import { failingPaths, roundTrips } from "./testing"
-import { Equipment, Goal, Profile, ProfileInsert, ProfilePatch } from "./user"
+import { failingPaths, roundTrips, wireRoundTrips } from "./testing"
+import { Equipment, Goal, Location, Profile, ProfileInsert, ProfilePatch } from "./user"
 
 const userId = "0b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d"
+const gymId = "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c"
+const homeId = "2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d"
 
 const profileFields = {
   goals: [
@@ -13,6 +15,11 @@ const profileFields = {
   constraints: ["no overhead pressing, left shoulder"],
   availableDays: ["mon", "wed", "fri"],
   equipment: [{ kind: "dumbbells", note: "adjustable 2×32 kg" }],
+  locations: [
+    { id: gymId, name: "Gym", equipment: ["barbell", "rack", "legPress"] },
+    { id: homeId, name: "Home", equipment: [] },
+  ],
+  activeLocationId: homeId,
   timezone: "Europe/Berlin",
 }
 
@@ -62,6 +69,96 @@ describe("Profile", () => {
     Effect.gen(function* () {
       const paths = yield* failingPaths(Profile, { ...profileWire, availableDays: ["mon", "mon"] })
       expect(paths).toEqual([["availableDays"]])
+    }),
+  )
+})
+
+describe("Location", () => {
+  const home: (typeof Location)["Encoded"] = {
+    id: homeId,
+    name: "Home",
+    equipment: ["dumbbell", "bench"],
+  }
+
+  it.effect("decodes and round-trips a location", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(Location, home)
+    }),
+  )
+
+  it.effect("rejects an unknown equipment literal at its index", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(Location, { ...home, equipment: ["bench", "machine"] })).toEqual([
+        ["equipment", 1],
+      ])
+    }),
+  )
+
+  it.effect("rejects duplicate equipment and an empty name at their paths", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(Location, { ...home, equipment: ["bench", "bench"] })).toEqual([
+        ["equipment"],
+      ])
+      expect(yield* failingPaths(Location, { ...home, name: "  " })).toEqual([["name"]])
+    }),
+  )
+
+  it.effect("rejects a non-UUID id at id", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(Location, { ...home, id: "home" })).toEqual([["id"]])
+    }),
+  )
+})
+
+describe("Profile locations (ADR-0016)", () => {
+  it.effect("an active id that is not one of the locations fails at activeLocationId", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(Profile, { ...profileWire, activeLocationId: userId })).toEqual([
+        ["activeLocationId"],
+      ])
+    }),
+  )
+
+  it.effect("duplicate location ids fail at locations", () =>
+    Effect.gen(function* () {
+      const twice = { id: homeId, name: "Home", equipment: [] }
+      expect(yield* failingPaths(Profile, { ...profileWire, locations: [twice, twice] })).toEqual([
+        ["locations"],
+      ])
+    }),
+  )
+
+  it.effect("eleven locations fail at locations", () =>
+    Effect.gen(function* () {
+      const many = Array.from({ length: 11 }, (_, n) => ({
+        id: `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`,
+        name: `Place ${n}`,
+        equipment: [],
+      }))
+      const paths = yield* failingPaths(Profile, {
+        ...profileWire,
+        locations: many,
+        activeLocationId: null,
+      })
+      expect(paths).toEqual([["locations"]])
+    }),
+  )
+
+  it.effect("a pre-v3 wire row without the keys decodes to no locations and no active one", () =>
+    Effect.gen(function* () {
+      const { locations: _l, activeLocationId: _a, ...legacy } = profileWire
+      const profile = yield* Schema.decodeUnknownEffect(Profile)(legacy)
+      expect(profile.locations).toEqual([])
+      expect(Option.isNone(profile.activeLocationId)).toBe(true)
+    }),
+  )
+
+  it.effect("a null active id decodes to None and encodes back to null", () =>
+    Effect.gen(function* () {
+      const wire = { ...profileWire, activeLocationId: null }
+      const profile = yield* Schema.decodeUnknownEffect(Profile)(wire)
+      expect(Option.isNone(profile.activeLocationId)).toBe(true)
+      expect(yield* Schema.encodeEffect(Profile)(profile)).toEqual(wire)
     }),
   )
 })

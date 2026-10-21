@@ -1,6 +1,7 @@
-import { Option, Schema, Struct } from "effect"
+import { Effect, Option, Schema, Struct } from "effect"
+import { CatalogEquipment } from "./catalog/taxonomy"
 import { Email, Label, Note, ROW_COLUMNS, rowFields, Timestamp, TimeZone, Weekday } from "./common"
-import { UserId } from "./ids"
+import { LocationId, UserId } from "./ids"
 
 export const GoalKind = Schema.Literals([
   "strength",
@@ -64,6 +65,42 @@ export class User extends Schema.Class<User>("@tanren/shared/User")({
 }) {}
 export type UserEncoded = (typeof User)["Encoded"]
 
+/** A place the user trains and what it has (ADR-0016). `equipment: []` = bodyweight only. */
+export const Location = Schema.Struct({
+  id: LocationId,
+  name: Label,
+  equipment: Schema.UniqueArray(CatalogEquipment),
+})
+export type Location = typeof Location.Type
+
+/** At most 10 locations (equipment.md §2); the row codec's JSON column uses this too. */
+export const Locations = Schema.Array(Location).check(Schema.isMaxLength(10))
+
+/** `activeLocationId` must name one of `locations`; the issue points at `activeLocationId`. */
+const activeLocationExists = Schema.makeFilter(
+  (v: {
+    readonly locations: ReadonlyArray<{ readonly id: string }>
+    readonly activeLocationId: Option.Option<string>
+  }) =>
+    Option.match(v.activeLocationId, {
+      onNone: () => true,
+      onSome: (id) =>
+        v.locations.some((location) => location.id === id) || {
+          path: ["activeLocationId"],
+          issue: "not one of locations",
+        },
+    }),
+)
+
+/** Location ids are unique; the issue points at `locations`. */
+const uniqueLocationIds = Schema.makeFilter(
+  (v: { readonly locations: ReadonlyArray<{ readonly id: string }> }) =>
+    new Set(v.locations.map((location) => location.id)).size === v.locations.length || {
+      path: ["locations"],
+      issue: "duplicate location id",
+    },
+)
+
 export const ProfileFields = {
   /** Ordered by priority. */
   goals: Schema.Array(Goal).check(Schema.isMaxLength(10)),
@@ -71,15 +108,29 @@ export const ProfileFields = {
   constraints: Schema.Array(Note).check(Schema.isMaxLength(20)),
   availableDays: Schema.UniqueArray(Weekday),
   equipment: Schema.Array(Equipment).check(Schema.isMaxLength(30)),
+  /**
+   * Where the user trains; ≤ 10 (ADR-0016). A missing key decodes as `[]` and the constructors
+   * default to `[]`, so pre-v3 peers, rows and fixtures keep working (pattern: `Exercise.catalogId`).
+   */
+  locations: Locations.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([])),
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
+  /** The location the app filters by; `None` = everything is available. Missing key = `None`. */
+  activeLocationId: Schema.OptionFromOptionalNullOr(LocationId, { onNoneEncoding: null }).pipe(
+    Schema.withConstructorDefault(Effect.succeed(Option.none())),
+  ),
   /** IANA zone name, used by the server/MCP to compute "today". */
   timezone: TimeZone,
 }
 
 /** One per user; invariant `id === userId`, enforced by the server and the D1 primary key. */
-export class Profile extends Schema.Class<Profile>("@tanren/shared/Profile")({
-  ...rowFields(UserId),
-  ...ProfileFields,
-}) {}
+export class Profile extends Schema.Class<Profile>("@tanren/shared/Profile")(
+  Schema.Struct({ ...rowFields(UserId), ...ProfileFields }).check(
+    uniqueLocationIds,
+    activeLocationExists,
+  ),
+) {}
 export type ProfileEncoded = (typeof Profile)["Encoded"]
 
 /** The server sets `id = userId` and the timestamps. */

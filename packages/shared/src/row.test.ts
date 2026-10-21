@@ -39,6 +39,9 @@ const profileRecord = {
   constraints: '["no overhead pressing"]',
   availableDays: '["mon","wed","fri"]',
   equipment: '[{"kind":"barbell","note":null}]',
+  locations:
+    '[{"id":"0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c","name":"Home","equipment":["dumbbell"]}]',
+  activeLocationId: "0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c",
   timezone: "Europe/Vilnius",
 }
 const exerciseRecord = {
@@ -214,6 +217,28 @@ describe("row codecs map null and None", () => {
     Effect.gen(function* () {
       const profile = yield* Schema.decodeUnknownEffect(ProfileRow)(profileRecord)
       expect(Option.isNone(profile.goals[0]?.note ?? Option.some("missing"))).toBe(true)
+    }),
+  )
+})
+
+describe("ProfileRow locations (ADR-0016)", () => {
+  it.effect("decodes the locations JSON column and the active id, and encodes them back", () =>
+    Effect.gen(function* () {
+      const profile = yield* Schema.decodeUnknownEffect(ProfileRow)(profileRecord)
+      expect(profile.locations.map((location) => location.name)).toEqual(["Home"])
+      expect(Option.getOrNull(profile.activeLocationId)).toBe(profileRecord.activeLocationId)
+      expect(yield* Schema.encodeEffect(ProfileRow)(profile)).toEqual(profileRecord)
+    }),
+  )
+
+  it.effect("an active id that is not one of the locations fails at activeLocationId", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(ProfileRow, {
+          ...profileRecord,
+          activeLocationId: "0d0d0d0d-0d0d-4d0d-8d0d-0d0d0d0d0d0d",
+        }),
+      ).toEqual([["activeLocationId"]])
     }),
   )
 })
