@@ -1,5 +1,4 @@
 import { Schema } from "effect"
-import type { EquipmentKind } from "../user"
 
 /** Lower-case kebab-case key: `barbell-back-squat`, `core-30`. */
 export const Slug = Schema.String.check(
@@ -85,46 +84,3 @@ export const MovementPattern = Schema.Literals([
   "mobility",
 ])
 export type MovementPattern = typeof MovementPattern.Type
-
-/** Catalog implement → the profile's coarser `EquipmentKind` (used by the profile equipment filter). */
-const EQUIPMENT_KIND = {
-  barbell: "barbell",
-  dumbbell: "dumbbells",
-  kettlebell: "kettlebell",
-  trapBar: "trapBar",
-  ezBar: "ezBar",
-  plate: "other",
-  landmine: "barbell",
-  medicineBall: "other",
-  bench: "bench",
-  rack: "rack",
-  preacherBench: "bench",
-  backExtensionBench: "machines",
-  gluteHamDeveloper: "machines",
-  box: "other",
-  smithMachine: "smithMachine",
-  legPress: "machines",
-  hackSquat: "machines",
-  legExtension: "machines",
-  legCurl: "machines",
-  chestPressMachine: "machines",
-  pecDeck: "machines",
-  shoulderPressMachine: "machines",
-  hipAbductorMachine: "machines",
-  calfRaiseMachine: "machines",
-  abCrunchMachine: "machines",
-  assistedPullUpMachine: "machines",
-  cable: "cableMachine",
-  latPulldown: "cableMachine",
-  seatedRowMachine: "cableMachine",
-  pullUpBar: "pullUpBar",
-  dipStation: "dipStation",
-  band: "resistanceBands",
-  abWheel: "other",
-  foamRoller: "other",
-  suspensionTrainer: "other",
-  cardioMachine: "cardioMachine",
-} as const satisfies { readonly [E in CatalogEquipment]: EquipmentKind }
-
-export const equipmentKindFor = (equipment: CatalogEquipment): EquipmentKind =>
-  EQUIPMENT_KIND[equipment]

@@ -109,6 +109,8 @@ export const EntityName = Schema.Literals([
   "set",
   "programEnrollment",
   "programDayCompletion",
+  /** A profile location (not a table): `search_exercises availableAt` with an unknown id. */
+  "location",
 ])
 export type EntityName = typeof EntityName.Type
 

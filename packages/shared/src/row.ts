@@ -1,4 +1,4 @@
-import { Schema, Struct } from "effect"
+import { Schema, SchemaGetter, Struct } from "effect"
 import type { SyncTable } from "./common"
 import { Exercise } from "./exercise"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
@@ -21,15 +21,34 @@ const wireRecord = <F extends Schema.Struct.Fields>(fields: F) =>
 const jsonColumn = <S extends Schema.Constraint>(field: S) =>
   Schema.fromJsonString(Schema.toEncoded(field))
 
+/** Pre-ADR-0016 column, still `NOT NULL` in D1 and SQLite: always `"[]"`, never read. */
+const LEGACY_EQUIPMENT = "[]"
+
+/**
+ * The record keeps the legacy `equipment` column (equipment.md §3): decoding drops it, encoding
+ * writes `"[]"`, so every writer of `ROW_KEYS.profile` satisfies the `NOT NULL` without knowing.
+ */
 export const ProfileRow = Schema.Struct({
   ...wireRecord(Profile.fields).fields,
   goals: jsonColumn(Profile.fields.goals),
   constraints: jsonColumn(Profile.fields.constraints),
   availableDays: jsonColumn(Profile.fields.availableDays),
-  equipment: jsonColumn(Profile.fields.equipment),
+  equipment: Schema.String,
   locations: jsonColumn(Locations),
   activeLocationId: Schema.NullOr(Schema.String),
-}).pipe(Schema.decodeTo(Profile))
+}).pipe(
+  Schema.decodeTo(Profile, {
+    decode: SchemaGetter.transform(({ equipment: _legacy, ...profile }) => profile),
+    // `Profile`'s encoded `locations`/`activeLocationId` keys are optional (decoding defaults
+    // for pre-v3 peers); the columns are not, so an absent key is written as its default.
+    encode: SchemaGetter.transform((profile) => ({
+      ...profile,
+      locations: profile.locations ?? [],
+      activeLocationId: profile.activeLocationId ?? null,
+      equipment: LEGACY_EQUIPMENT,
+    })),
+  }),
+)
 
 export const ExerciseRow = Schema.Struct({
   ...wireRecord(Exercise.fields).fields,

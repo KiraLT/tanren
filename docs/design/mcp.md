@@ -98,11 +98,14 @@ export const LogSessionInput = Schema.Struct({ startedAt: Timestamp, finishedAt:
     rpe: Schema.OptionFromNullOr(Rpe), note: Schema.OptionFromNullOr(Note) })) })
 export const UpdateProfileInput = ProfilePatch
 
-// search_exercises (v2, docs/design/v2-catalog.md §6): read scope, static catalog, 0 D1 statements.
-// Input keys all optional (query, muscle, equipment, kind, limit default 20); output { results: CatalogMatch[], total }
-// where total = matches before the limit. Registered with the other read tools (kept contiguous: slice(0, 5)).
+// search_exercises (v2, docs/design/v2-catalog.md §6): read scope, static catalog, 0 D1 statements
+// (1, the profile, with availableAt). Input keys all optional (query, muscle, equipment, kind,
+// availableAt: LocationId | "active" (v3, equipment.md §5), limit default 20); output
+// { results: CatalogMatch[], total } where total = matches before the limit.
+// get_profile (v3, equipment.md §5): GetProfileInput = Struct({}), GetProfileResult = OptionFromNullOr(Profile).
+// Read tools are kept contiguous: slice(0, 6).
 export const MCP_TOOLS = ["get_overview", "get_exercise_history", "list_sessions", "get_current_plan",
-  "search_exercises", "write_plan_week", "log_session", "update_profile"] as const
+  "search_exercises", "get_profile", "write_plan_week", "log_session", "update_profile"] as const
 export const McpToolName = Schema.Literals(MCP_TOOLS)
 ```
 Names checked against `plan.ts`/`user.ts`/`common.ts` today (`PlannedSetFields`, `PlannedSessionFields`,
@@ -120,11 +123,11 @@ derivation is the one `ExercisePatch` already uses; VERIFY that `Struct.omit` on
   }
   export type ToolDeps = ExerciseRepo | PlanRepo | SessionRepo | ProfileRepo
   export type ToolError = NotFound | ValidationError | PersistenceError
-  export const readTools: ReadonlyArray<AnyReadTool>   // the four step-4 tools + v2 search_exercises, in MCP_TOOLS order
+  export const readTools: ReadonlyArray<AnyReadTool>   // the four step-4 tools + search_exercises + get_profile, in MCP_TOOLS order
   ```
-  Tool count (v2, 2026-10-21): **5 read** (`get_overview`, `get_exercise_history`, `list_sessions`,
-  `get_current_plan`, `search_exercises`) + **3 write** in `writeTools.ts` (`write_plan_week`, `log_session`,
-  `update_profile`) = **8 total**; a `tanren:read`-only grant lists 5.
+  Tool count (v3, 2026-10-21): **6 read** (`get_overview`, `get_exercise_history`, `list_sessions`,
+  `get_current_plan`, `search_exercises`, `get_profile`) + **3 write** in `writeTools.ts` (`write_plan_week`,
+  `log_session`, `update_profile`) = **9 total**; a `tanren:read`-only grant lists 6.
   Clock: `DateTime.now` for `to`; `from = to - period`. `get_exercise_history` → `NotFound` for a
   foreign/unknown id (repo scoping makes both look the same). Descriptions tell Claude the units
   (kg, ISO-8601 UTC, half-open ranges) and that ids come from `get_overview`/`get_current_plan`.
@@ -183,6 +186,19 @@ claude mcp add --transport http tanren-local http://localhost:8787/mcp \
     "secondaryMuscles": ["upperBack", "core", "chest"], "equipment": ["barbell"], "movement": "verticalPush" } ],
   "total": 1 }
 ```
+`get_profile` (v3): request `"arguments": {}`, `structuredContent` (or text `null` before the
+first `update_profile`):
+```json
+{ "id": "0000…0001", "userId": "0000…0001", "createdAt": "2026-09-14T08:00:00.000Z",
+  "updatedAt": "2026-09-14T08:00:00.000Z", "deletedAt": null,
+  "goals": [ { "kind": "strength", "note": "Squat 140, bench 100, deadlift 180 by spring." } ],
+  "constraints": [], "availableDays": ["mon", "wed", "fri", "sat"],
+  "locations": [ { "id": "56fb…", "name": "Gym", "equipment": ["barbell", "dumbbell", "…"] },
+                 { "id": "110e…", "name": "Home", "equipment": ["dumbbell", "kettlebell", "bench", "pullUpBar", "band"] } ],
+  "activeLocationId": "56fb…", "timezone": "Europe/Berlin" }
+```
+`search_exercises { "query": "press", "availableAt": "<Home id>" }` keeps only entries Home's
+equipment covers; an id not in `locations` → `NotFound: location <id> not found`.
 Unauthenticated: `HTTP/1.1 401`, `WWW-Authenticate: Bearer`, empty body. Unknown exercise:
 `{ "isError": true, "content": [{ "type": "text", "text": "NotFound: exercise 7d4e… not found" }] }`.
 

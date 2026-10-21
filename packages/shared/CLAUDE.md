@@ -30,7 +30,8 @@ src/
                       (trimmed, bounded), Rpe (1–10 step 0.5), WeightKg (0.25
                       steps), Reps (int ≥ 0), OrderIndex, Weekday, EntityName,
                       SyncTable, ROW_COLUMNS + rowFields(IdSchema)
-  user.ts             User, Profile (goals, constraints, availableDays, equipment)
+  user.ts             User, Profile (goals, constraints, availableDays, locations + activeLocationId,
+                      ADR-0016; the row codec keeps the legacy `equipment` column, always "[]")
   exercise.ts         Exercise (name, aliases, muscleGroups), MuscleGroup union
   plan.ts             Plan, PlanWeek, PlannedSession, PlannedSet
   currentPlan.ts      CurrentPlan: active plan + live weeks/sessions/sets (GET /plans/current, MCP)

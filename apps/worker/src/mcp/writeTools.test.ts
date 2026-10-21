@@ -630,10 +630,30 @@ describe("update_profile", () => {
         availableDays: ["mon", "thu"],
         goals: [],
         constraints: [],
-        equipment: [],
+        locations: [],
+        activeLocationId: Option.none(),
         createdAt: NOW,
       })
       expect(yield* (yield* ProfileRepo).get(userA)).toEqual(Option.some(profile))
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects an activeLocationId that is not one of the locations", () =>
+    Effect.gen(function* () {
+      yield* setTime(NOW)
+      const home = { id: "0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c", name: "Home", equipment: [] }
+      const error = yield* Effect.flip(
+        updateProfile.run(
+          userA,
+          yield* profilePatch({
+            timezone: "Europe/Vilnius",
+            locations: [home],
+            activeLocationId: "0d0d0d0d-0d0d-4d0d-8d0d-0d0d0d0d0d0d",
+          }),
+        ),
+      )
+      expect(error).toMatchObject({ _tag: "ValidationError" })
+      expect(JSON.stringify(error)).toContain("activeLocationId")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -664,7 +684,7 @@ describe("update_profile", () => {
 describe("writeTools", () => {
   it("lists the three write tools in MCP_TOOLS order, all kind write", () => {
     expect(writeTools.map((t) => [t.name, t.kind])).toEqual(
-      MCP_TOOLS.slice(5).map((name) => [name, "write"]),
+      MCP_TOOLS.slice(6).map((name) => [name, "write"]),
     )
   })
 

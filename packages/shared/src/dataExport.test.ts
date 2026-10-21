@@ -22,7 +22,6 @@ const exportJson = {
         goals: [{ kind: "strength", note: null }],
         constraints: ["no overhead pressing"],
         availableDays: ["mon", "wed", "fri"],
-        equipment: [{ kind: "barbell", note: null }],
         locations: [],
         activeLocationId: null,
         timezone: "Europe/Vilnius",

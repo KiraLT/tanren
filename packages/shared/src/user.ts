@@ -15,26 +15,6 @@ export const GoalKind = Schema.Literals([
 ])
 export type GoalKind = typeof GoalKind.Type
 
-export const EquipmentKind = Schema.Literals([
-  "barbell",
-  "dumbbells",
-  "kettlebell",
-  "rack",
-  "bench",
-  "cableMachine",
-  "machines",
-  "smithMachine",
-  "trapBar",
-  "ezBar",
-  "pullUpBar",
-  "dipStation",
-  "resistanceBands",
-  "cardioMachine",
-  "bodyweightOnly",
-  "other",
-])
-export type EquipmentKind = typeof EquipmentKind.Type
-
 /** `kind: "other"` needs a note saying what it is; the issue points at `note`. */
 const requiresNoteForOther = Schema.makeFilter(
   (v: { readonly kind: string; readonly note: Option.Option<string> }) =>
@@ -47,13 +27,6 @@ export const Goal = Schema.Struct({
   note: Schema.OptionFromNullOr(Note),
 }).check(requiresNoteForOther)
 export type Goal = typeof Goal.Type
-
-/** `note` is free detail ("adjustable 2×32 kg"), required when `kind` is `other`. */
-export const Equipment = Schema.Struct({
-  kind: EquipmentKind,
-  note: Schema.OptionFromNullOr(Note),
-}).check(requiresNoteForOther)
-export type Equipment = typeof Equipment.Type
 
 /** Not synced: the auth layer owns writes, so there is no `UserInsert`/`UserPatch`. */
 export class User extends Schema.Class<User>("@tanren/shared/User")({
@@ -107,10 +80,11 @@ export const ProfileFields = {
   /** Free-text limitations ("no overhead pressing, left shoulder"). */
   constraints: Schema.Array(Note).check(Schema.isMaxLength(20)),
   availableDays: Schema.UniqueArray(Weekday),
-  equipment: Schema.Array(Equipment).check(Schema.isMaxLength(30)),
   /**
-   * Where the user trains; ≤ 10 (ADR-0016). A missing key decodes as `[]` and the constructors
-   * default to `[]`, so pre-v3 peers, rows and fixtures keep working (pattern: `Exercise.catalogId`).
+   * Where the user trains; ≤ 10 (ADR-0016). Replaces the pre-v3 `equipment` list (its D1/SQLite
+   * column is legacy, see `ProfileRow`). A missing key decodes as `[]` and the constructors
+   * default to `[]`: a pre-v3 client pushing a profile row without the key still syncs
+   * (pattern: `Exercise.catalogId`).
    */
   locations: Locations.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([])),

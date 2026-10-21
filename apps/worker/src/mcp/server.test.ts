@@ -42,10 +42,12 @@ describe("callTool", () => {
 })
 
 describe("toolsFor", () => {
-  it("registers the five read tools, search_exercises included, for a read-only grant", () => {
+  it("registers the six read tools, get_profile included, for a read-only grant", () => {
     const names = toolsFor({ userId: userA, scopes: ["tanren:read"] }).map((t) => t.name)
-    expect(names).toEqual(MCP_TOOLS.slice(0, 5))
+    expect(names).toEqual(MCP_TOOLS.slice(0, 6))
+    expect(names).toHaveLength(6)
     expect(names).toContain("search_exercises")
+    expect(names).toContain("get_profile")
   })
 
   it("adds the three write tools, in MCP_TOOLS order, with tanren:write", () => {
@@ -56,7 +58,7 @@ describe("toolsFor", () => {
 
   it("registers only the three write tools for a write-only grant", () => {
     expect(toolsFor({ userId: userA, scopes: ["tanren:write"] }).map((t) => t.name)).toEqual(
-      MCP_TOOLS.slice(5),
+      MCP_TOOLS.slice(6),
     )
   })
 

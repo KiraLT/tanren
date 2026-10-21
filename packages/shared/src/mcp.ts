@@ -20,7 +20,15 @@ import {
 } from "./common"
 import { CurrentPlan } from "./currentPlan"
 import { Exercise, MuscleGroup } from "./exercise"
-import { ExerciseId, PlanId, PlannedSessionId, PlanWeekId, SessionId, UserId } from "./ids"
+import {
+  ExerciseId,
+  LocationId,
+  PlanId,
+  PlannedSessionId,
+  PlanWeekId,
+  SessionId,
+  UserId,
+} from "./ids"
 import { PlannedSessionFields, PlannedSet } from "./plan"
 import { Session, WorkoutSet } from "./session"
 import { Profile, ProfilePatch } from "./user"
@@ -106,6 +114,12 @@ export type GetCurrentPlanInput = typeof GetCurrentPlanInput.Type
 export const CurrentPlanResult = Schema.OptionFromNullOr(CurrentPlan)
 export type CurrentPlanResult = typeof CurrentPlanResult.Type
 
+// get_profile (docs/design/equipment.md §5): no input; `None` (`null`) until a profile exists
+export const GetProfileInput = Schema.Struct({})
+export type GetProfileInput = typeof GetProfileInput.Type
+export const GetProfileResult = Schema.OptionFromNullOr(Profile)
+export type GetProfileResult = typeof GetProfileResult.Type
+
 // Step 5 write tools.
 /** `{ exerciseId, order, targetWeightKg, targetReps, targetRpe, restSeconds, note }`. */
 export const PlannedSetSpec = PlannedSet.mapFields(
@@ -184,13 +198,19 @@ export type McpScope = typeof McpScope.Type
 export const OAuthProps = Schema.Struct({ userId: UserId, scopes: Schema.Array(McpScope) })
 export type OAuthProps = typeof OAuthProps.Type
 
-// search_exercises (docs/design/v2-catalog.md §6): the static catalog, no database
-/** Every key optional; `query` matches names and aliases; `limit` defaults to 20. */
+// search_exercises (docs/design/v2-catalog.md §6): the static catalog; 0 D1 statements, 1 (the
+// profile) when `availableAt` is set (equipment.md §5)
+/**
+ * Every key optional; `query` matches names and aliases; `limit` defaults to 20. `availableAt`
+ * keeps entries the location's equipment covers: `"active"` = the profile's active location (no
+ * active location = no filter), a `LocationId` not in the profile is `NotFound`.
+ */
 export const SearchExercisesInput = Schema.Struct({
   query: Schema.optionalKey(Label),
   muscle: Schema.optionalKey(MuscleGroup),
   equipment: Schema.optionalKey(CatalogEquipment),
   kind: Schema.optionalKey(ExerciseKind),
+  availableAt: Schema.optionalKey(Schema.Union([LocationId, Schema.Literal("active")])),
   limit: Schema.optionalKey(PageLimit),
 })
 export type SearchExercisesInput = typeof SearchExercisesInput.Type
@@ -215,13 +235,14 @@ export const SearchExercisesResult = Schema.Struct({
 })
 export type SearchExercisesResult = typeof SearchExercisesResult.Type
 
-/** The read tools come first and stay contiguous (`slice(0, 5)`), then the write tools. */
+/** The read tools come first and stay contiguous (`slice(0, 6)`), then the write tools. */
 export const MCP_TOOLS = [
   "get_overview",
   "get_exercise_history",
   "list_sessions",
   "get_current_plan",
   "search_exercises",
+  "get_profile",
   "write_plan_week",
   "log_session",
   "update_profile",

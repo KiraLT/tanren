@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import { failingPaths, roundTrips, wireRoundTrips } from "./testing"
-import { Equipment, Goal, Location, Profile, ProfileInsert, ProfilePatch } from "./user"
+import { Goal, Location, Profile, ProfileInsert, ProfilePatch } from "./user"
 
 const userId = "0b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d"
 const gymId = "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c"
@@ -14,7 +14,6 @@ const profileFields = {
   ],
   constraints: ["no overhead pressing, left shoulder"],
   availableDays: ["mon", "wed", "fri"],
-  equipment: [{ kind: "dumbbells", note: "adjustable 2×32 kg" }],
   locations: [
     { id: gymId, name: "Gym", equipment: ["barbell", "rack", "legPress"] },
     { id: homeId, name: "Home", equipment: [] },
@@ -36,14 +35,6 @@ describe("Goal", () => {
   it.effect("rejects kind other without a note at path note", () =>
     Effect.gen(function* () {
       expect(yield* failingPaths(Goal, { kind: "other", note: null })).toEqual([["note"]])
-    }),
-  )
-})
-
-describe("Equipment", () => {
-  it.effect("rejects kind other without a note at path note", () =>
-    Effect.gen(function* () {
-      expect(yield* failingPaths(Equipment, { kind: "other", note: null })).toEqual([["note"]])
     }),
   )
 })
@@ -150,6 +141,14 @@ describe("Profile locations (ADR-0016)", () => {
       const profile = yield* Schema.decodeUnknownEffect(Profile)(legacy)
       expect(profile.locations).toEqual([])
       expect(Option.isNone(profile.activeLocationId)).toBe(true)
+    }),
+  )
+
+  it.effect("a pre-v3 wire row still carrying equipment decodes and encodes without it", () =>
+    Effect.gen(function* () {
+      const legacy = { ...profileWire, equipment: [{ kind: "barbell", note: null }] }
+      const profile = yield* Schema.decodeUnknownEffect(Profile)(legacy)
+      expect("equipment" in (yield* Schema.encodeEffect(Profile)(profile))).toBe(false)
     }),
   )
 

@@ -8,7 +8,9 @@ import {
   Exercise,
   ExerciseId,
   type IdGenerator,
+  LOCATION_PRESETS,
   LocalDate,
+  LocationId,
   newId,
   Plan,
   PlanId,
@@ -192,22 +194,29 @@ interface Stamp {
   readonly ms: number
 }
 
+/** Two locations (equipment.md §3): "Gym" (commercialGym preset, active) and "Home". */
 const buildProfile = ({ userId, ms }: Stamp) =>
-  Profile.makeEffect({
-    id: userId,
-    ...stamp(userId, ms),
-    goals: [
-      { kind: "strength", note: Option.some("Squat 140, bench 100, deadlift 180 by spring.") },
-      { kind: "hypertrophy", note: Option.none() },
-    ],
-    constraints: ["Left shoulder gets tight: no overhead work above RPE 9."],
-    availableDays: ["mon", "wed", "fri", "sat"],
-    equipment: (["barbell", "rack", "bench", "dumbbells", "pullUpBar"] as const).map((kind) => ({
-      kind,
-      note: Option.none<string>(),
-    })),
-    timezone: TimeZone.make("Europe/Berlin"),
-  }).pipe(Effect.orDie)
+  Effect.gen(function* () {
+    const gymId = yield* newId(LocationId)
+    const homeId = yield* newId(LocationId)
+    const { commercialGym, home } = LOCATION_PRESETS
+    return yield* Profile.makeEffect({
+      id: userId,
+      ...stamp(userId, ms),
+      goals: [
+        { kind: "strength", note: Option.some("Squat 140, bench 100, deadlift 180 by spring.") },
+        { kind: "hypertrophy", note: Option.none() },
+      ],
+      constraints: ["Left shoulder gets tight: no overhead work above RPE 9."],
+      availableDays: ["mon", "wed", "fri", "sat"],
+      locations: [
+        { id: gymId, name: commercialGym.name, equipment: commercialGym.equipment },
+        { id: homeId, name: home.name, equipment: home.equipment },
+      ],
+      activeLocationId: Option.some(gymId),
+      timezone: TimeZone.make("Europe/Berlin"),
+    }).pipe(Effect.orDie)
+  })
 
 interface ExerciseBuild {
   readonly spec: ExerciseSpec

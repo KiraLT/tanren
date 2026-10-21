@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { UserId } from "@tanren/shared"
 import { Effect, Option } from "effect"
+import { SqlClient } from "effect/sql"
 import { profile, TestLayer, t2, userA, userB } from "../testing/fixtures"
 import { ProfileRepo } from "./Profile"
 
@@ -25,6 +26,26 @@ describe("ProfileRepo", () => {
       yield* repo.put(ownerA, [updated])
       expect(yield* repo.get(ownerA)).toEqual(Option.some(updated))
     }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect(
+    "stores locations and the active one, and writes the legacy equipment column as []",
+    () =>
+      Effect.gen(function* () {
+        const repo = yield* ProfileRepo
+        const home = {
+          id: "0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c",
+          name: "Home",
+          equipment: ["bench"] as const,
+        }
+        const row = profile({ locations: [home], activeLocationId: home.id, updatedAt: t2 })
+        yield* repo.put(ownerA, [row])
+        expect(yield* repo.get(ownerA)).toEqual(Option.some(row))
+        const sql = yield* SqlClient.SqlClient
+        const raw = yield* sql<{ readonly equipment: string; readonly activeLocationId: string }>`
+        SELECT equipment, active_location_id FROM profile WHERE id = ${userA}`
+        expect(raw).toEqual([{ equipment: "[]", activeLocationId: home.id }])
+      }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("has no profile for a user who never wrote one", () =>

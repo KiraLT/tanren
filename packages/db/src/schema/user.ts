@@ -10,8 +10,11 @@ export const profile = sqliteTable(
     goals: text("goals").notNull(),
     constraints: text("constraints").notNull(),
     availableDays: text("available_days").notNull(),
+    /** Legacy (pre-ADR-0016); always "[]". Dropped in a later rebuild. */
     equipment: text("equipment").notNull(),
     timezone: text("timezone").notNull(),
+    locations: text("locations").notNull().default("[]"),
+    activeLocationId: text("active_location_id"),
   },
   (t) => [
     uniqueIndex("profile_user_id_unique").on(t.userId),

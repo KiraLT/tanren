@@ -81,6 +81,7 @@ const ANNOTATIONS: { readonly [N in McpToolName]: ToolAnnotations } = {
   list_sessions: READ_ONLY,
   get_current_plan: READ_ONLY,
   search_exercises: READ_ONLY,
+  get_profile: READ_ONLY,
   ...writeToolAnnotations,
 }
 

@@ -38,7 +38,7 @@ const profileRecord = {
   goals: '[{"kind":"strength","note":null},{"kind":"other","note":"handstand"}]',
   constraints: '["no overhead pressing"]',
   availableDays: '["mon","wed","fri"]',
-  equipment: '[{"kind":"barbell","note":null}]',
+  equipment: "[]",
   locations:
     '[{"id":"0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c","name":"Home","equipment":["dumbbell"]}]',
   activeLocationId: "0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c",
@@ -241,6 +241,43 @@ describe("ProfileRow locations (ADR-0016)", () => {
       ).toEqual([["activeLocationId"]])
     }),
   )
+})
+
+describe("ProfileRow legacy equipment column (equipment.md §3)", () => {
+  it.effect("a pre-v3 record's equipment is dropped on decode and written back as []", () =>
+    Effect.gen(function* () {
+      const legacy = { ...profileRecord, equipment: '[{"kind":"barbell","note":null}]' }
+      const profile = yield* Schema.decodeUnknownEffect(ProfileRow)(legacy)
+      expect("equipment" in profile).toBe(false)
+      expect(yield* Schema.encodeEffect(ProfileRow)(profile)).toEqual(profileRecord)
+    }),
+  )
+
+  it.effect("encoding a profile built in code emits equipment: []", () =>
+    Effect.gen(function* () {
+      const profile = yield* Schema.decodeUnknownEffect(Profile)({
+        ...rowColumns,
+        id: rowColumns.userId,
+        goals: [],
+        constraints: [],
+        availableDays: [],
+        timezone: "UTC",
+      })
+      const record = yield* Schema.encodeEffect(ProfileRow)(profile)
+      expect(record).toMatchObject({ equipment: "[]", locations: "[]", activeLocationId: null })
+    }),
+  )
+
+  it.effect("a record without the equipment column fails at equipment", () =>
+    Effect.gen(function* () {
+      const { equipment: _legacy, ...missing } = profileRecord
+      expect(yield* failingPaths(ProfileRow, missing)).toEqual([["equipment"]])
+    }),
+  )
+
+  it("ROW_KEYS.profile keeps the legacy column", () => {
+    expect(ROW_KEYS.profile).toContain("equipment")
+  })
 })
 
 describe("row codecs reject bad JSON columns", () => {

@@ -3,14 +3,18 @@ import { env } from "cloudflare:workers"
 import { afterAll, beforeAll, describe, expect, it } from "@effect/vitest"
 import {
   ExerciseId,
+  LOCATION_PRESETS,
+  LocationId,
   MCP_TOOLS,
   OrderIndex,
   Overview,
+  Profile,
   Reps,
   SearchExercisesResult,
   Session,
   SessionId,
   SetId,
+  TimeZone,
   UserId,
   WeightKg,
   WorkoutSet,
@@ -18,7 +22,7 @@ import {
 import { DateTime, Effect, Option, Schema } from "effect"
 import { d1Persistence } from "../app"
 import { DEV_USER_ID } from "../auth/devUser"
-import { ExerciseRepo, SessionRepo } from "../repos"
+import { ExerciseRepo, ProfileRepo, SessionRepo } from "../repos"
 import { exercise } from "../sync/fixtures"
 import { countingD1 } from "../testing/countingD1"
 import { envVars } from "../testing/fixtures"
@@ -136,7 +140,7 @@ describe("/mcp in workerd", () => {
     expect(await rpcResult(response)).toMatchObject({ serverInfo: { name: "tanren" } })
   })
 
-  it("lists all eight tools for the dev token (every scope): reads read-only, writes not", async () => {
+  it("lists all nine tools for the dev token (every scope): reads read-only, writes not", async () => {
     const result = await post(rpc(2, "tools/list", {})).then(rpcResult)
     const tools = Schema.decodeUnknownSync(
       Schema.Array(
@@ -149,6 +153,7 @@ describe("/mcp in workerd", () => {
     )(result.tools)
     expect(tools.map((tool) => tool.name)).toEqual([...MCP_TOOLS])
     expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual([
+      true,
       true,
       true,
       true,
@@ -284,6 +289,65 @@ describe("search_exercises over /mcp", () => {
     expect(result.isError).toBeUndefined()
     expect(counting.statements()).toBe(0)
     await countedMcp.dispose()
+  })
+})
+
+describe("get_profile and search_exercises availableAt over /mcp (equipment.md §5)", () => {
+  const gymId = LocationId.make(id(0x431))
+  const homeId = LocationId.make(id(0x432))
+  const MACHINES: ReadonlyArray<string> = ["legPress", "chestPressMachine"]
+
+  it("get_profile is null before update_profile, then the profile with both locations", async () => {
+    const before = await callTool("get_profile", {})
+    expect(before.isError).toBeUndefined()
+    expect(JSON.stringify(before.content)).toContain("null")
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const now = yield* DateTime.now
+        yield* (yield* ProfileRepo).put(DEV_USER_ID, [
+          Profile.make({
+            id: DEV_USER_ID,
+            userId: DEV_USER_ID,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: Option.none(),
+            goals: [],
+            constraints: [],
+            availableDays: ["mon"],
+            locations: [
+              { id: gymId, name: "Gym", equipment: LOCATION_PRESETS.commercialGym.equipment },
+              { id: homeId, name: "Home", equipment: LOCATION_PRESETS.home.equipment },
+            ],
+            activeLocationId: Option.some(gymId),
+            timezone: TimeZone.make("Europe/Berlin"),
+          }),
+        ])
+      }).pipe(Effect.provide(d1Persistence(env.DB))),
+    )
+    const after = await callTool("get_profile", {})
+    const profile = Schema.decodeUnknownSync(Profile)(after.structuredContent)
+    expect(profile.locations.map((location) => location.name)).toEqual(["Gym", "Home"])
+    expect(profile.activeLocationId).toEqual(Option.some(gymId))
+  })
+
+  it("availableAt active keeps machine presses; the Home id drops them; unknown is an error", async () => {
+    const decode = Schema.decodeUnknownSync(SearchExercisesResult)
+    const machines = (found: SearchExercisesResult) =>
+      found.results.filter((match) => match.equipment.some((tag) => MACHINES.includes(tag)))
+    const active = decode(
+      (await callTool("search_exercises", { query: "press", availableAt: "active", limit: 500 }))
+        .structuredContent,
+    )
+    expect(machines(active).length).toBeGreaterThan(0)
+    const home = decode(
+      (await callTool("search_exercises", { query: "press", availableAt: homeId, limit: 500 }))
+        .structuredContent,
+    )
+    expect(home.results.length).toBeGreaterThan(0)
+    expect(machines(home)).toEqual([])
+    const unknown = await callTool("search_exercises", { availableAt: id(0x433) })
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown.content)).toContain("NotFound")
   })
 })
 

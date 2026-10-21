@@ -78,6 +78,11 @@ describe("seedMonth", () => {
       const data = yield* run(1, endDate)
       expect(data.profile).toHaveLength(1)
       expect(data.profile[0]?.id).toBe(SEED_USER_ID)
+      const seeded = data.profile[0]
+      expect(seeded?.locations.map((location) => location.name)).toEqual(["Gym", "Home"])
+      expect(Option.getOrNull(seeded?.activeLocationId ?? Option.none())).toBe(
+        seeded?.locations[0]?.id,
+      )
       expect(data.exercise).toHaveLength(14)
       expect(data.plan).toHaveLength(1)
       expect(data.plan[0]?.status).toBe("active")

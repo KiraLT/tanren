@@ -100,7 +100,6 @@ describe("ValidationError", () => {
         goals: [{ kind: "strength", note: null }],
         constraints: [],
         availableDays: [],
-        equipment: [{ kind: "barbell", note: null }],
         timezone: "Europe/Berlin",
       }
       const nested = { ...input, goals: [...input.goals, { kind: "other", note: null }] }

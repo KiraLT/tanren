@@ -7,6 +7,8 @@ import {
   ExerciseHistory,
   type ExerciseSummary,
   GetOverviewInput,
+  GetProfileInput,
+  GetProfileResult,
   LogSessionInput,
   LogSessionResult,
   MCP_SCOPES,
@@ -356,6 +358,68 @@ describe("SearchExercisesInput", () => {
       expect(yield* failingPaths(SearchExercisesInput, { query: "" })).toEqual([["query"]])
     }),
   )
+
+  it.effect("availableAt accepts a location id and active, and round-trips both", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(SearchExercisesInput, { query: "press", availableAt: "active" })
+      yield* wireRoundTrips(SearchExercisesInput, {
+        availableAt: "2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d",
+      })
+    }),
+  )
+
+  it.effect("availableAt rejects a non-UUID name at path availableAt", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(SearchExercisesInput, { availableAt: "home" })).toEqual([
+        ["availableAt"],
+      ])
+    }),
+  )
+})
+
+describe("GetProfileResult", () => {
+  const profileWire: (typeof Profile)["Encoded"] = {
+    id: "0b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d",
+    userId: "0b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d",
+    createdAt: "2026-10-19T08:00:00.000Z",
+    updatedAt: "2026-10-19T08:00:00.000Z",
+    deletedAt: null,
+    goals: [{ kind: "strength", note: null }],
+    constraints: [],
+    availableDays: ["mon", "thu"],
+    locations: [
+      { id: "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c", name: "Gym", equipment: ["barbell", "rack"] },
+      { id: "2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d", name: "Home", equipment: [] },
+    ],
+    activeLocationId: "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c",
+    timezone: "Europe/Vilnius",
+  }
+
+  it.effect("decodes null as None and a profile as Some, round-tripping both", () =>
+    Effect.gen(function* () {
+      expect(Option.isNone(yield* Schema.decodeUnknownEffect(GetProfileResult)(null))).toBe(true)
+      const some = yield* Schema.decodeUnknownEffect(GetProfileResult)(profileWire)
+      expect(Option.map(some, (profile) => profile.locations.length)).toEqual(Option.some(2))
+      yield* wireRoundTrips(GetProfileResult, null)
+      yield* wireRoundTrips(GetProfileResult, profileWire)
+    }),
+  )
+
+  it.effect("rejects an active id outside the locations at activeLocationId", () =>
+    Effect.gen(function* () {
+      const paths = yield* failingPaths(GetProfileResult, {
+        ...profileWire,
+        activeLocationId: "3e3e3e3e-3e3e-4e3e-8e3e-3e3e3e3e3e3e",
+      })
+      expect(paths).toEqual([["activeLocationId"]])
+    }),
+  )
+
+  it.effect("GetProfileInput accepts only the empty object shape", () =>
+    Effect.gen(function* () {
+      yield* accepts(GetProfileInput, {})
+    }),
+  )
 })
 
 /** docs/design/v2-catalog.md §6 wire example, full match shape. */
@@ -391,10 +455,21 @@ describe("SearchExercisesResult", () => {
 })
 
 describe("MCP_TOOLS", () => {
-  it.effect("names the eight tools and McpToolName accepts exactly those", () =>
+  it("lists the six read tools first, get_profile last among them", () => {
+    expect(MCP_TOOLS.slice(0, 6)).toEqual([
+      "get_overview",
+      "get_exercise_history",
+      "list_sessions",
+      "get_current_plan",
+      "search_exercises",
+      "get_profile",
+    ])
+  })
+
+  it.effect("names the nine tools and McpToolName accepts exactly those", () =>
     Effect.gen(function* () {
-      expect(MCP_TOOLS).toHaveLength(8)
-      expect(new Set(MCP_TOOLS).size).toBe(8)
+      expect(MCP_TOOLS).toHaveLength(9)
+      expect(new Set(MCP_TOOLS).size).toBe(9)
       yield* Effect.forEach(MCP_TOOLS, (name) => Schema.decodeUnknownEffect(McpToolName)(name))
       yield* rejects(McpToolName, "delete_everything")
     }),

@@ -366,7 +366,8 @@ export const updateProfile: Tool<typeof UpdateProfileInput, typeof UpdateProfile
   name: "update_profile",
   kind: "write",
   description:
-    "Update the training profile: goals (by priority), constraints, availableDays, equipment, " +
+    "Update the training profile: goals (by priority), constraints, availableDays, locations " +
+    "(each { id, name, equipment }; ≤ 10), activeLocationId (one of locations, or null), " +
     "timezone (IANA). Only the keys you send change. The first call creates the profile and " +
     "must include timezone.",
   input: UpdateProfileInput,
@@ -394,7 +395,8 @@ export const updateProfile: Tool<typeof UpdateProfileInput, typeof UpdateProfile
               goals: [],
               constraints: [],
               availableDays: [],
-              equipment: [],
+              locations: [],
+              activeLocationId: Option.none(),
               ...patch,
               timezone,
               id: userId,

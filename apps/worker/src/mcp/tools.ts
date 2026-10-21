@@ -1,4 +1,5 @@
 import {
+  activeLocation,
   CurrentPlanResult,
   type Exercise,
   ExerciseHistory,
@@ -7,8 +8,11 @@ import {
   GetCurrentPlanInput,
   GetExerciseHistoryInput,
   GetOverviewInput,
+  GetProfileInput,
+  GetProfileResult,
   type IdGenerator,
   ListSessionsInput,
+  type LocationId,
   type McpToolName,
   NotFound,
   Overview,
@@ -22,13 +26,7 @@ import {
   type WorkoutSet,
 } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Option, Order, pipe, Schema } from "effect"
-import {
-  ExerciseRepo,
-  type PersistenceError,
-  PlanRepo,
-  type ProfileRepo,
-  SessionRepo,
-} from "../repos"
+import { ExerciseRepo, type PersistenceError, PlanRepo, ProfileRepo, SessionRepo } from "../repos"
 
 // The MCP read tools (docs/design/mcp.md §4) as plain Effect programs over the repository ports.
 // No MCP SDK here: `server.ts` registers `readTools` (and `writeTools`) and runs `call`.
@@ -275,27 +273,72 @@ export const searchExercises: Tool<typeof SearchExercisesInput, typeof SearchExe
     "Search the built-in exercise catalog (static, the same list the app's Library shows). " +
     "All filters are optional and combine with AND: `query` matches names and aliases (case-insensitive, " +
     "best match first), `muscle` matches primary or secondary muscles, `equipment` one required " +
-    "implement, `kind` reps | timed | distance. `limit` defaults to 20; `total` is the number " +
+    "implement, `kind` reps | timed | distance, `availableAt` a location id from get_profile " +
+    'or "active" (only exercises that location\'s equipment covers; "active" with no active ' +
+    "location filters nothing). `limit` defaults to 20; `total` is the number " +
     "of matches before the limit. Each result has a `catalogId`, its name, aliases, muscles, " +
     "equipment and movement pattern; use it to pick real exercise names when writing a plan.",
   input: SearchExercisesInput,
   output: SearchExercisesResult,
-  // Pure: the catalog ships in `@tanren/shared`, so this tool runs 0 D1 statements.
-  run: (_userId: UserId, input: SearchExercisesInput) => {
-    const { limit, ...filter } = input
-    const matches = searchCatalog(filter)
-    return Effect.succeed({
+  // The catalog ships in `@tanren/shared`: 0 D1 statements, 1 (the profile) with `availableAt`.
+  run: Effect.fn("search_exercises")(function* (userId: UserId, input: SearchExercisesInput) {
+    const { limit, availableAt, ...filter } = input
+    const available =
+      availableAt === undefined ? Option.none() : yield* equipmentAt(userId, availableAt)
+    const matches = searchCatalog(
+      Option.match(available, {
+        onNone: () => filter,
+        onSome: (availableEquipment) => ({ ...filter, availableEquipment }),
+      }),
+    )
+    return {
       results: Arr.take(matches, limit ?? DEFAULT_SEARCH_LIMIT),
       total: matches.length,
-    })
-  },
+    }
+  }),
 }
 
-/** The read tools, in `MCP_TOOLS` order (the first five names). */
+/**
+ * The equipment `availableAt` stands for; `None` = no filter (`"active"` without an active
+ * location, or no profile yet). A location id the profile does not have is `NotFound`.
+ */
+const equipmentAt = Effect.fn("search_exercises.equipmentAt")(function* (
+  userId: UserId,
+  availableAt: LocationId | "active",
+) {
+  const profile = yield* (yield* ProfileRepo).get(userId)
+  if (availableAt === "active") {
+    return Option.map(Option.flatMap(profile, activeLocation), (location) => location.equipment)
+  }
+  const location = Option.flatMap(profile, (p) =>
+    Arr.findFirst(p.locations, (candidate) => candidate.id === availableAt),
+  )
+  if (Option.isNone(location)) {
+    return yield* new NotFound({ entity: "location", id: availableAt })
+  }
+  return Option.some(location.value.equipment)
+})
+
+export const getProfile: Tool<typeof GetProfileInput, typeof GetProfileResult> = {
+  name: "get_profile",
+  kind: "read",
+  description:
+    "Training profile: goals, constraints, availableDays, locations (each with its equipment), " +
+    "activeLocationId, timezone. null until the profile has been created (update_profile).",
+  input: GetProfileInput,
+  output: GetProfileResult,
+  run: Effect.fn("get_profile")(function* (userId: UserId, _input: GetProfileInput) {
+    // One D1 statement; `GetProfileResult` is `OptionFromNullOr`, so `None` is `null` on the wire.
+    return yield* (yield* ProfileRepo).get(userId)
+  }),
+}
+
+/** The read tools, in `MCP_TOOLS` order (the first six names). */
 export const readTools: ReadonlyArray<AnyTool> = [
   eraseTool(getOverview),
   eraseTool(getExerciseHistory),
   eraseTool(listSessions),
   eraseTool(getCurrentPlan),
   eraseTool(searchExercises),
+  eraseTool(getProfile),
 ]

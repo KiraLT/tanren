@@ -53,7 +53,6 @@ export const profile = (overrides: Partial<ProfileEncoded> = {}) =>
     goals: [{ kind: "strength", note: null }],
     constraints: ["no overhead pressing"],
     availableDays: ["mon", "wed", "fri"],
-    equipment: [{ kind: "barbell", note: null }],
     timezone: "Europe/Berlin",
     ...overrides,
   })

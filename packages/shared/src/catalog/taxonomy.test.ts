@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { accepts, failingPaths } from "../testing"
-import { EquipmentKind } from "../user"
-import { CatalogEquipment, CatalogId, equipmentKindFor, Slug } from "./taxonomy"
+import { CatalogId, Slug } from "./taxonomy"
 
 describe("Slug", () => {
   it.effect("accepts kebab-case", () =>
@@ -19,13 +18,4 @@ describe("Slug", () => {
       expect(paths).toEqual(bad.map(() => [[]]))
     }),
   )
-})
-
-describe("equipmentKindFor", () => {
-  it("maps every catalog implement to a profile EquipmentKind", () => {
-    const kinds = CatalogEquipment.literals.map(equipmentKindFor)
-    expect(kinds.filter((kind) => !EquipmentKind.literals.includes(kind))).toEqual([])
-    expect(equipmentKindFor("dumbbell")).toBe("dumbbells")
-    expect(equipmentKindFor("band")).toBe("resistanceBands")
-  })
 })

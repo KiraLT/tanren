@@ -2,21 +2,26 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   ExerciseId,
   IdGenerator,
+  LOCATION_PRESETS,
+  LocationId,
   MCP_TOOLS,
   OrderIndex,
+  Profile,
   Reps,
   type SearchExercisesInput,
+  type SearchExercisesResult,
   Session,
   SessionId,
   SetId,
   searchCatalog,
+  TimeZone,
   type UserId,
   WeightKg,
   WorkoutSet,
 } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
-import { ExerciseRepo, PlanRepo, Repositories, SessionRepo } from "../repos"
+import { ExerciseRepo, PlanRepo, ProfileRepo, Repositories, SessionRepo } from "../repos"
 import { at, exercise, plan, userA, userB, week } from "../sync/fixtures"
 import {
   DEFAULT_SEARCH_LIMIT,
@@ -24,6 +29,7 @@ import {
   getCurrentPlan,
   getExerciseHistory,
   getOverview,
+  getProfile,
   listSessions,
   readTools,
   searchExercises,
@@ -361,9 +367,113 @@ describe("search_exercises", () => {
   )
 })
 
+const gymId = LocationId.make(id(901))
+const homeId = LocationId.make(id(902))
+const profileOf = (userId: UserId, active: Option.Option<LocationId>): Profile =>
+  Profile.make({
+    id: userId,
+    userId,
+    createdAt: NOW,
+    updatedAt: NOW,
+    deletedAt: Option.none(),
+    goals: [],
+    constraints: [],
+    availableDays: ["mon"],
+    locations: [
+      { id: gymId, name: "Gym", equipment: LOCATION_PRESETS.commercialGym.equipment },
+      { id: homeId, name: "Home", equipment: LOCATION_PRESETS.home.equipment },
+    ],
+    activeLocationId: active,
+    timezone: TimeZone.make("Europe/Berlin"),
+  })
+const putProfile = (profile: Profile) =>
+  Effect.gen(function* () {
+    yield* (yield* ProfileRepo).put(profile.userId, [profile])
+  })
+
+describe("get_profile", () => {
+  it.effect("is null before a profile exists", () =>
+    Effect.gen(function* () {
+      expect(yield* run(getProfile.run(userA, {}))).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("returns the profile with its locations and encodes it for the wire", () =>
+    Effect.gen(function* () {
+      yield* putProfile(profileOf(userA, Option.some(gymId)))
+      const profile = yield* run(getProfile.run(userA, {}))
+      expect(Option.map(profile, (p) => p.locations.map((l) => l.name))).toEqual(
+        Option.some(["Gym", "Home"]),
+      )
+      const wire = yield* eraseTool(getProfile).call(userA, {})
+      expect(wire).toMatchObject({ activeLocationId: gymId, locations: [{ name: "Gym" }, {}] })
+      expect(yield* run(getProfile.run(userB, {}))).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("search_exercises availableAt", () => {
+  const MACHINES = ["legPress", "chestPressMachine"]
+  const needsMachine = (found: SearchExercisesResult) =>
+    found.results.filter((match) => match.equipment.some((tag) => MACHINES.includes(tag)))
+
+  it.effect("active = the active location's equipment (Gym keeps the leg press)", () =>
+    Effect.gen(function* () {
+      yield* putProfile(profileOf(userA, Option.some(gymId)))
+      const found = yield* run(
+        searchExercises.run(userA, { query: "press", availableAt: "active" }),
+      )
+      expect(found.results.length).toBeGreaterThan(0)
+      expect(needsMachine(found).length).toBeGreaterThan(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("a Home id drops every machine press and keeps only what Home covers", () =>
+    Effect.gen(function* () {
+      yield* putProfile(profileOf(userA, Option.some(gymId)))
+      const found = yield* run(
+        searchExercises.run(userA, { query: "press", availableAt: homeId, limit: 500 }),
+      )
+      expect(found.results.length).toBeGreaterThan(0)
+      expect(needsMachine(found)).toEqual([])
+      const home: ReadonlyArray<string> = LOCATION_PRESETS.home.equipment
+      expect(found.results.every((m) => m.equipment.every((tag) => home.includes(tag)))).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("active without an active location filters nothing", () =>
+    Effect.gen(function* () {
+      yield* putProfile(profileOf(userA, Option.none()))
+      const filtered = yield* run(
+        searchExercises.run(userA, { query: "press", availableAt: "active" }),
+      )
+      const all = yield* run(searchExercises.run(userA, { query: "press" }))
+      expect(filtered).toEqual(all)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("active without a profile filters nothing", () =>
+    Effect.gen(function* () {
+      const filtered = yield* run(
+        searchExercises.run(userB, { query: "row", availableAt: "active" }),
+      )
+      expect(filtered.total).toBe(searchCatalog({ query: "row" }).length)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("an id that is not one of the profile's locations is NotFound location", () =>
+    Effect.gen(function* () {
+      yield* putProfile(profileOf(userA, Option.some(gymId)))
+      const unknown = LocationId.make(id(903))
+      const error = yield* Effect.flip(searchExercises.run(userA, { availableAt: unknown }))
+      expect(error).toMatchObject({ _tag: "NotFound", entity: "location", id: unknown })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
 describe("readTools", () => {
-  it("lists the five read tools in MCP_TOOLS order", () => {
-    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 5))
+  it("lists the six read tools in MCP_TOOLS order", () => {
+    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 6))
   })
 
   it("marks every read tool read and every write tool write", () => {

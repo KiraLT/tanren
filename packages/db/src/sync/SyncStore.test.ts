@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
+  Profile,
   PushRequest,
   PushResponse,
   type SyncChange,
@@ -18,6 +19,7 @@ import {
   plannedSession,
   plannedSet,
   planWeek,
+  profile,
   session,
   TestLayer,
   t1,
@@ -649,6 +651,41 @@ describe("SyncStore.pull", () => {
 
       const empty = yield* store.pull(owner, Option.some(third.cursor), 4)
       expect(empty).toEqual({ changes: [], cursor: third.cursor, hasMore: false })
+    }).pipe(Effect.provide(StoreLayer)),
+  )
+
+  it.effect("round-trips a pushed profile with locations and an active one through pull", () =>
+    Effect.gen(function* () {
+      yield* at(now)
+      const user = userOf(50)
+      const owner = UserId.make(user)
+      const store = yield* SyncStore
+      const gym = { id: id(400), name: "Gym", equipment: ["barbell", "rack", "legPress"] }
+      const home = { id: id(401), name: "Home", equipment: [] }
+      // A wire push as a client sends it; a pre-v3 `equipment` key is an ignored excess key.
+      const { changes } = Schema.decodeUnknownSync(PushRequest)({
+        changes: [
+          {
+            table: "profile",
+            row: {
+              ...Schema.encodeSync(Profile)(profile({ id: user, userId: user })),
+              equipment: [{ kind: "barbell", note: null }],
+              locations: [gym, home],
+              activeLocationId: home.id,
+            },
+          },
+        ],
+      })
+      const pushed = yield* store.apply(owner, changes)
+      expect(pushed.rejected).toEqual([])
+
+      const pulled = yield* store.pull(owner, Option.none(), 10)
+      expect(pulled.changes).toEqual(changes)
+      const row = pulled.changes[0]?.row
+      expect(row && "locations" in row ? row.locations.map((l) => l.name) : []).toEqual([
+        "Gym",
+        "Home",
+      ])
     }).pipe(Effect.provide(StoreLayer)),
   )
 
