@@ -30,7 +30,8 @@ be there). `pnpm db:reset` wipes the local D1 that every running `wrangler dev` 
 
 ```
 cd apps/worker; nohup pnpm exec wrangler dev --port 8787 --show-interactive-dev-session=false > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid
-cd ../mobile; CI=1 nohup pnpm web --port 8081 > $S/<task>-expo.log 2>&1 & echo $! > $S/<task>-expo.pid
+cd ../mobile; CI=1 nohup node_modules/.bin/expo start --web --port 8081 > $S/<task>-expo.log 2>&1 & echo $! > $S/<task>-expo.pid
+# never `pnpm web` here: `$!` would be the pnpm-native shim and killing it leaves expo on the port (UI-1b, EQ-1)
 # wait for "Ready on" in the wrangler log and "Waiting on" in the expo log; curl -i localhost:8787/health → 200
 ab() { agent-browser --session <task> "$@"; }
 ab open http://localhost:8081/today
