@@ -20,6 +20,7 @@
     "deploy:preflight": "pnpm -F @tanren/worker deploy:preflight",
     "web:export": "pnpm -F @tanren/mobile export:web",
     "web:serve": "pnpm -F @tanren/mobile serve:web",
+    "images:generate": "pnpm -F @tanren/mobile images:generate",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "typecheck": "pnpm typecheck:root && pnpm -r typecheck",
