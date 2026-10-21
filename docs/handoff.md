@@ -57,6 +57,24 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
+## Closing state 09:30 (HEAD `10865e1`) — owner called time
+Committed and green (114 files / 1172 tests): steps 1–5 and 7; v2 design,
+programs (Core 30 + player), catalog (235 exercises, Library, MCP
+`search_exercises`), native sign-in (reviewed, curl-proven), extras
+(Progress, Settings, PWA), deploy preflight, illustrations primitives + 6
+SVGs. INT-X1 proved the web recipe through sign-in and Library only.
+Open and important: `apps/mobile/src/services/ExerciseLink.ts:90` re-points
+an already linked exercise (history corruption; fix agent `a9978d5c26bd2c99f`
+was finishing at 09:28 — commit it if green, else fix first thing). Possible
+defect: adding a seeded exercise from Library did not show a new Today
+heading (check with a non-seeded one). 229 illustrations missing (`ILLUSTRATIONS = {}`
+in `src/library/illustrationMap.ts`; generator in `src/illustrations/`,
+batches never ran). Still finishing when time was called: retro
+`a95439a14ea74aecc` (stall root cause → team-lead/engineer watchdog rules),
+INT-X2 `ac389936521375887`, illustrations `a695af1edbf38b2a3`, C4 move
+`ac95ee575052d4d12`. Resume any of them by SendMessage; their reports go
+into the matching sheet Log.
+
 ## State at 09:25 (HEAD `a12e11d`) — STALL NIGHT
 At 01:35 the Lead ended its turn waiting on catalog (C5) and illustrations
 (I1); both nested engineers ran ~8 h without finishing and both team-leads
