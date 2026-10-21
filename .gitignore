@@ -21,3 +21,6 @@ coverage
 
 # illustrations reviewer preview (rebuilt by illustrations:build)
 apps/mobile/assets/exercises/_contact-sheet.html
+
+# muscle map reviewer preview (rebuilt by scripts/muscleMapSheet.ts)
+apps/mobile/src/illustrations/muscleMap/_contact-sheet.html
