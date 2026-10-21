@@ -37,8 +37,9 @@ const duplicates = (values: ReadonlyArray<string>) =>
   values.filter((value, i) => values.indexOf(value) !== i)
 
 describe("catalog data validation", () => {
-  it("has at least one entry per decoded spec (C2 tightens this to 200-300)", () => {
-    expect(CATALOG.length).toBeGreaterThanOrEqual(0)
+  it("has 200 to 300 entries, one per module entry", () => {
+    expect(CATALOG.length).toBeGreaterThanOrEqual(200)
+    expect(CATALOG.length).toBeLessThanOrEqual(300)
     expect(CATALOG.length).toBe(CATALOG_MODULES.flatMap((module) => module.entries).length)
   })
 
@@ -76,36 +77,40 @@ describe("catalog data validation", () => {
     )
   })
 
-  it("gives every CORE30 id that exists kind timed with core primary (C2: all must exist)", () => {
-    const present = CORE30_CATALOG_IDS.flatMap((id) => {
-      const found = CATALOG_BY_ID.get(id)
-      return found === undefined ? [] : [found]
-    })
-    expect(present.length).toBeGreaterThanOrEqual(3)
-    expect(present.filter((e) => e.kind !== "timed" || !e.primaryMuscles.includes("core"))).toEqual(
-      [],
-    )
+  it("has all 24 CORE30 ids, each kind timed with core primary", () => {
     expect(CORE30_CATALOG_IDS.length).toBe(24)
     expect(duplicates(CORE30_CATALOG_IDS)).toEqual([])
+    const missing = CORE30_CATALOG_IDS.filter((id) => !CATALOG_BY_ID.has(id))
+    expect(missing).toEqual([])
+    const wrong = CORE30_CATALOG_IDS.flatMap((id) => {
+      const found = CATALOG_BY_ID.get(id)
+      return found !== undefined &&
+        (found.kind !== "timed" || !found.primaryMuscles.includes("core"))
+        ? [id]
+        : []
+    })
+    expect(wrong).toEqual([])
   })
 
-  it("has at least 12 entries in every non-empty module", () => {
-    // `core` holds only the 3 samples until C1-D fills it; C2 drops this exemption.
-    const stillSampleOnly = (module: {
-      readonly name: string
-      readonly entries: ReadonlyArray<unknown>
-    }) => module.name === "core" && module.entries.length <= 3
-    const small = CATALOG_MODULES.filter(
-      (module) =>
-        module.entries.length > 0 && module.entries.length < 12 && !stillSampleOnly(module),
-    ).map((module) => `${module.name}: ${module.entries.length}`)
+  it("keeps every instruction line at 120 characters or fewer", () => {
+    const tooLong = CATALOG.flatMap((entry) =>
+      entry.instructions
+        .filter((line) => line.length > 120)
+        .map((line) => `${entry.catalogId}: ${line.length}`),
+    )
+    expect(tooLong).toEqual([])
+  })
+
+  it("has at least 12 entries in every module", () => {
+    const small = CATALOG_MODULES.filter((module) => module.entries.length < 12).map(
+      (module) => `${module.name}: ${module.entries.length}`,
+    )
     expect(small).toEqual([])
   })
 
-  it("ranks barbell-back-squat first for 'squat' once it exists", () => {
-    if (CATALOG_BY_ID.has(CatalogId.make("barbell-back-squat"))) {
-      expect(searchCatalog({ query: "squat" })[0]?.catalogId).toBe("barbell-back-squat")
-    }
+  it("ranks the canonical lift first for the common queries", () => {
+    expect(searchCatalog({ query: "squat" })[0]?.catalogId).toBe("barbell-back-squat")
+    expect(searchCatalog({ query: "ohp" })[0]?.catalogId).toBe("overhead-press")
   })
 })
 

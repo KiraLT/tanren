@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
   Exercise,
+  findCatalogExercise,
   LocalDate,
   Plan,
   PlannedSession,
@@ -236,7 +237,22 @@ describe("seedMonth", () => {
     }),
   )
 
-  // Membership in CATALOG_BY_ID is asserted once team catalog lands the data (v2-catalog.md §3).
+  it.effect("links every exercise to a real catalog entry and keeps its aliases consistent", () =>
+    Effect.gen(function* () {
+      const data = yield* run(1, endDate)
+      const lower = (label: string) => label.toLowerCase()
+      data.exercise.forEach((e) => {
+        const entry = Option.flatMap(e.catalogId, findCatalogExercise)
+        expect(Option.isSome(entry), `${e.name}: catalogId in CATALOG_BY_ID`).toBe(true)
+        const aliases = e.aliases.map(lower)
+        expect(aliases, `${e.name}: no alias equals its own name`).not.toContain(lower(e.name))
+        if (Option.isSome(entry) && lower(entry.value.name) !== lower(e.name)) {
+          expect(aliases, `${e.name}: catalog name is an alias`).toContain(lower(entry.value.name))
+        }
+      })
+    }),
+  )
+
   it.effect("links every exercise to a distinct catalogId (v2-catalog.md §3 re-key)", () =>
     Effect.gen(function* () {
       const data = yield* run(1, endDate)

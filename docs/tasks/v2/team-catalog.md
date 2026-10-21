@@ -48,3 +48,21 @@ Global alias rule: no name may start with "Squat"; no bare one-word generic alia
 - [ ] (none yet)
 
 ## Escalations
+- 00:37→00:39 · C0 · engineer/sonnet · aedcfc0047eefeb70 · 107k · 16 · 1 · done
+- 00:37→00:40 · C3 · engineer/opus · a9978d5c26bd2c99f · 125k · 29 · r1 fix in flight 09:24 (ExerciseLink relink bug + addExercise order test)
+- 00:37→00:39 · C1-A legs+hips · engineer/sonnet · a4ed193939b14dfde · 99k · 11 · 1 · done (55)
+- 00:42→00:49 · C4 · engineer/opus · ac95ee575052d4d12 · 155k · 60 · r1 fix in flight 09:24 (move addCatalogToToday→services, useAddToToday→hooks)
+- 00:42→00:44 · C1-B chest+back · engineer/sonnet · af4fa5234771ab63a · 103k · 9 · 1 · done (49)
+- 00:42→00:44 · C1-C shoulders+arms · engineer/sonnet · acbd32ae14bf74f95 · 88k · 5 · 1 · done (45)
+- 00:50→00:52 · C1-D core+fullBody · engineer/sonnet · a3aa5e3a62a50def2 · 99k · 9 · 1 · done (52)
+- 00:50→00:52 · C1-E cardio+mobility · engineer/sonnet · acdb852738a5fbdd7 · 95k · 12 · 1 · done (34)
+- 00:50→09:15 · C5 · engineer/sonnet · a2c76dbe9e96898ef · 148k · 63 · 1 · done (8.4 h wall = stall)
+- 09:20→09:22 · C2 · engineer/sonnet · abe336e32b6a39dd5 · 102k · 26 · +instruction-length assert in flight 09:24
+- 09:20→09:23 · REV · reviewer/opus · a2926acf651c57545 · 104k · 24 · REQUEST CHANGES (1 blocking)
+- 09:24 · owner called time; handed back with three fix rounds in flight
+
+## Integration checklist (open)
+- [ ] apps/mobile/src/library/illustrationMap.ts · body → `export { ILLUSTRATIONS } from "../illustrations/generated"`, drop INTEGRATION comment, once illustrations commits generated/ · `pnpm -F @tanren/mobile check`
+- [ ] apps/mobile/CLAUDE.md Layout · add src/library/**, useCatalogSearch, app/library/[catalogId].tsx, ExerciseLink, TodayRepo.addExercise (TD1)
+- [ ] apps/worker/CLAUDE.md + docs/design/mcp.md §4 · "four read tools / 7 tools" → 5 read / 8 total
+- 09:24→09:25 · C2 extra (instruction ≤ 120 assert) · abe336e32b6a39dd5 · 108k · 5 · done, shared 258/258 green

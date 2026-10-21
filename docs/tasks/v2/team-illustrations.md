@@ -31,8 +31,16 @@ Budget: ≤ 3 engineers parallel (Lead may raise to 5) · 1 reviewer (opus) · �
 
 ## Log
 `HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome`
+- 00:52→(phase 1 01:01; hand-back seen 09:17) · I1 · engineer/opus · a2031114caa6c5d78 · 183.7k tok · 62 tool uses · r1 · done: 6 refs, validator, gate green. The I1 Agent call ran in the foreground and blocked the team-lead's turn about 8 h, so no I2 batch was dispatched. The Lead stopped the team at 09:15 ("no new batches").
+- 09:19→09:20 · I1 fix r1 (biome `!**/*.svg`, Lead-granted line; `role="presentation"` removed from the root) · same agent · green; team-lead re-ran the mobile check and root biome ci at 09:20
+
+## Status at hand-back (09:20)
+I1 is done. The I2 batches (b01–b12+) and I3 were not started: 229 ids are missing, which is non-fatal while `STRICT_COVERAGE = false`. To resume, use the batch template in the charter plus the frozen API in `apps/mobile/CLAUDE.md` §Illustrations, with 4–5 sonnet engineers in parallel.
 
 ## Escalations
+- I1 ran `rm -r` once on its own probe directory (brief violation; nothing else was touched).
 
 ## Integration checklist
 - [ ] `apps/mobile/src/library/illustrationMap.ts` (team catalog) · replace the empty map with `export { ILLUSTRATIONS } from "../illustrations/generated"` and update `illustration.test.ts` line asserting `plank` is none · verify `pnpm -F @tanren/mobile check`
+- [ ] root `package.json` `check` · `illustrations:check` runs only via the mobile `check` (which the root gate runs through vitest/tsc stages? verify) · decide whether the root gate needs it explicitly
+- [ ] `docs/design/design-system.md` §7 · allowed-element list and root unchanged; note `biome.jsonc` excludes `**/*.svg` and that `illustrations:check` is the gate for them
