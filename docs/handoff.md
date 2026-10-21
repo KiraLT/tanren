@@ -308,6 +308,6 @@ Log in `docs/tasks/step-2.md`.
   hero numeral. **Waiting for the owner's pick**; then: add a Directions decision row to v3-design.md,
   token deltas into the UI-1 brief (`scratchpad/briefs/UI-1.md` drafted), run UI-1 (sonnet) →
   UI-2/3/4 in parallel → UI-R → UI-X; send 390/1280 screenshots after each.
-- Live: EM step-v3 retro (fable) — apply its `## Proposals for the Lead`, commit, log; it also owns the
-  Patch-convention text in packages/shared/CLAUDE.md.
+- EM step-v3 retro applied and committed (`b468a5c`): ≤ 20-min boxes, half-review + resume-split as the
+  default, Patch convention (explicit `optionalKey` Struct; every Patch decodes `{}` to zero keys). No agents live.
 - Owner-gated items unchanged (Live Activities dev build, universal links, production deploy, iPhone sign-in).
