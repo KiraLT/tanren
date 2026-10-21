@@ -277,7 +277,12 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
   engineer treats it as one. Writing "grep-verified" without running it is
   what put HI-1's error in the wrong file. A package `CLAUDE.md` is a hint,
   the code is the fact. Unverified assumptions are written as questions
-  ("does the cookie cross ports?"), never as facts.
+  ("does the cookie cross ports?"), never as facts. A claim about
+  *behaviour* needs the grep of the behaviour (`grep -n "return true\|return
+  false" …` with the branch above it), never just the signature: EQ-2's brief
+  said "returns false when already planned" from `Effect<boolean>` and the
+  code returned true on both paths. Lists ("the 19 machine entries") come
+  from a structural count, not a fixed-context grep (EQ-C: 19 was 24).
 
 ## Scope
 In: <files / modules you own in this brief>

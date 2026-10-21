@@ -178,8 +178,9 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   bundles; `src/library/illustration.test.ts` checks the map against the files and the catalog).
   `assets/illustrations/_contact-sheet.html` is the reviewer preview.
 - `ExerciseIllustration` shows `IMAGES[catalogId]` on the library detail, or a neutral placeholder when
-  an id has no file: `frog-pump` and `cable-crunch` are refused by the safety system even with neutral
-  wording (IMG-2 + this round), so they stay on the placeholder.
+  an id has no file: `cable-crunch` is refused by the safety system even with neutral wording (three
+  rounds), so it stays on the placeholder; 290 of 291 catalog ids have a file (3.1 MB after
+  `images:shrink`). `frog-pump` and `cable-shrug` needed `NAME_OVERRIDES` / `PROMPT_INSTRUCTIONS` rewording.
 - The body diagram is `src/illustrations/muscleMap/` (front/back silhouettes, 22 regions, primary and
   secondary highlights from the catalog taxonomy); `scripts/muscleMapSheet.ts` writes its git-ignored
   preview. The old hand-built SVG pipeline (scenes, rig, `illustrations:check`) is retired.
