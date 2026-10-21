@@ -7,6 +7,8 @@ import { type PlayerSession, usePlayer } from "../../src/hooks/usePlayer"
 import { CompletionSheet, PlayerView } from "../../src/player/components/PlayerView"
 import { approxMinutes } from "../../src/player/components/ProgramHome"
 import { isRunning } from "../../src/player/cues"
+import { dayFraction, eyebrowLabel } from "../../src/player/playerHeader"
+import { progress } from "../../src/player/playerMachine"
 import { useProgramDay } from "../../src/player/useProgramDay"
 import {
   AppBar,
@@ -15,6 +17,7 @@ import {
   EmptyState,
   IconButton,
   Page,
+  SegmentBar,
   Skeleton,
   space,
   Text,
@@ -37,8 +40,29 @@ function Player({
   const { player } = run
   // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
   useEffect(() => send("start"), [send])
+  const position = progress(session.day, player)
+  const header = (
+    <AppBar
+      title={session.day.title}
+      nav={false}
+      leading={<IconButton icon="close" accessibilityLabel="Close player" onPress={onClose} />}
+      {...Option.match(position, {
+        onNone: () => ({}),
+        onSome: (p) => ({
+          eyebrow: { label: eyebrowLabel(p), progress: dayFraction(p) },
+          trailing: (
+            <SegmentBar
+              total={p.items}
+              filled={p.item - 1}
+              accessibilityLabel={`Exercise ${p.item} of ${p.items}`}
+            />
+          ),
+        }),
+      })}
+    />
+  )
   return (
-    <View style={{ gap: space.lg }}>
+    <Page header={header} scroll>
       {isRunning(player) ? <KeepAwake /> : null}
       {Match.value(completion).pipe(
         Match.tag("None", () =>
@@ -50,7 +74,8 @@ function Player({
                 label="Go"
                 accessibilityLabel="Start workout"
                 icon="play"
-                size="xl"
+                variant="primary"
+                size="lg"
                 onPress={() => send("start")}
               />
             </View>
@@ -62,7 +87,7 @@ function Player({
           <CompletionSheet completion={done} onClose={onClose} onRetry={retry} />
         )),
       )}
-    </View>
+    </Page>
   )
 }
 
@@ -87,25 +112,25 @@ export default function PlayScreen() {
   const header = (
     <AppBar
       title="Workout"
+      nav={false}
       leading={<IconButton icon="close" accessibilityLabel="Close player" onPress={close} />}
     />
   )
 
-  return (
-    <Page header={header} scroll>
-      {Option.match(session, {
-        onSome: (s) => <Player session={s} onClose={close} />,
-        onNone: () =>
-          Match.value(state).pipe(
-            Match.tag("Loading", () => <Skeleton width="100%" height={320} />),
-            Match.tag("Failed", ({ message }) => (
-              <Banner tone="danger" title="Could not load the workout" body={message} />
-            )),
-            Match.orElse(() => (
-              <EmptyState title="No workout today" body="Enrol in a program on the Programs tab." />
-            )),
-          ),
-      })}
-    </Page>
-  )
+  return Option.match(session, {
+    onSome: (s) => <Player session={s} onClose={close} />,
+    onNone: () => (
+      <Page header={header} scroll>
+        {Match.value(state).pipe(
+          Match.tag("Loading", () => <Skeleton width="100%" height={320} />),
+          Match.tag("Failed", ({ message }) => (
+            <Banner tone="danger" title="Could not load the workout" body={message} />
+          )),
+          Match.orElse(() => (
+            <EmptyState title="No workout today" body="Enrol in a program on the Programs tab." />
+          )),
+        )}
+      </Page>
+    ),
+  })
 }

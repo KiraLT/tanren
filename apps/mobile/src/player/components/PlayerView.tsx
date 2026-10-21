@@ -1,34 +1,28 @@
-import { findCatalogExercise, type ProgramDay, type ProgramItem } from "@tanren/shared"
+import type { ProgramDay, ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { View } from "react-native"
 import type { CompletionState } from "../../hooks/usePlayer"
-import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
+import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import {
   Banner,
   Button,
   Card,
   IconButton,
-  illustration,
   radius,
+  sizes,
   space,
   Text,
   TimerRing,
   useTheme,
 } from "../../ui"
 import { clock, exerciseName, itemAmount } from "../cues"
-import {
-  currentItem,
-  type PlayerEventTag,
-  type PlayerState,
-  progress,
-  upNext,
-} from "../playerMachine"
+import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
 
-/** Side length of the muscle map shown while working. */
-const MUSCLE_MAP_SIZE = 160
+/** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
+const WORK_ILLUSTRATION = 120
 
-/** Fallback when the item has no catalog entry; placeholder until the catalog's `ExerciseIllustration` lands: a box with the name. */
-function IllustrationBox({ name }: { readonly name: string }) {
+/** Tile behind the name when an item has no catalog entry (the `ExerciseIllustration` placeholder otherwise). */
+function NameTile({ name }: { readonly name: string }) {
   const { colors } = useTheme()
   return (
     <View
@@ -36,18 +30,17 @@ function IllustrationBox({ name }: { readonly name: string }) {
       accessibilityRole="image"
       accessibilityLabel={`${name} illustration`}
       style={{
-        height: 160,
+        width: WORK_ILLUSTRATION,
+        height: WORK_ILLUSTRATION,
         borderRadius: radius.lg,
         borderCurve: "continuous",
         backgroundColor: colors.surface,
-        borderWidth: 2,
-        borderColor: illustration.figure,
         alignItems: "center",
         justifyContent: "center",
-        padding: space.lg,
+        padding: space.md,
       }}
     >
-      <Text variant="headline" style={{ textAlign: "center" }}>
+      <Text variant="subhead" style={{ textAlign: "center" }}>
         {name}
       </Text>
     </View>
@@ -82,7 +75,11 @@ interface PlayerViewProps {
   readonly send: (tag: PlayerEventTag) => void
 }
 
-/** The running player: phase, illustration, big countdown, progress and the controls. */
+/**
+ * The running player body (the app bar with the day progress is the route's): the work screen is
+ * a 120 px illustration beside the name, the rest screen a 56 px one beside "Next"; both carry the
+ * big ring, the transport row and `Finish workout`.
+ */
 export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
   const item = currentItem(day, state)
   const inner = state._tag === "Paused" ? state.inner : state
@@ -96,53 +93,64 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
   const seconds = Option.map(remainingMs, (ms) => Math.ceil(ms / 1000))
   const total = phaseTotalMs(state)
   const fraction = Option.match(remainingMs, { onNone: () => 0, onSome: (ms) => ms / total })
-  const position = progress(day, state)
 
   return (
-    <View style={{ gap: space.lg }}>
-      <View accessible accessibilityRole="header" style={{ gap: space.xs }}>
-        <Text variant="caption" tone={resting ? "success" : "accent"}>
-          {phaseLabel(paused, resting)}
-        </Text>
-        <Text variant="title">{resting ? "Rest" : name}</Text>
-        {Option.match(position, {
-          onNone: () => null,
-          onSome: (p) => (
-            <Text
-              tone="muted"
-              accessibilityLabel={`Round ${p.round} of ${p.rounds}, exercise ${p.item} of ${p.items}`}
-            >
-              {`Round ${p.round}/${p.rounds} · Exercise ${p.item}/${p.items}`}
-            </Text>
-          ),
-        })}
-      </View>
-
-      {resting
-        ? Option.match(next, {
+    <View style={{ gap: space.xl }}>
+      {resting ? (
+        <View accessible accessibilityRole="header" style={{ gap: space.md }}>
+          <Text variant="caption" tone="success">
+            {phaseLabel(paused, resting)}
+          </Text>
+          <Text variant="title">Rest</Text>
+          {Option.match(next, {
             onNone: () => null,
             onSome: (upcoming) => (
-              <Card tone="accent">
-                <Text variant="caption" tone="muted">
-                  Up next
-                </Text>
-                <Text variant="headline">{`${exerciseName(upcoming.catalogId)} · ${itemAmount(upcoming)}`}</Text>
+              <Card padding={space.md}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+                  <ExerciseIllustration
+                    catalogId={upcoming.catalogId}
+                    size={sizes.illustrationSm}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text variant="caption" tone="muted">
+                      Next
+                    </Text>
+                    <Text variant="headline">{exerciseName(upcoming.catalogId)}</Text>
+                    <Text variant="subhead" tone="muted">
+                      {itemAmount(upcoming)}
+                    </Text>
+                  </View>
+                </View>
               </Card>
             ),
-          })
-        : Option.match(
-            Option.flatMap(item, (i) => findCatalogExercise(i.catalogId)),
-            {
-              onNone: () => <IllustrationBox name={name} />,
-              onSome: (entry) => (
-                <MuscleMap
-                  primary={entry.primaryMuscles}
-                  secondary={entry.secondaryMuscles}
-                  size={MUSCLE_MAP_SIZE}
-                />
+          })}
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+          {Option.match(item, {
+            onNone: () => <NameTile name={name} />,
+            onSome: (i) => (
+              <ExerciseIllustration catalogId={i.catalogId} size={WORK_ILLUSTRATION} />
+            ),
+          })}
+          <View accessible accessibilityRole="header" style={{ flex: 1, gap: space.xs }}>
+            <Text variant="caption" tone={paused ? "muted" : "accent"}>
+              {phaseLabel(paused, resting)}
+            </Text>
+            <Text variant="title" numberOfLines={3}>
+              {name}
+            </Text>
+            {Option.match(item, {
+              onNone: () => null,
+              onSome: (i) => (
+                <Text variant="subhead" tone="muted">
+                  {itemAmount(i)}
+                </Text>
               ),
-            },
-          )}
+            })}
+          </View>
+        </View>
+      )}
 
       <View style={{ alignItems: "center" }}>
         {Option.match(seconds, {
@@ -150,14 +158,16 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
             <Button
               label="Done"
               accessibilityLabel={`Done with ${name}`}
+              icon="check"
+              variant="primary"
+              size="lg"
               onPress={() => send("next")}
-              size="xl"
+              style={{ alignSelf: "stretch" }}
             />
           ),
           onSome: (s) => (
             <TimerRing
               progress={fraction}
-              size={220}
               tone={resting ? "success" : "accent"}
               accessibilityLabel={`${s} seconds left`}
             >
@@ -190,12 +200,24 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
           onPress={() => send("next")}
         />
       </View>
-      <Button
-        label="Finish workout"
-        accessibilityLabel="Finish workout"
-        variant="secondary"
-        onPress={() => send("finish")}
-      />
+      <View style={{ gap: space.sm }}>
+        {resting ? (
+          <Button
+            label="Skip rest"
+            accessibilityLabel="Skip rest"
+            variant="text"
+            size="lg"
+            onPress={() => send("next")}
+          />
+        ) : null}
+        <Button
+          label="Finish workout"
+          accessibilityLabel="Finish workout"
+          variant="secondary"
+          size="lg"
+          onPress={() => send("finish")}
+        />
+      </View>
     </View>
   )
 }
