@@ -38,15 +38,67 @@ export const barRects = (
   values: ReadonlyArray<number>,
   size: ChartSize,
   gap: number,
+  maxWidth: number = Number.POSITIVE_INFINITY,
 ): ReadonlyArray<BarRect> => {
   const count = values.length
-  const barWidth = Math.max(0, (size.width - gap * (count - 1)) / count)
+  const slotWidth = Math.max(0, (size.width - gap * (count - 1)) / count)
+  const barWidth = Math.min(slotWidth, maxWidth)
   const peak = Arr.reduce(values, 0, (max, value) => Math.max(max, value))
   return Arr.map(values, (value, index) => {
     const height =
       peak <= 0 || value <= 0 ? BASELINE : Math.max(BASELINE, (value / peak) * size.height)
-    return { x: index * (barWidth + gap), y: size.height - height, width: barWidth, height }
+    return {
+      // a capped bar sits in the middle of its slot; the slot pitch stays `slotWidth + gap`
+      x: index * (slotWidth + gap) + (slotWidth - barWidth) / 2,
+      y: size.height - height,
+      width: barWidth,
+      height,
+    }
   })
+}
+
+/** SVG path of a bar with a rounded data end (top) and a square baseline end (design: 4 px). */
+export const roundedTopBarPath = (rect: BarRect, radius: number): string => {
+  const r = Math.max(0, Math.min(radius, rect.width / 2, rect.height))
+  const right = rect.x + rect.width
+  const bottom = rect.y + rect.height
+  return [
+    `M${rect.x},${bottom}`,
+    `L${rect.x},${rect.y + r}`,
+    `A${r},${r} 0 0 1 ${rect.x + r},${rect.y}`,
+    `L${right - r},${rect.y}`,
+    `A${r},${r} 0 0 1 ${right},${rect.y + r}`,
+    `L${right},${bottom}`,
+    "Z",
+  ].join(" ")
+}
+
+/** x of `count` marks spread evenly between `pad` and `width - pad` (a lone mark is centred). */
+export const columnCenters = (count: number, width: number, pad: number): ReadonlyArray<number> =>
+  Arr.makeBy(count, (index) =>
+    count <= 1 ? width / 2 : pad + (index * (width - 2 * pad)) / (count - 1),
+  )
+
+/** Left edge of a tooltip centred on `center`, kept inside `[0, chartWidth]`. */
+export const tooltipLeft = (center: number, tooltipWidth: number, chartWidth: number): number =>
+  Math.max(0, Math.min(center - tooltipWidth / 2, chartWidth - tooltipWidth))
+
+/**
+ * Hover band of the mark at `centers[index]`: from the midpoint to its left neighbour (or 0) to
+ * the midpoint to its right neighbour (or `chartWidth`). The bands tile the plot, so a hit target
+ * is always larger than the mark.
+ */
+export const hoverBand = (
+  centers: ReadonlyArray<number>,
+  index: number,
+  chartWidth: number,
+): { readonly x: number; readonly width: number } => {
+  const center = centers[index] ?? 0
+  const left = centers[index - 1]
+  const right = centers[index + 1]
+  const start = left === undefined ? 0 : (left + center) / 2
+  const end = right === undefined ? chartWidth : (center + right) / 2
+  return { x: start, width: end - start }
 }
 
 interface RunState {

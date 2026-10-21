@@ -1,6 +1,7 @@
 import { DateTime, Option } from "effect"
 import { describe, expect, it } from "vitest"
 import {
+  bestSetParts,
   formatE1Rm,
   formatLoggedDate,
   formatSetText,
@@ -16,6 +17,17 @@ const week = (volumeKg: number, reps: number) => ({
   volumeKg,
   sets: reps > 0 ? 1 : 0,
   reps,
+})
+
+describe("bestSetParts", () => {
+  it("splits a loaded set into the numeral and a unit line", () => {
+    expect(bestSetParts(127.5, 5)).toEqual({ value: "127.5", unit: "kg × 5" })
+    expect(bestSetParts(100, 3)).toEqual({ value: "100", unit: "kg × 3" })
+  })
+
+  it("shows reps as the numeral for a bodyweight set", () => {
+    expect(bestSetParts(0, 12)).toEqual({ value: "12", unit: "reps" })
+  })
 })
 
 describe("formatting", () => {

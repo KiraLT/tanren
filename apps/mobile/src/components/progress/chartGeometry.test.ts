@@ -1,6 +1,14 @@
 import { Option } from "effect"
 import { describe, expect, it } from "vitest"
-import { BASELINE, barRects, sparklineShape } from "./chartGeometry"
+import {
+  BASELINE,
+  barRects,
+  columnCenters,
+  hoverBand,
+  roundedTopBarPath,
+  sparklineShape,
+  tooltipLeft,
+} from "./chartGeometry"
 
 const size = { width: 200, height: 100 }
 
@@ -72,5 +80,69 @@ describe("sparklineShape", () => {
   it("centres a single week", () => {
     const shape = sparklineShape([some(100)], size, 0)
     expect(shape.dots).toEqual([{ x: 100, y: 50 }])
+  })
+})
+
+describe("barRects with a width cap", () => {
+  const values = [10, 20, 30, 40, 50, 60, 70, 80]
+  const wide = { width: 326, height: 100 }
+
+  it("caps the bar and keeps at least the requested gap between neighbours", () => {
+    const rects = barRects(values, wide, 2, 24)
+    expect(new Set(rects.map((rect) => rect.width))).toEqual(new Set([24]))
+    const [first, second] = rects
+    expect((second?.x ?? 0) - ((first?.x ?? 0) + (first?.width ?? 0))).toBeGreaterThanOrEqual(2)
+  })
+
+  it("centres a capped bar in its slot and stays inside the chart", () => {
+    const rects = barRects(values, wide, 2, 24)
+    const last = rects[7]
+    expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThanOrEqual(wide.width)
+    expect(rects[0]?.x).toBeGreaterThan(0)
+  })
+
+  it("leaves bars that are narrower than the cap alone", () => {
+    expect(barRects(values, { width: 100, height: 100 }, 2, 24)).toEqual(
+      barRects(values, { width: 100, height: 100 }, 2),
+    )
+  })
+})
+
+describe("roundedTopBarPath", () => {
+  it("rounds the data end with 4 px arcs and leaves the baseline end square", () => {
+    const path = roundedTopBarPath({ x: 10, y: 20, width: 24, height: 60 }, 4)
+    expect(path).toBe("M10,80 L10,24 A4,4 0 0 1 14,20 L30,20 A4,4 0 0 1 34,24 L34,80 Z")
+  })
+
+  it("shrinks the radius for a stub shorter than the radius", () => {
+    expect(roundedTopBarPath({ x: 0, y: 98, width: 24, height: 2 }, 4)).toContain("A2,2")
+  })
+})
+
+describe("tooltipLeft", () => {
+  it("centres on the mark", () => {
+    expect(tooltipLeft(100, 60, 300)).toBe(70)
+  })
+
+  it("clamps to both edges", () => {
+    expect(tooltipLeft(5, 60, 300)).toBe(0)
+    expect(tooltipLeft(295, 60, 300)).toBe(240)
+  })
+})
+
+describe("columnCenters and hoverBand", () => {
+  it("spreads centres between the paddings", () => {
+    expect(columnCenters(3, 200, 10)).toEqual([10, 100, 190])
+    expect(columnCenters(1, 200, 10)).toEqual([100])
+  })
+
+  it("tiles the plot with bands, each wider than a mark", () => {
+    const centers = columnCenters(4, 300, 20)
+    const bands = centers.map((_, index) => hoverBand(centers, index, 300))
+    expect(bands[0]?.x).toBe(0)
+    const last = bands[3]
+    expect((last?.x ?? 0) + (last?.width ?? 0)).toBe(300)
+    const total = bands.reduce((sum, band) => sum + band.width, 0)
+    expect(total).toBe(300)
   })
 })

@@ -17,6 +17,15 @@ export interface WeekSeries {
 /** "116.7 kg" (no trailing zero). */
 export const formatKg1 = (kg: number): string => `${round1(kg)} kg`
 
+/** The Best-set tile's numeral and the unit line under it: `127.5` / `kg × 5`, or `12` / `reps`. */
+export const bestSetParts = (
+  weightKg: number,
+  reps: number,
+): { readonly value: string; readonly unit: string } =>
+  weightKg <= 0
+    ? { value: String(reps), unit: "reps" }
+    : { value: String(round1(weightKg)), unit: `kg × ${reps}` }
+
 /** "e1RM 116.7 kg". */
 export const formatE1Rm = (e1Rm: number): string => `e1RM ${formatKg1(e1Rm)}`
 

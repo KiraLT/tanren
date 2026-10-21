@@ -15,10 +15,10 @@ import {
 import {
   AppBar,
   Button,
-  Card,
   EmptyState,
   gutter,
   IconButton,
+  ListGroup,
   Page,
   SegmentedControl,
   Skeleton,
@@ -108,7 +108,7 @@ export default function ProgressScreen() {
   })
 
   const exerciseList = (items: ReadonlyArray<ExerciseSummary>) => (
-    <Card padding={0} style={{ overflow: "hidden" }}>
+    <ListGroup>
       {Arr.map(items, (summary) => (
         <ExerciseRow
           key={summary.exercise.id}
@@ -117,16 +117,16 @@ export default function ProgressScreen() {
           onPress={() => openExercise(summary.exercise.id)}
         />
       ))}
-    </Card>
+    </ListGroup>
   )
 
   const sessionList = (items: ReadonlyArray<SessionSummary>) => (
     <View style={{ gap: space.lg }}>
-      <Card padding={0} style={{ overflow: "hidden" }}>
+      <ListGroup>
         {Arr.map(items, (summary) => (
           <SessionRow key={summary.session.id} summary={summary} />
         ))}
-      </Card>
+      </ListGroup>
       {items.length >= limit ? (
         <Button
           label="Show more"

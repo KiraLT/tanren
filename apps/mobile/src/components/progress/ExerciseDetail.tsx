@@ -3,8 +3,19 @@ import { Array as Arr, Match, Option } from "effect"
 import { View } from "react-native"
 import { type ExerciseHistory, type HistoryState, useExerciseHistory } from "../../hooks/useHistory"
 import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
-import { Card, EmptyState, Skeleton, StatusPill, space, Text } from "../../ui"
-import { formatE1Rm, formatLoggedDate, formatSetText } from "./progressFormat"
+import {
+  Card,
+  EmptyState,
+  ListGroup,
+  ListRow,
+  Skeleton,
+  StatusPill,
+  sizes,
+  space,
+  Text,
+} from "../../ui"
+import { ExerciseThumb } from "./ProgressRows"
+import { bestSetParts, formatE1Rm, formatLoggedDate, formatSetText } from "./progressFormat"
 import { Sparkline } from "./Sparkline"
 import { WeekBars } from "./WeekBars"
 
@@ -23,20 +34,47 @@ interface DetailProps {
   readonly history: ExerciseHistory
 }
 
+/**
+ * The screen's one bold element: the best set's weight as the `numeral` with its unit line under it
+ * (`label`). The best set strictly beats every earlier set, so it is always a personal record.
+ */
 function BestSetCard({ history }: DetailProps) {
   return (
     <Card>
       {Option.match(history.best, {
         onNone: () => <Text tone="muted">No sets logged yet.</Text>,
-        onSome: (best) => (
-          <View accessible style={{ gap: space.xs }}>
-            <Text variant="caption" tone="muted">
-              Best set
-            </Text>
-            <Text variant="display">{formatSetText(best.weightKg, best.reps)}</Text>
-            <Text tone="muted">{formatE1Rm(history.bestE1Rm)}</Text>
-          </View>
-        ),
+        onSome: (best) => {
+          const parts = bestSetParts(best.weightKg, best.reps)
+          return (
+            <View
+              accessible
+              accessibilityLabel={`Best set ${formatSetText(best.weightKg, best.reps)}, ${formatE1Rm(history.bestE1Rm)}, personal record`}
+              style={{ gap: space.xs }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text variant="caption" tone="muted">
+                  Best set
+                </Text>
+                <StatusPill label="PR" tone="accent" />
+              </View>
+              <Text variant="numeral" glow style={{ paddingVertical: space.xs }}>
+                {parts.value}
+              </Text>
+              <Text variant="label" tone="muted">
+                {parts.unit}
+              </Text>
+              <Text variant="subhead" tone="muted">
+                {formatE1Rm(history.bestE1Rm)}
+              </Text>
+            </View>
+          )
+        },
       })}
     </Card>
   )
@@ -47,28 +85,31 @@ function RecentSessions({ history }: DetailProps) {
     return null
   }
   return (
-    <View style={{ gap: space.md }}>
-      <Text variant="headline" accessibilityRole="header">
+    <View style={{ gap: space.lg }}>
+      <Text variant="caption" tone="muted" accessibilityRole="header">
         Recent sessions
       </Text>
       {Arr.map(history.recent, ({ session, sets }) => (
-        <Card key={session.id} style={{ gap: space.sm }}>
-          <Text variant="subhead" tone="muted">
+        <View key={session.id} style={{ gap: space.sm }}>
+          <Text variant="caption" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
             {formatLoggedDate(session.startedAt)}
           </Text>
-          {Arr.map(sets, (set, index) => (
-            <View
-              key={set.id}
-              style={{ flexDirection: "row", alignItems: "center", gap: space.md }}
-            >
-              <Text tone="muted" style={{ minWidth: space.xxxl }}>{`Set ${index + 1}`}</Text>
-              <Text variant="headline" style={{ flex: 1 }}>
-                {formatSetText(set.weightKg, set.reps)}
-              </Text>
-              {set.isPr ? <StatusPill label="PR" tone="accent" /> : null}
-            </View>
-          ))}
-        </Card>
+          <ListGroup>
+            {Arr.map(sets, (set, index) => (
+              <ListRow
+                key={set.id}
+                leading={
+                  <Text variant="caption" tone="muted" style={{ minWidth: space.xxl }}>
+                    {`Set ${index + 1}`}
+                  </Text>
+                }
+                title={formatSetText(set.weightKg, set.reps)}
+                trailing={set.isPr ? <StatusPill label="PR" tone="accent" /> : undefined}
+                accessibilityLabel={`Set ${index + 1}, ${formatSetText(set.weightKg, set.reps)}${set.isPr ? ", personal record" : ""}`}
+              />
+            ))}
+          </ListGroup>
+        </View>
       ))}
     </View>
   )
@@ -77,9 +118,12 @@ function RecentSessions({ history }: DetailProps) {
 function DetailReady({ history }: DetailProps) {
   return (
     <View style={{ gap: space.lg }}>
-      <Text variant="title" accessibilityRole="header">
-        {history.exercise.name}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+        <ExerciseThumb catalogId={history.exercise.catalogId} size={sizes.illustrationMd} />
+        <Text variant="title2" accessibilityRole="header" style={{ flex: 1 }}>
+          {history.exercise.name}
+        </Text>
+      </View>
       <MuscleMap primary={history.exercise.muscleGroups} secondary={[]} size={200} />
       <BestSetCard history={history} />
       <Card style={{ gap: space.md }}>
