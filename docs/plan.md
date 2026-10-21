@@ -117,3 +117,12 @@ Recorded 2026-10-19, from the owner's kickoff message:
    audits the screens with measured computed styles, and writes
    `docs/design/ui-audit.md` + `docs/tasks/v3-design.md`; design direction
    and UI plans are fable-only from now on.
+   Owner on the four rendered directions (11:48, verbatim): "I like A and C,
+   they can be dark/light theme. I like D big round button and + - layout. +
+   cards. I think they both lacks design elements like lines, icons, etc.
+   Remove bg from exercise img. Mucle map looks ugly, maybe also generate
+   with openai? Also maybe include iliustration in log set page? Cause I
+   might forget what it is when exercising by just name" → the merged
+   system ("Forge": A light / C dark, D's round controls and cards, icons and
+   rules, background-free illustrations also on the exercise page;
+   `docs/design/ui-direction-final.md`).
