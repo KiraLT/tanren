@@ -292,3 +292,22 @@ Log in `docs/tasks/step-2.md`.
   heredoc-for-tests habit, architect "Assumes" must cite behaviour), `/retro` v3, then the UI plan
   (fable-only design work) as the next build stream.
 - Owner: wants screenshots at 390/1280 after every visual change; judged v2 design harshly.
+
+## State at 11:42 (HEAD `741cacb`) — v3 complete; design direction awaiting the owner's pick
+- **v3 equipment & locations is done and committed** (`229fbdb` fixes, `95de4ad` ExercisePatch): catalog 291,
+  images 290/291, Settings → Equipment & locations (presets, editor, active), Library "At <location>" +
+  "Needs: …", Today setup card, 3-way add notice, migration 0003 + seed Gym/Home, MCP `get_profile` +
+  `search_exercises availableAt` (6 read / 3 write). Reviews EQ-R1/R2/R3 approve-with-fixes, all applied;
+  QA EQ-X PASS; root gate 1284 tests. Two real bugs found in review/fix rounds: `ProfilePatch` and
+  `ExercisePatch` derived via `mapFields(optionalKey)` kept decode defaults and wiped fields on partial
+  patches — both are explicit `optionalKey` Structs now; the convention text is with the EM.
+- Owner recipe unchanged: `pnpm db:reset && pnpm web:export && pnpm dev` → :8790 → Settings.
+- **Design**: owner verdict (plan Amendment 6) → UI-A measured audit (`docs/design/ui-audit.md`,
+  `docs/tasks/v3-design.md`) → UI-B four directions (`docs/design/ui-directions.md`; mockups in
+  the scratchpad `ui-b/`; sent to the owner 11:40). Architect recommends B (quiet instrument) + A's
+  hero numeral. **Waiting for the owner's pick**; then: add a Directions decision row to v3-design.md,
+  token deltas into the UI-1 brief (`scratchpad/briefs/UI-1.md` drafted), run UI-1 (sonnet) →
+  UI-2/3/4 in parallel → UI-R → UI-X; send 390/1280 screenshots after each.
+- Live: EM step-v3 retro (fable) — apply its `## Proposals for the Lead`, commit, log; it also owns the
+  Patch-convention text in packages/shared/CLAUDE.md.
+- Owner-gated items unchanged (Live Activities dev build, universal links, production deploy, iPhone sign-in).
