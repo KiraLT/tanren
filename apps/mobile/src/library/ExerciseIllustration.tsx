@@ -6,13 +6,23 @@ import { IMAGES } from "../illustrations/images"
 import { illustration, radius, useTheme } from "../ui"
 import { illustrationImage, placeholderSvg } from "./illustration"
 
+/** v2-catalog.md §7: the detail illustration was 240 px; callers pass `sizes.illustration*`. */
+export const DEFAULT_ILLUSTRATION_SIZE = 240
+
 export interface ExerciseIllustrationProps {
   readonly catalogId: CatalogId
-  readonly size: number
+  /** Edge length in px (square); defaults to `DEFAULT_ILLUSTRATION_SIZE`. */
+  readonly size?: number
+  /** `false` drops the `surface` tile (the detail hero: transparent assets sit on `bg`). */
+  readonly framed?: boolean
 }
 
 /** The entry's gpt-image-1 illustration (`pnpm images:map`), or a neutral placeholder without one. */
-export function ExerciseIllustration({ catalogId, size }: ExerciseIllustrationProps) {
+export function ExerciseIllustration({
+  catalogId,
+  size = DEFAULT_ILLUSTRATION_SIZE,
+  framed = true,
+}: ExerciseIllustrationProps) {
   const { colors } = useTheme()
   const image = illustrationImage(IMAGES, catalogId)
   return (
@@ -24,9 +34,9 @@ export function ExerciseIllustration({ catalogId, size }: ExerciseIllustrationPr
       style={{
         width: size,
         height: size,
-        borderRadius: radius.md,
+        borderRadius: framed ? radius.md : 0,
         borderCurve: "continuous",
-        backgroundColor: colors.surface,
+        backgroundColor: framed ? colors.surface : "transparent",
         overflow: "hidden",
         alignSelf: "center",
       }}

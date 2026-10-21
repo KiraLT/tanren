@@ -2,8 +2,9 @@ import type { CatalogExercise, CatalogId } from "@tanren/shared"
 import { Option } from "effect"
 import type { ReactElement } from "react"
 import { FlatList } from "react-native"
-import { EmptyState, ListRow } from "../ui"
+import { EmptyState, ListRow, sizes } from "../ui"
 import { entrySubtitle } from "./catalogFormat"
+import { ExerciseIllustration } from "./ExerciseIllustration"
 
 export interface CatalogListProps {
   readonly entries: ReadonlyArray<CatalogExercise>
@@ -31,6 +32,7 @@ export function CatalogList({ entries, selected, onSelect, header }: CatalogList
       keyboardDismissMode="on-drag"
       renderItem={({ item }) => (
         <ListRow
+          leading={<ExerciseIllustration catalogId={item.catalogId} size={sizes.illustrationSm} />}
           title={item.name}
           subtitle={entrySubtitle(item)}
           accessibilityLabel={item.name}

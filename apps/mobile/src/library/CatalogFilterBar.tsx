@@ -1,21 +1,12 @@
 import type { Location } from "@tanren/shared"
 import { Option } from "effect"
-import { TextInput, View } from "react-native"
-import {
-  Button,
-  radius,
-  SegmentedControl,
-  sizes,
-  space,
-  Text,
-  ToggleChip,
-  type,
-  useTheme,
-} from "../ui"
+import { ScrollView, TextInput, View } from "react-native"
+import { Button, radius, sizes, space, Text, ToggleChip, type, useTheme } from "../ui"
 import {
   atLocationLabel,
   EQUIPMENT_OPTIONS,
   equipmentFromValue,
+  type FacetOption,
   KIND_OPTIONS,
   kindFromValue,
   MUSCLE_OPTIONS,
@@ -24,6 +15,34 @@ import {
   segmentValue,
 } from "./catalogFormat"
 import { hasFilter, type SearchAction, type SearchState } from "./searchState"
+
+interface FacetChipsProps {
+  readonly accessibilityLabel: string
+  readonly options: ReadonlyArray<FacetOption>
+  readonly value: string
+  readonly onChange: (value: string) => void
+}
+
+/** One horizontally scrolling row of single-select chips for a facet ("All" first). */
+function FacetChips({ accessibilityLabel, options, value, onChange }: FacetChipsProps) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityLabel={accessibilityLabel}
+      contentContainerStyle={{ gap: space.xs }}
+    >
+      {options.map((option) => (
+        <ToggleChip
+          key={option.value}
+          label={option.label}
+          selected={option.value === value}
+          onPress={() => onChange(option.value)}
+        />
+      ))}
+    </ScrollView>
+  )
+}
 
 export interface CatalogFilterBarProps {
   readonly state: SearchState
@@ -46,6 +65,7 @@ export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFi
         onSome: (active) => (
           <ToggleChip
             style={{ alignSelf: "flex-start" }}
+            icon="mapPin"
             label={atLocationLabel(active)}
             selected={state.atLocation}
             onPress={() => dispatch({ _tag: "AtLocation", value: !state.atLocation })}
@@ -74,19 +94,19 @@ export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFi
           },
         ]}
       />
-      <SegmentedControl
+      <FacetChips
         accessibilityLabel="Muscle"
         options={MUSCLE_OPTIONS}
         value={segmentValue(state.muscle)}
         onChange={(value) => dispatch({ _tag: "Muscle", value: muscleFromValue(value) })}
       />
-      <SegmentedControl
+      <FacetChips
         accessibilityLabel="Equipment"
         options={EQUIPMENT_OPTIONS}
         value={segmentValue(state.equipment)}
         onChange={(value) => dispatch({ _tag: "Equipment", value: equipmentFromValue(value) })}
       />
-      <SegmentedControl
+      <FacetChips
         accessibilityLabel="Kind"
         options={KIND_OPTIONS}
         value={segmentValue(state.kind)}

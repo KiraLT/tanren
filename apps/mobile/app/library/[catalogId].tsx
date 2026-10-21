@@ -1,21 +1,32 @@
 import { CatalogId, findCatalogExercise } from "@tanren/shared"
 import { Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
-import { CatalogDetail } from "../../src/library/CatalogDetail"
-import { AppBar, EmptyState, IconButton, Page } from "../../src/ui"
+import { ScrollView } from "react-native"
+import { CatalogDetail, CatalogHero } from "../../src/library/CatalogDetail"
+import { AppBar, EmptyState, IconButton, Page, space, useBreakpoint } from "../../src/ui"
 
-/** Phone detail of one catalog entry (at desktop the Library tab shows it in its aside). */
+/** Detail of one catalog entry; at desktop the hero and meta move to the aside. */
 export default function CatalogEntryScreen() {
   const router = useRouter()
+  const wide = useBreakpoint() === "desktop"
   const { catalogId } = useLocalSearchParams<{ catalogId: string }>()
   // A direct load has no history to go back to: fall back to the list.
   const back = () => (router.canGoBack() ? router.back() : router.replace("/library"))
   const entry = Schema.decodeUnknownOption(CatalogId)(catalogId).pipe(
     Option.flatMap(findCatalogExercise),
   )
+  const aside = Option.match(entry, {
+    onNone: () => undefined,
+    onSome: (found) =>
+      wide ? (
+        <ScrollView contentContainerStyle={{ paddingVertical: space.lg }}>
+          <CatalogHero entry={found} />
+        </ScrollView>
+      ) : undefined,
+  })
   return (
     <Page
-      scroll
+      {...(aside === undefined ? {} : { aside })}
       header={
         <AppBar
           title="Library"
@@ -30,7 +41,7 @@ export default function CatalogEntryScreen() {
             body="This link does not point to a library exercise."
           />
         ),
-        onSome: (found) => <CatalogDetail key={found.catalogId} entry={found} />,
+        onSome: (found) => <CatalogDetail key={found.catalogId} entry={found} hero={!wide} />,
       })}
     </Page>
   )

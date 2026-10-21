@@ -2,7 +2,7 @@ import { type CatalogId, findCatalogExercise } from "@tanren/shared"
 import { Option } from "effect"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { ScrollView } from "react-native"
+import { View } from "react-native"
 import { useCatalogSearch } from "../../src/hooks/useCatalogSearch"
 import { CatalogDetail } from "../../src/library/CatalogDetail"
 import { CatalogFilterBar } from "../../src/library/CatalogFilterBar"
@@ -33,9 +33,9 @@ export default function LibraryScreen() {
       />
     ),
     onSome: (entry) => (
-      <ScrollView contentContainerStyle={{ paddingHorizontal: gutter.desktop }}>
+      <View style={{ flex: 1, paddingHorizontal: gutter.desktop }}>
         <CatalogDetail key={entry.catalogId} entry={entry} />
-      </ScrollView>
+      </View>
     ),
   })
   return (
