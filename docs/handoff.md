@@ -326,9 +326,11 @@ Log in `docs/tasks/step-2.md`.
   `scripts/shrinkMuscleMaps.ts` → `scripts/muscleMapIndex.ts` (IMG-5d is adding `muscle:*` package scripts).
 - Done since: UI-X2 PASS (44 screenshots, no defects, sent 13:00); EM step-UI retro applied + committed
   (`c1a926c`; retro `docs/retro/2026-10-21-ui-forge.md`); IMG-5d visual QA of all 291 maps (26 regenerated,
-  13 fixed, `muscle:*` scripts, catalog↔files↔index test; `95ccc58`). Live: IMG-5e (sonnet: prompt
-  exclusions for the two bleed patterns, regenerate the 13 still-wrong maps once, `MISSING_MUSCLE_MAPS` +
-  SVG fallback for persistent failures).
+  13 fixed, `muscle:*` scripts, catalog↔files↔index test; `95ccc58`). IMG-5e done (`0040287`): prompt exclusions,
+  4 of 13 fixed, 9 persistent failures listed in `MISSING_MUSCLE_MAPS` and shown as the SVG map; 282
+  generated maps, 4.6 MB. **No agents live; tree clean at HEAD.** Open follow-ups: desktop layouts use the
+  width poorly (Today/Settings narrow columns), Progress shows "e1RM 0 kg" for bodyweight lifts, Expo Go
+  font-load check on a real device, the 9 SVG-fallback maps (option: reference-image edits).
 - Then: commit IMG-5d + EM edits, `/retro`-style log, owner report with the final contact sheets; owner
   recipe unchanged (`pnpm db:reset && pnpm web:export && pnpm dev`). Owner-gated items unchanged
   (Expo Go font-load check on a real device, Live Activities dev build, universal links, production deploy).
