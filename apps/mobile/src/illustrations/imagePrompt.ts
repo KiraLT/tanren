@@ -3,7 +3,7 @@
  * to generate, the prompt per exercise from `assets/illustrations/style.md`, the OpenAI Images
  * response shapes and the contact sheet. Dev-time only; nothing here is bundled into the app.
  */
-import type { CatalogExercise } from "@tanren/shared"
+import type { CatalogExercise, MuscleGroup } from "@tanren/shared"
 import { Array as Arr, Option, pipe, Result, Schema } from "effect"
 
 export const IMAGE_DIR = "assets/illustrations"
@@ -136,13 +136,81 @@ export const humanize = (word: string): string =>
 
 export type PromptFacts = Pick<
   CatalogExercise,
-  "name" | "equipment" | "instructions" | "primaryMuscles"
+  "catalogId" | "name" | "equipment" | "instructions" | "primaryMuscles" | "secondaryMuscles"
 >
 
 const sentence = (line: string): string => (/[.!?]$/.test(line) ? line : `${line}.`)
 
+/**
+ * Where the orange accent goes for each primary muscle, in plain anatomy the image model places
+ * reliably (IMG-1: "core" alone landed on the chest). `fullBody` and `cardio` name no muscle, so
+ * their accent goes on the equipment (`accentTarget`). A new MuscleGroup is a compile error here.
+ */
+export const MUSCLE_ACCENT: Readonly<Record<MuscleGroup, Option.Option<string>>> = {
+  chest: Option.some("the chest muscles (pectorals)"),
+  lats: Option.some(
+    "the latissimus dorsi, the wide muscles on the sides of the upper back below the armpits",
+  ),
+  upperBack: Option.some(
+    "the upper back muscles between the shoulder blades (rhomboids and mid trapezius)",
+  ),
+  lowerBack: Option.some("the lower back muscles along the spine (erector spinae)"),
+  traps: Option.some("the upper trapezius between the neck and the shoulders"),
+  shoulders: Option.some("the shoulder muscles (deltoids)"),
+  biceps: Option.some("the biceps on the front of the upper arms"),
+  triceps: Option.some("the triceps on the back of the upper arms"),
+  forearms: Option.some("the forearm muscles"),
+  core: Option.some(
+    "the abdominal muscles on the front of the torso, between the ribs and the hips",
+  ),
+  quads: Option.some("the quadriceps on the front of the thighs"),
+  hamstrings: Option.some("the hamstrings on the back of the thighs"),
+  glutes: Option.some("the glutes (buttocks)"),
+  adductors: Option.some("the adductors on the inner thighs"),
+  calves: Option.some("the calf muscles on the back of the lower legs"),
+  fullBody: Option.none(),
+  cardio: Option.none(),
+}
+
+const anatomy = (muscles: ReadonlyArray<MuscleGroup>): ReadonlyArray<string> =>
+  Arr.take(Arr.getSomes(muscles.map((muscle) => MUSCLE_ACCENT[muscle])), 2)
+
+/**
+ * The primary muscles as anatomy; for an all-`fullBody`/`cardio` primary list the first two
+ * secondary muscles, else the equipment, else the legs.
+ */
+export const accentTarget = (
+  facts: Pick<PromptFacts, "equipment" | "primaryMuscles" | "secondaryMuscles">,
+): string => {
+  const primary = anatomy(facts.primaryMuscles)
+  if (primary.length > 0) return primary.join(" and ")
+  const secondary = anatomy(facts.secondaryMuscles)
+  if (secondary.length > 0) return secondary.join(" and ")
+  return facts.equipment.length > 0
+    ? `the ${facts.equipment.map(humanize).join(" and ")}`
+    : "the working leg muscles"
+}
+
+/**
+ * Image-only instruction wording for entries whose catalog text the OpenAI safety system rejected
+ * (IMG-2 full run, HTTP 400): frog-pump ("sexual") and cable-crunch ("rope beside your head":
+ * "self-harm"). The catalog text stays as it is for the app. Both were still rejected with this
+ * wording (IMG-2), so they show the placeholder; the next attempt should also change the name line.
+ */
+export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  "frog-pump": [
+    "A glute bridge variation on a gym mat, lying face up with the soles of the feet together",
+    "The hips are lifted off the mat at the top of the bridge",
+  ],
+  "cable-crunch": [
+    "Kneeling in front of a high cable pulley, both hands holding the cable handle at forehead height",
+    "The torso is bent forward and down, elbows moving toward the thighs",
+  ],
+}
+
 /** Style block, a blank line, then the template filled with the exercise's facts. */
 export const exercisePrompt = (guide: StyleGuide, facts: PromptFacts): string => {
+  const instructions = PROMPT_INSTRUCTIONS[facts.catalogId] ?? facts.instructions
   const equipment =
     facts.equipment.length === 0
       ? "bodyweight, no equipment"
@@ -150,8 +218,9 @@ export const exercisePrompt = (guide: StyleGuide, facts: PromptFacts): string =>
   const filled = guide.template
     .replaceAll("{{name}}", facts.name)
     .replaceAll("{{equipment}}", equipment)
-    .replaceAll("{{instructions}}", Arr.take(facts.instructions, 2).map(sentence).join(" "))
+    .replaceAll("{{instructions}}", Arr.take(instructions, 2).map(sentence).join(" "))
     .replaceAll("{{primary}}", facts.primaryMuscles.map(humanize).join(" and "))
+    .replaceAll("{{accent}}", accentTarget(facts))
   return `${guide.style}\n\n${filled}`
 }
 
@@ -168,6 +237,27 @@ export const ApiErrorBody = Schema.Struct({
 /** Error text may echo a masked key (`sk-ab***yz`); never print any part of it. */
 export const redactSecrets = (text: string): string =>
   text.replace(/sk-[A-Za-z0-9_*.-]+/g, "sk-[redacted]")
+
+/** The generated static map the app imports (`pnpm images:map`). */
+export const IMAGE_MAP_FILE = "src/illustrations/images.ts"
+
+/**
+ * Source of IMAGE_MAP_FILE: one literal `require` per webp, because Metro only bundles assets it
+ * sees as `require("<literal>")`. Ids are sorted; the script runs Biome on the result.
+ */
+export const imageMapSource = (ids: ReadonlyArray<string>): string => {
+  const entries = ids
+    .map((id) => `  "${id}": require("../../${IMAGE_DIR}/${imageFile(id)}"),`)
+    .join("\n")
+  return `// Generated by \`pnpm -F @tanren/mobile images:map\` from ${IMAGE_DIR}/*.webp. Do not edit.
+import type { ImageSourcePropType } from "react-native"
+
+/** Exercise illustration (gpt-image-1 webp) by catalog id; an id without a file is absent. */
+export const IMAGES: Readonly<Record<string, ImageSourcePropType>> = {
+${entries}
+}
+`
+}
 
 const escapeHtml = (text: string): string =>
   text

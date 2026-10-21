@@ -5,11 +5,14 @@ import { Option, Result, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
   ApiErrorBody,
+  accentTarget,
   exercisePrompt,
   humanize,
   IMAGE_SHEET,
   ImagesResponse,
   imageContactSheet,
+  imageMapSource,
+  type PromptFacts,
   parseImageArgs,
   parseStyleGuide,
   RUN_CAP,
@@ -101,10 +104,12 @@ describe("prompt", () => {
 
   it("fills name, equipment, two instruction lines and the primary muscle", () => {
     const prompt = exercisePrompt(guide, {
+      catalogId: CatalogId.make("smith-machine-squat"),
       name: "Smith Machine Squat",
       equipment: ["smithMachine"],
       instructions: ["Stand tall", "Squat down.", "Drive up"],
       primaryMuscles: ["quads", "glutes"],
+      secondaryMuscles: [],
     })
     expect(prompt.startsWith(guide.style)).toBe(true)
     expect(prompt).toContain("Exercise: Smith Machine Squat.")
@@ -113,6 +118,37 @@ describe("prompt", () => {
     expect(prompt).not.toContain("Drive up")
     expect(prompt).toContain("quads and glutes")
     expect(prompt).not.toContain("{{")
+  })
+
+  it("names the primary muscle anatomically for the orange accent", () => {
+    const plank = Option.getOrThrow(findCatalogExercise(CatalogId.make("plank")))
+    expect(exercisePrompt(guide, plank)).toContain(
+      "Orange accent on the abdominal muscles on the front of the torso",
+    )
+    expect(guide.style).toContain("Never a straight-on front view")
+  })
+
+  it("falls back to secondary muscles, then equipment, for full-body and cardio entries", () => {
+    const facts = (
+      primaryMuscles: PromptFacts["primaryMuscles"],
+      secondaryMuscles: PromptFacts["secondaryMuscles"],
+      equipment: PromptFacts["equipment"],
+    ) => ({ primaryMuscles, secondaryMuscles, equipment })
+    expect(accentTarget(facts(["cardio", "quads"], ["calves"], []))).toBe(
+      "the quadriceps on the front of the thighs",
+    )
+    expect(accentTarget(facts(["fullBody", "cardio"], ["chest", "triceps", "quads"], []))).toBe(
+      "the chest muscles (pectorals) and the triceps on the back of the upper arms",
+    )
+    expect(accentTarget(facts(["cardio"], [], ["cardioMachine"]))).toBe("the cardio machine")
+    expect(accentTarget(facts(["fullBody"], [], []))).toBe("the working leg muscles")
+  })
+
+  it("uses the image-only wording for entries the safety system rejected", () => {
+    const crunch = Option.getOrThrow(findCatalogExercise(CatalogId.make("cable-crunch")))
+    const prompt = exercisePrompt(guide, crunch)
+    expect(prompt).toContain("cable handle at forehead height")
+    expect(prompt).not.toContain("rope")
   })
 
   it("calls an empty equipment list bodyweight", () => {
@@ -141,6 +177,12 @@ describe("wire and output", () => {
     expect(redactSecrets("Incorrect API key provided: sk-proj-ab***yz9. See docs")).toBe(
       "Incorrect API key provided: sk-[redacted] See docs",
     )
+  })
+
+  it("writes one literal require per id for Metro", () => {
+    const source = imageMapSource(["plank"])
+    expect(source).toContain('"plank": require("../../assets/illustrations/plank.webp"),')
+    expect(source).toContain("export const IMAGES")
   })
 
   it("lists every image with its id", () => {

@@ -25,7 +25,7 @@ export function CatalogDetail({ entry }: CatalogDetailProps) {
         secondary={entry.secondaryMuscles}
         size={ILLUSTRATION_SIZE}
       />
-      <ExerciseIllustration id={entry.illustrationId} size={ILLUSTRATION_SIZE} />
+      <ExerciseIllustration catalogId={entry.catalogId} size={ILLUSTRATION_SIZE} />
       <View style={{ gap: space.xs }}>
         <Text variant="title" accessibilityRole="header">
           {entry.name}

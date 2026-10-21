@@ -14,6 +14,7 @@
     "illustrations:build": "node scripts/illustrations.ts build",
     "illustrations:check": "node scripts/illustrations.ts check",
     "images:generate": "node --env-file-if-exists=.env.images scripts/generateIllustrations.ts",
+    "images:map": "node --import ./scripts/resolveTs.ts scripts/imageMap.ts",
     "check": "pnpm illustrations:check && biome ci --error-on-warnings . && tsc --noEmit -p tsconfig.json && vitest run --root ../.. --project @tanren/mobile"
   },
   "dependencies": {

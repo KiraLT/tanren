@@ -1,26 +1,25 @@
-import type { IllustrationId } from "@tanren/shared"
+import type { CatalogId } from "@tanren/shared"
 import { Option } from "effect"
-import { View } from "react-native"
+import { Image, View } from "react-native"
 import { SvgXml } from "react-native-svg"
+import { IMAGES } from "../illustrations/images"
 import { illustration, radius, useTheme } from "../ui"
-import { illustrationXml, placeholderSvg } from "./illustration"
-import { ILLUSTRATIONS } from "./illustrationMap"
+import { illustrationImage, placeholderSvg } from "./illustration"
 
 export interface ExerciseIllustrationProps {
-  readonly id: IllustrationId
+  readonly catalogId: CatalogId
   readonly size: number
 }
 
-/** The entry's drawing (v2-catalog.md §5), or a neutral placeholder while it is not drawn yet. */
-export function ExerciseIllustration({ id, size }: ExerciseIllustrationProps) {
+/** The entry's gpt-image-1 illustration (`pnpm images:map`), or a neutral placeholder without one. */
+export function ExerciseIllustration({ catalogId, size }: ExerciseIllustrationProps) {
   const { colors } = useTheme()
-  const drawn = illustrationXml(ILLUSTRATIONS, id)
-  const xml = Option.getOrElse(drawn, () => placeholderSvg(illustration.figure))
+  const image = illustrationImage(IMAGES, catalogId)
   return (
     <View
       accessibilityRole="image"
       accessibilityLabel={
-        Option.isSome(drawn) ? "Exercise illustration" : "Illustration placeholder"
+        Option.isSome(image) ? "Exercise illustration" : "Illustration placeholder"
       }
       style={{
         width: size,
@@ -32,7 +31,14 @@ export function ExerciseIllustration({ id, size }: ExerciseIllustrationProps) {
         alignSelf: "center",
       }}
     >
-      <SvgXml xml={xml} width={size} height={size} />
+      {Option.match(image, {
+        onSome: (source) => (
+          <Image source={source} style={{ width: size, height: size }} resizeMode="cover" />
+        ),
+        onNone: () => (
+          <SvgXml xml={placeholderSvg(illustration.figure)} width={size} height={size} />
+        ),
+      })}
     </View>
   )
 }
