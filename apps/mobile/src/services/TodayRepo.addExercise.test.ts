@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Exercise, ExerciseId, IdGenerator, PlannedSetRow } from "@tanren/shared"
+import { Exercise, ExerciseId, IdGenerator, PlannedSet, PlannedSetRow } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
@@ -64,12 +64,40 @@ const plannedSets = LocalStore.use((store) =>
 const addExercise = (id: ExerciseId) => TodayRepo.use((repo) => repo.addExercise(id))
 const version = StoreEvents.use((events) => events.version)
 
+/** The id of today's planned session (the seed plans one at NOW). */
+const todaySessionId = TodayRepo.use((repo) => repo.today).pipe(
+  Effect.flatMap(
+    Option.match({
+      onNone: () => Effect.die("expected a planned session today"),
+      onSome: (today) => Effect.succeed(today.plannedSession.id),
+    }),
+  ),
+)
+
+/** Every planned set of today's session, tombstones included, by order. */
+const todaySets = Effect.gen(function* () {
+  const sessionId = yield* todaySessionId
+  return (yield* plannedSets).filter((set) => set.plannedSessionId === sessionId)
+})
+
+/** Soft-deletes rows the way a synced tombstone arrives (not dirty). */
+const tombstone = (rows: ReadonlyArray<PlannedSet>) =>
+  LocalStore.use((store) =>
+    store.write(
+      rows.map((row) => ({
+        table: "plannedSet" as const,
+        row: PlannedSet.make({ ...row, deletedAt: Option.some(row.updatedAt) }),
+      })),
+      { dirty: false },
+    ),
+  )
+
 describe("TodayRepo.addExercise", () => {
   it.effect("appends three dirty planned sets after the max order, then lists the exercise", () =>
     run(
       Effect.gen(function* () {
         yield* seededWithCurls
-        const before = yield* plannedSets
+        const before = yield* todaySets
         const maxOrder = Math.max(...before.map((set) => set.order))
         const startVersion = yield* version
         expect(yield* addExercise(CURLS)).toBe(true)
@@ -92,6 +120,40 @@ describe("TodayRepo.addExercise", () => {
         const today = yield* TodayRepo.use((repo) => repo.today)
         const names = Option.map(today, (t) => t.exercises.map((e) => e.exercise.name))
         expect(Option.map(names, (list) => list.at(-1))).toEqual(Option.some("Dumbbell Curl"))
+      }),
+    ),
+  )
+
+  it.effect("appends after a tombstoned top-order row of today's session", () =>
+    run(
+      Effect.gen(function* () {
+        yield* seededWithCurls
+        const top = (yield* todaySets).at(-1)
+        yield* tombstone(top === undefined ? [] : [top])
+        expect(yield* addExercise(CURLS)).toBe(true)
+        const first = (yield* todaySets).find((set) => set.exerciseId === CURLS)
+        expect(first?.order).toBe((top?.order ?? Number.NaN) + 1)
+      }),
+    ),
+  )
+
+  it.effect("adds three live sets again when the exercise's sets today were tombstoned", () =>
+    run(
+      Effect.gen(function* () {
+        yield* seededWithCurls
+        yield* addExercise(CURLS)
+        const removed = (yield* todaySets).filter((set) => set.exerciseId === CURLS)
+        yield* tombstone(removed)
+        expect(yield* addExercise(CURLS)).toBe(true)
+        const live = (yield* todaySets).filter(
+          (set) => set.exerciseId === CURLS && Option.isNone(set.deletedAt),
+        )
+        const lastRemoved = Math.max(...removed.map((set) => set.order))
+        expect(live.map((set) => set.order)).toEqual([
+          lastRemoved + 1,
+          lastRemoved + 2,
+          lastRemoved + 3,
+        ])
       }),
     ),
   )

@@ -131,6 +131,26 @@ describe("ExerciseLink.ensure", () => {
     ),
   )
 
+  it.effect(
+    "never relinks a row linked to another catalog entry, even when its alias matches",
+    () =>
+      run(
+        Effect.gen(function* () {
+          const pullUp = CatalogId.make("pull-up")
+          const chinUp = CatalogId.make("chin-up")
+          yield* given(userExercise({ name: "Pull-Up", aliases: ["Chin-Up"], catalogId: pullUp }))
+          const id = yield* ensure(chinUp)
+          expect(id).not.toBe(USER_EXERCISE)
+          const rows = yield* exercises
+          expect(rows.find((row) => row.id === USER_EXERCISE)?.catalogId).toEqual(
+            Option.some(pullUp),
+          )
+          expect(rows.find((row) => row.id === id)?.catalogId).toEqual(Option.some(chinUp))
+          expect(yield* dirtyCount).toBe(1)
+        }),
+      ),
+  )
+
   it.effect("inserts the catalog exercise when nothing matches, dirty", () =>
     run(
       Effect.gen(function* () {

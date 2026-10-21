@@ -1,19 +1,4 @@
-import type { CatalogId } from "@tanren/shared"
-import { type Cause, Effect, Exit } from "effect"
-import { ExerciseLink } from "../services/ExerciseLink"
-import type { StoreError } from "../services/SqlDriver"
-import { TodayRepo } from "../services/TodayRepo"
-
-/**
- * Links the catalog entry to a user exercise (reusing or creating it), then appends it to today's
- * planned session. Succeeds with `TodayRepo.addExercise`'s answer: `false` = no session planned.
- */
-export const addCatalogToToday = (
-  catalogId: CatalogId,
-): Effect.Effect<boolean, StoreError, ExerciseLink | TodayRepo> =>
-  ExerciseLink.use((link) => link.ensure(catalogId)).pipe(
-    Effect.flatMap((exerciseId) => TodayRepo.use((repo) => repo.addExercise(exerciseId))),
-  )
+import { type Cause, Exit } from "effect"
 
 /** What the detail screen does next: open Today, show the no-session notice, or the error copy. */
 export type AddOutcome =
@@ -23,6 +8,7 @@ export type AddOutcome =
 
 export const NO_SESSION_TITLE = "No session planned today"
 
+/** `addCatalogToToday`'s exit → outcome: true Added, false NoSession, failure Failed + copy. */
 export const addOutcome = <E>(
   exit: Exit.Exit<boolean, E>,
   describe: (cause: Cause.Cause<E>) => string,

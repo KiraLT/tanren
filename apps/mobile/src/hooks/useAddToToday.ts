@@ -2,8 +2,9 @@ import type { CatalogId } from "@tanren/shared"
 import { Option } from "effect"
 import { useRouter } from "expo-router"
 import { useCallback, useState } from "react"
+import { type AddOutcome, addOutcome } from "../library/addToToday"
+import { addCatalogToToday } from "../services/addCatalogToToday"
 import { failureMessage, runtime } from "../services/runtime"
-import { type AddOutcome, addCatalogToToday, addOutcome } from "./addToToday"
 
 /**
  * "Add to today's session": links the entry and appends it to today's planned session in one

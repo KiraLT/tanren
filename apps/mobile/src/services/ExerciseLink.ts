@@ -24,7 +24,7 @@ export class UnknownCatalogExercise extends Data.TaggedError("UnknownCatalogExer
 
 export interface ExerciseLinkShape {
   /**
-   * Live exercise with this catalogId → its id; else a live exercise whose name/alias matches the
+   * Live exercise with this catalogId → its id; else a live unlinked exercise whose name/alias matches the
    * catalog name or an alias (case-insensitive) → patch its catalogId, return it; else insert
    * { name, aliases, muscleGroups: primary ++ secondary, notes: None, catalogId } and return the
    * new id. Dirty-marks what it writes; `LocalStore.write` bumps `StoreEvents`. An id missing from
@@ -90,7 +90,12 @@ export class ExerciseLink extends Context.Service<ExerciseLink, ExerciseLinkShap
               return linked.value.id
             }
             const now = yield* DateTime.now
-            const named = Arr.findFirst(exercises, matchesCatalog(catalog))
+            // Only unlinked rows: a row linked to another entry keeps its link (no flip-flopping).
+            const matches = matchesCatalog(catalog)
+            const named = Arr.findFirst(
+              exercises,
+              (exercise) => Option.isNone(exercise.catalogId) && matches(exercise),
+            )
             if (Option.isSome(named)) {
               const patched = yield* Exercise.makeEffect({
                 ...named.value,

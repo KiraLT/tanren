@@ -1,11 +1,11 @@
 import type { CatalogExercise } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { View } from "react-native"
+import { useAddToToday } from "../hooks/useAddToToday"
 import { Banner, Button, space, Text } from "../ui"
 import { NO_SESSION_TITLE } from "./addToToday"
 import { equipmentLabel, humanize, musclesLine } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
-import { useAddToToday } from "./useAddToToday"
 
 /** v2-catalog.md §7: the illustration is 240 px. */
 const ILLUSTRATION_SIZE = 240

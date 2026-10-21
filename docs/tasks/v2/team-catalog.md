@@ -66,3 +66,5 @@ Global alias rule: no name may start with "Squat"; no bare one-word generic alia
 - [ ] apps/mobile/CLAUDE.md Layout · add src/library/**, useCatalogSearch, app/library/[catalogId].tsx, ExerciseLink, TodayRepo.addExercise (TD1)
 - [ ] apps/worker/CLAUDE.md + docs/design/mcp.md §4 · "four read tools / 7 tools" → 5 read / 8 total
 - 09:24→09:25 · C2 extra (instruction ≤ 120 assert) · abe336e32b6a39dd5 · 108k · 5 · done, shared 258/258 green
+- 09:24→09:27 · C4 fix r1 (Effect→services, hook→hooks) · ac95ee575052d4d12 · done, own vitest 17/17, mobile tsc + biome green
+- 09:24→09:28 · C3 fix r1 (unlinked-only match + order tests) · a9978d5c26bd2c99f · done, 35/35
