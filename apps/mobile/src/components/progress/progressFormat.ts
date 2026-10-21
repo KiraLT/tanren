@@ -29,6 +29,21 @@ export const bestSetParts = (
 /** "e1RM 116.7 kg". */
 export const formatE1Rm = (e1Rm: number): string => `e1RM ${formatKg1(e1Rm)}`
 
+/**
+ * The e1RM copy for a best set, or `None` for a bodyweight set: it is stored with `weightKg` 0
+ * (ADR-0007), so an estimate would read "e1RM 0 kg".
+ */
+export const e1RmText = (weightKg: number, e1Rm: number): Option.Option<string> =>
+  weightKg <= 0 ? Option.none() : Option.some(formatE1Rm(e1Rm))
+
+/** True when some week has a positive e1RM; a bodyweight exercise's trend is all `None` or 0. */
+export const hasE1RmTrend = (trend: ExerciseHistory["e1RmTrend"]): boolean =>
+  Arr.some(trend, (week) => Option.exists(week.e1Rm, (e1Rm) => e1Rm > 0))
+
+/** Heading of the weekly bars card, following the plotted unit. */
+export const weekBarsHeading = (unit: SeriesUnit): string =>
+  unit === "kg" ? "Volume, last 8 weeks" : "Reps, last 8 weeks"
+
 /** "100 kg × 5"; a bodyweight set (no load) is "12 reps". */
 export const formatSetText = (weightKg: number, reps: number): string =>
   weightKg <= 0 ? `${reps} reps` : `${formatKg1(weightKg)} × ${reps}`

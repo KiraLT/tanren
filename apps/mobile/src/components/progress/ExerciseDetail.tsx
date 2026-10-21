@@ -16,7 +16,15 @@ import {
   Text,
 } from "../../ui"
 import { illustrationIdFor } from "../todayHeader"
-import { bestSetParts, formatE1Rm, formatLoggedDate, formatSetText } from "./progressFormat"
+import {
+  bestSetParts,
+  e1RmText,
+  formatLoggedDate,
+  formatSetText,
+  hasE1RmTrend,
+  weekBarsHeading,
+  weekSeries,
+} from "./progressFormat"
 import { Sparkline } from "./Sparkline"
 import { WeekBars } from "./WeekBars"
 
@@ -46,10 +54,12 @@ function BestSetCard({ history }: DetailProps) {
         onNone: () => <Text tone="muted">No sets logged yet.</Text>,
         onSome: (best) => {
           const parts = bestSetParts(best.weightKg, best.reps)
+          const e1Rm = e1RmText(best.weightKg, history.bestE1Rm)
+          const spoken = Option.match(e1Rm, { onNone: () => "", onSome: (text) => `, ${text}` })
           return (
             <View
               accessible
-              accessibilityLabel={`Best set ${formatSetText(best.weightKg, best.reps)}, ${formatE1Rm(history.bestE1Rm)}, personal record`}
+              accessibilityLabel={`Best set ${formatSetText(best.weightKg, best.reps)}${spoken}, personal record`}
               style={{ gap: space.xs }}
             >
               <View
@@ -70,9 +80,14 @@ function BestSetCard({ history }: DetailProps) {
               <Text variant="label" tone="muted">
                 {parts.unit}
               </Text>
-              <Text variant="subhead" tone="muted">
-                {formatE1Rm(history.bestE1Rm)}
-              </Text>
+              {Option.match(e1Rm, {
+                onNone: () => null,
+                onSome: (text) => (
+                  <Text variant="subhead" tone="muted">
+                    {text}
+                  </Text>
+                ),
+              })}
             </View>
           )
         },
@@ -136,13 +151,15 @@ function DetailReady({ history }: DetailProps) {
       />
       <BestSetCard history={history} />
       <Card style={{ gap: space.md }}>
-        <Text variant="headline">Volume, last 8 weeks</Text>
+        <Text variant="headline">{weekBarsHeading(weekSeries(history.weeks).unit)}</Text>
         <WeekBars weeks={history.weeks} />
       </Card>
-      <Card style={{ gap: space.md }}>
-        <Text variant="headline">Estimated 1RM</Text>
-        <Sparkline trend={history.e1RmTrend} />
-      </Card>
+      {hasE1RmTrend(history.e1RmTrend) ? (
+        <Card style={{ gap: space.md }}>
+          <Text variant="headline">Estimated 1RM</Text>
+          <Sparkline trend={history.e1RmTrend} />
+        </Card>
+      ) : null}
       <RecentSessions history={history} />
     </View>
   )

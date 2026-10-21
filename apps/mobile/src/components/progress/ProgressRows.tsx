@@ -3,7 +3,7 @@ import type { ExerciseSummary, SessionSummary } from "../../hooks/useHistory"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import { ListRow, StatusPill, sizes, Text } from "../../ui"
 import { illustrationIdFor } from "../todayHeader"
-import { formatE1Rm, formatLoggedDate, formatSetText, formatVolume } from "./progressFormat"
+import { e1RmText, formatLoggedDate, formatSetText, formatVolume } from "./progressFormat"
 
 interface ExerciseRowProps {
   readonly summary: ExerciseSummary
@@ -11,11 +11,16 @@ interface ExerciseRowProps {
   readonly onPress: () => void
 }
 
-/** 56 px illustration, name (headline), `best set · e1RM` (subhead) and the last-logged day. */
+/** 56 px illustration, name (headline), `best set · e1RM` (subhead; best set only when bodyweight), last-logged day. */
 export function ExerciseRow({ summary, selected, onPress }: ExerciseRowProps) {
   const best = formatSetText(summary.best.weightKg, summary.best.reps)
-  const e1Rm = formatE1Rm(summary.bestE1Rm)
+  const e1Rm = e1RmText(summary.best.weightKg, summary.bestE1Rm)
   const last = formatLoggedDate(summary.lastLoggedAt)
+  const detail = Option.match(e1Rm, { onNone: () => best, onSome: (text) => `${best} · ${text}` })
+  const spoken = Option.match(e1Rm, {
+    onNone: () => `best set ${best}`,
+    onSome: (text) => `best set ${best}, ${text}`,
+  })
   return (
     <ListRow
       leading={
@@ -25,7 +30,7 @@ export function ExerciseRow({ summary, selected, onPress }: ExerciseRowProps) {
         />
       }
       title={summary.exercise.name}
-      subtitle={`${best} · ${e1Rm}`}
+      subtitle={detail}
       trailing={
         <Text variant="caption" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
           {last}
@@ -33,7 +38,7 @@ export function ExerciseRow({ summary, selected, onPress }: ExerciseRowProps) {
       }
       selected={selected}
       onPress={onPress}
-      accessibilityLabel={`${summary.exercise.name}, best set ${best}, ${e1Rm}, last logged ${last}`}
+      accessibilityLabel={`${summary.exercise.name}, ${spoken}, last logged ${last}`}
     />
   )
 }

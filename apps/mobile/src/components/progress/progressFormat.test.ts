@@ -2,13 +2,16 @@ import { DateTime, Option } from "effect"
 import { describe, expect, it } from "vitest"
 import {
   bestSetParts,
+  e1RmText,
   formatE1Rm,
   formatLoggedDate,
   formatSetText,
   formatVolume,
   formatWeekStart,
+  hasE1RmTrend,
   trendLabel,
   volumeLabel,
+  weekBarsHeading,
   weekSeries,
 } from "./progressFormat"
 
@@ -54,6 +57,29 @@ describe("formatting", () => {
 
   it("prints the local day and month of a timestamp", () => {
     expect(formatLoggedDate(DateTime.makeUnsafe("2026-10-21T12:00:00.000Z"))).toBe("21 Oct")
+  })
+})
+
+describe("bodyweight e1RM guard", () => {
+  it("prints the e1RM for a loaded best set", () => {
+    expect(e1RmText(100, 116.6666)).toEqual(Option.some("e1RM 116.7 kg"))
+  })
+
+  it("omits the e1RM for a bodyweight best set (weight 0)", () => {
+    expect(e1RmText(0, 0)).toEqual(Option.none())
+    expect(e1RmText(0, 13.3)).toEqual(Option.none())
+  })
+
+  it("has an e1RM trend only when some week is above 0", () => {
+    const none = { weekStart: "a", e1Rm: Option.none<number>() }
+    expect(hasE1RmTrend([none, { weekStart: "b", e1Rm: Option.some(0) }])).toBe(false)
+    expect(hasE1RmTrend([none, { weekStart: "b", e1Rm: Option.some(116.7) }])).toBe(true)
+    expect(hasE1RmTrend([])).toBe(false)
+  })
+
+  it("names the weekly bars after the plotted unit", () => {
+    expect(weekBarsHeading("kg")).toBe("Volume, last 8 weeks")
+    expect(weekBarsHeading("reps")).toBe("Reps, last 8 weeks")
   })
 })
 
