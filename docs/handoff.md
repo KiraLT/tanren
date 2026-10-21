@@ -334,3 +334,15 @@ Log in `docs/tasks/step-2.md`.
 - Then: commit IMG-5d + EM edits, `/retro`-style log, owner report with the final contact sheets; owner
   recipe unchanged (`pnpm db:reset && pnpm web:export && pnpm dev`). Owner-gated items unchanged
   (Expo Go font-load check on a real device, Live Activities dev build, universal links, production deploy).
+
+## Compact-safe at 13:12 (HEAD `a7ba711`, tree clean, no agents, no watchdogs)
+- Sent the owner the final screenshot set for feedback with a numbering scheme: phone light 1–10 and
+  dark D1–D10 in app order (Today, Library, Library detail Back Squat, Programs, Player, Plan, Progress,
+  Progress detail, Settings, Location editor), desktop W1–W7. Files:
+  `/private/tmp/claude-501/-Users-lukas-Documents-Personal-tanren/2f72436e-0cd5-4397-8737-fd4699a2ee88/scratchpad/UI-X2-<screen>-<390|1280>-<light|dark>.png`
+  (`today`, `library`, `library-back-squat`, `library-goblet-squat`, `programs`, `player`, `plan`, `progress`,
+  `progress-back-squat`, `settings`, `settings-edit-home`). Map his feedback by number to these files.
+- Next on his verdict: design fixes he names → one fable architect pass to spec, then ≤ 20-min engineer
+  tasks per screen (disjoint files), one cross-screen UI-R, UI-X with `ui-measure.js`. Otherwise the
+  desktop-layout gap (Today/Settings narrow columns at 1280) is the next design task.
+- Briefs drafted this session live in the scratchpad `briefs/` (UI-common, UI-2a…4b, UI-R, UI-X, IMG-5c).
