@@ -135,8 +135,14 @@ const v2: ReadonlyArray<string> = [
   dirtyIndex("program_day_completion"),
 ]
 
+/** v3 (docs/design/equipment.md §3, ADR-0016): training locations on the profile row. */
+const v3: ReadonlyArray<string> = [
+  `ALTER TABLE "profile" ADD COLUMN "locations" TEXT NOT NULL DEFAULT '[]'`,
+  `ALTER TABLE "profile" ADD COLUMN "activeLocationId" TEXT`,
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { searchCatalog } from "@tanren/shared"
+import { type Location, LocationId, searchCatalog } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import {
   hasFilter,
@@ -9,6 +9,12 @@ import {
   type SearchAction,
   toFilter,
 } from "./searchState"
+
+const homeLocation: Location = {
+  id: LocationId.make("2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d"),
+  name: "Home",
+  equipment: ["dumbbell", "bench"],
+}
 
 const run = (...actions: ReadonlyArray<SearchAction>) =>
   Arr.reduce(actions, initialSearch, reduceSearch)
@@ -42,6 +48,22 @@ describe("reduceSearch", () => {
     const state = run({ _tag: "Typed", text: "   " }, { _tag: "Settled" })
     expect(toFilter(state)).toEqual({})
     expect(hasFilter(state)).toBe(false)
+  })
+
+  it("atLocation (default on) adds the active location's equipment to the filter", () => {
+    const home = Option.some(homeLocation)
+    expect(initialSearch.atLocation).toBe(true)
+    expect(toFilter(initialSearch, home).availableEquipment).toEqual(["dumbbell", "bench"])
+    expect(
+      toFilter(run({ _tag: "AtLocation", value: false }), home).availableEquipment,
+    ).toBeUndefined()
+    expect(toFilter(initialSearch, Option.none()).availableEquipment).toBeUndefined()
+  })
+
+  it("hasFilter ignores atLocation and Cleared keeps it", () => {
+    const off = run({ _tag: "AtLocation", value: false })
+    expect(hasFilter(off)).toBe(false)
+    expect(reduceSearch(off, { _tag: "Cleared" }).atLocation).toBe(false)
   })
 
   it("Cleared resets everything", () => {

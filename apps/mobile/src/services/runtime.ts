@@ -23,6 +23,7 @@ import { HistoryRepo } from "./HistoryRepo"
 import { LocalStore } from "./LocalStore"
 import { PhaseAlerts } from "./PhaseAlerts"
 import { PlanWeekRepo } from "./PlanWeekRepo"
+import { ProfileRepo } from "./ProfileRepo"
 import { ProgramRepo } from "./ProgramRepo"
 import { DATABASE_NAME, SqlDriver, StoreError } from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
@@ -175,6 +176,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
         PhaseAlerts.layer,
       ),
       PlanWeekRepo.layer,
+      ProfileRepo.layer,
       HistoryRepo.layer,
       Account.layer,
       DataExporter.layer,

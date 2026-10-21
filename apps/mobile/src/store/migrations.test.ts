@@ -58,12 +58,37 @@ describe("migrations v2", () => {
         },
       ])
       yield* migrate(driver)
-      expect(yield* userVersion(driver)).toBe(2)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       const rows = yield* driver.all({
         sql: `SELECT "name", "catalogId" FROM "exercise"`,
         params: [],
       })
       expect(rows).toEqual([{ name: "Squat", catalogId: null }])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
+describe("migrations v3", () => {
+  it.effect("upgrades a v2 store in place: profile rows get no locations and no active one", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      const [v1, v2] = MIGRATIONS
+      yield* driver.batch([
+        ...[...(v1 ?? []), ...(v2 ?? [])].map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 2", params: [] },
+        {
+          sql: `INSERT INTO "profile" ("id", "userId", "goals", "constraints", "availableDays", "equipment", "timezone", "createdAt", "updatedAt")
+            VALUES ('u1', 'u1', '[]', '[]', '[]', '[]', 'Europe/Vilnius', 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(3)
+      const rows = yield* driver.all({
+        sql: `SELECT "locations", "activeLocationId" FROM "profile"`,
+        params: [],
+      })
+      expect(rows).toEqual([{ locations: "[]", activeLocationId: null }])
     }).pipe(Effect.provide(nodeSqlDriverLayer)),
   )
 })

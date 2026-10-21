@@ -206,6 +206,10 @@ export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>
     "Kneeling in front of a high cable pulley, both hands holding the cable handle at forehead height",
     "The torso is bent forward and down, elbows moving toward the thighs",
   ],
+  "cable-shrug": [
+    "Standing tall at a low cable pulley, both hands holding a straight bar in front of the thighs, arms straight",
+    "The shoulders are raised straight up at the top of the movement",
+  ],
 }
 
 /**
@@ -216,6 +220,7 @@ export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>
 export const NAME_OVERRIDES: Readonly<Record<string, string>> = {
   "frog-pump": "hip bridge, lying on the back, knees bent, soles together",
   "cable-crunch": "kneeling cable abdominal curl",
+  "cable-shrug": "standing upper-trapezius cable raise with a straight bar",
 }
 
 /** Style block, a blank line, then the template filled with the exercise's facts. */
