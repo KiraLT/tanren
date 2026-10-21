@@ -81,6 +81,8 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
 (`set viewport 390 1600`) or `ab screenshot "<selector>" file.png` per element.
 
 Rules: controls need `accessibilityLabel`s (that is what makes them targetable);
-report the snapshot lines that prove the behaviour, not a narrative; never kill
+report the snapshot lines that prove the behaviour, not a narrative; plain RN-web `Text`
+(muted notices, "Needs: …" lines, even with an `accessibilityLabel`) is missing from `ab snapshot`,
+so read copy with `ab eval 'document.body.innerText'` (EQ-2b); never kill
 servers you did not start; offline reloads against the dev server fail by
 design (no service worker) — go back online before reloading.

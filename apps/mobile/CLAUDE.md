@@ -252,6 +252,6 @@ empty components without per-screen patches. Stale Metro after edits: restart th
 plan, so use Library "no results" or a signed-in empty account.
 
 INT-X1 (2026-10-21, partial, time-boxed): on the export via `pnpm dev`, root gate green (1172 tests);
-magic-link sign-in, Library search/filter/detail and "Add to today's session" (navigates to Today)
+magic-link sign-in, Library search/filter/detail and "Add to today's session" (stays on the detail and shows "Added" / "Already in today's session" for 3 s since EQ-2b; before that it navigated to Today)
 proven at 390 px. Library detail then showed the placeholder (the SVG map was empty; since replaced by generated webps, see Illustrations). Not proven: the added exercise visible on Today,
 Programs player, Progress PR, Settings export/sign-out, dark/1280.
