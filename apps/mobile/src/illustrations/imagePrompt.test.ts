@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest"
 import {
   ApiErrorBody,
   accentTarget,
+  backgroundParams,
   exercisePrompt,
   humanize,
   IMAGE_SHEET,
@@ -20,6 +21,8 @@ import {
   SAMPLE_IDS,
   STYLE_FILE,
   selectIds,
+  TRANSPARENT_BACKGROUND,
+  transparentStyle,
 } from "./imagePrompt"
 
 const catalogIds = CATALOG.map((entry) => entry.catalogId)
@@ -34,16 +37,37 @@ describe("parseImageArgs", () => {
       all: false,
       limit: Option.none(),
       only: Option.none(),
+      transparent: false,
+      out: Option.none(),
     })
   })
 
   it("reads every flag and ignores a pnpm `--` separator", () => {
-    expect(args(["--", "--only", "plank, crunch", "--limit", "3", "--all"])).toEqual({
+    expect(
+      args([
+        "--",
+        "--only",
+        "plank, crunch",
+        "--limit",
+        "3",
+        "--all",
+        "--transparent",
+        "--out",
+        "/tmp/x",
+      ]),
+    ).toEqual({
       samples: false,
       all: true,
       limit: Option.some(3),
       only: Option.some(["plank", "crunch"]),
+      transparent: true,
+      out: Option.some("/tmp/x"),
     })
+  })
+
+  it("rejects --out without a directory", () => {
+    expect(Result.isFailure(parseImageArgs(["--out"]))).toBe(true)
+    expect(Result.isFailure(parseImageArgs(["--out", "--transparent"]))).toBe(true)
   })
 
   it("rejects unknown flags, bad limits, empty --only and --samples with --only", () => {
@@ -200,5 +224,31 @@ describe("wire and output", () => {
     expect(html).toContain('<img src="plank.webp"')
     expect(html).toContain("<figcaption>crunch</figcaption>")
     expect(html).toContain("(2)")
+  })
+})
+
+describe("transparentStyle", () => {
+  const guide = Option.getOrThrow(
+    parseStyleGuide(readFileSync(join(import.meta.dirname, "../..", STYLE_FILE), "utf8")),
+  )
+  const style = transparentStyle(guide.style)
+
+  it("replaces the painted off-white background with a transparent one", () => {
+    expect(style).not.toContain("#F7F5F2")
+    expect(style).not.toContain("soft flat ellipse")
+    expect(style).toContain(TRANSPARENT_BACKGROUND)
+  })
+
+  it("drops the implied floor line and keeps every other style line", () => {
+    expect(style).not.toContain("implied floor line")
+    const kept = (s: string) => s.split("\n").filter((l) => !/^(Background|Composition):/.test(l))
+    expect(kept(style)).toEqual(kept(guide.style))
+  })
+})
+
+describe("backgroundParams", () => {
+  it("asks for a transparent background only on transparent runs", () => {
+    expect(backgroundParams(true)).toEqual({ background: "transparent" })
+    expect(backgroundParams(false)).toEqual({})
   })
 })

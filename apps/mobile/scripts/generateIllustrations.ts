@@ -10,7 +10,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { registerHooks } from "node:module"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Console, Data, Effect, Option, Result, Schedule, Schema } from "effect"
 
@@ -50,11 +50,15 @@ const args = Result.getOrElse(P.parseImageArgs(process.argv.slice(2)), fail)
 const guide = Option.getOrElse(P.parseStyleGuide(readFileSync(at(P.STYLE_FILE), "utf8")), () =>
   fail(`${P.STYLE_FILE} needs a non-empty \`\`\`style and \`\`\`template block`),
 )
+/** `--out` (absolute or relative to the cwd) for samples; else the app's asset folder. */
+const outDir = Option.match(args.out, { onNone: () => at(P.IMAGE_DIR), onSome: (d) => resolve(d) })
+const outFile = (id: string) => join(outDir, P.imageFile(id))
+const style = args.transparent ? P.transparentStyle(guide.style) : guide.style
 const selection = Result.getOrElse(
   P.selectIds(
     args,
     CATALOG.map((entry) => entry.catalogId),
-    (id) => existsSync(at(`${P.IMAGE_DIR}/${P.imageFile(id)}`)),
+    (id) => existsSync(outFile(id)),
   ),
   fail,
 )
@@ -78,6 +82,7 @@ const generate = Effect.fn("generate")(function* (id: string) {
   ).pipe(
     Effect.mapError(() => new ImageFailed({ id, reason: "not in the catalog", retryable: false })),
   )
+  const started = performance.now()
   const response = yield* Effect.tryPromise({
     try: (signal) =>
       fetch("https://api.openai.com/v1/images/generations", {
@@ -85,7 +90,8 @@ const generate = Effect.fn("generate")(function* (id: string) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model: P.IMAGE_MODEL,
-          prompt: P.exercisePrompt(guide, entry),
+          prompt: P.exercisePrompt({ ...guide, style }, entry),
+          ...P.backgroundParams(args.transparent),
           n: 1,
           size: P.IMAGE_SIZE,
           quality: P.IMAGE_QUALITY,
@@ -122,18 +128,19 @@ const generate = Effect.fn("generate")(function* (id: string) {
   if (Option.isNone(image)) {
     return yield* new ImageFailed({ id, reason: "response has no b64_json image", retryable: true })
   }
-  const file = `${P.IMAGE_DIR}/${P.imageFile(id)}`
+  const file = outFile(id)
   const bytes = Buffer.from(image.value.b64_json, "base64")
   yield* Effect.try({
-    try: () => writeFileSync(at(file), bytes),
+    try: () => writeFileSync(file, bytes),
     catch: (cause) => new ImageFailed({ id, reason: describe(cause), retryable: false }),
   })
-  yield* Console.log(`  wrote ${file} (${Math.round(bytes.length / 1024)} KB)`)
+  const seconds = ((performance.now() - started) / 1000).toFixed(1)
+  yield* Console.log(`  wrote ${file} (${Math.round(bytes.length / 1024)} KB, ${seconds} s)`)
 })
 
 const program = Effect.gen(function* () {
   yield* Console.log(
-    `images:generate ${P.IMAGE_MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} webp: ${selection.ids.length} to generate, ${selection.existing} already exist${selection.deferred > 0 ? `, ${selection.deferred} deferred by the ${P.RUN_CAP}-image cap (pass --all)` : ""}`,
+    `images:generate ${P.IMAGE_MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} webp${args.transparent ? " transparent" : ""}: ${selection.ids.length} to generate, ${selection.existing} already exist${selection.deferred > 0 ? `, ${selection.deferred} deferred by the ${P.RUN_CAP}-image cap (pass --all)` : ""}`,
   )
   const attempt = (id: string) =>
     generate(id).pipe(
@@ -150,9 +157,12 @@ const program = Effect.gen(function* () {
   const results = yield* Effect.forEach(selection.ids, attempt, { concurrency: 4 })
   const failures = results.flatMap((r) => (Result.isFailure(r) ? [r.failure] : []))
   yield* Effect.forEach(failures, (f) => Console.error(`  x ${f.id}: ${f.reason}`))
-  const onSheet = writeContactSheet(root)
+  // A sample run (`--out`) leaves the app's contact sheet alone.
+  const sheet = Option.isNone(args.out)
+    ? `; ${P.IMAGE_SHEET} lists ${writeContactSheet(root)}`
+    : ` into ${outDir}`
   yield* Console.log(
-    `images:generate wrote ${results.length - failures.length} images, ${failures.length} failed; ${P.IMAGE_SHEET} lists ${onSheet}`,
+    `images:generate wrote ${results.length - failures.length} images, ${failures.length} failed${sheet}`,
   )
   return failures.length
 })

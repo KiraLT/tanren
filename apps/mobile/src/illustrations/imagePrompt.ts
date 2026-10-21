@@ -37,11 +37,23 @@ export interface ImageArgs {
   readonly all: boolean
   readonly limit: Option.Option<number>
   readonly only: Option.Option<ReadonlyArray<string>>
+  /** `--transparent`: `background: "transparent"` and a prompt without a painted backdrop. */
+  readonly transparent: boolean
+  /** `--out <dir>`: write there instead of IMAGE_DIR (samples); no contact sheet is written. */
+  readonly out: Option.Option<string>
 }
 
-const NO_ARGS: ImageArgs = { samples: false, all: false, limit: Option.none(), only: Option.none() }
+const NO_ARGS: ImageArgs = {
+  samples: false,
+  all: false,
+  limit: Option.none(),
+  only: Option.none(),
+  transparent: false,
+  out: Option.none(),
+}
 
-export const USAGE = "usage: images:generate [--samples | --only <id,…>] [--limit N] [--all]"
+export const USAGE =
+  "usage: images:generate [--samples | --only <id,…>] [--limit N] [--all] [--transparent] [--out <dir>]"
 
 const parseFrom = (
   rest: ReadonlyArray<string>,
@@ -56,6 +68,12 @@ const parseFrom = (
   if (flag === "--") return parseFrom(rest.slice(1), acc)
   if (flag === "--samples") return parseFrom(rest.slice(1), { ...acc, samples: true })
   if (flag === "--all") return parseFrom(rest.slice(1), { ...acc, all: true })
+  if (flag === "--transparent") return parseFrom(rest.slice(1), { ...acc, transparent: true })
+  if (flag === "--out") {
+    return value === undefined || value.length === 0 || value.startsWith("--")
+      ? Result.fail("--out needs a directory")
+      : parseFrom(rest.slice(2), { ...acc, out: Option.some(value) })
+  }
   if (flag === "--limit") {
     const n = Number(value)
     return value === undefined || !Number.isInteger(n) || n < 1
@@ -240,6 +258,29 @@ export const exercisePrompt = (guide: StyleGuide, facts: PromptFacts): string =>
     .replaceAll("{{accent}}", accentTarget(facts))
   return `${guide.style}\n\n${filled}`
 }
+
+/** Replaces style.md's `Background:` line for `--transparent` runs. */
+export const TRANSPARENT_BACKGROUND =
+  "Background: fully transparent. No backdrop colour, no floor, no ground plane, no floor line, no shadow, no ellipse under the figure, no vignette and no frame: only the athlete and the equipment are painted."
+
+/**
+ * The style block for a transparent image: the `Background:` line is replaced, and the implied
+ * floor line in `Composition:` is dropped (it renders as a painted ground plane). Every other rule,
+ * and so the figure style, stays identical.
+ */
+export const transparentStyle = (style: string): string =>
+  style
+    .split("\n")
+    .map((line) =>
+      line.startsWith("Background:")
+        ? TRANSPARENT_BACKGROUND
+        : line.replace(", feet on an implied floor line", ""),
+    )
+    .join("\n")
+
+/** Request fields that set the background: opaque runs keep the API default. */
+export const backgroundParams = (transparent: boolean): { readonly background?: "transparent" } =>
+  transparent ? { background: "transparent" } : {}
 
 /** `POST /v1/images/generations` 200 body: GPT image models always return `b64_json`. */
 export const ImagesResponse = Schema.Struct({
