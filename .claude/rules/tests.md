@@ -14,7 +14,9 @@ paths:
 - Name tests by behaviour: `decodes a valid PlannedSet`, `rejects RPE above 10`.
 - Schemas: test decode success, decode failure (assert the `SchemaError`
   message or the failing path), and encode→decode round-trip. No snapshot
-  tests for schemas. Typed failures: `Effect.flip(eff)` (the error becomes the
+  tests for schemas. Every `Patch` schema: `{}` decodes to an object with
+  zero keys and a one-key input decodes to exactly that key (a field with a
+  decoding default inside a derived Patch wiped `locations` in v3). Typed failures: `Effect.flip(eff)` (the error becomes the
   value) or `Effect.result(eff)` + `Result.isFailure`.
 - Services: provide test Layers, per test with `.pipe(Effect.provide(L))` or
   shared with `layer(L)("name", (it) => { it.effect(...) })` (one build and

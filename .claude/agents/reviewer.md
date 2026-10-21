@@ -59,6 +59,15 @@ engineer can act on without asking questions.
 - Correctness: off-by-one, `Option` / `undefined` handling,
   encode / decode asymmetry, timestamp and timezone handling, sync columns
   present on every row schema.
+- Derived schemas: for every `Patch`/`Insert`/mapped schema in or behind
+  the diff (`mapFields`, `Struct.map(optionalKey)`, `omit`, `pick`; a diff
+  line like `UpdateProfileInput = ProfilePatch` means reading the derivation
+  too), decode a minimal input (`Schema.decodeUnknownSync(X)({})`, then one
+  key) and assert only the sent keys appear. A field with a decoding default
+  (`withDecodingDefaultKey`, `OptionFromOptionalNullOr`) keeps its default
+  inside a derived Patch: EQ-R2 approved `update_profile` while every patch
+  wiped `locations`; the fix engineer found it writing the merge-path test,
+  and `ExercisePatch` had the same bug.
 - Docs: decisions surfaced in the report (so the Lead can file an ADR); the
   package `CLAUDE.md` still describes reality.
 

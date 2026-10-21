@@ -43,7 +43,12 @@ an API.
    contracts precisely enough that teams never need to talk to each other.
    Every `Assumes` line that states a data fact cites its source (ADR
    number or design §) and is read against it before the charter is
-   written: plan-web's charter said "`weekStart` is a Monday" while its own
+   written; an Assumes line about *behaviour* cites the behaviour — the
+   grep of the return paths (`grep -n "return true\|return false" <file>`
+   with the branch above each) — never a signature: v3's sheet said
+   "`addCatalogToToday` returns `false` when already planned" citing
+   `Effect<boolean, …>`, the code returned `true` on both paths, and two
+   briefs carried the error until EQ-2 read the function: plan-web's charter said "`weekStart` is a Monday" while its own
    contract block and ADR-0007 say any weekday; the team-lead had to
    overrule the charter in its sheet. An uncited Assumes line is a question
    for the Lead, not a fact. Before the task list, grep the master Log and

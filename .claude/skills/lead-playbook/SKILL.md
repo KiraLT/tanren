@@ -99,9 +99,18 @@ task sheet. Tactics, in order of payoff:
 2. **Overlap stages.** Review what is finished while the last task runs;
    skill truth-up in parallel with review; route findings the moment they
    arrive, to the agent that wrote the file (SendMessage, keeps context).
+   Default, not a judgement call: review each committed half while the
+   other half still codes (v3: R1 mobile ∥ R2 server saved ≈ 9 of 41 min),
+   and when an engineer stops early, resume it on one disjoint half and
+   dispatch a fresh engineer on the other (EQ-2a ∥ 2b saved ≈ 6 min).
 3. **Fewer handoffs for sequential work.** If tasks are dependent and
    small, one engineer does them in sequence (one brief with ordered parts)
-   instead of three engineers waiting on each other.
+   instead of three engineers waiting on each other. The task that owns a
+   file set also owns its additive first step: moving EQ-1's shared step
+   into EQ-2 made EQ-1 wait 5 min after EQ-C reported and shipped
+   compile-compat decode defaults that later wiped `locations`; a default
+   added only to keep fixtures compiling is named in the brief as a
+   reviewer flag.
 4. **Time boxes and a clear bar** in every brief (see Cost discipline).
    Thoroughness beyond the bar is waste, not quality.
 5. **Pre-write briefs** (`docs/tasks/step-N-briefs.md`) so dispatch is a
@@ -148,9 +157,11 @@ task sheet. Tactics, in order of payoff:
 - Every brief states a **time box** (10 min for a single-module change with
   tests on either model — hardening H1–H4 ran 2–5 min on 15–20 min boxes;
   15–20 min only for a task with a runtime proof or a new package/runtime;
-  `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a
-  turn is one API round, not one tool call, and sonnet runs ≈ 7 turns/min,
-  so 120 ≈ 17 min) and
+  `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a turn is
+  one API round, not one tool call; sonnet ≈ 7 turns/min, opus ≈ 6 (EQ-1: 89
+  turns in 14.5 min), so 120 ≈ 17–20 min and **no brief box exceeds 20 min** —
+  a larger sheet box (EQ-2: 75 → 40) is split into disjoint parts before
+  dispatch, never carried as a number the harness cannot honour) and
   the bar: *compiles, gate green, exactly the tests `.claude/rules/tests.md`
   requires*. Exhaustive sample matrices, tarball archaeology and 40-test
   workbenches only when the Lead asks for them explicitly.

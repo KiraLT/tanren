@@ -108,6 +108,11 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   single style object, not an array (a thrown render error leaves the exported page blank and silent).
   Check: `agent-browser errors --json` empty and no "does not recognize" in `console` (use a fresh
   `--session`: `errors --clear` does not reset the buffer).
+- Web a11y state: react-native-web drops `accessibilityState.checked` (no `aria-checked` reaches the
+  DOM), so a checkbox/toggle chip also sets `aria-checked={selected}` (`ToggleChip` in `src/ui`);
+  `selected`/`disabled` do map. After editing a component, restart the dev server (kill the pid, start
+  on a new port) before re-snapshotting: a stale Metro bundle cost EQ-2a a round (8187 → 8188). Plain
+  RN-web `Text` is absent from `ab snapshot`: read copy with `ab eval 'document.body.innerText'`.
 
 ## Programs / player (v2, docs/design/v2-programs.md §4)
 

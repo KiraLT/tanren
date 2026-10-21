@@ -50,10 +50,21 @@ src/
 ## Conventions
 
 - One file per aggregate. Entity schema named after the entity
-  (`Session`), its ID in `ids.ts`, create/patch inputs as `SessionInsert`,
-  `SessionPatch` derived with `Session.mapFields(Struct.omit([...]))` /
-  `Struct.map(..., Schema.optionalKey)`. Domain code builds instances with
-  `Session.makeEffect(...)`; `new Session(...)` only in tests and fixtures.
+  (`Session`), its ID in `ids.ts`, create input `SessionInsert` derived with
+  `Session.mapFields(Struct.omit(ROW_COLUMNS))` (re-attach struct checks).
+  A patch (`SessionPatch`) is never derived: it is an explicit
+  `Schema.Struct` of `Schema.optionalKey(<bare field schema>)` entries, and
+  its test asserts `{}` decodes to zero keys. A derived patch keeps every
+  decoding default (`withDecodingDefaultKey`, `OptionFromOptionalNullOr`),
+  so `{ name }` decoded with `catalogId: None` / `locations: []` and every
+  `update_profile` / exercise patch wiped those columns (v3: ProfilePatch
+  fixed in 229fbdb, ExercisePatch in EQ-F3). Domain code builds instances
+  with `Session.makeEffect(...)`; `new Session(...)` only in tests and
+  fixtures.
+- Catalog size: `catalog/catalog.test.ts:90` caps `CATALOG` at 285–300 (291
+  after v3); raise the cap in the brief that adds entries.
+  `apps/worker/src/mcp/tools.test.ts:305` ranks the query "row" with
+  `limit: 500` and couples to catalog size.
 - Every row-like schema includes the sync columns: `id`, `userId`,
   `createdAt`, `updatedAt`, `deletedAt: Option`. Use `Schema.OptionFromNullOr`
   at the boundary so JSON carries `null` and TypeScript carries `Option`.

@@ -64,7 +64,11 @@ export class WorkoutSet extends Schema.Class<WorkoutSet>("@tanren/shared/Workout
 /** Client input: no id (IdGenerator), no userId (auth), no sync columns (server). */
 export const WorkoutSetInsert = WorkoutSet.mapFields(Struct.omit(ROW_COLUMNS))
 export type WorkoutSetInsert = typeof WorkoutSetInsert.Type
-// Patch: also omit the immutable parent key, then `.mapFields(Struct.map(Schema.optionalKey))`
+// Patch: NEVER derived. An explicit Struct of optionalKey(<bare field schema>), e.g.
+// export const WorkoutSetPatch = Schema.Struct({ weightKg: Schema.optionalKey(WeightKg), … })
+// A derived patch keeps decoding defaults (withDecodingDefaultKey, OptionFromOptionalNullOr), so
+// `{ name }` decoded with `catalogId: None` / `locations: []` and wiped the column (v3 ProfilePatch,
+// ExercisePatch). Its test: `{}` decodes to zero keys (rules/tests.md).
 
 // sync.ts: one union discriminated on `table`; a soft delete is a row with deletedAt: Some
 const member = <T extends SyncTable, Row extends Schema.Constraint>(table: T, row: Row) =>
@@ -358,3 +362,8 @@ it.effect("reports NotFound for an unknown id", () =>
 - `layer(L)("name", (it) => …)` shares one layer and its state; no `.live`.
 - Typed failures: `Effect.flip` (error becomes the value) or `Effect.result(eff)` +
   `Result.isFailure`. Type-level: `expectTypeOf`.
+- Read-then-write races: the node sqlite driver is synchronous, so two forked fibers never
+  interleave between a read and a save and a concurrency test passes with no lock at all. Wrap the
+  store so reads yield first (`all: (s) => Effect.andThen(Effect.yieldNow, inner.all(s))`, see
+  `apps/mobile/src/components/settings/locationsState.test.ts`); the test must fail without the
+  `Semaphore`/`modify` and pass with it (EQ-F1).

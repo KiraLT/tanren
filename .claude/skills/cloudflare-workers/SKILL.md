@@ -150,6 +150,10 @@ to `mcp.handle` before `app.handler`. Facts:
 - Top level = local: `vars` (`ENVIRONMENT: "local"`, `BETTER_AUTH_URL`, `MCP_RESOURCE_URL:
   "http://localhost:8787/mcp"`, fake `BETTER_AUTH_SECRET` / `DEV_MCP_TOKEN`), D1 `DB`, and
   `kv_namespaces: [{ binding: "OAUTH_KV", id: "local-oauth-kv" }]`. A bare `wrangler dev` cannot reach Cloudflare.
+  `MCP_RESOURCE_URL` is baked to 8787: a `wrangler dev --port <n>` stack must pass
+  `--var MCP_RESOURCE_URL:http://localhost:<n>/mcp` or every dev-token MCP call is 401
+  `Invalid audience` (EQ-1, INT-X3). Start it as `node_modules/.bin/wrangler dev` (cwd `apps/worker`),
+  never `pnpm exec wrangler`: `$!` then records the pnpm shim and `kill` leaves wrangler on the port.
 - `env.production` (shape from `docs/design/deploy.md` §2): `routes` `api.tanren.me` and
   `mcp.tanren.me` (`custom_domain: true`), its own `vars` (`BETTER_AUTH_URL` `https://api.tanren.me`,
   `MCP_RESOURCE_URL` `https://mcp.tanren.me/mcp`), its own `d1_databases` and `kv_namespaces`

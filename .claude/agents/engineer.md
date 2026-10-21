@@ -48,9 +48,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
 5. Tests are part of the task: colocated `*.test.ts`, `@effect/vitest` for
    Effect code. Cover the behaviour the brief specifies, including failures.
 6. Write source files with the Write/Edit tools, not Bash heredocs: the
-   Biome hook only runs on those tools (if you did use Bash, run
-   `pnpm format` before the gate). Fix the diagnostics the hook shows; do not
-   hand-format or add suppression comments without a reason in the comment.
+   Biome hook only runs on those tools. The one accepted exception: appending
+   cases to an existing `*.test.ts` with `cat >> … <<'EOF'` when the same
+   Bash call ends with `pnpm exec biome check --write <file>` (EQ-2a/2b);
+   everything else goes through Edit. Fix the diagnostics the hook shows; do
+   not hand-format or add suppression comments without a reason in the comment.
    Never rewrite a file with a scripted regex/sed/python replace: the repo may have no commit
    to restore from (untracked files are lost for good). Use Edit; `Write` a whole file only
    after reading it.
@@ -69,10 +71,15 @@ Lead had to route it back through the team-lead, one extra turn each way).
    outside this repository, or read `.env*` / `.dev.vars*`. Do not create
    README files or ad-hoc docs; put decisions in the report so the Lead can
    turn them into ADRs.
-9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`), always backgrounded with its PID written to a pid file at start (`(pnpm exec wrangler dev --port <n> > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid)`), readiness checked with a bounded loop (`for i in $(seq 1 60); do curl -sf localhost:<n>/health && break; sleep 1; done` — macOS has no `timeout`), never a foreground server and never an unbounded `until` loop. Stop servers only by the PIDs recorded in those pid files (`kill $(cat $S/<task>-wrangler.pid)`), never by a computed process tree: INT-X2's hand-written `ps | awk` ancestry script over-matched and ran `kill` on ~20 unrelated PIDs (its own shell exited 144). Name scratchpad pid/log files after your task id
+9. Never `pkill`/`killall` or stop processes you did not start; other teams may be running dev servers. Start yours on a dedicated port (`wrangler dev --port <n>`, `expo start --port <n>`), always backgrounded with its PID written to a pid file at start (`(cd apps/worker && node_modules/.bin/wrangler dev --port <n> --inspector-port <n+500> > $S/<task>-wrangler.log 2>&1 & echo $! > $S/<task>-wrangler.pid)` — the binary, never `pnpm exec wrangler`: that puts the pnpm shim in `$!`, and `kill` of it leaves wrangler on the port; EQ-1 killed twice and re-echoed the PID by hand), readiness checked with a bounded loop (`for i in $(seq 1 60); do curl -sf localhost:<n>/health && break; sleep 1; done` — macOS has no `timeout`), never a foreground server and never an unbounded `until` loop. Stop servers only by the PIDs recorded in those pid files (`kill $(cat $S/<task>-wrangler.pid)`), never by a computed process tree: INT-X2's hand-written `ps | awk` ancestry script over-matched and ran `kill` on ~20 unrelated PIDs (its own shell exited 144). Name scratchpad pid/log files after your task id
    (`$S/<task>-wrangler.pid`, `$S/<task>-wrangler.log`): a bare `wrangler.pid` in the shared scratchpad
    may belong to another agent (INT-2b found one). `pnpm db:reset` wipes the local D1 every running
-   `wrangler dev` shares; in company mode, check for other pid files first.
+   `wrangler dev` shares; in company mode, check for other pid files first. A port is free only when
+   `ps -ef | grep "port <n>" | grep -v grep` prints nothing AND `curl -s localhost:<n>/health` fails
+   (orphans do not show in `lsof`). On any port other than 8787, dev-token MCP calls need
+   `--var MCP_RESOURCE_URL:http://localhost:<n>/mcp` or every call is 401 `Invalid audience` (EQ-1).
+   Your report is incomplete until `kill $(cat $S/<task>-*.pid)` ran and that `ps -ef` re-check printed
+   nothing: two finished agents left wranglers on 8795/8793 that nobody could stop (INT-X3).
 9b. A permission prompt blocks your run until a human answers; with the owner
    away that is forever (v2 night: C5 ran `rm -rf $S/v2c5-state` and I1 ran
    `rm -r assets/exercises/_probe` inside otherwise harmless compound
@@ -91,9 +98,15 @@ Lead had to route it back through the team-lead, one extra turn each way).
    behavioural done-criteria, `superpowers:systematic-debugging` when the gate
    fails for a non-obvious reason, and `superpowers:verification-before-completion`
    before you report. Our brief replaces its brainstorming/planning steps.
-11. Respect the brief's time box. At the box: stop, run the gate, and report
-   what is done, the gate output, and what is left. A partial, honest report
-   beats a late perfect one; the Lead can resume you.
+11. Respect the brief's time box, measured by the clock: run `date` in your
+   first Bash call and again before you claim the box is reached, and put
+   both times in the report (EQ-2 reported "hit the 40-min box" after 8 min
+   and 51 turns with no `date` call; the UI half waited for a resume). If
+   something else stops you — the turn cap (`maxTurns: 120` ≈ 20 min of
+   dense tool use on opus), a context limit — name it ("turn cap", never
+   "time box"). At the box: stop, run the gate, and report what is done, the
+   gate output, and what is left. A partial, honest report beats a late
+   perfect one; the Lead can resume you.
 
 ## Kaizen
 

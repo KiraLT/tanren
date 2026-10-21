@@ -84,7 +84,9 @@ timezones; a string does not.
 **Nullability.** `Option` in TypeScript, `null` on the wire:
 `Schema.OptionFromNullOr(X)` for every optional row field and protocol field.
 No `undefined` in row types. Patch inputs are the one place keys may be
-absent (`Schema.optionalKey`), meaning "do not change".
+absent (`Schema.optionalKey`), meaning "do not change". A Patch is an explicit
+`Schema.Struct` of `optionalKey` fields, never `mapFields` over the entity
+(decoding defaults survive the derivation: ProfilePatch/ExercisePatch, v3).
 
 **Collections.** `ReadonlyArray` via `Schema.Array`; sets of literals are
 `Schema.UniqueArray` (JSON array on the wire, uniqueness checked). No
@@ -293,9 +295,10 @@ export const XFields = { /* own fields, incl. parent ids */ }
 export class X extends Schema.Class<X>("@tanren/shared/X")({ ...rowFields(XId), ...XFields }) {}
 export type XEncoded = typeof X["Encoded"]
 export const XInsert = X.mapFields(Struct.omit(ROW_COLUMNS))        // server adds id, userId, timestamps
-export const XPatch = X
-  .mapFields(Struct.omit([...ROW_COLUMNS /* , immutable parent ids, if any */]))
-  .mapFields(Struct.map(Schema.optionalKey))                        // exact partial: absent key = unchanged
+export const XPatch = Schema.Struct({                               // never derived: a derived patch keeps
+  name: Schema.optionalKey(Label),                                  // decoding defaults and wipes the column
+  /* one optionalKey(<bare field schema>) per patchable field; test: `{}` decodes to zero keys */
+})
 export type XInsert = typeof XInsert.Type;  export type XPatch = typeof XPatch.Type
 ```
 
