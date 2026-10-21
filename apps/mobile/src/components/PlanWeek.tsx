@@ -2,9 +2,8 @@ import type { LocalDate, PlannedSessionId } from "@tanren/shared"
 import { Option } from "effect"
 import { View } from "react-native"
 import type { PlanWeekView } from "../hooks/usePlanWeek"
-import { space, Text } from "../ui"
-import { PlanDayRow } from "./PlanDayRow"
-import { PlannedSessionCard } from "./PlannedSessionCard"
+import { ListGroup, space, Text } from "../ui"
+import { PlanDayRow, PlanSessionRow } from "./PlanDayRow"
 import { formatWeekRange } from "./planFormat"
 
 interface PlanWeekProps {
@@ -52,25 +51,33 @@ export function PlanWeek({
           onSome: (intent) => <Text tone="muted">{intent}</Text>,
         })}
       </View>
-      {view.days.map((day) => (
-        <PlanDayRow key={day.date} day={day} isToday={day.date === today} {...selection} />
-      ))}
+      <ListGroup>
+        {view.days.map((day) => (
+          <PlanDayRow key={day.date} day={day} isToday={day.date === today} {...selection} />
+        ))}
+      </ListGroup>
       {view.unscheduled.length === 0 ? null : (
         <View style={{ paddingTop: space.xl, gap: space.sm }}>
-          <Text variant="headline" accessibilityRole="header">
+          <Text variant="caption" tone="muted" accessibilityRole="header">
             Unscheduled
           </Text>
-          {view.unscheduled.map((item) => (
-            <PlannedSessionCard
-              key={item.plannedSession.id}
-              item={item}
-              showBlocks={showBlocks}
-              selected={selectedSessionId === item.plannedSession.id}
-              {...(onSelectSession === undefined
-                ? {}
-                : { onPress: () => onSelectSession(item.plannedSession.id) })}
-            />
-          ))}
+          <ListGroup>
+            {view.unscheduled.map((item) => (
+              <View
+                key={item.plannedSession.id}
+                style={{ flexDirection: "row", padding: space.sm, paddingHorizontal: space.md }}
+              >
+                <PlanSessionRow
+                  item={item}
+                  showBlocks={showBlocks}
+                  selected={selectedSessionId === item.plannedSession.id}
+                  {...(onSelectSession === undefined
+                    ? {}
+                    : { onPress: () => onSelectSession(item.plannedSession.id) })}
+                />
+              </View>
+            ))}
+          </ListGroup>
         </View>
       )}
     </View>

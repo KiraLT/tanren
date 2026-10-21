@@ -1,25 +1,95 @@
 import type { PlannedSessionId } from "@tanren/shared"
-import { View } from "react-native"
+import { Pressable, View } from "react-native"
 import type { PlanDay } from "../hooks/usePlanWeek"
-import { space, stroke, Text, useBreakpoint, useTheme } from "../ui"
-import { PlannedSessionCard } from "./PlannedSessionCard"
-import { formatDayDate, weekdayLabel } from "./planFormat"
+import { radius, StatusPill, sizes, space, statusTone, Text, useBreakpoint, useTheme } from "../ui"
+import { type PlanSessionItem, SessionBlocks } from "./PlannedSessionCard"
+import { formatDayDate, sessionLabel, statusLabel, weekdayLabel } from "./planFormat"
+
+interface PlanSessionRowProps {
+  readonly item: PlanSessionItem
+  readonly selected?: boolean
+  /** Makes the session a button, e.g. to select it for the aside. */
+  readonly onPress?: () => void
+  readonly showBlocks?: boolean
+}
+
+/** A session inside a grouped plan list: `subhead` name, status pill, optional block lines. */
+export function PlanSessionRow({
+  item,
+  selected = false,
+  onPress,
+  showBlocks = true,
+}: PlanSessionRowProps) {
+  const { colors } = useTheme()
+  const label = sessionLabel(item.plannedSession.name, item.status)
+  const content = (
+    <>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+        <Text variant="subhead" style={{ flex: 1 }}>
+          {item.plannedSession.name}
+        </Text>
+        <StatusPill label={statusLabel(item.status)} tone={statusTone[item.status]} />
+      </View>
+      {showBlocks ? <SessionBlocks blocks={item.blocks} /> : null}
+    </>
+  )
+  const box = {
+    flex: 1,
+    gap: space.xs,
+    borderRadius: radius.md,
+    borderCurve: "continuous",
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
+  } as const
+  if (onPress === undefined) {
+    return (
+      <View
+        accessible
+        accessibilityLabel={label}
+        style={[box, { backgroundColor: selected ? colors.accentSoft : "transparent" }]}
+      >
+        {content}
+      </View>
+    )
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        box,
+        {
+          minHeight: sizes.tap,
+          backgroundColor: selected
+            ? colors.accentSoft
+            : pressed
+              ? colors.surfaceRaised
+              : "transparent",
+        },
+      ]}
+    >
+      {content}
+    </Pressable>
+  )
+}
 
 interface PlanDayRowProps {
   readonly day: PlanDay
   readonly isToday: boolean
   readonly selectedSessionId?: PlannedSessionId
-  /** Makes the session cards pressable. */
+  /** Makes the sessions pressable. */
   readonly onSelectSession?: (id: PlannedSessionId) => void
   readonly showBlocks?: boolean
 }
 
-/** Date column width: 64 on phone, 96 from tablet up (design §5). */
-const DATE_COLUMN = { phone: 64, tablet: 96, desktop: 96 } as const
+/** Date column width: 72 on phone, 96 from tablet up. */
+const DATE_COLUMN = { phone: 72, tablet: 96, desktop: 96 } as const
 
 /**
- * One day of the week as a grouped row with a hairline: weekday + date on the left (accent tone
- * and an `accentSoft` background when today), its session cards on the right.
+ * One day of the week as a row of a grouped list (`PlanWeek` draws the surface and hairlines):
+ * weekday `headline` (accent when today) over the date `subhead`, its sessions on the right.
  */
 export function PlanDayRow({
   day,
@@ -28,20 +98,18 @@ export function PlanDayRow({
   onSelectSession,
   showBlocks = true,
 }: PlanDayRowProps) {
-  const { colors } = useTheme()
   const breakpoint = useBreakpoint()
   const dateText = formatDayDate(day.date)
   const dayLabel = `${weekdayLabel(day.weekday)} ${dateText}${isToday ? ", today" : ""}`
   return (
     <View
       style={{
+        minHeight: sizes.controlLg,
         flexDirection: "row",
+        alignItems: "flex-start",
         gap: space.md,
-        paddingVertical: space.md,
-        paddingHorizontal: space.sm,
-        borderBottomWidth: stroke.hairline,
-        borderBottomColor: colors.border,
-        backgroundColor: isToday ? colors.accentSoft : "transparent",
+        paddingVertical: space.sm,
+        paddingHorizontal: space.lg,
       }}
     >
       <View
@@ -56,14 +124,14 @@ export function PlanDayRow({
           {dateText}
         </Text>
       </View>
-      <View style={{ flex: 1, gap: space.sm }}>
+      <View style={{ flex: 1, gap: space.xs, justifyContent: "center", alignSelf: "stretch" }}>
         {day.sessions.length === 0 ? (
-          <Text tone="muted" style={{ paddingTop: space.xs }}>
+          <Text variant="subhead" tone="muted" style={{ paddingHorizontal: space.sm }}>
             Rest
           </Text>
         ) : (
           day.sessions.map((item) => (
-            <PlannedSessionCard
+            <PlanSessionRow
               key={item.plannedSession.id}
               item={item}
               showBlocks={showBlocks}

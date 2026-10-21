@@ -1,14 +1,15 @@
 import { Match, Option } from "effect"
 import { useRouter } from "expo-router"
-import { View } from "react-native"
+import { ScrollView, View } from "react-native"
 import {
   DayCard,
+  DayItems,
   DayList,
   EnrolCard,
   ProgramFinished,
 } from "../../src/player/components/ProgramHome"
 import { useProgramDay } from "../../src/player/useProgramDay"
-import { AppBar, Banner, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
+import { AppBar, Banner, gutter, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
 
 const PROGRAMS_BAR = <AppBar title="Programs" />
 
@@ -24,7 +25,7 @@ export default function ProgramsScreen() {
       Loading: () => (
         <Page header={PROGRAMS_BAR}>
           <View accessible accessibilityLabel="Loading program" style={{ gap: space.lg }}>
-            <Skeleton width="60%" height={32} />
+            <Skeleton width="100%" height={136} />
             <Skeleton width="100%" height={220} />
           </View>
         </Page>
@@ -43,14 +44,22 @@ export default function ProgramsScreen() {
         <Page
           header={PROGRAMS_BAR}
           scroll
-          aside={<DayList program={program} currentDay={enrollment.currentDay} />}
+          aside={
+            <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
+              <DayList program={program} currentDay={enrollment.currentDay} />
+            </ScrollView>
+          }
         >
           {Option.match(day, {
             onNone: () => <ProgramFinished program={program} />,
             onSome: (today) => (
-              <DayCard program={program} day={today} showItems={!wide} onStart={play} />
+              <>
+                <DayCard program={program} day={today} onStart={play} />
+                {wide ? null : <DayItems day={today} />}
+              </>
             ),
           })}
+          {wide ? null : <DayList program={program} currentDay={enrollment.currentDay} />}
         </Page>
       ),
     }),
