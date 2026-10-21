@@ -37,7 +37,7 @@ src/
                       Resend via `makeResendSender`), authRoutes (store/build/request failure → 503
                       `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
-  mcp/                tools.ts (four read tools, pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
+  mcp/                tools.ts (5 read tools incl. `search_exercises`; with the 3 write tools 8 total; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
                       writeTools.ts (`write_plan_week`, `log_session`, `update_profile`) · McpAuth.ts (identity port → `McpPrincipal`) ·
                       server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime)
   oauth/              provider.ts (`makeProvider`: `new OAuthProvider` + `serveWith` routing) · authorize.ts (`/authorize` pages:

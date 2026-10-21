@@ -120,8 +120,11 @@ derivation is the one `ExercisePatch` already uses; VERIFY that `Struct.omit` on
   }
   export type ToolDeps = ExerciseRepo | PlanRepo | SessionRepo | ProfileRepo
   export type ToolError = NotFound | ValidationError | PersistenceError
-  export const readTools: ReadonlyArray<AnyReadTool>   // the four step-4 tools, in MCP_TOOLS order
+  export const readTools: ReadonlyArray<AnyReadTool>   // the four step-4 tools + v2 search_exercises, in MCP_TOOLS order
   ```
+  Tool count (v2, 2026-10-21): **5 read** (`get_overview`, `get_exercise_history`, `list_sessions`,
+  `get_current_plan`, `search_exercises`) + **3 write** in `writeTools.ts` (`write_plan_week`, `log_session`,
+  `update_profile`) = **8 total**; a `tanren:read`-only grant lists 5.
   Clock: `DateTime.now` for `to`; `from = to - period`. `get_exercise_history` → `NotFound` for a
   foreign/unknown id (repo scoping makes both look the same). Descriptions tell Claude the units
   (kg, ISO-8601 UTC, half-open ranges) and that ids come from `get_overview`/`get_current_plan`.

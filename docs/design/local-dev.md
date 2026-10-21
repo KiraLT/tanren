@@ -145,9 +145,12 @@ API must call itself by the Mac's LAN address. `pnpm dev:phone` does that: wrang
 piped through `apps/worker/scripts/linkQr.mjs`, which passes every line through and prints a terminal QR
 after each `magic link for <email>: <url>` line (`uqr`, a worker devDependency; never in the bundle).
 The LAN IP is detected (`ipconfig getifaddr en0`, Wi-Fi on macOS); override with `LAN_IP=192.168.x.y pnpm dev:phone`
-(other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (BETTER_AUTH_URL follows; `MCP_RESOURCE_URL` does NOT, so the MCP dev token
-answers 401 "Token audience does not match resource server" on a non-default port until dev:phone also passes
-`--var MCP_RESOURCE_URL:http://localhost:$P/mcp`, verified INT-X2). `/api/native/begin` needs `email`, a 43-char
+(other interface, Ethernet), and `PORT=<n>` moves the API off :8787 (`BETTER_AUTH_URL` and `MCP_RESOURCE_URL` follow: `dev:phone` passes
+`--var MCP_RESOURCE_URL:http://localhost:$P/mcp`, so the MCP dev token and `/.well-known/oauth-protected-resource/mcp`
+work on any port; before that fix INT-X2 got 401 "Token audience does not match resource server" and a PRM 404 on
+:8797). The resource stays on `localhost`, not the LAN IP: the OAuth provider accepts `http:` only on a loopback
+host and the Worker fails to boot otherwise (`resourceMetadata.resource is required … http is accepted only on a
+loopback host`, probed 2026-10-21), so MCP clients connect to `http://localhost:$P/mcp` on the Mac. `/api/native/begin` needs `email`, a 43-char
 base64url `challenge` and `returnTo`; an unpinned host gives 400 `NativeBeginRejected{reason:"return-to"}`.
 `dev:phone` also sets `NATIVE_RETURN_PREFIXES=exp://localhost:,exp://127.0.0.1:,exp://<LAN IP>:`, because the
 worker only links back to pinned prefixes (`exp://<host>:<port>/--/auth/callback`), and Expo Go's host here is the Mac's LAN IP.
@@ -240,7 +243,7 @@ pnpm dev             # API on http://localhost:8787 (wrangler prints 0.0.0.0:878
    with `{"mcpServers":{"tanren-local":{"type":"http","url":"http://localhost:8787/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`
    (the form INT-A ran).
 
-### v2 additions (proven by INT-X1, 2026-10-21, on the export at 390 px; the rest is still unproven)
+### v2 additions (steps 6–8 INT-X1; 9–15 INT-X1b, 2026-10-21, on the export at 1280 px light and 390 px dark)
 
 Same three commands (`pnpm db:reset` seeds 14 exercises, 15 sessions; `pnpm web:export`; `pnpm dev`).
 
@@ -251,9 +254,43 @@ Same three commands (`pnpm db:reset` seeds 14 exercises, 15 sessions; `pnpm web:
    15 hits (Barbell Back Squat, Front Squat, Goblet, Hack, …); muscle tab **Chest** with `squat` leaves only
    Burpee; tap **Barbell Back Squat** → `/library/barbell-back-squat` with "Illustration placeholder"
    (illustrations not wired yet) and **Add to today's session** → returns to `/today`.
-9. Not yet proven by INT-X1 (stopped at the time box): the added exercise appearing on Today, Programs
-   (Core 30 enrol, day 1, timer, rest ring, finish), the "Core 30 · Day N" banner, Progress chart + PR,
-   Settings theme/export/sign-out, 1280 px and dark mode.
+9. **Add to today**: a catalog exercise that is not in today's session (Library → **Goblet Squat** → **Add to
+   today's session**) appends a new page on Today ("1 of 6", heading "Goblet Squat", "Set 1 of 3"). One that
+   is already there (**Barbell Back Squat** while "Back Squat" is planned) reuses it: no new page, the sets
+   already logged stay ("Set 2 of 5" after logging set 1).
+10. **Programs** → **Enrol in Core 30** → "Core 30 · Day 1 of 30" → **Start day 1** → `/programs/play`:
+    "Work · Dead Bug · Round 1/3 · Exercise 1/7" with a ticking `timer` ("23 seconds left" → "16 seconds
+    left"); **Next** → "Rest", the ring around the countdown ("Up next: Crunch · 25 s"); **Finish workout** →
+    "Workout complete · Logged as session" → **Close**. Today now shows the banner **Core 30 · Day 2** (the
+    next day; button "Open Core 30 day 2"), and Progress lists "Dead Bug, last logged <today>".
+11. **Progress**: log a heavier set on Today (**Increase Weight** to 127.5 kg → **Log set 2**). Progress →
+    Exercises: "Back Squat, best set 127.5 kg × 5, e1RM 148.8 kg"; its page (aside at ≥ 900 px,
+    `/progress/<exerciseId>` on a phone) shows the muscle map, "Volume last 8 weeks" and "Estimated 1RM, last 8
+    weeks" charts and a **PR** pill on the 127.5 kg set.
+12. **Settings** (Progress → gear button "Settings", or `/settings`): Appearance **Dark** → reload → still Dark.
+    **Export my data** downloads `tanren-export-….json`; it decodes with `DataExport` from `@tanren/shared`
+    (from `apps/worker`: `F=<file> pnpm exec tsx -e 'import { DataExport } from "@tanren/shared"; import {
+    Schema } from "effect"; import { readFileSync } from "node:fs"; Schema.decodeUnknownSync(DataExport)(JSON.parse(readFileSync(process.env.F, "utf8")))'`).
+13. **Sign out** → Today signed out ("Nothing planned today", **Sign in** button) → sign in again with a new
+    link → Today shows "Lower A", the Core 30 · Day 2 banner and the logged sets ("Set 3 of 5").
+14. **PWA**: Chrome reports the export installable (`Page.getInstallabilityErrors` → `[]`,
+    `Page.getAppManifest` → `/manifest.json`, no errors; `crossOriginIsolated` true). Desktop Chrome: the
+    install icon in the address bar.
+15. **MCP/OAuth metadata** on the API: `GET /.well-known/oauth-authorization-server` → 200 (issuer =
+    `BETTER_AUTH_URL`, scopes `tanren:read`, `tanren:write`); `GET /.well-known/oauth-protected-resource/mcp` →
+    200 `{resource: "<MCP_RESOURCE_URL>", authorization_servers: [...]}` **only when `MCP_RESOURCE_URL` has the
+    port the API listens on** (the provider matches the metadata URL's origin to the resource's; otherwise
+    404). The bare `/.well-known/oauth-protected-resource` is 404 by design (the resource has the path `/mcp`).
+    `tools/list` with the dev token → 8 tools (5 read + 3 write).
+
+Isolated copy of this recipe (parallel agents, nothing shared): `pnpm db:reset` once, copy
+`apps/worker/.wrangler/state/.` into a `mktemp -d` dir, then from `apps/worker`
+`wrangler dev --port <api> --inspector-port <i1> --persist-to <dir> --var ALLOWED_ORIGINS:http://localhost:<web>
+--var BETTER_AUTH_URL:http://localhost:<api> --var MCP_RESOURCE_URL:http://localhost:<api>/mcp`, export with
+`EXPO_PUBLIC_API_URL=http://localhost:<api> CI=1 pnpm exec expo export --platform web --output-dir <dist>`
+(from `apps/mobile`), serve with `wrangler dev -c wrangler.web.jsonc --port <web> --inspector-port <i2> --assets <dist>`.
+Two wranglers started together need distinct `--inspector-port`s (else the second dies "Address already in use"),
+and with `BETTER_AUTH_URL` set the printed magic link already carries the API port.
 
 `pnpm dev` runs the root scripts `dev:api` (`wrangler dev --ip 0.0.0.0`, also reachable from the phone on the
 LAN) and `dev:web` (`pnpm web:serve`) in parallel through pnpm's regex script selector. For the Expo dev

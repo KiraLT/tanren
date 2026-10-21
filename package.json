@@ -12,7 +12,7 @@
     "dev": "pnpm run \"/^dev:(api|web)$/\"",
     "dev:api": "pnpm -F @tanren/worker dev",
     "dev:web": "pnpm web:serve",
-    "dev:phone": "sh -c 'P=${PORT:-8787}; H=${LAN_IP:-$(ipconfig getifaddr en0)}; NO_COLOR=1 pnpm -F @tanren/worker exec wrangler dev --ip 0.0.0.0 --port $P --show-interactive-dev-session=false --var BETTER_AUTH_URL:http://$H:$P --var ALLOWED_ORIGINS:http://localhost:8081,http://localhost:8790,http://$H:8081 --var NATIVE_RETURN_PREFIXES:exp://localhost:,exp://127.0.0.1:,exp://$H: 2>&1 | node apps/worker/scripts/linkQr.mjs'",
+    "dev:phone": "sh -c 'P=${PORT:-8787}; H=${LAN_IP:-$(ipconfig getifaddr en0)}; NO_COLOR=1 pnpm -F @tanren/worker exec wrangler dev --ip 0.0.0.0 --port $P --show-interactive-dev-session=false --var BETTER_AUTH_URL:http://$H:$P --var MCP_RESOURCE_URL:http://localhost:$P/mcp --var ALLOWED_ORIGINS:http://localhost:8081,http://localhost:8790,http://$H:8081 --var NATIVE_RETURN_PREFIXES:exp://localhost:,exp://127.0.0.1:,exp://$H: 2>&1 | node apps/worker/scripts/linkQr.mjs'",
     "db:migrate": "pnpm -F @tanren/worker db:migrate",
     "db:seed": "pnpm -F @tanren/worker db:seed",
     "db:reset": "pnpm -F @tanren/worker db:reset",
