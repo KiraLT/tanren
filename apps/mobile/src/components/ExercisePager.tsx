@@ -34,7 +34,8 @@ const pageIndex = (offsetX: number, width: number, count: number): number =>
 
 /**
  * One exercise per page, swipe horizontally (paging ScrollView: native on iOS, CSS scroll-snap on
- * web) or tap the previous / next buttons (mouse users on web).
+ * web). Tablet and desktop also get previous / next buttons (mouse users); on a phone the app
+ * bar's counter and segment bar carry the position, so the page starts with the exercise.
  */
 export function ExercisePager({
   exercises,
@@ -62,40 +63,42 @@ export function ExercisePager({
 
   return (
     <View style={{ flex: 1 }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: gutter[breakpoint],
-          paddingBottom: space.sm,
-        }}
-      >
-        <IconButton
-          icon="chevronLeft"
-          variant="filled"
-          accessibilityLabel="Previous exercise"
-          disabled={index <= 0}
-          onPress={() => goTo(index - 1)}
-        />
-        <Text
-          variant="subhead"
-          tone="muted"
-          accessibilityLabel={`Exercise ${index + 1} of ${count}${Option.match(current, {
-            onNone: () => "",
-            onSome: (item) => `: ${item.exercise.name}`,
-          })}`}
+      {breakpoint === "phone" || count <= 1 ? null : (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: gutter[breakpoint],
+            paddingTop: space.sm,
+          }}
         >
-          {index + 1} of {count}
-        </Text>
-        <IconButton
-          icon="chevronRight"
-          variant="filled"
-          accessibilityLabel="Next exercise"
-          disabled={index >= count - 1}
-          onPress={() => goTo(index + 1)}
-        />
-      </View>
+          <IconButton
+            icon="chevronLeft"
+            variant="filled"
+            accessibilityLabel="Previous exercise"
+            disabled={index <= 0}
+            onPress={() => goTo(index - 1)}
+          />
+          <Text
+            variant="subhead"
+            tone="muted"
+            accessibilityLabel={`Exercise ${index + 1} of ${count}${Option.match(current, {
+              onNone: () => "",
+              onSome: (item) => `: ${item.exercise.name}`,
+            })}`}
+          >
+            {index + 1} of {count}
+          </Text>
+          <IconButton
+            icon="chevronRight"
+            variant="filled"
+            accessibilityLabel="Next exercise"
+            disabled={index >= count - 1}
+            onPress={() => goTo(index + 1)}
+          />
+        </View>
+      )}
       <ScrollView
         ref={scrollRef}
         horizontal

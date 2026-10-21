@@ -1,10 +1,25 @@
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { ScrollView, View } from "react-native"
+import { formatClock } from "../hooks/restClock"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
-import { Button, gutter, Stepper, sizes, space, Text, useBreakpoint } from "../ui"
+import { ExerciseIllustration } from "../library/ExerciseIllustration"
+import {
+  Button,
+  gutter,
+  Icon,
+  SetDots,
+  Stepper,
+  sizes,
+  space,
+  stroke,
+  Text,
+  useBreakpoint,
+  useTheme,
+} from "../ui"
 import { SetList } from "./SetList"
 import { formatKg, stepReps, stepWeight } from "./stepMath"
+import { illustrationIdFor, lastSetText } from "./todayHeader"
 
 interface ExercisePageProps {
   readonly item: TodayExercise
@@ -25,10 +40,12 @@ interface SetEntryProps {
 }
 
 /**
- * Prefilled weight and reps with steppers and one "Log set" button. The parent keys it by the
- * number of logged sets, so after a log the entry remounts with the next set's prefill.
+ * Prefilled weight and reps with borderless steppers (one hairline between them) and the one
+ * bold element on the screen, "Log set". The parent keys it by the number of logged sets, so
+ * after a log the entry remounts with the next set's prefill.
  */
 function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
+  const { colors } = useTheme()
   const [weightKg, setWeightKg] = useState(item.prefill.weightKg)
   const [reps, setReps] = useState(item.prefill.reps)
   const setNumber = item.loggedSets.length + 1
@@ -43,23 +60,32 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
     }).then((logged) => (logged ? onLogged(item.restSeconds) : undefined))
   }
   return (
-    <View style={{ gap: space.xl }}>
-      <Stepper
-        label="Weight"
-        valueText={formatKg(weightKg)}
-        unit="kg"
-        onDecrement={() => setWeightKg(stepWeight(weightKg, -1))}
-        onIncrement={() => setWeightKg(stepWeight(weightKg, 1))}
-      />
-      <Stepper
-        label="Reps"
-        valueText={String(reps)}
-        unit="reps"
-        onDecrement={() => setReps(stepReps(reps, -1))}
-        onIncrement={() => setReps(stepReps(reps, 1))}
-      />
+    <View style={{ gap: space.lg }}>
+      <View>
+        <Stepper
+          label="Weight"
+          valueText={formatKg(weightKg)}
+          unit="kg"
+          onDecrement={() => setWeightKg(stepWeight(weightKg, -1))}
+          onIncrement={() => setWeightKg(stepWeight(weightKg, 1))}
+          style={{ paddingBottom: space.sm }}
+        />
+        <Stepper
+          label="Reps"
+          valueText={String(reps)}
+          unit="reps"
+          onDecrement={() => setReps(stepReps(reps, -1))}
+          onIncrement={() => setReps(stepReps(reps, 1))}
+          style={{
+            paddingTop: space.sm,
+            borderTopWidth: stroke.hairline,
+            borderTopColor: colors.border,
+          }}
+        />
+      </View>
       <Button
-        label={`Log set ${setNumber}`}
+        label="Log set"
+        icon="check"
         accessibilityLabel={`Log set ${setNumber}: ${formatKg(weightKg)} kilograms, ${reps} reps`}
         variant="primary"
         size="xl"
@@ -68,6 +94,19 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
           log()
         }}
       />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: space.sm,
+        }}
+      >
+        <Icon name="timer" size={sizes.iconSm} color={colors.textMuted} />
+        <Text variant="subhead" tone="muted">
+          Rest {formatClock(item.restSeconds)} starts after the set
+        </Text>
+      </View>
     </View>
   )
 }
@@ -82,7 +121,51 @@ const progressText = (item: TodayExercise): string => {
       : `Set ${logged + 1} of ${planned}`
 }
 
-/** One exercise, one page: name, planned/logged sets, and the logging controls. */
+/** Illustration (when the exercise maps to the catalog) beside name, set dots and the last set. */
+function ExerciseHead({ item }: { readonly item: TodayExercise }) {
+  const { colors } = useTheme()
+  const planned = item.plannedSets.length
+  const logged = item.loggedSets.length
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.lg,
+        paddingBottom: space.lg,
+        borderBottomWidth: stroke.hairline,
+        borderBottomColor: colors.border,
+      }}
+    >
+      {Option.match(illustrationIdFor(item.exercise), {
+        onNone: () => null,
+        onSome: (catalogId) => (
+          <ExerciseIllustration catalogId={catalogId} size={sizes.illustrationMd} />
+        ),
+      })}
+      <View style={{ flex: 1, gap: space.xs }}>
+        <Text variant="display" accessibilityRole="header">
+          {item.exercise.name}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          <Text variant="subhead">{progressText(item)}</Text>
+          {planned === 0 ? null : (
+            <SetDots
+              total={planned}
+              completed={logged}
+              accessibilityLabel={`${Math.min(logged, planned)} of ${planned} sets done`}
+            />
+          )}
+        </View>
+        <Text variant="subhead" tone="muted">
+          {lastSetText(item.loggedSets, item.prefill)}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+/** One exercise, one page: the head, the logging controls, then the planned/logged sets. */
 export function ExercisePage({
   item,
   width,
@@ -97,20 +180,12 @@ export function ExercisePage({
       style={{ width }}
       contentContainerStyle={{
         paddingHorizontal: gutter[breakpoint],
-        paddingTop: space.sm,
-        paddingBottom: sizes.logButton,
-        gap: space.xl,
+        paddingTop: space.lg,
+        paddingBottom: space.xxl,
+        gap: space.lg,
       }}
     >
-      <View style={{ gap: space.xs }}>
-        <Text variant="display" accessibilityRole="header">
-          {item.exercise.name}
-        </Text>
-        <Text variant="subhead" tone="muted">
-          {progressText(item)}
-        </Text>
-      </View>
-      {showSets ? <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} /> : null}
+      <ExerciseHead item={item} />
       <SetEntry
         key={`${item.exercise.id}-${item.loggedSets.length}`}
         item={item}
@@ -118,6 +193,7 @@ export function ExercisePage({
         logSet={logSet}
         onLogged={onLogged}
       />
+      {showSets ? <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} /> : null}
     </ScrollView>
   )
 }

@@ -40,19 +40,9 @@ function SignInEntry() {
   )
 }
 
-interface TodayBarProps {
-  readonly subtitle?: string
-}
-
-/** The Today title row, with the sign-in entry on the right, over every state. */
-function TodayBar({ subtitle }: TodayBarProps) {
-  return (
-    <AppBar
-      title="Today"
-      {...(subtitle === undefined ? {} : { subtitle })}
-      trailing={<SignInEntry />}
-    />
-  )
+/** The Today title row, with the sign-in entry on the right, while nothing is ready. */
+function TodayBar() {
+  return <AppBar title="Today" trailing={<SignInEntry />} />
 }
 
 /** Layout-shaped placeholder: exercise heading, three set rows, two steppers, the log button. */
@@ -105,9 +95,9 @@ const renderState = Match.type<TodayState>().pipe(
         <EmptyState icon="warning" title="Could not load today" body={message} />
       </Page>
     ),
-    // Renders its own Page: the wide aside follows the pager's current exercise.
+    // Renders its own Page and AppBar: the counter and the aside follow the pager's exercise.
     Ready: ({ plannedSession, exercises }) => (
-      <TodayReady header={<TodayBar subtitle={plannedSession.name} />} exercises={exercises} />
+      <TodayReady title={plannedSession.name} accessory={<SignInEntry />} exercises={exercises} />
     ),
   }),
 )

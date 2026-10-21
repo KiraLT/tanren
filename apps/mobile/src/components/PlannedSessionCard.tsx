@@ -57,7 +57,7 @@ export function PlannedSessionCard({
         gap: space.md,
       }}
     >
-      <Text variant="headline" style={{ flexShrink: 1 }}>
+      <Text variant="title2" style={{ flexShrink: 1 }}>
         {item.plannedSession.name}
       </Text>
       <StatusPill label={statusLabel(item.status)} tone={statusTone[item.status]} />

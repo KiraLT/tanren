@@ -1,7 +1,18 @@
 import { Option } from "effect"
 import { View } from "react-native"
 import { formatClock } from "../hooks/restClock"
-import { Button, gutter, space, stroke, Text, TimerRing, useBreakpoint, useTheme } from "../ui"
+import {
+  Button,
+  gutter,
+  Icon,
+  sizes,
+  space,
+  stroke,
+  Text,
+  TimerRing,
+  useBreakpoint,
+  useTheme,
+} from "../ui"
 
 interface RestTimerBarProps {
   readonly remaining: Option.Option<number>
@@ -27,10 +38,10 @@ export function RestTimerBar({ remaining, total, layout, onSkip }: RestTimerBarP
             tone="neutral"
             accessibilityLabel={label}
           >
-            <Text variant="subhead" tone="muted">
+            <Text variant="label" tone="muted">
               Rest
             </Text>
-            <Text variant="numeral" numberOfLines={1}>
+            <Text variant="numeral" style={{ fontVariant: ["tabular-nums"] }}>
               {formatClock(seconds)}
             </Text>
           </TimerRing>
@@ -49,13 +60,21 @@ export function RestTimerBar({ remaining, total, layout, onSkip }: RestTimerBarP
             borderTopColor: colors.border,
           }}
         >
-          <View accessible accessibilityRole="timer" accessibilityLabel={label}>
-            <Text variant="subhead" tone="muted">
-              Rest
-            </Text>
-            <Text variant="numeral" numberOfLines={1}>
-              {formatClock(seconds)}
-            </Text>
+          <View
+            accessible
+            accessibilityRole="timer"
+            accessibilityLabel={label}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.md }}
+          >
+            <Icon name="timer" size={sizes.iconMd} color={colors.accent} />
+            <View>
+              <Text variant="label" tone="muted">
+                Rest
+              </Text>
+              <Text variant="numeral" style={{ fontVariant: ["tabular-nums"] }}>
+                {formatClock(seconds)}
+              </Text>
+            </View>
           </View>
           <Button label="Skip" accessibilityLabel="Skip rest" onPress={onSkip} />
         </View>

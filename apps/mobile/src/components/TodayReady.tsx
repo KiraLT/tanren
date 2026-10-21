@@ -1,5 +1,4 @@
 import { Array as Arr, Option } from "effect"
-import { useRouter } from "expo-router"
 import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../hooks/useLayoutMode"
@@ -7,19 +6,51 @@ import { useLogSet } from "../hooks/useLogSet"
 import { useProfileState } from "../hooks/useProfile"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
-import { programBannerOf } from "../player/programBanner"
 import { useProgramDay } from "../player/useProgramDay"
-import { Banner, gutter, ListRow, Page, space, Text, useBreakpoint } from "../ui"
+import { AppBar, Banner, gutter, Page, SegmentBar, space, Text, useBreakpoint } from "../ui"
 import { clampPage, ExercisePager } from "./ExercisePager"
 import { RestTimerBar } from "./RestTimerBar"
 import { SetList } from "./SetList"
 import { TodaySetupCard } from "./TodaySetupCard"
+import { todayEyebrowOf } from "./todayHeader"
 import { needsEquipmentSetup } from "./todaySetup"
 
 interface TodayReadyProps {
+  /** The planned session's name: the AppBar title. */
+  readonly title: string
+  /** Extra AppBar control after the exercise counter (the sign-in entry; renders null when not needed). */
+  readonly accessory?: ReactNode
   readonly exercises: ReadonlyArray<TodayExercise>
-  /** The screen's `AppBar`, rendered above both columns. */
-  readonly header: ReactNode
+}
+
+interface ExerciseCounterProps {
+  readonly index: number
+  readonly count: number
+  readonly name: Option.Option<string>
+}
+
+/** App-bar right slot (§5): "Exercise 1 of 6" over one segment per exercise. */
+function ExerciseCounter({ index, count, name }: ExerciseCounterProps) {
+  const position = `Exercise ${index + 1} of ${count}`
+  return (
+    <View style={{ alignItems: "flex-end", gap: space.xs }}>
+      <Text
+        variant="subhead"
+        tone="muted"
+        accessibilityLabel={`${position}${Option.match(name, {
+          onNone: () => "",
+          onSome: (value) => `: ${value}`,
+        })}`}
+      >
+        Exercise{" "}
+        <Text variant="subhead" style={{ fontVariant: ["tabular-nums"] }}>
+          {String(index + 1)}
+        </Text>{" "}
+        of {count}
+      </Text>
+      <SegmentBar total={count} filled={index + 1} accessibilityLabel={position} />
+    </View>
+  )
 }
 
 interface TodayAsideProps {
@@ -47,7 +78,7 @@ function TodayAside({ current, rest }: TodayAsideProps) {
                 <Text variant="subhead" tone="muted">
                   Sets
                 </Text>
-                <Text variant="headline" accessibilityRole="header">
+                <Text variant="title2" accessibilityRole="header">
                   {item.exercise.name}
                 </Text>
               </View>
@@ -62,26 +93,45 @@ function TodayAside({ current, rest }: TodayAsideProps) {
 }
 
 /**
- * Today's session: the exercise pager, store errors, and the rest timer. In the two-column
- * layout the rest timer becomes a ring in the aside, next to the current exercise's sets.
+ * Today's session: the AppBar (program eyebrow, session title, exercise counter), the exercise
+ * pager, store errors, and the rest timer. In the two-column layout the rest timer becomes a
+ * ring in the aside, next to the current exercise's sets.
  */
-export function TodayReady({ exercises, header }: TodayReadyProps) {
+export function TodayReady({ title, accessory, exercises }: TodayReadyProps) {
   const { logSet, pending, error } = useLogSet()
   const { remaining, start, stop } = useRestTimer()
   const [page, setPage] = useState(0)
   const [restTotal, setRestTotal] = useState(0)
   const wide = useLayoutMode() === "two-column"
   const breakpoint = useBreakpoint()
-  const current = Arr.get(exercises, clampPage(page, exercises.length))
-  const program = programBannerOf(useProgramDay().state)
+  const index = clampPage(page, exercises.length)
+  const current = Arr.get(exercises, index)
+  const eyebrow = todayEyebrowOf(useProgramDay().state)
   const setup = needsEquipmentSetup(useProfileState())
-  const router = useRouter()
   const onLogged = (seconds: number) => {
     setRestTotal(seconds)
     start(seconds)
   }
   const rest = (layout: "bar" | "ring") => (
     <RestTimerBar remaining={remaining} total={restTotal} layout={layout} onSkip={stop} />
+  )
+  const header = (
+    <AppBar
+      title={title}
+      {...Option.match(eyebrow, { onNone: () => ({}), onSome: (value) => ({ eyebrow: value }) })}
+      trailing={
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          {exercises.length === 0 ? null : (
+            <ExerciseCounter
+              index={index}
+              count={exercises.length}
+              name={Option.map(current, (item) => item.exercise.name)}
+            />
+          )}
+          {accessory}
+        </View>
+      }
+    />
   )
   return (
     <Page
@@ -95,19 +145,6 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
             <TodaySetupCard />
           </View>
         ) : null}
-        {Option.match(program, {
-          onNone: () => null,
-          onSome: (banner) => (
-            <ListRow
-              title={banner.title}
-              subtitle={banner.subtitle}
-              accessibilityLabel={banner.accessibilityLabel}
-              // biome-ignore lint/plugin/noMutation: expo-router API
-              onPress={() => router.push("/programs")}
-              style={{ marginHorizontal: gutter[breakpoint], marginTop: space.md }}
-            />
-          ),
-        })}
         <ExercisePager
           exercises={exercises}
           pending={pending}
