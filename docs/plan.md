@@ -107,3 +107,13 @@ Recorded 2026-10-19, from the owner's kickoff message:
    picker is per *location* (Home, Gym, …) with one active location that
    filters the Library and informs Claude's planning through MCP
    (ADR-0016, `docs/design/equipment.md`, `docs/tasks/v3-equipment.md`).
+6. **Design quality** (2026-10-21 11:20, owner, after reviewing 12 screenshots
+   of the v2 web build, verbatim): "Ok, you need improve design a lot. Sizes,
+   spacing are out. It does not look like well designed app. Run a separate
+   agent that researching how to improve UI, you may need claude plugin or
+   what. If it finds anything useful let me know. If not, it should review
+   current design and create a plan how to improve it. I think only fable can
+   do it." Lead reading: a fable architect researches (plugin skills, web),
+   audits the screens with measured computed styles, and writes
+   `docs/design/ui-audit.md` + `docs/tasks/v3-design.md`; design direction
+   and UI plans are fable-only from now on.
