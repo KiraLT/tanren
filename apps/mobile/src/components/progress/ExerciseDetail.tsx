@@ -2,6 +2,7 @@ import type { ExerciseId } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import { View } from "react-native"
 import { type ExerciseHistory, type HistoryState, useExerciseHistory } from "../../hooks/useHistory"
+import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
 import { Card, EmptyState, Skeleton, StatusPill, space, Text } from "../../ui"
 import { formatE1Rm, formatLoggedDate, formatSetText } from "./progressFormat"
 import { Sparkline } from "./Sparkline"
@@ -79,6 +80,7 @@ function DetailReady({ history }: DetailProps) {
       <Text variant="title" accessibilityRole="header">
         {history.exercise.name}
       </Text>
+      <MuscleMap primary={history.exercise.muscleGroups} secondary={[]} size={200} />
       <BestSetCard history={history} />
       <Card style={{ gap: space.md }}>
         <Text variant="headline">Volume, last 8 weeks</Text>

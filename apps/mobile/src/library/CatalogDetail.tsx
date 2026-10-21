@@ -2,6 +2,7 @@ import type { CatalogExercise } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { View } from "react-native"
 import { useAddToToday } from "../hooks/useAddToToday"
+import { MuscleMap } from "../illustrations/muscleMap/MuscleMap"
 import { Banner, Button, space, Text } from "../ui"
 import { NO_SESSION_TITLE } from "./addToToday"
 import { equipmentLabel, humanize, musclesLine } from "./catalogFormat"
@@ -19,6 +20,11 @@ export function CatalogDetail({ entry }: CatalogDetailProps) {
   const { add, pending, outcome, dismiss } = useAddToToday()
   return (
     <View style={{ gap: space.lg, paddingVertical: space.lg }}>
+      <MuscleMap
+        primary={entry.primaryMuscles}
+        secondary={entry.secondaryMuscles}
+        size={ILLUSTRATION_SIZE}
+      />
       <ExerciseIllustration id={entry.illustrationId} size={ILLUSTRATION_SIZE} />
       <View style={{ gap: space.xs }}>
         <Text variant="title" accessibilityRole="header">

@@ -1,7 +1,8 @@
-import type { ProgramDay, ProgramItem } from "@tanren/shared"
+import { findCatalogExercise, type ProgramDay, type ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { View } from "react-native"
 import type { CompletionState } from "../../hooks/usePlayer"
+import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
 import {
   Banner,
   Button,
@@ -23,7 +24,10 @@ import {
   upNext,
 } from "../playerMachine"
 
-/** Placeholder until the catalog's `ExerciseIllustration` lands: a box with the name. */
+/** Side length of the muscle map shown while working. */
+const MUSCLE_MAP_SIZE = 160
+
+/** Fallback when the item has no catalog entry; placeholder until the catalog's `ExerciseIllustration` lands: a box with the name. */
 function IllustrationBox({ name }: { readonly name: string }) {
   const { colors } = useTheme()
   return (
@@ -114,21 +118,31 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
         })}
       </View>
 
-      {resting ? (
-        Option.match(next, {
-          onNone: () => null,
-          onSome: (upcoming) => (
-            <Card tone="accent">
-              <Text variant="caption" tone="muted">
-                Up next
-              </Text>
-              <Text variant="headline">{`${exerciseName(upcoming.catalogId)} · ${itemAmount(upcoming)}`}</Text>
-            </Card>
-          ),
-        })
-      ) : (
-        <IllustrationBox name={name} />
-      )}
+      {resting
+        ? Option.match(next, {
+            onNone: () => null,
+            onSome: (upcoming) => (
+              <Card tone="accent">
+                <Text variant="caption" tone="muted">
+                  Up next
+                </Text>
+                <Text variant="headline">{`${exerciseName(upcoming.catalogId)} · ${itemAmount(upcoming)}`}</Text>
+              </Card>
+            ),
+          })
+        : Option.match(
+            Option.flatMap(item, (i) => findCatalogExercise(i.catalogId)),
+            {
+              onNone: () => <IllustrationBox name={name} />,
+              onSome: (entry) => (
+                <MuscleMap
+                  primary={entry.primaryMuscles}
+                  secondary={entry.secondaryMuscles}
+                  size={MUSCLE_MAP_SIZE}
+                />
+              ),
+            },
+          )}
 
       <View style={{ alignItems: "center" }}>
         {Option.match(seconds, {
