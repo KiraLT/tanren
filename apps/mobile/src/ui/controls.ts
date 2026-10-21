@@ -158,9 +158,34 @@ export const rowStyle = (grouped: boolean, selected: boolean, colors: ColorRoles
   ...(grouped ? {} : { borderBottomWidth: stroke.hairline, borderBottomColor: colors.border }),
 })
 
-/** Pressed/hovered row tint: `surfaceRaised` on a `surface` group, `surface` on the page. */
-export const rowPressedBackground = (grouped: boolean, colors: ColorRoles): string =>
-  grouped ? colors.surfaceRaised : colors.surface
+export type RowTone = "default" | "danger"
+
+/** Per tone: the title's `Text` tone and the colour role of the leading glyph. */
+export const rowTones: {
+  readonly [T in RowTone]: {
+    readonly title: "default" | "danger"
+    readonly icon: keyof ColorRoles
+  }
+} = {
+  default: { title: "default", icon: "textMuted" },
+  danger: { title: "danger", icon: "danger" },
+}
+
+/** Trailing chevron of a row that opens something: 20 px, `textMuted`. */
+export const rowChevron = { glyph: sizes.iconSm, color: "textMuted" } as const satisfies {
+  readonly glyph: number
+  readonly color: keyof ColorRoles
+}
+
+/**
+ * Pressed/hovered row tint: `surfaceRaised` on a `surface` group, `surface` on the page. A danger
+ * row is always `surfaceRaised` (its background is transparent, never a filled slab).
+ */
+export const rowPressedBackground = (
+  grouped: boolean,
+  colors: ColorRoles,
+  tone: RowTone = "default",
+): string => (grouped || tone === "danger" ? colors.surfaceRaised : colors.surface)
 
 export const listGroupStyle = (colors: ColorRoles): ViewStyle => ({
   borderRadius: radius.lg,

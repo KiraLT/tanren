@@ -3,7 +3,7 @@ import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { type AccountState, type SignOutState, useAccount } from "../../hooks/useAccount"
 import { Banner, ListRow, space } from "../../ui"
-import { Chevron, DestructiveRow, SettingsSection } from "./SettingsSection"
+import { SettingsSection } from "./SettingsSection"
 import {
   KEPT_DATA_NOTE,
   SIGNED_OUT_NATIVE_TITLE,
@@ -21,7 +21,8 @@ function SignOut({ state, onPress }: SignOutProps) {
   const signingOut = state._tag === "SigningOut"
   return (
     <View>
-      <DestructiveRow
+      <ListRow
+        tone="danger"
         title={signingOut ? "Signing out…" : "Sign out"}
         subtitle={KEPT_DATA_NOTE}
         accessibilityLabel="Sign out"
@@ -59,7 +60,7 @@ const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsPro
           icon="user"
           title="Not signed in"
           subtitle="Sign in to sync this data across devices"
-          trailing={<Chevron />}
+          chevron
           onPress={signIn}
         />,
         ...(signOut._tag === "Done"

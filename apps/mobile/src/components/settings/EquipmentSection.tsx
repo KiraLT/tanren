@@ -5,7 +5,7 @@ import { View } from "react-native"
 import { useProfileState } from "../../hooks/useProfile"
 import { Banner, ListRow, StatusPill, space, Text } from "../../ui"
 import { equipmentCountLabel } from "./locationsState"
-import { Chevron, SettingsSection } from "./SettingsSection"
+import { SettingsSection } from "./SettingsSection"
 import { presetItemsLabel } from "./settingsCopy"
 import { useLocations } from "./useLocations"
 
@@ -46,12 +46,8 @@ export function EquipmentSection() {
             subtitle={equipmentCountLabel(location)}
             accessibilityLabel={`Edit ${location.name}${isActive ? ", active" : ""}`}
             onPress={() => edit(location.id)}
-            trailing={
-              <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                {isActive ? <StatusPill label="Active" tone="accent" /> : null}
-                <Chevron />
-              </View>
-            }
+            chevron
+            trailing={isActive ? <StatusPill label="Active" tone="accent" /> : null}
           />
         )
       })}

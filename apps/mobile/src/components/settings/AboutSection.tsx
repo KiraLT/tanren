@@ -1,7 +1,7 @@
 import Constants from "expo-constants"
 import { Linking } from "react-native"
 import { ListRow } from "../../ui"
-import { Chevron, SettingsSection } from "./SettingsSection"
+import { SettingsSection } from "./SettingsSection"
 import { aboutTitle, UNITS_NOTE } from "./settingsCopy"
 
 const SITE = "https://tanren.me"
@@ -19,7 +19,7 @@ export function AboutSection() {
           title={aboutTitle(Constants.expoConfig?.version)}
           subtitle="tanren.me"
           accessibilityLabel={`${aboutTitle(Constants.expoConfig?.version)}, open tanren.me`}
-          trailing={<Chevron />}
+          chevron
           onPress={() => {
             void Linking.openURL(SITE)
           }}

@@ -12,8 +12,10 @@ import {
   pillForeground,
   ringGeometry,
   ringSizes,
+  rowChevron,
   rowPressedBackground,
   rowStyle,
+  rowTones,
   segmentedInset,
   segmentFills,
   setDotStates,
@@ -124,6 +126,25 @@ describe("ListRow", () => {
   it("pressed tint differs from the group surface", () => {
     expect(rowPressedBackground(true, lightColors)).toBe(lightColors.surfaceRaised)
     expect(rowPressedBackground(false, lightColors)).toBe(lightColors.surface)
+  })
+
+  it("danger rows press to surfaceRaised even outside a group", () => {
+    expect(rowPressedBackground(false, lightColors, "danger")).toBe(lightColors.surfaceRaised)
+    expect(rowPressedBackground(true, lightColors, "danger")).toBe(lightColors.surfaceRaised)
+    expect(rowPressedBackground(false, lightColors, "default")).toBe(lightColors.surface)
+  })
+
+  it("tones: danger colours the title and glyph, default keeps the muted glyph", () => {
+    expect(rowTones.danger).toEqual({ title: "danger", icon: "danger" })
+    expect(rowTones.default).toEqual({ title: "default", icon: "textMuted" })
+  })
+
+  it("danger rows keep a transparent background (no filled slab)", () => {
+    expect(rowStyle(true, false, lightColors).backgroundColor).toBe("transparent")
+  })
+
+  it("chevron is a 20 px muted glyph", () => {
+    expect(rowChevron).toEqual({ glyph: 20, color: "textMuted" })
   })
 
   it("discs: done success/bg, now accent/onAccent, todo 1.5 border outline", () => {

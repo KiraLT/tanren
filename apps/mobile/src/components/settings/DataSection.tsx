@@ -15,7 +15,7 @@ export function DataSection() {
         ),
         onSome: ({ state, start }) => (
           <ListRow
-            icon="list"
+            icon="download"
             title="Export my data"
             accessibilityLabel="Export my data"
             subtitle={Match.value(state).pipe(

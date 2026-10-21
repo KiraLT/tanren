@@ -58,6 +58,9 @@ export const iconPaths = {
   play: "M7 4.5v15l12-7.5z",
   pause: "M8 5v14M16 5v14",
   skip: "M5 5l10 7-10 7zM19 5v14",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
+  trash:
+    "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6",
 } as const
 
 export type IconName = keyof typeof iconPaths

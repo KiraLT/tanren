@@ -38,6 +38,8 @@ const REQUIRED: ReadonlyArray<IconName> = [
   "play",
   "pause",
   "skip",
+  "download",
+  "trash",
 ]
 
 /** Path data: a command letter starts every segment; only numbers, separators and commands. */

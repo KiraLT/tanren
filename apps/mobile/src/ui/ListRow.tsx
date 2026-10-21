@@ -6,8 +6,11 @@ import {
   discStyle,
   listGroupStyle,
   listSeparatorStyle,
+  type RowTone,
+  rowChevron,
   rowPressedBackground,
   rowStyle,
+  rowTones,
 } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
@@ -25,7 +28,10 @@ export interface ListGroupProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
-/** A grouped list (§5): `surface`, radius 16, hairlines between rows, never a border per row. */
+/**
+ * A grouped list (§5): `surface`, radius 16, hairlines between rows, never a border per row.
+ * Pass rows as siblings or an array, never a fragment (hairlines are per child).
+ */
 export function ListGroup({ children, style }: ListGroupProps) {
   const { colors } = useTheme()
   const rows = Arr.flatMap(Children.toArray(children), (child, index) =>
@@ -77,6 +83,12 @@ export interface ListRowProps {
   /** 20 px leading glyph in `textMuted`. */
   readonly icon?: IconName
   readonly trailing?: ReactNode
+  /** Trailing 20 px `chevronRight` in `textMuted` (after `trailing`): this row opens something. */
+  readonly chevron?: boolean
+  /** `danger`: title (and `icon`) in `danger`, transparent background, `surfaceRaised` pressed. */
+  readonly tone?: RowTone
+  /** Dimmed and not pressable. */
+  readonly disabled?: boolean
   readonly onPress?: () => void
   readonly selected?: boolean
   readonly accessibilityLabel?: string
@@ -91,6 +103,9 @@ export function ListRow({
   disc,
   icon,
   trailing,
+  chevron = false,
+  tone = "default",
+  disabled = false,
   onPress,
   selected = false,
   accessibilityLabel,
@@ -99,12 +114,13 @@ export function ListRow({
   const { colors } = useTheme()
   const grouped = use(GroupedContext)
   const { hovered, handlers, focusStyle } = usePressableInteraction()
-  const base = rowStyle(grouped, selected, colors)
+  const base = [rowStyle(grouped, selected, colors), disabled && { opacity: 0.4 }]
+  const toneSpec = rowTones[tone]
   const lead =
     disc !== undefined ? (
       <Disc state={disc.state} index={disc.index} />
     ) : icon !== undefined ? (
-      <Icon name={icon} size={sizes.iconSm} color={colors.textMuted} />
+      <Icon name={icon} size={sizes.iconSm} color={colors[toneSpec.icon]} />
     ) : (
       leading
     )
@@ -112,7 +128,9 @@ export function ListRow({
     <>
       {lead}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="headline">{title}</Text>
+        <Text variant="headline" tone={toneSpec.title}>
+          {title}
+        </Text>
         {subtitle === undefined ? null : (
           <Text variant="subhead" tone="muted">
             {subtitle}
@@ -120,6 +138,9 @@ export function ListRow({
         )}
       </View>
       {trailing}
+      {chevron ? (
+        <Icon name="chevronRight" size={rowChevron.glyph} color={colors[rowChevron.color]} />
+      ) : null}
     </>
   )
   const label = accessibilityLabel === undefined ? {} : { accessibilityLabel }
@@ -133,13 +154,17 @@ export function ListRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       {...label}
       {...handlers}
       style={({ pressed }) => [
         base,
-        (hovered || pressed) && { backgroundColor: rowPressedBackground(grouped, colors) },
+        !disabled &&
+          (hovered || pressed) && {
+            backgroundColor: rowPressedBackground(grouped, colors, tone),
+          },
         focusStyle,
         style,
       ]}

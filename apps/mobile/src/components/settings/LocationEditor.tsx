@@ -14,6 +14,7 @@ import {
   Button,
   Card,
   ListGroup,
+  ListRow,
   StatusPill,
   sizes,
   space,
@@ -23,7 +24,7 @@ import {
   useTheme,
 } from "../../ui"
 import { MAX_LOCATION_NAME } from "./locationsState"
-import { DestructiveRow, SettingsSection } from "./SettingsSection"
+import { SettingsSection } from "./SettingsSection"
 import { equipmentGlyph } from "./settingsCopy"
 import { useLocations } from "./useLocations"
 
@@ -119,7 +120,9 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
         </SettingsSection>
       ))}
       <ListGroup>
-        <DestructiveRow
+        <ListRow
+          tone="danger"
+          icon="trash"
           title="Delete location"
           accessibilityLabel={`Delete ${location.name}`}
           onPress={() =>
