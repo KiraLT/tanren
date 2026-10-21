@@ -17,6 +17,13 @@ Strava-like, made ours: a logger you read at arm's length between sets.
 
 Static tokens are module constants (import anywhere). Colours resolve per scheme through `useTheme()` (§3); a static file never imports a colour.
 
+> **Superseded values (UI-1a, 2026-10-21).** The token values below are the v2 set. The normative values are
+> now the "Forge" direction, `docs/design/ui-direction-final.md` §2 (colours, incl. the new `glow` role),
+> §3 (type ramp with `title2`/`label`, `fonts` export, Barlow Condensed 700/800 bundled via `expo-font` in
+> `app/_layout.tsx`, display face on `numeral`/`display`/`title`) and §4/§8 (spacing, radius `lg` 16,
+> `gutter.desktop` 32, `stroke`, `sizes`, `elevation.glow`); `tokens.ts` and `colors.ts` implement them and
+> `colors.test.ts` / `theme.test.ts` pin them. Role names and the rules in this section still apply.
+
 ### 2.1 Colour roles — `ColorRoles` (same keys in both palettes)
 
 | role | light | dark | use |

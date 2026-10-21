@@ -1,23 +1,24 @@
 /**
- * The only file in `src/ui` (and the app) that holds colour literals (design §2.1). Everything else
- * reads colours through `useTheme().colors`, so light and dark stay one source of truth.
+ * The only file in `src/ui` (and the app) that holds colour literals (ui-direction-final §2, "Forge":
+ * A-style editorial light, C-style graphite dark with an amber accent). Everything else reads colours
+ * through `useTheme().colors`, so light and dark stay one source of truth.
  */
 export interface ColorRoles {
   /** Page background. */
   readonly bg: string
-  /** Cards, rows, inputs. */
+  /** Cards, grouped lists, pressed stepper. */
   readonly surface: string
-  /** Stepper buttons, selected row, tab bar. */
+  /** Sheets, popovers, muscle-map body fill. */
   readonly surfaceRaised: string
-  /** Hairlines (1 px) and outlines. */
+  /** Hairlines (1 px), todo discs, ring and progress tracks. */
   readonly border: string
   /** Primary text and numerals. */
   readonly text: string
   /** Secondary text (>= 4.5:1 on `bg` and `surface`). */
   readonly textMuted: string
-  /** Primary button, next set, today. */
+  /** Primary pill, active tab, now-marks, meta icons. */
   readonly accent: string
-  /** Text on `accent`. */
+  /** Text and glyphs on `accent`. */
   readonly onAccent: string
   /** Accent tint for selected/today backgrounds. */
   readonly accentSoft: string
@@ -29,15 +30,17 @@ export interface ColorRoles {
   readonly focus: string
   /** Banner shadow, scrim. */
   readonly overlay: string
+  /** Primary pill `boxShadow` and numeral `textShadow` (`elevation.glow`); `transparent` in light. */
+  readonly glow: string
 }
 
 export const lightColors: ColorRoles = {
   bg: "#FFFFFF",
-  surface: "#F4F4F5",
+  surface: "#F6F6F7",
   surfaceRaised: "#FFFFFF",
-  border: "#E4E4E7",
-  text: "#18181B",
-  textMuted: "#52525B",
+  border: "#E6E6E8",
+  text: "#141416",
+  textMuted: "#5F5F66",
   accent: "#C2410C",
   onAccent: "#FFFFFF",
   accentSoft: "#FCE9E0",
@@ -47,25 +50,27 @@ export const lightColors: ColorRoles = {
   dangerSoft: "#FBE7E5",
   focus: "#1D4ED8",
   overlay: "rgba(0,0,0,0.18)",
+  glow: "transparent",
 }
 
 export const darkColors: ColorRoles = {
-  bg: "#121214",
-  surface: "#1C1C1F",
-  surfaceRaised: "#26262B",
-  border: "#34343A",
-  text: "#F4F4F5",
-  textMuted: "#A1A1AA",
-  accent: "#FF7A1A",
-  onAccent: "#121214",
-  accentSoft: "#3A2316",
+  bg: "#0F1113",
+  surface: "#181B1F",
+  surfaceRaised: "#23272D",
+  border: "#2C3137",
+  text: "#F2F3F5",
+  textMuted: "#A3A8B0",
+  accent: "#FFB020",
+  onAccent: "#141210",
+  accentSoft: "#3A2A10",
   success: "#4ADE80",
   successSoft: "#15301F",
   danger: "#FF6B6B",
   dangerSoft: "#3A1A19",
   focus: "#93C5FD",
   overlay: "rgba(0,0,0,0.6)",
+  glow: "rgba(255,176,32,0.35)",
 }
 
-/** Static illustration colours, the same in both schemes (design §7). */
-export const illustration = { figure: "#71717A", accent: "#F0632A" } as const
+/** Static illustration colours, the same in both schemes (ui-direction-final §7–§8). */
+export const illustration = { figure: "#8A919B", accent: "#F0632A" } as const

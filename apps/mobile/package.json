@@ -24,6 +24,7 @@
     "expo-audio": "catalog:",
     "expo-constants": "catalog:",
     "expo-crypto": "catalog:",
+    "expo-font": "catalog:",
     "expo-haptics": "catalog:",
     "expo-keep-awake": "catalog:",
     "expo-linking": "catalog:",

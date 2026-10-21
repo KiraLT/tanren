@@ -12,7 +12,7 @@ import {
   useTheme,
   useThemePreference,
 } from "./theme"
-import { statusTone } from "./tokens"
+import { fonts, radius, sizes, statusTone, type } from "./tokens"
 
 /** Renders a component that calls `useTheme()` and returns what it saw. */
 const themeSeen = (wrap?: Theme): string => {
@@ -83,6 +83,55 @@ describe("parseThemePreference", () => {
     expect(parseThemePreference("system")).toBe("system")
     expect(parseThemePreference(null)).toBe("system")
     expect(parseThemePreference("purple")).toBe("system")
+  })
+})
+
+describe("type ramp (ui-direction-final §3)", () => {
+  it("sets numeral, display and title in the Barlow Condensed display face", () => {
+    expect([type.numeral.fontFamily, type.display.fontFamily, type.title.fontFamily]).toEqual([
+      fonts.display,
+      fonts.display,
+      fonts.display,
+    ])
+  })
+
+  it("leaves the six text variants on the platform font", () => {
+    const families = [type.title2, type.headline, type.body, type.subhead, type.caption, type.label]
+    expect(families.every((style) => style.fontFamily === undefined)).toBe(true)
+  })
+
+  it("keeps a heavy fallback weight on the display variants", () => {
+    expect([type.numeral.fontWeight, type.display.fontWeight, type.title.fontWeight]).toEqual([
+      "800",
+      "800",
+      "800",
+    ])
+  })
+
+  it("uses tabular figures on the numeral", () => {
+    expect(type.numeral.fontVariant).toEqual(["tabular-nums"])
+  })
+
+  it("has the nine sizes and line heights of the spec", () => {
+    const ramp = Object.entries(type).map(([name, s]) => `${name} ${s.fontSize}/${s.lineHeight}`)
+    expect(ramp).toEqual([
+      "numeral 72/76",
+      "display 34/38",
+      "title 28/30",
+      "title2 22/28",
+      "headline 17/22",
+      "body 17/22",
+      "subhead 15/20",
+      "caption 13/18",
+      "label 12/16",
+    ])
+  })
+})
+
+describe("sizes and radius (ui-direction-final §8)", () => {
+  it("cards use radius 16 and the hit areas stay at least 44", () => {
+    expect(radius.lg).toBe(16)
+    expect(Math.min(sizes.tap, sizes.stepperButton, sizes.logButton)).toBeGreaterThanOrEqual(44)
   })
 })
 
