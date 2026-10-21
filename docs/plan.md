@@ -97,3 +97,13 @@ Recorded 2026-10-19, from the owner's kickoff message:
    Lead decisions under Amendment 3 apply; deviations (e.g. a native dev
    build for Live Activities, which Expo Go cannot run) are ADRs with owner
    actions listed.
+5. **Equipment and locations** (2026-10-21 10:50, owner, verbatim): "Also
+   review exercises, I personally like to use gym equipment more than just
+   dumbells. And when you sign in you in the app in the setting you should
+   be able to select what equipment is available. Also maybe you should
+   select per location or smth- e.g. when I train at home I have one
+   equipment, at the gym other." Lead reading: the catalog grows on the
+   machine / cable / Smith side; Settings gets an equipment picker; the
+   picker is per *location* (Home, Gym, …) with one active location that
+   filters the Library and informs Claude's planning through MCP
+   (ADR-0016, `docs/design/equipment.md`, `docs/tasks/v3-equipment.md`).

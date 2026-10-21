@@ -253,3 +253,26 @@ Step 1: ≈ 2h10m, ~17 dispatches, ≈ 2.3M subagent tokens. Company-mode step
 (2 + 3 + 6 + integration): 22:08 → 23:03 e2e proven, ≈ 55 min wall-clock,
 one run over its box (S2-T3, 24 min), worker team 2 review rounds; detailed
 Log in `docs/tasks/step-2.md`.
+
+## State at 10:58 (HEAD after this commit) — v3 equipment & locations started
+- INT-X3 accepted and committed (`242f4e4`): the whole v2 owner recipe (a)–(g) is proven on an
+  isolated stack; `docs/design/local-dev.md` §Owner recipe has steps 9–15 and an isolated-copy
+  recipe; `dev:phone` passes `MCP_RESOURCE_URL` (loopback only). Protected-resource metadata lives at
+  `/.well-known/oauth-protected-resource/mcp` (the bare path 404 is correct).
+- **Owner request 10:50 → plan Amendment 5** (more machine/cable exercises; Settings equipment
+  picker; per location). Lead decisions in the EQ-A brief: one equipment vocabulary
+  (`CatalogEquipment` grows with specific machines, coarse `machine` + profile `EquipmentKind` go),
+  locations as JSON in the profile row + `activeLocationId`, presets, Library "At <location>"
+  filter, MCP exposure (`search_exercises availableAt`, `update_profile`), ≥ 50 new catalog entries.
+- Live: EQ-A architect (fable, 15 min → ADR-0016, `docs/design/equipment.md`,
+  `docs/tasks/v3-equipment.md`) ∥ EQ-C engineer (sonnet, 20 min, catalog expansion + re-tag).
+  Watchdog `bjws8w9j7`. Then: EQ-1 shared+db+worker (opus) → EQ-2 mobile (opus, may start early on
+  the design names) ∥ EQ-I images for the new ids (sonnet; `pnpm images:generate` uses the owner's
+  key in `apps/mobile/.env.images`, never read by agents) → EQ-R review → EQ-X proof → commit,
+  EM batch, owner report.
+- Owner note: orphaned `wrangler dev` processes from finished agents hold ports 8795/8793 (and a
+  10 h-old workerd). The Lead may not kill them (auto-mode classifier); `pkill -f "wrangler dev"`
+  from your shell, or a reboot, clears them. They do not affect `pnpm dev` (:8787/:8790).
+- Still open (owner-gated): Live Activities dev build (ADR-0012), universal links, production
+  deploy (`pnpm deploy:preflight` → `docs/design/deploy.md`), native sign-in on a real iPhone,
+  frog-pump / cable-crunch images (safety filter).
