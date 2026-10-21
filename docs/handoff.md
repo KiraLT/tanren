@@ -276,3 +276,19 @@ Log in `docs/tasks/step-2.md`.
 - Still open (owner-gated): Live Activities dev build (ADR-0012), universal links, production
   deploy (`pnpm deploy:preflight` → `docs/design/deploy.md`), native sign-in on a real iPhone,
   frog-pump / cable-crunch images (safety filter).
+
+## State at 11:25 (HEAD `88d3893`) — v3 equipment & locations built, in review
+- All v3 streams landed as WIP commits (root gate green at 1258 tests after EQ-1): catalog 291
+  (`1bfcd30`), shared Location schema (`30af9fa`), images 290/291 + mobile data layer (`1c4b47c`),
+  Settings "Equipment & locations" (`59332b2`), Library chip / Needs / Today card / 3-way add
+  (`bb91ae6`), server migration 0003 + seed Gym/Home + MCP `get_profile` / `availableAt` (`c2b4109`).
+- Live: EQ-R1 (mobile+catalog review), EQ-R2 (server review), EQ-X (qa proof + `EQX-*` screenshots in the
+  scratchpad for the owner), UI-A (fable architect: design research + measured audit →
+  `docs/design/ui-audit.md`, `docs/tasks/v3-design.md`; owner verdict = plan Amendment 6).
+- Next: fix round from EQ-R1/EQ-R2 findings (+ leftovers `apps/mobile/src/services/ProfileRepo.ts:74`
+  and `apps/mobile/src/store/seed.ts:124` still spell `equipment`), then squash-free "v3:" commit note in
+  the log, EM batch (items listed in docs/tasks/step-2.md: engineer.md turn-cap wording, wrangler via
+  node_modules/.bin, MCP_RESOURCE_URL on non-8787, aria-checked + innerText in expo-mobile/ui-check,
+  heredoc-for-tests habit, architect "Assumes" must cite behaviour), `/retro` v3, then the UI plan
+  (fable-only design work) as the next build stream.
+- Owner: wants screenshots at 390/1280 after every visual change; judged v2 design harshly.
