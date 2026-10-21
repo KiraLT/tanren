@@ -35,6 +35,14 @@ interface StepButtonProps {
   readonly size: StepperSize
 }
 
+/**
+ * Shrink-to-fit on native only. On web RNW ignores `adjustsFontSizeToFit` and turns `numberOfLines`
+ * into `overflow: hidden`, which would clip the dark-theme glow to the glyph box; the value column
+ * (390 − 2 × 16 gutter − 2 × 64 buttons ≈ 214 px) holds "107.5" at 72 px without it.
+ */
+const numeralFit =
+  Platform.OS === "web" ? {} : ({ adjustsFontSizeToFit: true, numberOfLines: 1 } as const)
+
 /** A light selection tick on native; web has no haptics. */
 const tick = (): void => {
   if (Platform.OS !== "web") {
@@ -102,9 +110,9 @@ export function Stepper({
         >
           <Text
             variant="numeral"
-            adjustsFontSizeToFit
-            numberOfLines={1}
-            style={{ fontVariant: ["tabular-nums"] }}
+            glow
+            {...numeralFit}
+            style={{ fontVariant: ["tabular-nums"], flexShrink: 0 }}
           >
             {valueText}
           </Text>
