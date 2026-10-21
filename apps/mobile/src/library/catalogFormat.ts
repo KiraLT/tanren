@@ -3,7 +3,9 @@ import {
   CatalogEquipment as CatalogEquipmentSchema,
   type CatalogExercise,
   ExerciseKind,
+  type Location,
   MuscleGroup,
+  missingEquipment,
 } from "@tanren/shared"
 import { Array as Arr, Option, Schema } from "effect"
 
@@ -22,10 +24,33 @@ export interface FacetOption {
 }
 
 /** Keys whose gym spelling `humanize` cannot derive. */
-const SPELLED: Readonly<Record<string, string>> = { ezBar: "EZ bar", pullUpBar: "Pull-up bar" }
+const SPELLED: Readonly<Record<string, string>> = {
+  ezBar: "EZ bar",
+  pullUpBar: "Pull-up bar",
+  assistedPullUpMachine: "Assisted pull-up machine",
+  gluteHamDeveloper: "Glute-ham developer",
+}
 
 /** The chip / detail label of a taxonomy key. */
 export const facetLabel = (key: string): string => SPELLED[key] ?? humanize(key)
+
+/** The Library's leading location chip, e.g. "At Home". */
+export const atLocationLabel = (location: Pick<Location, "name">): string => `At ${location.name}`
+
+/**
+ * Detail line for an entry the active location cannot do, e.g. "Needs: Leg press"; `None` when no
+ * location is active or nothing is missing (bodyweight never is).
+ */
+export const needsLine = (
+  entry: Pick<CatalogExercise, "equipment">,
+  active: Option.Option<Location>,
+): Option.Option<string> =>
+  Option.flatMap(active, (location) => {
+    const missing = missingEquipment(entry, location)
+    return Arr.isReadonlyArrayNonEmpty(missing)
+      ? Option.some(`Needs: ${missing.map(facetLabel).join(", ")}`)
+      : Option.none()
+  })
 
 const facetOptions = (values: ReadonlyArray<string>): ReadonlyArray<FacetOption> => [
   { value: ALL, label: "All" },

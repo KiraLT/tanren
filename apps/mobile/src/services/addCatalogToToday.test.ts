@@ -35,17 +35,17 @@ describe("addCatalogToToday", () => {
         }),
       )
       const repo = todayRepo((id) =>
-        Ref.update(seen, (xs) => [...xs, `add:${id}`]).pipe(Effect.as(true)),
+        Ref.update(seen, (xs) => [...xs, `add:${id}`]).pipe(Effect.as("added" as const)),
       )
       const added = yield* addCatalogToToday(catalogId).pipe(
         Effect.provide(Layer.merge(link, repo)),
       )
-      expect(added).toBe(true)
+      expect(added).toBe("added")
       expect(yield* Ref.get(seen)).toEqual([`ensure:plank`, `add:${exerciseId}`])
     }),
   )
 
-  it.effect("passes on false when no session is planned today", () =>
+  it.effect.each(["noSession", "alreadyPlanned"] as const)("passes on %s unchanged", (result) =>
     Effect.gen(function* () {
       const link = Layer.succeed(
         ExerciseLink,
@@ -55,11 +55,11 @@ describe("addCatalogToToday", () => {
         Effect.provide(
           Layer.merge(
             link,
-            todayRepo(() => Effect.succeed(false)),
+            todayRepo(() => Effect.succeed(result)),
           ),
         ),
       )
-      expect(added).toBe(false)
+      expect(added).toBe(result)
     }),
   )
 
@@ -70,7 +70,9 @@ describe("addCatalogToToday", () => {
         ExerciseLink,
         ExerciseLink.of({ ensure: () => Effect.fail(new StoreError({ cause: "boom" })) }),
       )
-      const repo = todayRepo(() => Ref.update(calls, (n) => n + 1).pipe(Effect.as(true)))
+      const repo = todayRepo(() =>
+        Ref.update(calls, (n) => n + 1).pipe(Effect.as("added" as const)),
+      )
       const error = yield* Effect.flip(
         addCatalogToToday(catalogId).pipe(Effect.provide(Layer.merge(link, repo))),
       )

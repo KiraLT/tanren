@@ -194,8 +194,9 @@ export const accentTarget = (
 /**
  * Image-only instruction wording for entries whose catalog text the OpenAI safety system rejected
  * (IMG-2 full run, HTTP 400): frog-pump ("sexual") and cable-crunch ("rope beside your head":
- * "self-harm"). The catalog text stays as it is for the app. Both were still rejected with this
- * wording (IMG-2); `NAME_OVERRIDES` also neutralises the name line.
+ * "self-harm"), plus cable-shrug (EQ-I). The catalog text stays as it is for the app. Together
+ * with `NAME_OVERRIDES` (which neutralises the name line) frog-pump and cable-shrug now generate;
+ * cable-crunch is still rejected and shows the placeholder.
  */
 export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>> = {
   "frog-pump": [
@@ -213,9 +214,9 @@ export const PROMPT_INSTRUCTIONS: Readonly<Record<string, ReadonlyArray<string>>
 }
 
 /**
- * Image-only neutral name for the two entries the safety system rejected with a reworded
- * instruction (IMG-2). Still rejected with this too (frog-pump: sexual; cable-crunch: violence,
- * self-harm), so both show the placeholder. The catalog name stays for the app.
+ * Image-only neutral name for entries the safety system rejected even with a reworded instruction
+ * (IMG-2, EQ-I). frog-pump and cable-shrug generate with it; cable-crunch is still rejected
+ * (violence, self-harm) and shows the placeholder. The catalog name stays for the app.
  */
 export const NAME_OVERRIDES: Readonly<Record<string, string>> = {
   "frog-pump": "hip bridge, lying on the back, knees bent, soles together",

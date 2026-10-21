@@ -1,6 +1,9 @@
-import { TextInput, View } from "react-native"
-import { Button, radius, SegmentedControl, sizes, space, Text, type, useTheme } from "../ui"
+import type { Location } from "@tanren/shared"
+import { Option } from "effect"
+import { Pressable, TextInput, View } from "react-native"
+import { Button, radius, SegmentedControl, sizes, space, stroke, Text, type, useTheme } from "../ui"
 import {
+  atLocationLabel,
   EQUIPMENT_OPTIONS,
   equipmentFromValue,
   KIND_OPTIONS,
@@ -16,13 +19,62 @@ export interface CatalogFilterBarProps {
   readonly state: SearchState
   readonly dispatch: (action: SearchAction) => void
   readonly count: number
+  /** The profile's active location; `None` hides the "At <name>" chip (no filter applies). */
+  readonly location: Option.Option<Location>
 }
 
-/** Search field, then one scrolling chip row per facet (muscle, equipment, kind), then the count. */
-export function CatalogFilterBar({ state, dispatch, count }: CatalogFilterBarProps) {
+interface LocationChipProps {
+  readonly label: string
+  readonly selected: boolean
+  readonly onPress: () => void
+}
+
+/** Toggle chip: accent outline and tint while the location filter is on. */
+function LocationChip({ label, selected, onPress }: LocationChipProps) {
+  const { colors } = useTheme()
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected }}
+      aria-checked={selected}
+      onPress={onPress}
+      style={{
+        alignSelf: "flex-start",
+        minHeight: sizes.tap,
+        justifyContent: "center",
+        paddingHorizontal: space.md,
+        borderRadius: radius.full,
+        borderWidth: stroke.hairline,
+        borderColor: selected ? colors.accent : colors.border,
+        backgroundColor: selected ? colors.accentSoft : colors.surfaceRaised,
+      }}
+    >
+      <Text variant="subhead" style={{ color: selected ? colors.accent : colors.text }}>
+        {label}
+      </Text>
+    </Pressable>
+  )
+}
+
+/**
+ * The "At <location>" chip (only with an active location), search field, one scrolling chip row
+ * per facet (muscle, equipment, kind), then the count.
+ */
+export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFilterBarProps) {
   const { colors } = useTheme()
   return (
     <View style={{ gap: space.sm, paddingVertical: space.md }}>
+      {Option.match(location, {
+        onNone: () => null,
+        onSome: (active) => (
+          <LocationChip
+            label={atLocationLabel(active)}
+            selected={state.atLocation}
+            onPress={() => dispatch({ _tag: "AtLocation", value: !state.atLocation })}
+          />
+        ),
+      })}
       <TextInput
         value={state.input}
         onChangeText={(text) => dispatch({ _tag: "Typed", text })}

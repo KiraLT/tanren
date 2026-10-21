@@ -100,7 +100,7 @@ describe("TodayRepo.addExercise", () => {
         const before = yield* todaySets
         const maxOrder = Math.max(...before.map((set) => set.order))
         const startVersion = yield* version
-        expect(yield* addExercise(CURLS)).toBe(true)
+        expect(yield* addExercise(CURLS)).toBe("added")
         const added = (yield* plannedSets).filter((set) => set.exerciseId === CURLS)
         expect(added.map((set) => set.order)).toEqual([maxOrder + 1, maxOrder + 2, maxOrder + 3])
         expect(added).toHaveLength(ADDED_SET_COUNT)
@@ -130,7 +130,7 @@ describe("TodayRepo.addExercise", () => {
         yield* seededWithCurls
         const top = (yield* todaySets).at(-1)
         yield* tombstone(top === undefined ? [] : [top])
-        expect(yield* addExercise(CURLS)).toBe(true)
+        expect(yield* addExercise(CURLS)).toBe("added")
         const first = (yield* todaySets).find((set) => set.exerciseId === CURLS)
         expect(first?.order).toBe((top?.order ?? Number.NaN) + 1)
       }),
@@ -144,7 +144,7 @@ describe("TodayRepo.addExercise", () => {
         yield* addExercise(CURLS)
         const removed = (yield* todaySets).filter((set) => set.exerciseId === CURLS)
         yield* tombstone(removed)
-        expect(yield* addExercise(CURLS)).toBe(true)
+        expect(yield* addExercise(CURLS)).toBe("added")
         const live = (yield* todaySets).filter(
           (set) => set.exerciseId === CURLS && Option.isNone(set.deletedAt),
         )
@@ -158,13 +158,13 @@ describe("TodayRepo.addExercise", () => {
     ),
   )
 
-  it.effect("does not write again when the exercise is already planned today", () =>
+  it.effect("answers alreadyPlanned and does not write when the exercise is planned today", () =>
     run(
       Effect.gen(function* () {
         yield* seededWithCurls
         yield* addExercise(CURLS)
         const afterFirst = yield* version
-        expect(yield* addExercise(CURLS)).toBe(true)
+        expect(yield* addExercise(CURLS)).toBe("alreadyPlanned")
         expect(yield* version).toBe(afterFirst)
         expect((yield* plannedSets).filter((set) => set.exerciseId === CURLS)).toHaveLength(
           ADDED_SET_COUNT,
@@ -173,13 +173,13 @@ describe("TodayRepo.addExercise", () => {
     ),
   )
 
-  it.effect("returns false and writes nothing when no session is planned today", () =>
+  it.effect("answers noSession and writes nothing when no session is planned today", () =>
     run(
       Effect.gen(function* () {
         yield* seededWithCurls
         yield* TestClock.adjust("1 day")
         const before = yield* version
-        expect(yield* addExercise(CURLS)).toBe(false)
+        expect(yield* addExercise(CURLS)).toBe("noSession")
         expect(yield* version).toBe(before)
         expect((yield* plannedSets).filter((set) => set.exerciseId === CURLS)).toHaveLength(0)
       }),

@@ -117,11 +117,14 @@ export interface TodayRepoShape {
   /**
    * Puts an exercise on today's planned session: appends `ADDED_SET_COUNT` planned sets (Exact
    * `ADDED_SET_REPS` reps, no weight / RPE / rest / note) after the current max `order`, dirty.
-   * `true` when it is on today's session afterwards (already planned → no write); `false` when
-   * nothing is planned today.
+   * `"added"` after the write, `"alreadyPlanned"` when a live planned set already has it (no
+   * write), `"noSession"` when nothing is planned today (no write).
    */
-  readonly addExercise: (exerciseId: ExerciseId) => Effect.Effect<boolean, StoreError>
+  readonly addExercise: (exerciseId: ExerciseId) => Effect.Effect<AddExerciseResult, StoreError>
 }
+
+/** `TodayRepo.addExercise`'s answer; consumers match it exhaustively. */
+export type AddExerciseResult = "added" | "alreadyPlanned" | "noSession"
 
 export const ADDED_SET_COUNT = 3
 export const ADDED_SET_REPS = 10
@@ -364,7 +367,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
             Effect.gen(function* () {
               const found = yield* plannedSessionToday
               if (Option.isNone(found)) {
-                return false
+                return "noSession" as const
               }
               const plannedSessionId = found.value.id
               const existing = yield* store.all(
@@ -376,7 +379,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
                 ),
               )
               if (Arr.isReadonlyArrayNonEmpty(existing)) {
-                return true
+                return "alreadyPlanned" as const
               }
               const now = yield* DateTime.now
               const userId = yield* owner
@@ -416,7 +419,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
                 sets.map((row): SyncChange => ({ table: "plannedSet", row })),
                 { dirty: true },
               )
-              return true
+              return "added" as const
             }),
           ),
         )

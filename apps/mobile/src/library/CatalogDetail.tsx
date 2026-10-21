@@ -1,11 +1,12 @@
-import type { CatalogExercise } from "@tanren/shared"
+import { activeLocation, type CatalogExercise } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { View } from "react-native"
 import { useAddToToday } from "../hooks/useAddToToday"
+import { useProfile } from "../hooks/useProfile"
 import { MuscleMap } from "../illustrations/muscleMap/MuscleMap"
 import { Banner, Button, space, Text } from "../ui"
-import { NO_SESSION_TITLE } from "./addToToday"
-import { equipmentLabel, humanize, musclesLine } from "./catalogFormat"
+import { type AddOutcome, NO_SESSION_TITLE, noticeCopy } from "./addToToday"
+import { equipmentLabel, humanize, musclesLine, needsLine } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
 
 /** v2-catalog.md §7: the illustration is 240 px. */
@@ -15,9 +16,27 @@ export interface CatalogDetailProps {
   readonly entry: CatalogExercise
 }
 
+/** The muted, self-dismissing line after an add ("Added" / "Already in today's session"). */
+function Notice({ outcome }: { readonly outcome: AddOutcome }) {
+  return Option.match(noticeCopy(outcome), {
+    onNone: () => null,
+    onSome: (copy) => (
+      <Text
+        tone="muted"
+        accessibilityLabel={copy}
+        accessibilityLiveRegion="polite"
+        style={{ textAlign: "center" }}
+      >
+        {copy}
+      </Text>
+    ),
+  })
+}
+
 /** Illustration, name, muscles, equipment, the numbered instructions and "Add to today's session". */
 export function CatalogDetail({ entry }: CatalogDetailProps) {
   const { add, pending, outcome, dismiss } = useAddToToday()
+  const needs = needsLine(entry, Option.flatMap(useProfile(), activeLocation))
   return (
     <View style={{ gap: space.lg, paddingVertical: space.lg }}>
       <MuscleMap
@@ -34,6 +53,14 @@ export function CatalogDetail({ entry }: CatalogDetailProps) {
         <Text variant="subhead" tone="muted">
           {`${equipmentLabel(entry.equipment)} · ${humanize(entry.kind)}`}
         </Text>
+        {Option.match(needs, {
+          onNone: () => null,
+          onSome: (line) => (
+            <Text variant="subhead" tone="muted" accessibilityLabel={line}>
+              {line}
+            </Text>
+          ),
+        })}
       </View>
       <View style={{ gap: space.sm }} accessibilityLabel="Instructions">
         <Text variant="headline">How to</Text>
@@ -48,7 +75,8 @@ export function CatalogDetail({ entry }: CatalogDetailProps) {
         onNone: () => null,
         onSome: (shown) =>
           Match.valueTags(shown, {
-            Added: () => null,
+            Added: () => <Notice outcome={shown} />,
+            AlreadyPlanned: () => <Notice outcome={shown} />,
             NoSession: () => (
               <Banner
                 title={NO_SESSION_TITLE}

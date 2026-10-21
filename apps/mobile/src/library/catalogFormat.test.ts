@@ -1,17 +1,20 @@
 import { describe, expect, it } from "@effect/vitest"
-import { CatalogExercise } from "@tanren/shared"
+import { CatalogExercise, Location } from "@tanren/shared"
 import { Option, Schema } from "effect"
 import {
   ALL,
+  atLocationLabel,
   EQUIPMENT_OPTIONS,
   entrySubtitle,
   equipmentFromValue,
   equipmentLabel,
+  facetLabel,
   humanize,
   KIND_OPTIONS,
   MUSCLE_OPTIONS,
   muscleFromValue,
   musclesLine,
+  needsLine,
   resultCount,
   segmentValue,
 } from "./catalogFormat"
@@ -71,5 +74,43 @@ describe("catalogFormat", () => {
     expect(musclesLine(plank)).toBe("Core")
     expect(resultCount(1)).toBe("1 exercise")
     expect(resultCount(0)).toBe("0 exercises")
+  })
+})
+
+const location = (name: string, equipment: ReadonlyArray<string>) =>
+  Schema.decodeUnknownSync(Location)({
+    id: "2d2d2d2d-2d2d-4d2d-8d2d-2d2d2d2d2d2d",
+    name,
+    equipment,
+  })
+
+describe("location copy", () => {
+  it("the chip reads 'At <name>'", () => {
+    expect(atLocationLabel(location("Home", []))).toBe("At Home")
+  })
+
+  it("an unavailable entry lists what is missing, in the entry's tag order", () => {
+    const legPress = { equipment: ["legPress", "plate"] as const }
+    expect(needsLine(legPress, Option.some(location("Home", ["plate"])))).toEqual(
+      Option.some("Needs: Leg press"),
+    )
+    expect(needsLine(squat, Option.some(location("Home", [])))).toEqual(
+      Option.some("Needs: Barbell, Smith machine"),
+    )
+  })
+
+  it("no line when available, bodyweight, or no active location", () => {
+    expect(needsLine(squat, Option.some(location("Gym", ["barbell", "smithMachine"])))).toEqual(
+      Option.none(),
+    )
+    expect(needsLine({ equipment: [] }, Option.some(location("Home", [])))).toEqual(Option.none())
+    expect(needsLine(squat, Option.none())).toEqual(Option.none())
+  })
+
+  it("hyphenated gym spellings override humanize", () => {
+    expect(facetLabel("pecDeck")).toBe("Pec deck")
+    expect(facetLabel("ezBar")).toBe("EZ bar")
+    expect(facetLabel("assistedPullUpMachine")).toBe("Assisted pull-up machine")
+    expect(facetLabel("gluteHamDeveloper")).toBe("Glute-ham developer")
   })
 })

@@ -14,7 +14,7 @@ export default function LibraryScreen() {
   const router = useRouter()
   const breakpoint = useBreakpoint()
   const wide = breakpoint === "desktop"
-  const { state, dispatch, results } = useCatalogSearch()
+  const { state, dispatch, results, location } = useCatalogSearch()
   const [selected, setSelected] = useState<Option.Option<CatalogId>>(Option.none())
   const onSelect = (id: CatalogId) => {
     if (wide) {
@@ -44,7 +44,14 @@ export default function LibraryScreen() {
         entries={results}
         selected={wide ? selected : Option.none()}
         onSelect={onSelect}
-        header={<CatalogFilterBar state={state} dispatch={dispatch} count={results.length} />}
+        header={
+          <CatalogFilterBar
+            state={state}
+            dispatch={dispatch}
+            count={results.length}
+            location={location}
+          />
+        }
       />
     </Page>
   )

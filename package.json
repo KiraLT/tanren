@@ -21,6 +21,7 @@
     "web:export": "pnpm -F @tanren/mobile export:web",
     "web:serve": "pnpm -F @tanren/mobile serve:web",
     "images:generate": "pnpm -F @tanren/mobile images:generate",
+    "images:shrink": "pnpm -F @tanren/mobile images:shrink",
     "images:map": "pnpm -F @tanren/mobile images:map",
     "format": "biome format --write .",
     "lint": "biome lint .",

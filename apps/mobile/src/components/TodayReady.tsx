@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../hooks/useLayoutMode"
 import { useLogSet } from "../hooks/useLogSet"
+import { useProfile } from "../hooks/useProfile"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
 import { programBannerOf } from "../player/programBanner"
@@ -12,6 +13,8 @@ import { Banner, gutter, ListRow, Page, space, Text, useBreakpoint } from "../ui
 import { clampPage, ExercisePager } from "./ExercisePager"
 import { RestTimerBar } from "./RestTimerBar"
 import { SetList } from "./SetList"
+import { TodaySetupCard } from "./TodaySetupCard"
+import { needsEquipmentSetup } from "./todaySetup"
 
 interface TodayReadyProps {
   readonly exercises: ReadonlyArray<TodayExercise>
@@ -71,6 +74,7 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
   const breakpoint = useBreakpoint()
   const current = Arr.get(exercises, clampPage(page, exercises.length))
   const program = programBannerOf(useProgramDay().state)
+  const setup = needsEquipmentSetup(useProfile())
   const router = useRouter()
   const onLogged = (seconds: number) => {
     setRestTotal(seconds)
@@ -86,6 +90,11 @@ export function TodayReady({ exercises, header }: TodayReadyProps) {
       aside={<TodayAside current={current} rest={rest("ring")} />}
     >
       <View style={{ flex: 1 }}>
+        {setup ? (
+          <View style={{ marginHorizontal: gutter[breakpoint], marginTop: space.md }}>
+            <TodaySetupCard />
+          </View>
+        ) : null}
         {Option.match(program, {
           onNone: () => null,
           onSome: (banner) => (
