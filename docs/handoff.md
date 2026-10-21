@@ -311,3 +311,22 @@ Log in `docs/tasks/step-2.md`.
 - EM step-v3 retro applied and committed (`b468a5c`): ≤ 20-min boxes, half-review + resume-split as the
   default, Patch convention (explicit `optionalKey` Struct; every Patch decodes `{}` to zero keys). No agents live.
 - Owner-gated items unchanged (Live Activities dev build, universal links, production deploy, iPhone sign-in).
+
+## State at 12:53 (HEAD `d2cc875`) — Forge redesign committed; final QA + retro running
+- **Design**: owner picked A (light) + C (dark) + D's controls from four fable mockups; merged "Forge" system
+  (`docs/design/ui-direction-final.md`) built in ~50 min: tokens/fonts (Barlow Condensed via expo-font),
+  36 glyphs, AppBar/tab bar, controls (borderless steppers, pill buttons, grouped rows with discs), six
+  screens rebuilt in parallel, review UI-R (10 fixes applied) + UI-R2 (2 fixes applied), measured proof
+  UI-X PASS (8 criteria, 32 runs). Commit `86f7ea7` holds all of it (terse message — it was a signing
+  probe; see docs/tasks/step-2.md 12:5x for the contents).
+- **Images**: all 291 exercise illustrations transparent (3.9 MB); 291 generated muscle maps (front+back,
+  384 px, 4.8 MB) shown in Library hero + Progress via `MuscleMapImage` with the SVG map as fallback.
+  Pipelines: `pnpm images:generate --transparent --all`, `images:shrink`, `images:map`;
+  `node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts --catalog --all --out <dir>` →
+  `scripts/shrinkMuscleMaps.ts` → `scripts/muscleMapIndex.ts` (IMG-5d is adding `muscle:*` package scripts).
+- Live: UI-X2 (qa: final screenshot set light/dark 390+1280 → send to the owner), EM step-UI retro (fable:
+  apply `## Proposals for the Lead`, commit), IMG-5d (opus: look at all 291 map tiles, regenerate clear
+  errors once, package scripts, catalog-vs-files test).
+- Then: commit IMG-5d + EM edits, `/retro`-style log, owner report with the final contact sheets; owner
+  recipe unchanged (`pnpm db:reset && pnpm web:export && pnpm dev`). Owner-gated items unchanged
+  (Expo Go font-load check on a real device, Live Activities dev build, universal links, production deploy).
