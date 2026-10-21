@@ -57,6 +57,17 @@ Activity gated), **illustrations** (I1 primitives → I2 batches ≤ 5 sonnet
 → I3 validation); each ≤ 3 engineers, sonnet-first, ports per ADR-0013.
 Unattended-mode line in every brief. Commit after each landing.
 
+## State at 09:25 (HEAD `a12e11d`) — STALL NIGHT
+At 01:35 the Lead ended its turn waiting on catalog (C5) and illustrations
+(I1); both nested engineers ran ~8 h without finishing and both team-leads
+blocked on them; no notification woke the Lead until 09:17. ~7 h of
+capacity lost; the 08:35 deadline passed. Since 09:17: catalog data (235
+exercises) and illustrations I1 (primitives, validator, 6 SVGs) committed;
+INT-X1 (web recipe proof) ∥ INT-X2 (phone + MCP) ∥ retro (root cause +
+watchdog rules) ∥ illustrations batches ×5 running; a Lead-side Bash
+watchdog (background, exits when any live agent is silent > 15 min) is on.
+Next: commit each landing, final morning report (recipes first), handoff.
+
 ## State at 01:10 (HEAD `9775900`)
 Native sign-in stream CLOSED and approved (4 fix rounds: signed begin route,
 project-prefix pinning, canonical URL, header strip, limiter). Team programs
