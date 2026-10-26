@@ -60,3 +60,31 @@ owner's ports, `rm -r*`, `git push|reset|checkout`, `wrangler deploy|login|secre
 `eas *`.
 Report: team report format from `.claude/agents/team-lead.md`, with the `Commit:` line of the
 final capture and the gallery fragment path.
+
+---
+## Team sheet (team-lead, started 23:12)
+Commits at start: PROG-3 `37f95c7` (PlayerView reps branch, byte-identical rule), charter `620115a`. Lead facts at dispatch 23:08: landing owns `app/_layout.tsx` + `src/components/landing/*`; TODAY-FIN owns `src/services/TodayRepo.ts`, `app/(tabs)/today.tsx` (maybe `src/components/today/FinishWorkout.tsx`) for ~20 min: Today items go in `ExercisePage.tsx`/`src/ui` only; PROG-R reviews PlayerView read-only; ui-measure.js gets `contentH`.
+
+### Assumes (cross-team, copied from the charter)
+- PROG-3 committed PlayerView's reps branch (`37f95c7`): keep it byte-identical; the numeral decision lives in `playerRing.ts`.
+- Landing stream owns `_layout.tsx`; feed at 900 reports overflow 7 (feed team's; report, do not fix).
+- TODAY-FIN owns `today.tsx`/`TodayRepo.ts` (Lead, 23:08); strava owns worker + integrations files.
+
+### Tasks
+| id | task | role/model | depends | box | agent id | status |
+|---|---|---|---|---|---|---|
+| R4a | src/ui: ListRow line props, ToggleChip compact, one stat-row rule, hairline check, Plan Up next, Programs fill, ui-measure `contentH` | engineer/sonnet | - | 20 | ab0c6cda08b128ac5 | done 23:17 |
+| R4b | Player enrolled 1280/900 + numeral decision, Today single label row, Plan rest rows >= 64, Library/detail/Progress fill | engineer/sonnet | R4a | 20 | - | todo |
+| REV-R4ab | reviewer (opus) over R4a+R4b diff, own paths | reviewer/opus | R4b | 6 | - | todo |
+| R4c-shoot | enrol seed, capture all routes 1280/900 L+D, probes, rows fragment | engineer/sonnet | R4b | 12 | - | todo |
+| R4c-design | designer review r4 (`UI-Pdesktop-r4.md`), scores per screen | architect/fable | R4c-shoot | 10 | - | todo |
+| R4c-fix | one fix round + final capture | engineer/sonnet | R4c-design | 5+5 | - | todo |
+
+### Log
+(HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome)
+- 23:13→23:17 · R4a · engineer/sonnet · ab0c6cda08b128ac5 · 172k · 60 · 1 · done, gate green (922 tests); planUpNext.ts(+test) untracked (commit with plan.tsx); no capture (R4c measures); Activity/Feed tiles are not StatRow (feed team's)
+
+### Decisions
+### Escalations
+### Integration checklist
+- 23:18 · Lead ruling (desktop r4 interim): PlanDayRow.tsx granted to desktop r4 for this round (mobile-A done, file clean; phone layout byte-identical); TodayReady.tsx stays with TODAY-FIN → 'Sets / Back Squat' single row deferred to r5; feed stat tiles → follow-up FEED-8 (adopt StatRow)

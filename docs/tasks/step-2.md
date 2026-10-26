@@ -309,3 +309,5 @@ Source: docs/plan.md step 2 · Status: building · Started: 2026-10-20 22:06 · 
 - 23:14 · PROG-R (reviewer/opus, 1.5 min, 69k tokens, 13 tool uses): APPROVE 37f95c7; should: §9 figure 4.0 → 4.3 min (255 s); nit: PlayerView doc comment → PROG-3 engineer resumed; ui-check evidence confirmed in the PROG-3 report
 - 23:15 · LAND-2 accepted (LAND-1 engineer resumed, 2 min, 183k tokens cum., 18 tool uses): webps wired, 188 KB, VERIFY 2 ok, contentH 1628/1202 in band; WIP 1b2d0ee; LAND-R (designer/fable) dispatched; follow-up: dark pre-mount white frame → public/index.html prefers-color-scheme background (PROG-3 engineer, one-liner)
 - 23:15 · PROG-3 review fixes committed c52a09f; PROG-1/2/3 all reviewed → Amendment 11 code complete (dark captures with desktop r4). GAL-1 round 3 (14 s): integrations S1–S4 + prog3 R1–R2 sections; gallery v9 publish
+- 23:16 · index.html pre-mount bg fix committed 122d4a2 (PROG-3 engineer, 1 min; mobile gate 917 tests)
+- 23:18 · desktop r4 R4a done (gate 922 tests, 4 min); rulings: PlanDayRow granted, TodayReady deferred, FEED-8 queued (feed stat tiles → StatRow)

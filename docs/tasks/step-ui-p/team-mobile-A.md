@@ -44,3 +44,4 @@ Owned: `apps/mobile/src/components/{TodayReady,TodaySetupCard,todaySetup,todayHe
 
 ## UI-P-left
 1. Today 3 "kg" caption beside numeral (Stepper unit slot, src/ui). 2. Plan session day row 172 vs 156 (card vertical padding 11 vs 8). 3. Programs not-enrolled hero 56 → 104 (optional). 4. Page scroll section gap 16 → 24 (`gap` prop on Page, desktop).
+- 23:18 · Lead ruling: src/components/PlanDayRow.tsx granted to the desktop r4 pair for a desktop-only branch (rest rows ≥ 64 at 1280); mobile-A is finished; phone layout must stay byte-identical
