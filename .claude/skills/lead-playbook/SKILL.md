@@ -11,6 +11,12 @@ comes back, and keep `docs/` truthful. Full rationale: `docs/dev-system.md`.
 
 ## Session start
 
+0. Start `caffeinate -i -t 14400` in the background (Bash, `run_in_background`)
+   and ask the owner to keep the Mac on AC: on 2026-10-26 the Mac idle-slept
+   three times on battery (`pmset` `sleep 1`) and every live agent froze in
+   lockstep for 15.5 min (`docs/research/process-lockstep-gaps.md`). When
+   every agent goes silent at once, check `pmset -g log` before blaming any
+   agent.
 1. Read `docs/handoff.md`, then `docs/tasks/` for the current step, then
    `git status --short`.
 2. Tell the owner in two lines where things stand and what you will do.

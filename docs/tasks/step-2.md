@@ -329,3 +329,4 @@ Source: docs/plan.md step 2 · Status: building · Started: 2026-10-20 22:06 · 
 - 23:41 · REV-AF r2 APPROVE 7dbf3bd; startup close removed next (after-pull only), then the reviewed commit
 - 23:42 · AUTO-FIN final: startup close removed; reviewed commit 4204ae7 (mobile 934). Known limit: an offline device that never completes a pull never auto-closes
 - 23:43 · RETRO (EM fable, effort max, 16 min): docs/retro/2026-10-26-v4-evening.md; P1–P6 applied (playbook, dev-system §11, engineering-manager.md); REV-POLISH + lockstep spike dispatched; experiment recorded in handoff
+- 23:47 · spike lockstep gaps (opus, 1.5 min): Mac idle sleep on battery, not throttling or the Lead; caffeinate rule added; research doc committed
