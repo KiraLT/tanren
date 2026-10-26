@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Match, Ref } from "effect"
 import { FetchHttpClient } from "effect/http"
 import { WorkerConfig } from "../Config"
 import type { EmailSenderShape, MagicLinkEmail } from "./Email"
+import { MAGIC_LINK_SUBJECT } from "./magicLinkEmail"
 import { makeResendSender } from "./ResendEmailSender"
 
 export type { EmailSenderShape } from "./Email"
@@ -13,7 +14,8 @@ export class EmailSender extends Context.Service<EmailSender, EmailSenderShape>(
   static readonly layerConsole = Layer.succeed(
     this,
     this.of({
-      send: ({ email, url }) => Effect.logInfo(`magic link for ${email}: ${url}`),
+      send: ({ email, url }) =>
+        Effect.logInfo(`magic link for ${email} (${MAGIC_LINK_SUBJECT}): ${url}`),
     }),
   )
 

@@ -34,7 +34,8 @@ src/
   repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests)
   auth/               Sessions port, SessionsLive (Better Auth), BetterAuth (lazy `Effect.cached` instance),
                       Email (MagicLinkEmail, EmailSendFailed, EmailSenderShape), EmailSender (console locally,
-                      Resend via `makeResendSender`), authRoutes (store/build/request failure → 503
+                      Resend via `makeResendSender`), magicLinkEmail (pure `{ subject, text, html }`: table layout, inline
+                      styles, escaped url, fixed light colours; `resendBody` calls it), authRoutes (store/build/request failure → 503
                       `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
   sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                tools.ts (6 read tools incl. `search_exercises` (`availableAt`: 1 D1 statement) and `get_profile`; with the 3 write tools 9 total; a read-only grant lists 6; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·

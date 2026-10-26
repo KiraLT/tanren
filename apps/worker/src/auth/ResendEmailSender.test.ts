@@ -10,7 +10,8 @@ import {
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
 import { EmailSender } from "./EmailSender"
-import { MAGIC_LINK_SUBJECT, RESEND_EMAILS_URL, resendBody } from "./ResendEmailSender"
+import { MAGIC_LINK_SUBJECT } from "./magicLinkEmail"
+import { RESEND_EMAILS_URL, resendBody } from "./ResendEmailSender"
 
 const API_KEY = "re_test_only_secret_value"
 const providerEnv: EnvVars = {

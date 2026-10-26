@@ -2,28 +2,22 @@ import { Effect, Option } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import { WorkerConfig } from "../Config"
 import { type EmailSenderShape, EmailSendFailed, type MagicLinkEmail } from "./Email"
+import { MAGIC_LINK_EXPIRES_IN_MINUTES, magicLinkEmail } from "./magicLinkEmail"
 
 const PROVIDER = "resend"
 
 /** https://resend.com/docs/api-reference/emails/send-email */
 export const RESEND_EMAILS_URL = "https://api.resend.com/emails"
-export const MAGIC_LINK_SUBJECT = "Sign in to Tanren"
-
-const escapeHtml = (raw: string): string =>
-  raw
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
 
 /** The Resend `POST /emails` body for one magic link. */
-export const resendBody = (from: string, { email, url }: MagicLinkEmail) => ({
-  from,
-  to: [email],
-  subject: MAGIC_LINK_SUBJECT,
-  text: `Sign in to Tanren: ${url}\n\nThe link expires soon. If you did not ask for it, ignore this email.`,
-  html: `<p><a href="${escapeHtml(url)}">Sign in to Tanren</a></p><p>The link expires soon. If you did not ask for it, ignore this email.</p>`,
-})
+export const resendBody = (from: string, { email, url }: MagicLinkEmail) => {
+  const { subject, text, html } = magicLinkEmail({
+    url,
+    expiresInMinutes: MAGIC_LINK_EXPIRES_IN_MINUTES,
+    appName: "Tanren",
+  })
+  return { from, to: [email], subject, text, html }
+}
 
 /**
  * `EMAIL_MODE=provider`: one `POST /emails` per magic link. `EmailSender.layerResend` wraps it in a
