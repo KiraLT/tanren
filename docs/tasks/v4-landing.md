@@ -66,3 +66,4 @@ Do: score hero, features, CTA, footer 1–5 at 390 and 1280, light and dark, aga
 - 23:11 · LAND-1 done → WIP e7fa3f4; LAND-2 dispatched (LAND-1 engineer resumed; measures contentH inline, ui-measure.js stays with the desktop r4 team)
 - 23:15 · LAND-2 done → WIP 1b2d0ee; LAND-R dispatched (designer reviews the 4 PNGs + probe table; fixes routed by the Lead to the LAND engineer)
 - 23:21 · LAND-R PASS. LAND-3 polish (hero centring 1280, card image 120 at 390, landing.md §3/§7 notes, full-page captures) running; then final commit + deploy. Design notes left: light-scheme illustration amber vs rust primary (one-colour-set decision D1 stands); eyebrow repeats the name (copy)
+- 23:24 · LAND-3 done; landing committed 7dcba0e (ILL-1 0cedd92, LAND-1 e7fa3f4, LAND-2 1b2d0ee, LAND-R PASS). Status: done. Design notes left for a later round: light-scheme illustration amber vs rust primary; eyebrow repeats the name.
