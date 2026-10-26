@@ -115,6 +115,31 @@ describe("TodayRepo.finishSession", () => {
     ),
   )
 
+  it.effect("never finishes before the last set when the clock stepped back", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* TodayRepo
+        const squat = yield* squatOf(yield* seededToday)
+        const first = yield* repo.logSet(input(squat))
+        yield* TestClock.adjust("10 minutes")
+        const last = yield* repo.logSet(input(squat))
+        yield* TestClock.setTime(NOW + 5 * 60 * 1000)
+        const result = yield* repo.finishSession(first.sessionId)
+        expect(result.pipe(Option.map((finished) => finished.durationSeconds))).toEqual(
+          Option.some(10 * 60),
+        )
+        const rows = yield* (yield* LocalStore).all({
+          sql: `SELECT * FROM "workout_session" WHERE "id" = ?`,
+          params: [first.sessionId],
+        })
+        const [stored] = yield* decodeRecords(SessionRow)(rows)
+        expect(stored?.finishedAt.pipe(Option.map(millis))).toEqual(
+          Option.some(millis(last.loggedAt)),
+        )
+      }),
+    ),
+  )
+
   it.effect("logs the next set into a new session once the open one is finished", () =>
     run(
       Effect.gen(function* () {

@@ -20,29 +20,46 @@ interface FinishWorkoutProps {
  */
 export function FinishWorkout({ session }: FinishWorkoutProps) {
   const breakpoint = useBreakpoint()
-  const { finish, pending, error } = useFinishSession()
+  const { finish, pending, error, clearError } = useFinishSession()
   const [saved, setSaved] = useState<Option.Option<string>>(Option.none())
   const openId = Option.map(session, (open) => open.session.id)
   const openKey = Option.getOrNull(openId)
+  // Hidden while the confirmation shows: the old session stays Some until the store reload.
+  const showButton = canFinish(session) && Option.isNone(saved)
 
-  // A new open session (the next set after a finish) dismisses the confirmation.
+  // A new open session (the next set after a finish) dismisses the confirmation and any error.
   useEffect(() => {
     if (openKey !== null) {
       setSaved(Option.none())
+      clearError()
     }
-  }, [openKey])
-  // Leaving Today dismisses it too.
-  useFocusEffect(useCallback(() => () => setSaved(Option.none()), []))
+  }, [openKey, clearError])
+  // Leaving Today dismisses both too.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        setSaved(Option.none())
+        clearError()
+      },
+      [clearError],
+    ),
+  )
 
   const onPress = () =>
     Option.match(openId, {
       onNone: () => undefined,
       onSome: (id) => {
-        finish(id).then((result) => setSaved(Option.map(result, finishedLine)))
+        // A None (nothing to finish, e.g. a second tap) keeps the line already shown.
+        finish(id).then((result) =>
+          Option.match(result, {
+            onNone: () => undefined,
+            onSome: (finished) => setSaved(Option.some(finishedLine(finished))),
+          }),
+        )
       },
     })
 
-  if (!canFinish(session) && Option.isNone(saved) && Option.isNone(error)) {
+  if (!showButton && Option.isNone(saved) && Option.isNone(error)) {
     return null
   }
   return (
@@ -53,7 +70,7 @@ export function FinishWorkout({ session }: FinishWorkoutProps) {
         gap: space.sm,
       }}
     >
-      {canFinish(session) ? (
+      {showButton ? (
         <Button
           label="Finish workout"
           accessibilityLabel="Finish workout"

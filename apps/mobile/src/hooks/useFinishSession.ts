@@ -16,6 +16,8 @@ export const useFinishSession = (): {
   readonly finish: (sessionId: SessionId) => Promise<Option.Option<FinishedSession>>
   readonly pending: boolean
   readonly error: Option.Option<string>
+  /** Drops the last failure message (next session, screen blur). */
+  readonly clearError: () => void
 } => {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<Option.Option<string>>(Option.none())
@@ -38,5 +40,6 @@ export const useFinishSession = (): {
       })
     })
   }, [])
-  return { finish, pending, error }
+  const clearError = useCallback(() => setError(Option.none()), [])
+  return { finish, pending, error, clearError }
 }

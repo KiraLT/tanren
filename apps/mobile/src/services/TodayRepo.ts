@@ -475,14 +475,20 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
                 )
                 .pipe(Effect.flatMap(decodeRecords(SessionRow))),
             )
-            const setCount = (yield* loggedSets(Option.some(sessionId))).length
+            const sets = yield* loggedSets(Option.some(sessionId))
+            const setCount = sets.length
             if (Option.isNone(found) || setCount === 0) {
               return Option.none<FinishedSession>()
             }
             const session = found.value
             const now = yield* DateTime.now
-            // A device clock set back must not break `finishedAt >= startedAt` or lose LWW.
-            const finishedAt = DateTime.max(now, session.startedAt)
+            // A device clock set back must not put the finish before the start or the last set,
+            // nor lose LWW.
+            const finishedAt = Arr.reduce(
+              sets,
+              DateTime.max(now, session.startedAt),
+              (latest, set) => DateTime.max(latest, set.loggedAt),
+            )
             const finished = yield* Session.makeEffect({
               ...session,
               finishedAt: Option.some(finishedAt),
