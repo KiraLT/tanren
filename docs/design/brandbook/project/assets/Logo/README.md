@@ -10,5 +10,8 @@ The mark is 力 (chikara, strength) in two brush strokes: the first off-white on
 - `favicon.png` — 48, graphite tile.
 - `mark.png` — 512, transparent: dark surfaces, the lockup beside the wordmark in dark.
 - `mark-paper.png` — 512, opaque paper tile: light surfaces (sign-in, email, the lockup in light).
+- `mark.svg` — vector mark, viewBox 512, ink path `currentColor` plus amber `#F59E0B` hook: inline it where CSS `color` picks the ink (24 px tab bar, web header, OG image).
+- `mark-ink.svg` — same trace, ink `#16181D`, burnt-orange hook `#C2410C` (matches `mark-paper.png`), light grounds: print, one-colour documents on paper, OG image on light.
+- `mark-paper.svg` — same trace, ink `#F6F4EF`, amber hook `#F59E0B`: dark surfaces as a file (OG image on graphite, print on dark stock).
 
 Rules (brand book, Logo system): clear space = the wordmark's cap height (or a quarter of the mark's width); mark >= 24 px; wordmark `TANREN` in Barlow Condensed ExtraBold tracked 4 px, >= 80 px wide; lockup mark left of the wordmark, gap = half the mark's width.
