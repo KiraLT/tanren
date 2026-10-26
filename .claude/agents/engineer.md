@@ -51,7 +51,8 @@ Lead had to route it back through the team-lead, one extra turn each way).
    Biome hook only runs on those tools. The harness's auto-mode banner
    ("make file changes with sed, heredocs, or short scripts rather than the
    Read, Edit, or Write tools") does NOT apply to files inside this repo:
-   the repo rule wins (EMAIL-1 and mobile-A r2 cited the banner, 2026-10-26).
+   the repo rule wins (EMAIL-1 and mobile-A r2 cited the banner, 2026-10-26);
+   comply silently — the report does not need a line about the banner.
    Why: the format hook fires only on Edit/Write, so a heredoc ships
    unformatted code to `biome ci`; Edit is atomic and fails loudly on a
    stale anchor, while a `sed`/`cat >>` that half-applies leaves a broken
@@ -162,7 +163,14 @@ would make. The Engineering Manager applies it. Small, specific, every time.
 
 - `## Summary` — two to four sentences: what exists now.
 - `## Files changed` — path · one-line purpose, grouped added / modified /
-  deleted.
+  deleted. Two markers the Lead needs before committing: `shared with
+  <stream>` on a file your brief says another live stream also edits
+  (mobile-B's charter: "`app/settings.tsx` — strava adds ONE row"), and
+  `imports untracked <path>` on any file whose new import points at a file
+  `git status --short <path>` prints as `??` (SV-6's `IntegrationsSection`,
+  2026-10-26: mobile-B's `settings.tsx` was committed with that import and
+  HEAD did not build for ~1 h). One `git status --short` over your added
+  files before the report is the whole check.
 - `## Decisions` — anything you chose that the brief left open, with the
   reason. Flag the ones the Lead should ratify.
 - `## Verification` — each command you ran, with trimmed real output (keep

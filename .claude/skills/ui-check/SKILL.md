@@ -110,6 +110,17 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   `git status --short | wc -l` (dirty count). When two streams change layout at once (2026-10-26: the
   desktop pair moved the page width while FEED-5 measured 696), compare only runs on the same commit, or
   name the commits between them and route the diff to their author; it is drift, not a defect.
+  One `Commit:` per capture run: read `rev-parse` before the first shot and again after the last; the
+  Lead commits every few minutes, so when the two differ (LOGO-2's light and dark sign-in shots carried two
+  shas, 2026-10-26) report both with the file where it changed, or re-shoot the earlier files on the later
+  sha — never one sha for a mixed set.
+- Dev-server data states (team feed / FEED-X, 2026-10-26): after ADR-0019 an empty store redirects to
+  `/sign-in`, so a dev-server capture needs either `EXPO_PUBLIC_DEV_USER_ID=<uuid>` at start or a sign-in
+  against a local worker (the exported-build recipe above). Done activities without a worker: Programs →
+  "Start day N" with `EXPO_PUBLIC_PLAYER_SPEED=60` at `expo start` (≈ 20 s per day), or the seeded worker
+  with your own `--persist-to` copy. `ab close` ends the browser profile and the local store with it: shoot
+  everything you need before closing. Metro needs `expo start --clear` after a route file is added; a
+  `(tabs)` route not listed in `APP_NAV` redirects to `/today`.
   Rounds of one pair shoot against the pair's own `--persist-to` state dir seeded once (isolated stack
   above), never the shared `.wrangler/state` D1: other agents' proofs mutate it (mobile-A r1→r2 found every
   seeded session "done", so Today/Plan were not like-for-like across rounds).

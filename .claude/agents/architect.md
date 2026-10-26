@@ -32,6 +32,15 @@ an API.
    table-name literal union. Team mcp's design wrote `name: EntityName`;
    the slip was copied into `mcp.ts`, frozen, and found by the S4-T3
    engineer (one Lead re-route, one design fix mid-run).
+   An amendment section that changes data lists every assertion the
+   existing tests pin on that data (`grep -n "toEqual\|toBe\|minutes\|
+   seconds" <test file>`) with its new value, and names the number in an
+   earlier section it supersedes: v2-programs §9 (2026-10-26) wrote "§1–§7
+   stay as written" while its recovery row (3 × 20 reps at 2 s + 75 s)
+   made recovery days 4 min against §3's "6.0 min" and the test's "about 6
+   minutes"; PROG-1 changed the expectation itself and the Lead ratified
+   after the fact. The task sheet's Assumes names the three tests that
+   change — name the assertions, not the files.
    A UI spec (mockups + token deltas) carries, for every mockup row, its
    width arithmetic at 390 (gutters, gaps and slots sum <= the content width:
    UI-C's library hero put 176 + 176 into a 343 px row and IMG-5c drew the

@@ -162,7 +162,15 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    Every round's interim to the Lead has a fixed shape: `round n ·
    per-screen scores · files changed (paths) · → <other pair> requests ·
    round n+1 items`; mobile-A's round-1 interim had no file list and the
-   Lead grepped the tree before committing.
+   Lead grepped the tree before committing. In that file list and in the
+   team report's `## Files changed`, a file another live stream also edits
+   (the charter names it: mobile-B's `app/settings.tsx`, "strava adds ONE
+   row") carries `shared with <stream>`, and a file importing one not yet
+   in HEAD carries `imports untracked <path>` (engineer.md Files changed):
+   the Lead committed mobile-B's `settings.tsx` with strava's import of the
+   uncommitted `IntegrationsSection` (22:11, 2026-10-26) and HEAD stopped
+   building until SV-6 landed; a shared file is committed only with both
+   streams' pieces, so both team-leads say when theirs is ready.
 7. Spawn `qa` (model `sonnet`) with the done-criteria only if the charter
    asks for QA. Otherwise the reviewer runs the package-level gate (`monorepo`
    skill, "The gate") and quotes it; no separate QA round. `FAIL` → one more
