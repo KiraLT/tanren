@@ -162,9 +162,11 @@ Route: `AppBar title={activity.title} leading={<IconButton icon="chevronLeft" �
 
 | screen | Page | main | side |
 | --- | --- | --- | --- |
-| Feed `(tabs)/feed` | `aside`, `5/7` → 464 / 648 (inner 400 / 584) | week headers + cards at 400 inner (card inner 368: head 368 − 68 = 300 text ✓, strip 272 ✓, tiles (368 − 24)/3 = 114 ✓) | `ActivityDetail layout="split"` for the selected card (`selected` prop; default newest, Progress's `effectiveSelection` pattern progress.tsx:76); press on a card selects instead of navigating |
-| Detail `activity/[sessionId]` | `wide` (inner 1072) | `Columns 7/5`: main 611 = head + stat tiles (4 in a row: (611 − 36)/4 = 143 ✓) + Exercises group | side 437 = `MuscleMap 176` + pills |
-Split arithmetic: 464 + 24 + 648 = 1136 ✓; 611 + 24 + 437 = 1072 ✓. At 900 the 5-share column is
+| Feed `(tabs)/feed` | `aside` → measured at 1280: main 496 / aside 696 (left gutter 32) | week headers + cards at 400 inner (card inner 368: head 368 − 68 = 300 text ✓, strip 272 ✓, tiles (368 − 24)/3 = 114 ✓) | `ActivityDetail layout="split"` for the selected card (`selected` prop; default newest, Progress's `effectiveSelection` pattern progress.tsx:76); press on a card selects instead of navigating |
+| Detail `activity/[sessionId]` | `wide` → measured at 1280: main 658 / side 470 | `Columns`: main 658 = head + stat tiles (4 in a row: (611 − 36)/4 = 143 ✓) + Exercises group | side 470 = `MuscleMap 176` + pills |
+Measured pins at 1280 (supersede the earlier 464/648 and 611/437 design numbers): Feed main 496 /
+aside 696 (left gutter 32); activity detail main 658 / side 470. Below 1024 every split is 6/6, so
+the aside falls back to 2×2 tiles. The inner-width arithmetic below was done for the earlier pins. At 900 the 5-share column is
 364 (inner 300): card head 300 − 68 = 232 ✓, strip 272 ≤ 300 ✓, tiles (300 − 24)/3 = 92 (keep
 `title2` 22 px; "4,230 kg" ≈ 84 ✓).
 
