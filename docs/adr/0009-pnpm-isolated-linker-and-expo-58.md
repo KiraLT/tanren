@@ -20,9 +20,9 @@ the plan fixes Expo Go plus EAS Update for the iPhone.
    `watchFolders`, `extraNodeModules` or `disableHierarchicalLookup`; its only addition
    registers the expo-sqlite `.wasm` asset for web.
 2. **Expo SDK 58**, versions pinned in the root catalog from Expo's `bundledNativeModules.json`,
-   not npm latest: `expo` 58.0.16, `expo-router` 58.0.24, `expo-sqlite` 58.0.13, `expo-crypto`
-   58.0.7, `expo-constants` 58.0.12, `expo-linking` 58.0.13, `expo-status-bar` 58.0.3,
-   `@expo/metro-runtime` 58.0.14, `react-native` 0.88.0, `react` / `react-dom` 19.3.0,
+   not npm latest: `expo` 58.0.19, `expo-router` 58.0.26, `expo-sqlite` 58.0.14, `expo-crypto`
+   58.0.7, `expo-constants` 58.0.13, `expo-linking` 58.0.14, `expo-status-bar` 58.0.4,
+   `@expo/metro-runtime` 58.0.15, `react-native` 0.88.0, `react` / `react-dom` 19.3.0,
    `react-native-web` 0.21.4, `react-native-screens` 4.30.0, `react-native-safe-area-context`
    5.10.1. Upgrades: `npx expo install --check` reports drift; an SDK major is a new ADR.
 3. **Gotchas recorded so they are not rediscovered:** `apps/mobile/tsconfig.json` extends
@@ -55,3 +55,15 @@ step 7 EAS Update task.
   only ships the current SDK. Rejected.
 - **Development build / EAS Build instead of Expo Go**: removes the Expo Go constraint but adds a
   native build pipeline the plan does not ask for. Rejected for now.
+
+## Amendment 2026-10-26
+
+On 2026-10-21 the owner's App Store Expo Go was SDK 57, so an SDK 57 pin was started. It was
+discarded on 2026-10-26 when the owner asked for SDK 58 (his Expo Go moved on); the 57 diff needed
+`expo/metro-config.js` and a `ScrollView` ref type in `ExercisePager.tsx` and is kept outside the
+repo. The catalog moved to the current SDK 58 patch set: `expo` 58.0.16 to 58.0.19,
+`@expo/metro-runtime` 58.0.14 to 58.0.15, `expo-audio` 58.0.9 to 58.0.10, `expo-constants` 58.0.12
+to 58.0.13, `expo-font` 58.0.9 to 58.0.10, `expo-linking` 58.0.13 to 58.0.14, `expo-notifications`
+58.1.5 to 58.1.6, `expo-router` 58.0.24 to 58.0.26, `expo-sqlite` 58.0.13 to 58.0.14,
+`expo-status-bar` 58.0.3 to 58.0.4. `typescript` stays 7.0.2 (ADR-0003) against the ~6.0.3 that
+`expo install --check` expects.

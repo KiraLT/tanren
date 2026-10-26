@@ -11,8 +11,8 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 
 ## Decided at step 6 (2026-10-20, gate green)
 
-- Expo SDK 58 (`expo` 58.0.16, `expo-router` 58.0.24, `expo-sqlite`
-  58.0.13, RN 0.88, React 19.3.0), pinned in the root `pnpm-workspace.yaml`
+- Expo SDK 58 (`expo` 58.0.19, `expo-router` 58.0.26, `expo-sqlite`
+  58.0.14, RN 0.88, React 19.3.0), pinned in the root `pnpm-workspace.yaml`
   catalog. Versions come from Expo's `bundledNativeModules.json`, not npm
   latest.
 - pnpm **isolated** linker (the default; no `nodeLinker` in
@@ -126,7 +126,7 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 
 ## Programs / player (v2, docs/design/v2-programs.md §4)
 
-- `expo-notifications` 58.1.5: `scheduleNotificationAsync({ trigger: { type:
+- `expo-notifications` 58.1.6: `scheduleNotificationAsync({ trigger: { type:
   SchedulableTriggerInputTypes.TIME_INTERVAL, seconds } })`, `cancelAllScheduledNotificationsAsync`,
   `requestPermissionsAsync → { granted, ios?.status }` (`PROVISIONAL` counts as granted). Loaded by
   dynamic `import()` inside `PhaseAlerts.layer`, so node tests never load it (no-op + warning on failure);
