@@ -80,7 +80,8 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
  */
 export function ProgramInside({ program }: { readonly program: Program }) {
   return (
-    <View style={{ gap: rhythm.labelToGroup }}>
+    // The Page's section gap is 16; the card -> label gap is 24 (rhythm.groupToLabel).
+    <View style={{ gap: rhythm.labelToGroup, marginTop: rhythm.groupToLabel - space.lg }}>
       <Text
         variant="caption"
         tone="muted"

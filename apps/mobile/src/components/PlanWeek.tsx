@@ -53,10 +53,9 @@ export function PlanWeek({
         })}
       </View>
       {phone ? (
-        <StatRow
-          items={weekStats(weekSummary(view))}
-          style={{ paddingBottom: rhythm.heroToSection }}
-        />
+        <View style={{ marginBottom: rhythm.heroToSection }}>
+          <StatRow items={weekStats(weekSummary(view))} />
+        </View>
       ) : null}
       <ListGroup>
         {view.days.map((day) => (

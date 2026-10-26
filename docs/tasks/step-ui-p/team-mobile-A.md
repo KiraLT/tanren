@@ -29,3 +29,18 @@ Owned: `apps/mobile/src/components/{TodayReady,TodaySetupCard,todaySetup,todayHe
 - [ ] (filled as needs appear)
 
 ## Log
+- 21:22→21:27 · E1 r1 code · engineer/sonnet · a3d192094a4c4b9a2 · 175k tok · 65 tool uses · 1 round · gate green (723 tests); Programs 1, Today 2/3-kg skipped (need src/ui). Dispatch ran foreground (ack = report), harmless here.
+- 21:22→21:32 · S1 r1 stack+shots · engineer/sonnet · a284c52699f16d5e7 · 125k tok · 71 tool uses · 20 PNG, errors empty; recipe `$S/pma-RECIPE.md`; export needs EXPO_PUBLIC_API_URL; /programs/play lazy chunk blank offline.
+- 21:33→21:37 · REV-1 designer r1 · architect/fable · a2c4035e19d2fd520 · 85k tok · 21 uses · NOT PASS: Today 4, Player 3, Plan 2, Programs 4/3. docs/design/reviews/UI-PmobileA-r1.md
+- 21:38 · E1 resumed (r2 fixes: Player pause disc filled, Plan truncation, Plan week stat row, Programs not-enrolled list). Interim sent to main with src/ui needs.
+- 21:38→21:39 · E1 r2 code (resume) · 3 min · gate green 748 tests; used sed -i / cat >> on source (rule slip, told to stop).
+- 21:39→21:43 · S1 r2 shots (resume, a284c52699f16d5e7) · 0 truncated names, errors empty. Note default seeded D1 changed between runs (all sessions done).
+- 21:44→21:49 · REV-2 designer r2 (resume a2c4035e19d2fd520) · PASS: Today 4, Player 4, Plan 4, Programs 4/4. docs/design/reviews/UI-PmobileA-r2.md
+- 21:48→21:51 · E1 r3 code (resume) · SetDots pill, ProgressRing day number + player header ring dropped on phone, clock 64/stroke 10, rhythm tokens; self-check fixed TodaySetupCard surfaceRaised (= bg in light) → surface. Gate red only foreign src/library/searchState.test.ts TS2375 (library pair); vitest 774 green.
+- 21:52 · E1 r3b (Plan one-line date header, gap 24) + S1 r3 reshoot dispatched (markers r3b).
+- 21:52→21:53 · E1 r3b (resume) · Plan one-line date header, stat gap 24, Programs label gap 24.
+- 21:53→21:55 · S1 r3 reshoot (resume) · 20 PNG, errors empty; edited docs/design/ui-measure.js (skip hidden/aria-hidden elements).
+- 21:57 · REV-3 designer r3 (resume) · PASS: Today 4, Player 5, Plan 4, Programs 4/5. Own gate re-run 21:56: biome + tsc + 815 tests green.
+
+## UI-P-left
+1. Today 3 "kg" caption beside numeral (Stepper unit slot, src/ui). 2. Plan session day row 172 vs 156 (card vertical padding 11 vs 8). 3. Programs not-enrolled hero 56 → 104 (optional). 4. Page scroll section gap 16 → 24 (`gap` prop on Page, desktop).

@@ -19,7 +19,8 @@ Owner verdict (21:15, Amendment 7): "too many white spaces, it does not look lik
 ## 2. Decisions that cut across screens
 
 D1 **Page width (changes `ui-desktop.md` §1.2)**: `sizes.pageMaxWidth` 1136 → **1360**; page = `min(window − 2·pageMargin, 1360)` with `pageMargin = 32` at ≥ 900 (`gutter.desktop`). At 1280: page **1216**, margin 32, visible gutter 32 + 32 = 64 (was 104). At 1440: page 1360, margin 40. At 1920: page 1360, margin 280 (a max is normal; the empty-column problem is fixed by D2–D4, not by width). At 900: page 836.
-  Column arithmetic (`columnsFor`, same rounding rule `ceil(x − 0.5)·4`): 1280 → `7/5` **696 / 496** (inner 632 / 432), `5/7` 496 / 696, `6/6` 596 / 596; 900 → `7/5` 472 / 364, `5/7` 340 / 472, `6/6` 404 / 408. **New clamp**: a column is never below `MIN_COLUMN = 364` (inner 300, the §3 floor of ui-desktop); at 900 `5/7` therefore = 364 / 448. New pinned tests: (1280,"7/5") → 696/496; (1280,"5/7") → 496/696; (1280,"6/6") → 596/596; (900,"5/7") → 364/448; (900,"7/5") → 472/364; (1440) → page 1360; (390)/(768) unchanged.
+  Amendment (desktop designer r1): below 1024 px every split renders 6/6.
+  Column arithmetic (`columnsFor`, same rounding rule `ceil(x − 0.5)·4`): 1280 → `7/5` **696 / 496** (inner 632 / 432), `5/7` 496 / 696, `6/6` 596 / 596; 900 → **every split 404 / 408** (below 1024 all splits render 6/6, see the Amendment below and ui-desktop §1.2); 1024 (page 960) → `7/5` 544 / 392, `5/7` 388 / 548, `6/6` 468 / 468. **Clamp**: a column is never below `MIN_COLUMN = 364` (inner 300, the §3 floor of ui-desktop; now only a guard). New pinned tests: (1280,"7/5") → 696/496; (1280,"5/7") → 496/696; (1280,"6/6") → 596/596; (900, any split) → 404/408; (1024,"7/5") → 544/392; (1024,"5/7") → 388/548; (1440) → page 1360; (390)/(768) unchanged.
 D2 **Sticky aside**: at desktop the `aside` column is `position: sticky; top: 56 + 24` (web only, `Platform.OS === "web"`; VERIFY RNW accepts `position: "sticky"` in `ViewStyle` — if not, the aside gets `maxHeight: windowHeight − 80` + its own `ScrollView`). The main column scrolls the page. A pinned aside reads as intentional; a short aside that scrolls away reads as leftover.
 D3 **Hero numeral scales by breakpoint**: `type.numeral` 72/76 at phone and tablet, **96/100 at desktop** (new token `type.numeralLg`, used only by `ExercisePage` weight and `PlayerView` clock). Steppers `xl` hit 64 → 72 at desktop (`stepperSizes.xl` unchanged; new `xxl: { hit: 72, glyph: 34 }`). Nothing else in the ramp changes (ui-desktop §1.6 holds for text).
 D4 **Illustrations at desktop**: `illustrationMd` 104 → `illustrationLg` 176 in the Today header and the Progress detail header at desktop; the muscle map slot 144 → 176 beside a 176 illustration when the inner width ≥ 400 (176 + 16 + 176 = 368 ✓).
@@ -92,6 +93,10 @@ Width check 390: header 104 + 12 + text column 242 = 358 ✓. Stat row 390: thre
 1. `[M]` Chip rows 12 apart, chips 32 high with 12/16 padding; groups 24 apart; fine. → chip row gap 8, `hitSlop` 6 so the 32-px chip meets 44 (VERIFY `Chip` has `hitSlop`), group→label 24, label→group 8.
 2. `[M]` "Delete location" sits in a card at the very bottom after ~1500 px of chips. → keep; add the item count to the name card ("5 items selected" `caption` under the field) so the top says what the bottom does.
 3. `[D]` 5/7 with the name/Set active/Delete in the 340 → 496 left column: fine after D1; the chips column 696 wraps in 4–6 per row ✓.
+
+### Amendments from the mobile-A rounds (fable, 2026-10-26, UI-PmobileA r1–r3)
+- `surface`, not `surfaceRaised`, for the Today setup row and the Player pause: surfaceRaised equals the page background in light.
+- Player ring stroke 10 on phone is a local constant `RING_STROKE` in PlayerView (TimerRing has a strokeWidth prop; a token is optional); Page scroll section gap is 16 where D5 wants 24 (desktop to add a gap prop).
 
 ## 4. Pair plan
 
