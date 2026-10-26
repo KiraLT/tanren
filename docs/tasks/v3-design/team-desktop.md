@@ -24,3 +24,11 @@ Ports for this pair: worker 8861 / app 8862 (+ inspector 9361); check free with 
 ## Decisions
 ## Escalations
 ## Integration checklist
+
+## Round 4 worklist (Lead, from the final report 22:57; charter after PROG-3 lands)
+1. Re-capture r7 (fix capture re-sign-in before settings), verify hairline on settings/location/activity; designer review r4.
+2. Plan: 'Up next' compact card; Player enrolled render at 1280/900 (enrol the seed first); Programs ≈ 84 % fill check; one stat-row style rule (bare / in-card / tiles → one).
+3. After mobile-B: Library 4–5, Library detail 2, Progress 3, Location Columns; ListRow titleLines/subtitleLines + tabular title; ToggleChip compact/margin.
+4. Harness: scratchpad UI-Pdesk-capture.sh needs zsh and a grep tolerant of the EmailSender log format; ports 8861/8862 collide — use WP=/AP=.
+5. Designer r3 open items: three stat styles, Plan rest rows 63, Today 'Sets / Back Squat' two label rows (mobile-A files, now free).
+Commits: r1 foundation + r2 in earlier commits; r3/r3c WIP 8ab5772 (unreviewed r3c).

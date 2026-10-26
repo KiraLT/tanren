@@ -242,6 +242,9 @@ Owned paths (exclusive): <globs>        Read-only: <globs>
 Adjacent (another team's, name the owner): <files next to yours that another
   stream edits during the run — hardening's gate went red twice from
   wrangler.jsonc, repos/Repositories.ts and db repositories/Session.ts>
+Shared: <file> (<A> owns; <B> adds <exact lines>) — one line per file two
+  teams touch; every interim and the team report mark it `shared with <team>`
+  and the Lead commits it only with both pieces (EM batch 4)
 Time box: <sum of the task boxes on the longest dependency chain + 15 min
   (review 8 + one fix round 5 + root gate/runtime proof 2); mcp: chain
   20+10+20 → 65 with the new boxes, 29 used; hardening: 35 given, 11 used>
@@ -375,6 +378,14 @@ Never relay "done" to the owner on an engineer's word alone. Log duration
 and tokens from the task notification and tool calls from the transcript
 (`grep -c '"type":"tool_use"' <output file>`), never from the agent's own
 count: TOOL-1 reported 42, the transcript held 80.
+(6) **Shared files and clean builds** (EM batch 4, 2026-10-26): a file two
+live streams edit is committed only when both streams' pieces are in the
+tree — read the report's `shared with <stream>` / `imports untracked <path>`
+markers and run `git status --short` on every path the file imports before
+`git add` (settings.tsx was committed with one stream's row importing the
+strava team's untracked `IntegrationsSection`; HEAD did not build for an
+hour). A deploy always builds from a fresh `git worktree add --detach … HEAD`,
+never from the dirty tree (`scratchpad/deploy.sh` is the recipe).
 
 ## Big diffs: fan the review out
 
