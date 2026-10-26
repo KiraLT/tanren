@@ -21,7 +21,9 @@ coverage
 
 # muscle map reviewer preview (rebuilt by scripts/muscleMapSheet.ts)
 apps/mobile/src/illustrations/muscleMap/_contact-sheet.html
-docs/design/screens/
+docs/design/screens/*
+!docs/design/screens/gallery.json
+!docs/design/screens/*.html
 
 # logo candidates (LOGO-1, scripts/generateLogo.ts)
 apps/mobile/assets/brand/candidates/
