@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Order, Schema } from "effect"
 import { failingPaths, roundTrips } from "../testing"
 import { CatalogExercise, type CatalogExerciseSpec } from "./CatalogExercise"
 import {
@@ -149,7 +149,7 @@ describe("catalog data validation", () => {
     )
   })
 
-  it("has all 24 CORE30 ids, each kind timed with core primary", () => {
+  it("has all 24 CORE30 ids, each kind timed or reps with core primary", () => {
     expect(CORE30_CATALOG_IDS.length).toBe(24)
     expect(duplicates(CORE30_CATALOG_IDS)).toEqual([])
     const missing = CORE30_CATALOG_IDS.filter((id) => !CATALOG_BY_ID.has(id))
@@ -157,11 +157,36 @@ describe("catalog data validation", () => {
     const wrong = CORE30_CATALOG_IDS.flatMap((id) => {
       const found = CATALOG_BY_ID.get(id)
       return found !== undefined &&
-        (found.kind !== "timed" || !found.primaryMuscles.includes("core"))
+        ((found.kind !== "timed" && found.kind !== "reps") ||
+          !found.primaryMuscles.includes("core"))
         ? [id]
         : []
     })
     expect(wrong).toEqual([])
+  })
+
+  it("marks exactly the 15 counted movements of ADR-0020 as reps among the CORE30 ids", () => {
+    const repsIds = CORE30_CATALOG_IDS.filter((id) => CATALOG_BY_ID.get(id)?.kind === "reps")
+    const sorted = Arr.sort(Order.String)
+    expect(sorted(repsIds)).toEqual(
+      sorted([
+        "dead-bug",
+        "crunch",
+        "reverse-crunch",
+        "lying-leg-raise",
+        "v-up",
+        "bicycle-crunch",
+        "russian-twist",
+        "heel-touch",
+        "plank-hip-dip",
+        "plank-shoulder-tap",
+        "glute-bridge",
+        "bird-dog",
+        "scissor-kick",
+        "sit-up",
+        "toe-touch-crunch",
+      ]),
+    )
   })
 
   it("keeps every instruction line at 120 characters or fewer", () => {
@@ -300,8 +325,10 @@ describe("searchCatalog on the catalog", () => {
 
   it("filters by muscle and kind and limits the result", () => {
     expect(ids(searchCatalog({ muscle: "core", kind: "timed" }))).toEqual(
-      expect.arrayContaining(["plank", "side-plank", "dead-bug"]),
+      expect.arrayContaining(["plank", "side-plank"]),
     )
+    expect(ids(searchCatalog({ muscle: "core", kind: "timed" }))).not.toContain("dead-bug")
+    expect(ids(searchCatalog({ muscle: "core", kind: "reps" }))).toContain("dead-bug")
     expect(searchCatalog({ muscle: "core" }, 1)).toHaveLength(Math.min(1, CATALOG.length))
   })
 

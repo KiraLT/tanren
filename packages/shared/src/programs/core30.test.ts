@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Array as Arr, Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Order, Schema } from "effect"
 import { CORE30_CATALOG_IDS, findCatalogExercise } from "../catalog"
-import { CORE30 } from "./core30"
+import { CORE30, REPS_BY_WORK_SECONDS } from "./core30"
 import { findProgram } from "./index"
 import { dayDurationSeconds, Program, type ProgramDay, ProgramId } from "./Program"
 
@@ -33,12 +33,58 @@ describe("CORE30", () => {
     expect(allItems.filter((item) => !CORE30_CATALOG_IDS.includes(item.catalogId))).toEqual([])
   })
 
-  it("only uses timed items, matching the catalog kind", () => {
-    expect(allItems.filter((item) => item.kind !== "timed")).toEqual([])
-    const kinds = Arr.dedupe(allItems.map((item) => item.catalogId)).map((id) =>
-      Option.map(findCatalogExercise(id), (entry) => entry.kind),
+  it("gives every item the mode of its catalog kind (distance runs as timed)", () => {
+    const mismatched = allItems.filter((item) => {
+      const kind = Option.map(findCatalogExercise(item.catalogId), (entry) => entry.kind)
+      return !Option.isSome(kind) || (kind.value === "reps") !== (item.kind === "reps")
+    })
+    expect(mismatched).toEqual([])
+  })
+
+  it("uses only counts from the table, all even", () => {
+    const counts = Arr.dedupe(allItems.flatMap((item) => (item.kind === "reps" ? [item.reps] : [])))
+    expect(Arr.sort(counts, Order.Number)).toEqual([12, 16, 18, 20, 22])
+    expect(counts.filter((count) => count % 2 !== 0)).toEqual([])
+    const wrongCount = allItems.filter(
+      (item) =>
+        item.kind === "reps" && !Array.from(REPS_BY_WORK_SECONDS.values()).includes(item.reps),
     )
-    expect(kinds.filter((kind) => Option.isSome(kind) && kind.value !== "timed")).toEqual([])
+    expect(wrongCount).toEqual([])
+  })
+
+  it("starts day 1 with five counted items then two timed holds", () => {
+    const modes = Option.map(dayOf(1), (day) =>
+      day.items.map((item) => [item.catalogId, item.kind === "reps" ? "R" : "T"]),
+    )
+    expect(modes).toEqual(
+      Option.some([
+        ["dead-bug", "R"],
+        ["crunch", "R"],
+        ["reverse-crunch", "R"],
+        ["lying-leg-raise", "R"],
+        ["v-up", "R"],
+        ["hollow-hold", "T"],
+        ["plank", "T"],
+      ]),
+    )
+  })
+
+  it("estimates the planned length of days 1, 10, 16, 22, 29 and 30", () => {
+    const seconds = [1, 10, 16, 22, 29, 30].map((n) =>
+      Option.getOrElse(Option.map(dayOf(n), dayDurationSeconds), () => -1),
+    )
+    expect(seconds).toEqual([900, 1020, 1020, 1020, 1050, 1056])
+  })
+
+  it("maps 25/30/35/40/45/75 work seconds to 12/16/18/20/22/20 reps", () => {
+    expect([...REPS_BY_WORK_SECONDS.entries()]).toEqual([
+      [25, 12],
+      [30, 16],
+      [35, 18],
+      [40, 20],
+      [45, 22],
+      [75, 20],
+    ])
   })
 
   it("titles days by phase", () => {
@@ -51,12 +97,12 @@ describe("CORE30", () => {
     expect(title(30)).toEqual(Option.some("Day 30 · Peak"))
   })
 
-  it("makes recovery days 4 items × 1 round, about 6 minutes", () => {
+  it("makes recovery days 4 items × 1 round, about 4 minutes (3 counted at 2 s a rep)", () => {
     expect(recoveryDays).toHaveLength(4)
     expect(recoveryDays.map((day) => [day.rounds, day.items.length])).toEqual(
       Arr.replicate([1, 4], 4),
     )
-    expect(recoveryDays.map((day) => Math.round(minutes(day)))).toEqual(Arr.replicate(6, 4))
+    expect(recoveryDays.map((day) => Math.round(minutes(day)))).toEqual(Arr.replicate(4, 4))
   })
 
   it("makes training days 7 items × 3 rounds", () => {

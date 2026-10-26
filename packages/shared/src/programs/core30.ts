@@ -1,8 +1,10 @@
-import { Array as Arr, Option, Schema } from "effect"
+import { Array as Arr, Match, Option, Schema } from "effect"
+import { findCatalogExercise } from "../catalog"
+import { CatalogId } from "../catalog/taxonomy"
 import { Program } from "./Program"
 
 /**
- * Core 30 (v2-programs.md §3): 30 days of timed core work. Training days run 7 items × 3 rounds;
+ * Core 30 (v2-programs.md §3, ADR-0020): 30 days of core work, holds timed and the rest counted. Training days run 7 items × 3 rounds;
  * days 7/14/21/28 are short recovery days (4 items × 1 round). Three templates cycle by day number
  * so consecutive days differ. Every id comes from the frozen `CORE30_CATALOG_IDS`.
  */
@@ -68,25 +70,72 @@ const RECOVERY_SECONDS = 75
 const RECOVERY_REST_SECONDS = 20
 const TRAINING_ROUNDS = 3
 
+/**
+ * Rep count for a phase's work seconds (ADR-0020 §3): a reps item replaces the seconds it would
+ * have run. Recovery's 75 s maps to 20. Every count is even (alternating moves count total reps).
+ */
+export const REPS_BY_WORK_SECONDS: ReadonlyMap<number, number> = new Map([
+  [25, 12],
+  [30, 16],
+  [35, 18],
+  [40, 20],
+  [45, 22],
+  [75, 20],
+])
+
+/**
+ * One item on the wire; the mode comes from the catalog `kind` (ADR-0020 §2: `distance` runs as
+ * timed). A catalog id that does not resolve, or a work duration missing from
+ * `REPS_BY_WORK_SECONDS`, is a data defect: the wire item gets an unknown `kind` / an absent
+ * `reps`, so `decodeUnknownSync(Program)` below fails the module load (and `core30.test.ts`).
+ */
+const itemFor = (catalogId: string, workSeconds: number, restSeconds: number) => {
+  const kind = Option.flatMap(Schema.decodeUnknownOption(CatalogId)(catalogId), (id) =>
+    Option.map(findCatalogExercise(id), (entry) => entry.kind),
+  )
+  return Option.match(kind, {
+    onNone: () => ({ kind: "unknown-catalog-entry", catalogId, restSeconds }),
+    onSome: (exerciseKind) =>
+      Match.value(exerciseKind).pipe(
+        Match.when("reps", () => ({
+          kind: "reps",
+          catalogId,
+          reps: REPS_BY_WORK_SECONDS.get(workSeconds),
+          restSeconds,
+        })),
+        Match.when("timed", () => ({
+          kind: "timed",
+          catalogId,
+          seconds: workSeconds,
+          restSeconds,
+        })),
+        Match.when("distance", () => ({
+          kind: "timed",
+          catalogId,
+          seconds: workSeconds,
+          restSeconds,
+        })),
+        Match.exhaustive,
+      ),
+  })
+}
+
 /** One round's items on the wire; the last item's rest is the rest between rounds. */
-const timedItems = (
+const roundItems = (
   ids: ReadonlyArray<string>,
   workSeconds: number,
   restSeconds: number,
   roundRestSeconds: number,
 ) =>
-  Arr.map(ids, (catalogId, index) => ({
-    kind: "timed",
-    catalogId,
-    seconds: workSeconds,
-    restSeconds: index === ids.length - 1 ? roundRestSeconds : restSeconds,
-  }))
+  Arr.map(ids, (catalogId, index) =>
+    itemFor(catalogId, workSeconds, index === ids.length - 1 ? roundRestSeconds : restSeconds),
+  )
 
 const trainingDay = (dayNumber: number, phase: Phase) => ({
   dayNumber,
   title: `Day ${dayNumber} · ${phase.title}`,
   rounds: TRAINING_ROUNDS,
-  items: timedItems(
+  items: roundItems(
     Option.getOrElse(Arr.get(TEMPLATES, (dayNumber - 1) % TEMPLATES.length), () => TEMPLATE_A),
     phase.workSeconds,
     phase.restSeconds,
@@ -99,7 +148,7 @@ const recoveryDay = (dayNumber: number) => ({
   dayNumber,
   title: `Day ${dayNumber} · Recovery`,
   rounds: 1,
-  items: timedItems(RECOVERY_ITEMS, RECOVERY_SECONDS, RECOVERY_REST_SECONDS, RECOVERY_REST_SECONDS),
+  items: roundItems(RECOVERY_ITEMS, RECOVERY_SECONDS, RECOVERY_REST_SECONDS, RECOVERY_REST_SECONDS),
   restBetweenRoundsSeconds: RECOVERY_REST_SECONDS,
 })
 

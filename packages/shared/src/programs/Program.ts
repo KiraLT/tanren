@@ -64,8 +64,8 @@ export class Program extends Schema.Class<Program>("@tanren/shared/Program")({
 }) {}
 export type ProgramEncoded = (typeof Program)["Encoded"]
 
-/** Estimate for a reps item, which has no clock: one rep every 3 seconds. */
-export const SECONDS_PER_REP = 3
+/** Estimate for a reps item, which has no clock: one rep every 2 seconds (ADR-0020 §3). */
+export const SECONDS_PER_REP = 2
 
 const workSeconds = (item: ProgramItem): number =>
   Match.value(item).pipe(

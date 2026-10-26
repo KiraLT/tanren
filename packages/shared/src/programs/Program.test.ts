@@ -51,6 +51,11 @@ describe("dayDurationSeconds", () => {
     expect(dayDurationSeconds(day)).toBe(3 * (90 + 30) + 2 * 60)
   })
 
+  it("counts 10 reps as 20 seconds (SECONDS_PER_REP = 2)", () => {
+    expect(SECONDS_PER_REP).toBe(2)
+    expect(10 * SECONDS_PER_REP).toBe(20)
+  })
+
   it("estimates a reps item at SECONDS_PER_REP per rep", () => {
     const day = Schema.decodeUnknownSync(ProgramDay)({
       ...dayWire,
