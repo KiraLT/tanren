@@ -24,6 +24,7 @@ const wireExercise = (specs: ReadonlyArray<SetSpec>, best: SetSpec) => ({
   exerciseId: uuid(500),
   name: "Bench press",
   catalogId: null,
+  muscleGroups: [],
   sets: specs.map((spec, i) => ({
     setId: uuid(900 + i),
     weightKg: spec.weightKg,

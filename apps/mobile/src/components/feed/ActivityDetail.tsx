@@ -1,5 +1,5 @@
-import { type Activity, type ActivityExercise, findCatalogExercise } from "@tanren/shared"
-import { Array as Arr, Option } from "effect"
+import type { Activity, ActivityExercise } from "@tanren/shared"
+import { Array as Arr } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
@@ -7,6 +7,7 @@ import { MuscleMapImage } from "../../library/MuscleMapImage"
 import { Card, ListGroup, ListRow, StatusPill, sizes, space, Text } from "../../ui"
 import { Pills } from "./ActivityCard"
 import { dateLine, detailTiles, exerciseSubtitle, musclesLabel, setLine } from "./detailText"
+import { exerciseMapSource } from "./feedGroups"
 
 const HERO_MAP_SIZE = 176
 const THUMB_SIZE = sizes.illustrationSm
@@ -19,20 +20,17 @@ export interface ActivityDetailProps {
 }
 
 function ExerciseThumb({ exercise }: { readonly exercise: ActivityExercise }) {
-  return Option.match(exercise.catalogId, {
-    onNone: () => <MuscleMap primary={[]} secondary={[]} size={THUMB_SIZE} />,
-    onSome: (catalogId) => {
-      const entry = findCatalogExercise(catalogId)
-      return (
-        <MuscleMapImage
-          catalogId={catalogId}
-          size={THUMB_SIZE}
-          primary={Option.match(entry, { onNone: () => [], onSome: (e) => e.primaryMuscles })}
-          secondary={Option.match(entry, { onNone: () => [], onSome: (e) => e.secondaryMuscles })}
-        />
-      )
-    },
-  })
+  const source = exerciseMapSource(exercise)
+  return source._tag === "Custom" ? (
+    <MuscleMap primary={source.primary} secondary={[]} size={THUMB_SIZE} />
+  ) : (
+    <MuscleMapImage
+      catalogId={source.catalogId}
+      size={THUMB_SIZE}
+      primary={source.primary}
+      secondary={source.secondary}
+    />
+  )
 }
 
 function ExerciseEntry({ exercise }: { readonly exercise: ActivityExercise }) {

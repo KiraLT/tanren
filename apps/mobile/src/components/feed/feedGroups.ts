@@ -1,4 +1,12 @@
-import { type Activity, LocalDate, type Weekday } from "@tanren/shared"
+import {
+  type Activity,
+  type ActivityExercise,
+  type CatalogId,
+  findCatalogExercise,
+  LocalDate,
+  type MuscleGroup,
+  type Weekday,
+} from "@tanren/shared"
 import { Array as Arr, DateTime, Option } from "effect"
 import { shiftDate, weekStartOf } from "../../services/progressMath"
 import { formatDayDate, weekdayLabel } from "../planFormat"
@@ -87,6 +95,31 @@ export const statTiles = (activity: Activity): ReadonlyArray<StatTile> => [
   },
 ]
 
+/** What an exercise's map shows: the catalog image, or a drawn map from the row's muscle groups. */
+export type ExerciseMapSource =
+  | {
+      readonly _tag: "Catalog"
+      readonly catalogId: CatalogId
+      readonly primary: ReadonlyArray<MuscleGroup>
+      readonly secondary: ReadonlyArray<MuscleGroup>
+    }
+  | { readonly _tag: "Custom"; readonly primary: ReadonlyArray<MuscleGroup> }
+
+/** A catalog link: its image and the entry's muscles; none: the row's `muscleGroups` as primary. */
+export const exerciseMapSource = (exercise: ActivityExercise): ExerciseMapSource =>
+  Option.match(exercise.catalogId, {
+    onNone: () => ({ _tag: "Custom", primary: exercise.muscleGroups }),
+    onSome: (catalogId) => {
+      const entry = findCatalogExercise(catalogId)
+      return {
+        _tag: "Catalog",
+        catalogId,
+        primary: Option.match(entry, { onNone: () => [], onSome: (e) => e.primaryMuscles }),
+        secondary: Option.match(entry, { onNone: () => [], onSome: (e) => e.secondaryMuscles }),
+      }
+    },
+  })
+
 /** The spoken label of a card (design §6). */
 export const activityLabel = (activity: Activity): string => {
   const at = inLocalZone(activity.startedAt)
@@ -100,7 +133,7 @@ export const activityLabel = (activity: Activity): string => {
     plural(activity.sets, "set", "sets"),
     plural(activity.exercises.length, "exercise", "exercises"),
     volumeOrReps(activity.volumeKg, activity.reps),
-    ...(activity.prs > 0 ? [`${activity.prs} personal records`] : []),
+    ...(activity.prs > 0 ? [plural(activity.prs, "personal record", "personal records")] : []),
     ...Option.match(activity.program, { onNone: () => [], onSome: () => [activity.title] }),
   ]
   return parts.join(", ")

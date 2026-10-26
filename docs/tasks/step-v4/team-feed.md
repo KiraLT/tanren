@@ -15,8 +15,8 @@ Charter: Lead, 2026-10-26 21:24, 120 min hard timeout. Tasks and contracts: `doc
 | FEED-4 | ActivityDetail + `/activity/[sessionId]` | sonnet | FEED-1/2 | done 21:50 |
 | FEED-5 | nav, Progress to stack route, old Sessions code deleted | sonnet | FEED-2 | done 21:55 |
 | FEED-6 | desktop pass | sonnet | 3,4,5 | done 22:12 (+ ListGroup inset one-liner in flight) |
-| REV-A | review of FEED-1..6 (one pass, all landed) | opus | FEED-6 | todo |
-| FEED-X | QA + screenshots | sonnet | REV-A | todo |
+| REV-A | review of FEED-1..6 | opus | FEED-6 | done APPROVE |
+| FEED-X | QA + screenshots | sonnet | REV-A | done PASS |
 
 ## Decisions
 - D1 `HistoryRepo.sessions`/`SessionSummary`/`useSessionSummaries` deletion moved from FEED-2 to FEED-5 (deleting earlier turned progress.tsx red). Ratified by the Lead.
@@ -40,3 +40,9 @@ Charter: Lead, 2026-10-26 21:24, 120 min hard timeout. Tasks and contracts: `doc
 - 21:51→21:55 · FEED-5 · engineer/sonnet · ad7b286d36b4690bf · 147k · 59 · 1 · done
 - 21:56→22:12 · FEED-6 · engineer/sonnet · ab778aeed6e75d69e · 197k · 101 · 1 · done
 - Note: every Agent call with `run_in_background: true` returned only when the child finished (no "Async agent launched" ack), so FEED-4/5/6 could not overlap.
+- 22:12→22:13 · FEED-6 follow-up (ListGroup inset thumb, Lead request) · ab778aeed6e75d69e (resumed) · 1 line
+- 22:14→22:17 · REV-A · reviewer/opus · ae66b7677ee6d969e · 140k · 25 tools · APPROVE (1 should, 5 nits)
+- 22:17→22:19 · FEED-R1 fix round · engineer/sonnet · a2838dae65f326cd7 · 112k · 28 · Set lookup + MAX_FEED_LIMIT 500, duration clamp, comments, CLAUDE.md phrases
+- 22:20→22:25 · FEED-X · qa/sonnet · a1c7820105e4920d8 · 100k · 36 · PASS, 9 screenshots docs/design/screens/UI-FEED-*
+- 22:24→22:27 · FEED-7 · engineer/sonnet · adb9db5b86a04b78a · 129k · 34 · ActivityExercise.muscleGroups + "1 personal record" grammar
+- Final gates 22:27 (team-lead re-run): shared 374 tests green, mobile green.

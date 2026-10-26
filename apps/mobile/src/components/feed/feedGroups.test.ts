@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Activity } from "@tanren/shared"
+import { Activity, ActivityExercise } from "@tanren/shared"
 import { DateTime, Schema } from "effect"
 import {
   activityLabel,
+  exerciseMapSource,
   feedRows,
   formatClock,
   formatDuration,
@@ -34,6 +35,7 @@ const exercise = (n: number) => ({
   exerciseId: uuid(500 + n),
   name: `Exercise ${n}`,
   catalogId: null,
+  muscleGroups: [],
   sets: [
     {
       setId: uuid(900 + n),
@@ -172,10 +174,40 @@ describe("activityLabel", () => {
     expect(label.endsWith("4,230 kg, 2 personal records, Core 30 · Day 12")).toBe(true)
   })
 
+  it("says '1 personal record' for a single record", () => {
+    const one = activity({ n: 11, startedAt: "2026-10-26T16:40:00.000Z", prs: 1 })
+    expect(activityLabel(one).endsWith("4,230 kg, 1 personal record")).toBe(true)
+  })
+
   it("says duration unknown and omits optional parts", () => {
     const plain = activity({ n: 10, startedAt: "2026-10-26T16:40:00.000Z", durationSeconds: null })
     expect(activityLabel(plain)).toMatch(
       /^Workout, 26 Oct \d\d:\d\d, duration unknown, 18 sets, 6 exercises, 4,230 kg$/,
     )
+  })
+})
+
+describe("exerciseMapSource", () => {
+  const wire = (catalogId: string | null, muscleGroups: ReadonlyArray<string>) =>
+    Schema.decodeUnknownSync(ActivityExercise)({ ...exercise(1), catalogId, muscleGroups })
+
+  it("a custom exercise with muscle groups draws them as primary", () => {
+    expect(exerciseMapSource(wire(null, ["quads", "glutes"]))).toEqual({
+      _tag: "Custom",
+      primary: ["quads", "glutes"],
+    })
+  })
+
+  it("a custom exercise without muscle groups draws an empty map", () => {
+    expect(exerciseMapSource(wire(null, []))).toEqual({ _tag: "Custom", primary: [] })
+  })
+
+  it("a catalog exercise uses the catalog image and the entry's muscles, not its row groups", () => {
+    expect(exerciseMapSource(wire("barbell-bench-press", ["calves"]))).toEqual({
+      _tag: "Catalog",
+      catalogId: "barbell-bench-press",
+      primary: ["chest", "triceps"],
+      secondary: ["shoulders"],
+    })
   })
 })

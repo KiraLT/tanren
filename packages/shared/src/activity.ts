@@ -97,6 +97,11 @@ export const ActivityExercise = Schema.Struct({
   exerciseId: ExerciseId,
   name: Label,
   catalogId: Schema.OptionFromNullOr(CatalogId),
+  /**
+   * The exercise row's `muscleGroups` (empty for an exercise missing from the map): what a custom
+   * exercise (no `catalogId`) draws in its muscle map.
+   */
+  muscleGroups: Schema.Array(MuscleGroup),
   /** Chronological (`Chronological` order). Never empty. */
   sets: Schema.Array(ActivitySet),
   /** `bestSet` of `sets`: weightKg, reps. */
@@ -230,6 +235,7 @@ export const buildActivity = (input: BuildActivityInput): Option.Option<Activity
           exerciseId,
           name: Option.match(exercise, { onNone: () => UNKNOWN_EXERCISE, onSome: (e) => e.name }),
           catalogId: Option.flatMap(exercise, (e) => e.catalogId),
+          muscleGroups: Option.match(exercise, { onNone: () => [], onSome: (e) => e.muscleGroups }),
           sets: Arr.map(own, toActivitySet),
           best: { weightKg: best.weightKg, reps: best.reps },
           prs: Arr.filter(own, (set) => set.isPr).length,

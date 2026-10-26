@@ -1,11 +1,11 @@
-import { type Activity, type ActivityExercise, findCatalogExercise } from "@tanren/shared"
+import type { Activity, ActivityExercise } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { View } from "react-native"
 import { MuscleMap } from "../../illustrations/muscleMap/MuscleMap"
 import { MuscleMapImage } from "../../library/MuscleMapImage"
 import { Card, radius, StatusPill, space, Text, useTheme } from "../../ui"
 import { ActivityStats } from "./ActivityStats"
-import { activityLabel, formatStamp, inLocalZone } from "./feedGroups"
+import { activityLabel, exerciseMapSource, formatStamp, inLocalZone } from "./feedGroups"
 
 /** At most this many exercise maps in the strip; the rest collapse into the "+N" disc. */
 const STRIP_MAX = 4
@@ -19,20 +19,17 @@ export interface ActivityCardProps {
 }
 
 function ExerciseMap({ exercise }: { readonly exercise: ActivityExercise }) {
-  return Option.match(exercise.catalogId, {
-    onNone: () => <MuscleMap primary={[]} secondary={[]} size={STRIP_SIZE} />,
-    onSome: (catalogId) => {
-      const entry = findCatalogExercise(catalogId)
-      return (
-        <MuscleMapImage
-          catalogId={catalogId}
-          size={STRIP_SIZE}
-          primary={Option.match(entry, { onNone: () => [], onSome: (e) => e.primaryMuscles })}
-          secondary={Option.match(entry, { onNone: () => [], onSome: (e) => e.secondaryMuscles })}
-        />
-      )
-    },
-  })
+  const source = exerciseMapSource(exercise)
+  return source._tag === "Custom" ? (
+    <MuscleMap primary={source.primary} secondary={[]} size={STRIP_SIZE} />
+  ) : (
+    <MuscleMapImage
+      catalogId={source.catalogId}
+      size={STRIP_SIZE}
+      primary={source.primary}
+      secondary={source.secondary}
+    />
+  )
 }
 
 function OverflowDisc({ count }: { readonly count: number }) {

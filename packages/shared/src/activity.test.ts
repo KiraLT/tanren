@@ -226,6 +226,7 @@ describe("buildActivity", () => {
     expect(activity).toMatchObject({ sets: 2, reps: 18, prs: 1 })
     expect(activity.exercises.map((e) => e.name)).toEqual(["Bench", "Unknown exercise"])
     expect(activity.exercises[1]?.catalogId).toEqual(Option.none())
+    expect(activity.exercises[1]?.muscleGroups).toEqual([])
     // No muscles from an exercise nobody knows.
     expect(activity.muscles).toEqual({ primary: ["chest", "triceps"], secondary: ["shoulders"] })
   })
@@ -252,6 +253,18 @@ describe("buildActivity", () => {
     })
     expect(activity.muscles.primary).toEqual(["chest", "triceps", "quads", "glutes"])
     expect(activity.muscles.secondary).toEqual(["shoulders", "core"])
+  })
+
+  it("each exercise carries its row's muscleGroups (a custom one draws its own map)", () => {
+    const activity = built({
+      sets: [wset(CUSTOM.id, 60, 8, at(1)), wset(BENCH.id, 80, 8, at(2))],
+      exercises: exercises(CUSTOM, BENCH),
+    })
+    expect(activity.exercises[0]).toMatchObject({
+      catalogId: Option.none(),
+      muscleGroups: ["quads", "glutes"],
+    })
+    expect(activity.exercises[1]?.muscleGroups).toEqual([])
   })
 
   it("a catalogId the catalog does not know falls back to muscleGroups as primary", () => {
@@ -315,6 +328,24 @@ describe("Activity schema", () => {
     Effect.gen(function* () {
       const wire = yield* Schema.encodeEffect(Activity)(sample)
       expect(yield* failingPaths(Activity, { ...wire, sets: 1.5 })).toEqual([["sets"]])
+    }),
+  )
+
+  it.effect("a bad muscle group fails at its nested path", () =>
+    Effect.gen(function* () {
+      const wire = yield* Schema.encodeEffect(Activity)(
+        built({
+          sets: [wset(CUSTOM.id, 60, 8, at(1))],
+          exercises: exercises(CUSTOM),
+        }),
+      )
+      expect(wire.exercises[0]?.muscleGroups).toEqual(["quads", "glutes"])
+      const first = wire.exercises[0]
+      const broken = {
+        ...wire,
+        exercises: [{ ...first, muscleGroups: ["elbows", "glutes"] }, ...wire.exercises.slice(1)],
+      }
+      expect(yield* failingPaths(Activity, broken)).toEqual([["exercises", 0, "muscleGroups", 0]])
     }),
   )
 
