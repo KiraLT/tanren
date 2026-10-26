@@ -19,6 +19,7 @@ import { Account } from "./Account"
 import { CurrentUser } from "./CurrentUser"
 import { DataExporter } from "./DataExport"
 import { ExerciseLink } from "./ExerciseLink"
+import { FeedRepo } from "./FeedRepo"
 import { HistoryRepo } from "./HistoryRepo"
 import { LocalStore } from "./LocalStore"
 import { PhaseAlerts } from "./PhaseAlerts"
@@ -178,6 +179,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       PlanWeekRepo.layer,
       ProfileRepo.layer,
       HistoryRepo.layer,
+      FeedRepo.layer,
       Account.layer,
       DataExporter.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),

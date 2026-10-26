@@ -1,11 +1,11 @@
 import type { ExerciseId } from "@tanren/shared"
 import { type DateTime, Effect, Exit, type Option, Stream } from "effect"
 import { useCallback, useEffect, useState } from "react"
+import type { FeedRepo } from "../services/FeedRepo"
 import {
   type ExerciseHistory,
   type ExerciseSummary,
   HistoryRepo,
-  type HistoryRepoShape,
   type SessionSummary,
 } from "../services/HistoryRepo"
 import { failureMessage, runtime } from "../services/runtime"
@@ -25,24 +25,25 @@ export type HistoryState<A> =
   | { readonly _tag: "Failed"; readonly message: string }
   | { readonly _tag: "Ready"; readonly value: A }
 
-type Read<Arg, A> = (
-  repo: HistoryRepoShape,
+/** A read against the app runtime's repos; keep its identity stable (module level). */
+export type StoreRead<Arg, A> = (
   arg: Arg,
-) => Effect.Effect<A, StoreError, DateTime.CurrentTimeZone>
+) => Effect.Effect<A, StoreError, HistoryRepo | FeedRepo | DateTime.CurrentTimeZone>
 
 /** Module-level readers: stable identities, so they can sit in the effect's dependencies. */
-const readExercises: Read<undefined, ReadonlyArray<ExerciseSummary>> = (repo) => repo.exercises
-const readExercise: Read<ExerciseId, Option.Option<ExerciseHistory>> = (repo, id) =>
-  repo.exercise(id)
-const readSessions: Read<number, ReadonlyArray<SessionSummary>> = (repo, limit) =>
-  repo.sessions(limit)
+const readExercises: StoreRead<undefined, ReadonlyArray<ExerciseSummary>> = () =>
+  HistoryRepo.use((repo) => repo.exercises)
+const readExercise: StoreRead<ExerciseId, Option.Option<ExerciseHistory>> = (id) =>
+  HistoryRepo.use((repo) => repo.exercise(id))
+const readSessions: StoreRead<number, ReadonlyArray<SessionSummary>> = (limit) =>
+  HistoryRepo.use((repo) => repo.sessions(limit))
 
 /**
- * Runs one `HistoryRepo` read in the app runtime and re-runs it after every store write
- * (`StoreEvents`: logSet, sync). The previous value stays on screen while a re-read runs.
+ * Runs one repo read in the app runtime and re-runs it after every store write (`StoreEvents`:
+ * logSet, sync). The previous value stays on screen while a re-read runs. Shared by `useFeed`.
  */
-const useHistoryRead = <Arg, A>(
-  read: Read<Arg, A>,
+export const useStoreRead = <Arg, A>(
+  read: StoreRead<Arg, A>,
   arg: Arg,
 ): { readonly state: HistoryState<A>; readonly reload: () => void } => {
   const [state, setState] = useState<HistoryState<A>>({ _tag: "Loading" })
@@ -65,25 +66,20 @@ const useHistoryRead = <Arg, A>(
   // `version` / `storeVersion` are triggers only: bumping either re-reads.
   useEffect(() => {
     const controller = new AbortController()
-    runtime
-      .runPromiseExit(
-        HistoryRepo.use((repo) => read(repo, arg)),
-        { signal: controller.signal },
-      )
-      .then((exit) => {
-        if (controller.signal.aborted) {
-          return
-        }
-        setState(
-          Exit.match(exit, {
-            onFailure: (cause): HistoryState<A> => ({
-              _tag: "Failed",
-              message: failureMessage(cause),
-            }),
-            onSuccess: (value): HistoryState<A> => ({ _tag: "Ready", value }),
+    runtime.runPromiseExit(read(arg), { signal: controller.signal }).then((exit) => {
+      if (controller.signal.aborted) {
+        return
+      }
+      setState(
+        Exit.match(exit, {
+          onFailure: (cause): HistoryState<A> => ({
+            _tag: "Failed",
+            message: failureMessage(cause),
           }),
-        )
-      })
+          onSuccess: (value): HistoryState<A> => ({ _tag: "Ready", value }),
+        }),
+      )
+    })
     return () => controller.abort()
   }, [read, arg, version, storeVersion])
 
@@ -91,10 +87,10 @@ const useHistoryRead = <Arg, A>(
 }
 
 /** Exercises with at least one live set, most recently logged first. */
-export const useExerciseSummaries = () => useHistoryRead(readExercises, undefined)
+export const useExerciseSummaries = () => useStoreRead(readExercises, undefined)
 
 /** One exercise's best set, 8-week charts and recent sessions; `Ready(None)` when it is unknown. */
-export const useExerciseHistory = (id: ExerciseId) => useHistoryRead(readExercise, id)
+export const useExerciseHistory = (id: ExerciseId) => useStoreRead(readExercise, id)
 
 /** The newest `limit` live sessions. */
-export const useSessionSummaries = (limit: number) => useHistoryRead(readSessions, limit)
+export const useSessionSummaries = (limit: number) => useStoreRead(readSessions, limit)
