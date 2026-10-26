@@ -5,15 +5,15 @@ import type { ImageSourcePropType } from "react-native"
 export type LandingImageId = "hero" | "log" | "program" | "feed" | "plan"
 
 /**
- * Image source per slot. `None` renders the §4 placeholder tile; LAND-2 swaps each entry for
- * `Option.some(require("../../../assets/landing/<id>.webp"))` once ILL-1's files exist.
+ * Image source per slot: ILL-1's transparent webps (hero 1024², cards 512²), bundled by Metro.
+ * `None` would render the §4 placeholder tile (`LandingImageSlot`).
  */
 export const LANDING_IMAGES: {
   readonly [K in LandingImageId]: Option.Option<ImageSourcePropType>
 } = {
-  hero: Option.none(),
-  log: Option.none(),
-  program: Option.none(),
-  feed: Option.none(),
-  plan: Option.none(),
+  hero: Option.some(require("../../../assets/landing/hero.webp")),
+  log: Option.some(require("../../../assets/landing/log.webp")),
+  program: Option.some(require("../../../assets/landing/program.webp")),
+  feed: Option.some(require("../../../assets/landing/feed.webp")),
+  plan: Option.some(require("../../../assets/landing/plan.webp")),
 }
