@@ -69,7 +69,10 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   `TodayRepo.finishSession` sets `finishedAt` (≥ `startedAt`) and bumps `updatedAt`, dirty, no-op
   (None) for unknown / finished / zero-set sessions; Today then reads as before the first set with
   "Workout saved · n sets · <duration>" until the next set or blur. The open-session query filters
-  `finishedAt IS NULL`, so the next set opens a new session. No auto-finish of stale sessions yet.
+  `finishedAt IS NULL`, so the next set opens a new session. Auto-finish (AUTO-FIN): every `useToday`
+  load first runs `TodayRepo.finishStaleSessions(now)`: an open session whose last live set is
+  more than `STALE_SESSION_HOURS` (3) old is finished at that `loggedAt`, one with no live set is
+  soft-deleted (no write when nothing is stale; there is no post-push hook, a sync write reloads Today).
 - Sync (`SyncEngine.background`, run by `useSync`): on mount, every 60 s, and 500 ms
   (`PUSH_DEBOUNCE`) after `requestSync`, which `useLogSet` sends after every logged set
   (taps in the window share one push; offline fails once, then waits for the loop); pull applies a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { IdGenerator, PushRequest, SessionId, SessionRow } from "@tanren/shared"
+import { ExerciseId, IdGenerator, PushRequest, SessionId, SessionRow } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { seedIfEmpty } from "../store/seed"
@@ -71,6 +71,7 @@ const input = (exerciseId: LogSetInput["exerciseId"]): LogSetInput => ({
 const millis = (at: DateTime.DateTime) => DateTime.toEpochMillis(at)
 
 const UNKNOWN_SESSION = SessionId.make("00000000-0000-4000-8000-0000000000ff")
+const UNPLANNED_EXERCISE = ExerciseId.make("00000000-0000-4000-8000-0000000000e1")
 
 describe("TodayRepo.finishSession", () => {
   it.effect("exposes the open session with its live set count, None before the first set", () =>
@@ -207,6 +208,91 @@ describe("TodayRepo.finishSession", () => {
         expect(
           change?.table === "session" ? change.row.finishedAt.pipe(Option.map(millis)) : null,
         ).toEqual(Option.some(NOW + 30 * 60 * 1000))
+      }),
+    ),
+  )
+})
+
+const sessionRow = (id: string) =>
+  Effect.gen(function* () {
+    const rows = yield* (yield* LocalStore).all({
+      sql: `SELECT * FROM "workout_session" WHERE "id" = ?`,
+      params: [id],
+    })
+    const [row] = yield* decodeRecords(SessionRow)(rows)
+    return yield* Option.match(Option.fromNullishOr(row), {
+      onNone: () => Effect.die(`expected session ${id}`),
+      onSome: Effect.succeed,
+    })
+  })
+
+const finishStale = Effect.gen(function* () {
+  const repo = yield* TodayRepo
+  return yield* repo.finishStaleSessions(yield* DateTime.now)
+})
+
+describe("TodayRepo.finishStaleSessions", () => {
+  it.effect("leaves a session whose last set is 2 h 59 min old untouched", () =>
+    run(
+      Effect.gen(function* () {
+        const set = yield* (yield* TodayRepo).logSet(input(yield* squatOf(yield* seededToday)))
+        yield* TestClock.adjust("179 minutes")
+        expect(yield* finishStale).toBe(0)
+        expect(Option.isNone((yield* sessionRow(set.sessionId)).finishedAt)).toBe(true)
+      }),
+    ),
+  )
+
+  it.effect("finishes a session idle 3 h 01 min at its last loggedAt, dirty, updatedAt now", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* TodayRepo
+        const squat = yield* squatOf(yield* seededToday)
+        yield* repo.logSet(input(squat))
+        yield* TestClock.adjust("20 minutes")
+        const last = yield* repo.logSet(input(squat))
+        yield* TestClock.adjust("181 minutes")
+        expect(yield* finishStale).toBe(1)
+        const row = yield* sessionRow(last.sessionId)
+        expect(row.finishedAt.pipe(Option.map(millis))).toEqual(Option.some(millis(last.loggedAt)))
+        expect(millis(row.updatedAt)).toBe(NOW + 201 * 60 * 1000)
+        const dirty = yield* (yield* LocalStore).all(pushableRows("session", 100))
+        expect(dirty.map((r) => r.id)).toContain(last.sessionId)
+        expect(Option.isNone((yield* readToday).session)).toBe(true)
+      }),
+    ),
+  )
+
+  it.effect("finishes every stale open session (unplanned and planned)", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* TodayRepo
+        // Before the seed nothing is planned: this set opens an unplanned session.
+        const unplanned = yield* repo.logSet(input(UNPLANNED_EXERCISE))
+        const planned = yield* repo.logSet(input(yield* squatOf(yield* seededToday)))
+        expect(planned.sessionId).not.toBe(unplanned.sessionId)
+        yield* TestClock.adjust("181 minutes")
+        expect(yield* finishStale).toBe(2)
+        expect(Option.isSome((yield* sessionRow(unplanned.sessionId)).finishedAt)).toBe(true)
+        expect(Option.isSome((yield* sessionRow(planned.sessionId)).finishedAt)).toBe(true)
+        expect(yield* finishStale).toBe(0)
+      }),
+    ),
+  )
+
+  it.effect("soft-deletes a stale open session with zero live sets", () =>
+    run(
+      Effect.gen(function* () {
+        const set = yield* (yield* TodayRepo).logSet(input(yield* squatOf(yield* seededToday)))
+        yield* (yield* LocalStore).all({
+          sql: `UPDATE "workout_set" SET "deletedAt" = "updatedAt" WHERE "id" = ?`,
+          params: [set.id],
+        })
+        yield* TestClock.adjust("181 minutes")
+        expect(yield* finishStale).toBe(1)
+        const row = yield* sessionRow(set.sessionId)
+        expect(row.deletedAt.pipe(Option.map(millis))).toEqual(Option.some(NOW + 181 * 60 * 1000))
+        expect(Option.isNone(row.finishedAt)).toBe(true)
       }),
     ),
   )

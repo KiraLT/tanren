@@ -1,9 +1,16 @@
 import type { PlannedSession } from "@tanren/shared"
-import { Effect, Exit, Option, Stream } from "effect"
+import { DateTime, Effect, Exit, Option, Stream } from "effect"
 import { useCallback, useEffect, useState } from "react"
 import { failureMessage, runtime } from "../services/runtime"
 import { StoreEvents } from "../services/StoreEvents"
-import { type OpenSession, type Today, type TodayExercise, TodayRepo } from "../services/TodayRepo"
+import { SyncEngine } from "../services/SyncEngine"
+import {
+  type OpenSession,
+  type Today,
+  type TodayExercise,
+  TodayRepo,
+  type TodayRepoShape,
+} from "../services/TodayRepo"
 
 export type { LogSetInput, TodayExercise } from "../services/TodayRepo"
 
@@ -32,6 +39,21 @@ export const toTodayState = (today: Option.Option<Today>): TodayState =>
   })
 
 /**
+ * Every load first closes stale open sessions (`finishStaleSessions`, ADR-0018 AUTO-FIN), asking
+ * for a push when it changed any, then reads Today. A failed close is logged and never blocks the
+ * read. Its write bumps `StoreEvents` once; the reload after it finds nothing stale, so no loop.
+ */
+const closeStaleThen = (repo: TodayRepoShape) =>
+  DateTime.now.pipe(
+    Effect.flatMap(repo.finishStaleSessions),
+    Effect.tap((closed) =>
+      closed > 0 ? SyncEngine.use((engine) => engine.requestSync) : Effect.void,
+    ),
+    Effect.catch((error) => Effect.logWarning("[today] closing stale sessions failed", error)),
+    Effect.andThen(repo.today),
+  )
+
+/**
  * Today's planned session from the local store. Works offline and reloads by itself after every
  * store write (`StoreEvents`: logSet, sync); `reload` forces a re-read.
  */
@@ -57,7 +79,7 @@ export const useToday = (): { readonly state: TodayState; readonly reload: () =>
     const controller = new AbortController()
     runtime
       .runPromiseExit(
-        TodayRepo.use((repo) => repo.today),
+        TodayRepo.use((repo) => closeStaleThen(repo)),
         {
           signal: controller.signal,
         },

@@ -96,4 +96,6 @@ Sessions logged on Today never got `finishedAt` (SV-Q1: only program-player days
 sessions exported). Today sessions are finished by an explicit "Finish workout" action
 (`TodayRepo.finishSession`: `finishedAt` = now, `updatedAt` bumped, pushed as an LWW update of the
 existing row); the next set opens a new session. The export predicate is unchanged (`finishedAt`
-Some on an accepted session change, §4). Auto-finish of stale sessions is a follow-up.
+Some on an accepted session change, §4). Auto-finish (AUTO-FIN, same evening): when Today loads,
+an open session whose last live set is more than 3 h old is finished at that set's `loggedAt`
+(so it exports with its real duration), and one with no live set is soft-deleted.

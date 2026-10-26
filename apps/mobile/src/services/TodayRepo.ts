@@ -145,7 +145,17 @@ export interface TodayRepoShape {
   readonly finishSession: (
     sessionId: SessionId,
   ) => Effect.Effect<Option.Option<FinishedSession>, StoreError>
+  /**
+   * Auto-finish (ADR-0018, AUTO-FIN): every open session of this user whose last live set was
+   * logged more than `STALE_SESSION_HOURS` before `now` is finished at that `loggedAt`; one with no
+   * live set started that long ago is soft-deleted. `updatedAt` bumped, dirty, one batch; no write
+   * (and no `StoreEvents` bump) when nothing is stale. Returns how many sessions it changed.
+   */
+  readonly finishStaleSessions: (now: DateTime.Utc) => Effect.Effect<number, StoreError>
 }
+
+/** An open session idle longer than this is closed by `finishStaleSessions`. */
+export const STALE_SESSION_HOURS = 3
 
 /** `TodayRepo.addExercise`'s answer; consumers match it exhaustively. */
 export type AddExerciseResult = "added" | "alreadyPlanned" | "noSession"
@@ -506,7 +516,44 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
           }),
         )
 
-      return TodayRepo.of({ today, logSet, exerciseChoices, addExercise, finishSession })
+      /** Same lock as `logSet`: a set logged meanwhile is counted before the session closes. */
+      const finishStaleSessions = (now: DateTime.Utc) =>
+        logLock.withPermits(1)(
+          Effect.gen(function* () {
+            const userId = yield* owner
+            const open = yield* store
+              .all(
+                q(
+                  `SELECT * FROM "workout_session"
+                   WHERE "userId" = ? AND "deletedAt" IS NULL AND "finishedAt" IS NULL`,
+                  userId,
+                ),
+              )
+              .pipe(Effect.flatMap(decodeRecords(SessionRow)))
+            const cutoff = DateTime.subtract(now, { hours: STALE_SESSION_HOURS })
+            const changes = yield* Effect.forEach(open, (session) =>
+              loggedSets(Option.some(session.id)).pipe(
+                Effect.flatMap((sets) => closeIfStale(session, sets, cutoff, now)),
+              ),
+            ).pipe(Effect.map(Arr.getSomes))
+            if (Arr.isReadonlyArrayNonEmpty(changes)) {
+              yield* store.write(
+                changes.map((row): SyncChange => ({ table: "session", row })),
+                { dirty: true },
+              )
+            }
+            return changes.length
+          }),
+        )
+
+      return TodayRepo.of({
+        today,
+        logSet,
+        exerciseChoices,
+        addExercise,
+        finishSession,
+        finishStaleSessions,
+      })
     }),
   )
 
@@ -516,6 +563,47 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
         Layer.provideMerge(LocalStore.layer),
       ),
     ),
+  )
+}
+
+/**
+ * The closed row for an open session idle since before `cutoff`, else None: finished at its last
+ * live set's `loggedAt` (never before `startedAt`), or soft-deleted at `now` when it has no live
+ * set. `updatedAt` is bumped as in `finishSession`.
+ */
+const closeIfStale = (
+  session: Session,
+  sets: ReadonlyArray<WorkoutSet>,
+  cutoff: DateTime.Utc,
+  now: DateTime.Utc,
+): Effect.Effect<Option.Option<Session>, StoreError> => {
+  const last = Arr.reduce(sets, Option.none<DateTime.Utc>(), (latest, set) =>
+    Option.some(
+      Option.match(latest, {
+        onNone: () => set.loggedAt,
+        onSome: (at) => DateTime.max(at, set.loggedAt),
+      }),
+    ),
+  )
+  if (
+    !DateTime.isLessThan(
+      Option.getOrElse(last, () => session.startedAt),
+      cutoff,
+    )
+  ) {
+    return Effect.succeed(Option.none())
+  }
+  const closed = Option.match(last, {
+    onSome: (at) => ({ finishedAt: Option.some(DateTime.max(at, session.startedAt)) }),
+    onNone: () => ({ deletedAt: Option.some(now) }),
+  })
+  return Session.makeEffect({
+    ...session,
+    ...closed,
+    updatedAt: DateTime.max(now, DateTime.add(session.updatedAt, { milliseconds: 1 })),
+  }).pipe(
+    Effect.map(Option.some),
+    Effect.mapError((cause) => new StoreError({ cause })),
   )
 }
 
