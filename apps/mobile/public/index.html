@@ -8,6 +8,20 @@
     <title>%WEB_TITLE%</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#16181D" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1113" />
+    <!-- Forge `bg` (src/ui/colors.ts light/dark) so there is no white frame before React mounts. -->
+    <style>
+      html,
+      body {
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #0f1113;
+        }
+      }
+    </style>
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
+import { darkColors, lightColors } from "../ui/colors"
 
 /** The LOGO-2 icon background (`assets/brand/icon.png`), also the splash and adaptive-icon colour. */
 const BRAND_GRAPHITE = "#16181D"
@@ -77,5 +78,13 @@ describe("public/index.html", () => {
 
   it("sets theme-color to the manifest theme_color", () => {
     expect(html).toContain(`<meta name="theme-color" content="${manifest.theme_color}" />`)
+  })
+
+  it("adds a dark-scheme theme-color and page background equal to the Forge dark bg", () => {
+    expect(html).toContain(
+      `<meta name="theme-color" media="(prefers-color-scheme: dark)" content="${darkColors.bg}" />`,
+    )
+    expect(html).toContain(`background: ${darkColors.bg.toLowerCase()};`)
+    expect(html).toContain(`background: ${lightColors.bg.toLowerCase()};`)
   })
 })
