@@ -62,3 +62,5 @@ Do: score hero, features, CTA, footer 1–5 at 390 and 1280, light and dark, aga
 ## Log
 - 22:50 · LAND-0 (fable): ADR-0021, `docs/design/landing.md`, this sheet. Route-inventory line added to `apps/mobile/CLAUDE.md`.
 - 22:53 · ILL-1 ∥ LAND-1 dispatched by the Lead (ports 8893/8894 for LAND-1, not :8790 — owner's); _layout.tsx confirmed unowned; brand file names final (fb7094a)
+- 22:59 · ILL-1 done, committed 0cedd92 (log regenerated once, slate pinned). LAND-2 waits on LAND-1.
+- 23:11 · LAND-1 done → WIP e7fa3f4; LAND-2 dispatched (LAND-1 engineer resumed; measures contentH inline, ui-measure.js stays with the desktop r4 team)

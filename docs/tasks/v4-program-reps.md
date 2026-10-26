@@ -86,3 +86,4 @@ Session `prog-x` per the task table row. Load `ui-check`. Capture light and dark
 - 22:26 · PROG-2 done → in-review (WIP commit 9d09fcd); PROG-3 still gated on the desktop pair releasing PlayerView.tsx
 - 22:29 · PROG-1 done → in-review (WIP e3a5350). Recovery days ≈ 4 min (3 × 40 s counted items + 75 s hold + rests) ratified by the Lead; raise counts later if the owner wants longer.
 - 22:53 · PROG-1 review fixes committed f1da187; PROG-1 + PROG-2 reviewed (REV-PL APPROVE). PROG-3 waits on PlayerView.tsx release (desktop pair asked 22:53)
+- 23:11 · PROG-3 done → in-review (WIP 37f95c7). Decisions ratified: numeral via ring.clock (clock phone / numeral(Lg) desktop), minHeight = ring.size ?? 220. PROG-R dispatched (PROG-3 only; PROG-1/2 reviewed by REV-PL).
