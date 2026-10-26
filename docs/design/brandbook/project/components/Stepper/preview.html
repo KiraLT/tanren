@@ -1,0 +1,24 @@
+<!-- @dsCard group="Inputs" height=176 -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Stepper — preview</title>
+<style>
+html,body{margin:0} body{background:var(--bg);color:var(--text);font-family:var(--font-text);padding:16px}
+.row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-full);padding:0 var(--space-xl);min-width:44px;border:0;cursor:pointer}
+.pill svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-lg);border:var(--stroke-hairline) solid var(--border)}
+[data-theme="dark"] .card{border-color:transparent}
+.group{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-xs) 0;overflow:hidden;max-width:358px}
+.lrow{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) var(--space-lg);min-height:52px;box-sizing:border-box}
+.sep{height:var(--stroke-hairline);background:var(--border)}
+.disc{width:24px;height:24px;border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;flex:none;font:600 13px/1 var(--font-text)}
+.muted{color:var(--text-muted)}
+
+</style></head><body>
+
+<div class="row" style="justify-content:center;max-width:358px;margin:0 auto">
+<button class="pill" style="width:64px;height:64px;padding:0;background:transparent;color:var(--text)"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="stroke-width:2.5"><path d="M5 12h14"/></svg></button>
+<div style="text-align:center;min-width:160px"><div class="numeral" style="font-family:var(--font-display);font-variant-numeric:tabular-nums;text-shadow:0 0 24px var(--glow)">107.5<span class="caption muted" style="font-family:var(--font-text);margin-left:6px">kg</span></div><div class="caption muted">Weight</div></div>
+<button class="pill" style="width:64px;height:64px;padding:0;background:var(--surface);color:var(--text)"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="stroke-width:2.5"><path d="M12 5v14M5 12h14"/></svg></button>
+</div>
+</body></html>

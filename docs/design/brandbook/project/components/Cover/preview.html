@@ -1,0 +1,37 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tanren</title>
+<style>
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--font-text);overflow:hidden}
+.cover{position:relative;height:288px;overflow:hidden}
+.art{position:absolute;top:0;left:480px;width:480px;height:288px;overflow:hidden}
+.art svg{display:block;width:480px;height:288px}
+.ink{fill:var(--text)} .amber{fill:var(--accent)} .paper{fill:var(--surface)} .done{fill:var(--success)}
+.rule{stroke:var(--border);stroke-width:1}
+.numeral{fill:var(--bg);font-family:var(--font-display);font-weight:800;font-size:232px}
+.words{position:absolute;left:32px;bottom:32px;max-width:440px}
+.name{margin:0;font-family:var(--font-display);font-weight:800;font-size:120px;line-height:.9;letter-spacing:4px;color:var(--text)}
+.tag{margin:8px 0 0 2px;font-size:14px;line-height:20px;color:var(--text-muted)}
+</style></head><body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="480 0 480 288" width="480" height="288">
+<!--
+  blocks      text (ink/graphite) 304x288 slab bled off the top and right (the dark-performance surface) · accent (ember light / amber dark) 128x192 pill-cornered slab, the one accent object · surface (paper) 128x64 tint under it · success 64x16 pill once (it only ever means done) - about 42% of 960x288
+  arrangement one tall ink slab with a satellite column of accent + tint at a 16 (space-lg) gutter, bottoms 32 (space-xxl) above the edge; the accent slab's pill ends = radius-full (rx 64 = half its width)
+  pattern     "one dominant number per screen": the numeral "5" in Barlow Condensed 800 at 232px cut into the ink slab in bg, clipped by its edge, plus a single hairline (stroke-hairline, border) crossing the slab at the eyebrow line - the editorial rule under an AppBar
+  scales      sides in space-lg multiples (64, 128, 192, 304); gutter space-lg; bottom margin space-xxl; corners radius-lg (16) on the slab and tint, radius-full on the accent slab and the success pill
+-->
+<rect class="ink" x="656" y="-16" width="320" height="288" rx="16"/>
+<clipPath id="slab"><rect x="656" y="-16" width="320" height="288" rx="16"/></clipPath>
+<text class="numeral" x="700" y="252" clip-path="url(#slab)">5</text>
+<line class="rule" x1="656" y1="56" x2="976" y2="56"/>
+<rect class="amber" x="512" y="64" width="128" height="192" rx="64"/>
+<rect class="paper" x="512" y="0" width="128" height="48" rx="16"/>
+<rect class="done" x="512" y="264" width="64" height="16" rx="8"/>
+</svg>
+</div>
+<div class="words"><h1 class="name">TANREN</h1><p class="tag">Forge the number. Log the set.</p></div>
+</div>
+</body></html>

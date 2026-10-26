@@ -1,0 +1,383 @@
+{
+ "v": 3,
+ "layout": "files",
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-26T20:27:52Z"
+ },
+ "title": "Tanren Brandbook",
+ "namespace": "Tanren",
+ "libraries": [],
+ "sections": {},
+ "groups": [
+  "Logo",
+  "Icons",
+  "Illustration"
+ ],
+ "assetGroups": {
+  "Logo": {
+   "name": "Logo",
+   "tile": "l",
+   "order": [
+    "J3-interim-mark.png"
+   ],
+   "files": {
+    "J3-interim-mark.png": {
+     "name": "J3-interim-mark.png",
+     "blob": "a3796e4ca37eeb9e247b443e0469c81e",
+     "size": 169557,
+     "type": "image/png"
+    }
+   }
+  },
+  "Icons": {
+   "name": "Icons",
+   "tile": "xs",
+   "order": [
+    "band.svg",
+    "bodyweight.svg",
+    "book.svg",
+    "calendar.svg",
+    "chart.svg",
+    "check.svg",
+    "chevronDown.svg",
+    "chevronLeft.svg",
+    "chevronRight.svg",
+    "clock.svg",
+    "close.svg",
+    "download.svg",
+    "dumbbell.svg",
+    "filter.svg",
+    "flame.svg",
+    "grid.svg",
+    "home.svg",
+    "info.svg",
+    "kettlebell.svg",
+    "list.svg",
+    "logout.svg",
+    "mapPin.svg",
+    "minus.svg",
+    "moon.svg",
+    "more.svg",
+    "pause.svg",
+    "play.svg",
+    "plus.svg",
+    "repeat.svg",
+    "search.svg",
+    "settings.svg",
+    "skip.svg",
+    "sun.svg",
+    "swap.svg",
+    "target.svg",
+    "timer.svg",
+    "trash.svg",
+    "user.svg",
+    "warning.svg",
+    "zap.svg"
+   ],
+   "files": {
+    "band.svg": {
+     "name": "band.svg",
+     "blob": "717fe5a74b6df7b367cc86c9368d563c",
+     "size": 285,
+     "type": "image/svg+xml"
+    },
+    "bodyweight.svg": {
+     "name": "bodyweight.svg",
+     "blob": "69bb1437b41a4e994e5bc62115ce466e",
+     "size": 250,
+     "type": "image/svg+xml"
+    },
+    "book.svg": {
+     "name": "book.svg",
+     "blob": "cd5a8bfa1ca4b188e0c588cf43d5f2ba",
+     "size": 281,
+     "type": "image/svg+xml"
+    },
+    "calendar.svg": {
+     "name": "calendar.svg",
+     "blob": "f057dd216c0e66d9a98b8605f11982b0",
+     "size": 287,
+     "type": "image/svg+xml"
+    },
+    "chart.svg": {
+     "name": "chart.svg",
+     "blob": "fb668fa42eb7a7f17ce44b538bc7cd1a",
+     "size": 222,
+     "type": "image/svg+xml"
+    },
+    "check.svg": {
+     "name": "check.svg",
+     "blob": "b0d9836def038a7d3092c60adfb6dab2",
+     "size": 210,
+     "type": "image/svg+xml"
+    },
+    "chevronDown.svg": {
+     "name": "chevronDown.svg",
+     "blob": "a15c1365fac1d892e4af747189c5b3d6",
+     "size": 207,
+     "type": "image/svg+xml"
+    },
+    "chevronLeft.svg": {
+     "name": "chevronLeft.svg",
+     "blob": "8fc39cea487d5cf5dfe38bdc7685f08f",
+     "size": 210,
+     "type": "image/svg+xml"
+    },
+    "chevronRight.svg": {
+     "name": "chevronRight.svg",
+     "blob": "fc4cf87cfe6ed18c0abc98b600429500",
+     "size": 208,
+     "type": "image/svg+xml"
+    },
+    "clock.svg": {
+     "name": "clock.svg",
+     "blob": "2521ecb06da26dfbb7980681145437d6",
+     "size": 247,
+     "type": "image/svg+xml"
+    },
+    "close.svg": {
+     "name": "close.svg",
+     "blob": "76045a376eed6f61c68b055b7bf3ac6f",
+     "size": 215,
+     "type": "image/svg+xml"
+    },
+    "download.svg": {
+     "name": "download.svg",
+     "blob": "518a4c9b63076b78d99b84052c863d40",
+     "size": 257,
+     "type": "image/svg+xml"
+    },
+    "dumbbell.svg": {
+     "name": "dumbbell.svg",
+     "blob": "f117cb797e8126677077324148d3e68b",
+     "size": 233,
+     "type": "image/svg+xml"
+    },
+    "filter.svg": {
+     "name": "filter.svg",
+     "blob": "d8ac4cd6ad9566ba33f5d2327d84e334",
+     "size": 228,
+     "type": "image/svg+xml"
+    },
+    "flame.svg": {
+     "name": "flame.svg",
+     "blob": "73697893715a44799a3261fd0606adb4",
+     "size": 283,
+     "type": "image/svg+xml"
+    },
+    "grid.svg": {
+     "name": "grid.svg",
+     "blob": "d0d537f18b1ee0925adb3b5091d41e84",
+     "size": 245,
+     "type": "image/svg+xml"
+    },
+    "home.svg": {
+     "name": "home.svg",
+     "blob": "8911846af382d4fa5cfd3974f50b2cf5",
+     "size": 254,
+     "type": "image/svg+xml"
+    },
+    "info.svg": {
+     "name": "info.svg",
+     "blob": "7a5b9b8307a3b8188a89ac992c6254b5",
+     "size": 250,
+     "type": "image/svg+xml"
+    },
+    "kettlebell.svg": {
+     "name": "kettlebell.svg",
+     "blob": "7576ffb2764fa6f0b348e68218b994aa",
+     "size": 288,
+     "type": "image/svg+xml"
+    },
+    "list.svg": {
+     "name": "list.svg",
+     "blob": "a7836e7995a0a80f731f0fee3dd524ec",
+     "size": 244,
+     "type": "image/svg+xml"
+    },
+    "logout.svg": {
+     "name": "logout.svg",
+     "blob": "0483b80f8e8271ec89a0738c861ec8d4",
+     "size": 256,
+     "type": "image/svg+xml"
+    },
+    "mapPin.svg": {
+     "name": "mapPin.svg",
+     "blob": "c8d7feddeaf39f144d1d743d9d957498",
+     "size": 276,
+     "type": "image/svg+xml"
+    },
+    "minus.svg": {
+     "name": "minus.svg",
+     "blob": "4155fd69c8b8bb66fa44aee889bf199a",
+     "size": 203,
+     "type": "image/svg+xml"
+    },
+    "moon.svg": {
+     "name": "moon.svg",
+     "blob": "d630ce9265aa9ab218b50c43189522bb",
+     "size": 242,
+     "type": "image/svg+xml"
+    },
+    "more.svg": {
+     "name": "more.svg",
+     "blob": "a07c6e11634782cb99a1f2b1829d6cf0",
+     "size": 224,
+     "type": "image/svg+xml"
+    },
+    "pause.svg": {
+     "name": "pause.svg",
+     "blob": "928583bc138793170cdcd422be043864",
+     "size": 210,
+     "type": "image/svg+xml"
+    },
+    "play.svg": {
+     "name": "play.svg",
+     "blob": "bcc812578f163bb8dbaff420b92ea2ca",
+     "size": 212,
+     "type": "image/svg+xml"
+    },
+    "plus.svg": {
+     "name": "plus.svg",
+     "blob": "3cf8bfd9199268582224f96bd87d1171",
+     "size": 211,
+     "type": "image/svg+xml"
+    },
+    "repeat.svg": {
+     "name": "repeat.svg",
+     "blob": "2294e44e529c32e9626628400f16c51a",
+     "size": 271,
+     "type": "image/svg+xml"
+    },
+    "search.svg": {
+     "name": "search.svg",
+     "blob": "1d4152cfa1e098ae72191d7f4a14916a",
+     "size": 243,
+     "type": "image/svg+xml"
+    },
+    "settings.svg": {
+     "name": "settings.svg",
+     "blob": "1b76ba700071f06c840157e495770f18",
+     "size": 393,
+     "type": "image/svg+xml"
+    },
+    "skip.svg": {
+     "name": "skip.svg",
+     "blob": "704b3bf59afbfa8c57bdabfb7b824a52",
+     "size": 218,
+     "type": "image/svg+xml"
+    },
+    "sun.svg": {
+     "name": "sun.svg",
+     "blob": "9343d201f430ccc123b9ecfa895bfe47",
+     "size": 346,
+     "type": "image/svg+xml"
+    },
+    "swap.svg": {
+     "name": "swap.svg",
+     "blob": "552eccf1c3415d9d08173c9a82ff67f2",
+     "size": 236,
+     "type": "image/svg+xml"
+    },
+    "target.svg": {
+     "name": "target.svg",
+     "blob": "f65a0b53d2dd0a2530515a0cea8f12b2",
+     "size": 308,
+     "type": "image/svg+xml"
+    },
+    "timer.svg": {
+     "name": "timer.svg",
+     "blob": "70dbfcec8d8c31019b373b1c5506b84e",
+     "size": 254,
+     "type": "image/svg+xml"
+    },
+    "trash.svg": {
+     "name": "trash.svg",
+     "blob": "b8be074900ae228626cdb9adaf2fd861",
+     "size": 296,
+     "type": "image/svg+xml"
+    },
+    "user.svg": {
+     "name": "user.svg",
+     "blob": "b729ff03a8bbaa633cdfbe2d9cdc3685",
+     "size": 250,
+     "type": "image/svg+xml"
+    },
+    "warning.svg": {
+     "name": "warning.svg",
+     "blob": "71de4c1fe308faa32b4378cc2decaab0",
+     "size": 291,
+     "type": "image/svg+xml"
+    },
+    "zap.svg": {
+     "name": "zap.svg",
+     "blob": "6480c175d27c567861c35e73381d7aa0",
+     "size": 226,
+     "type": "image/svg+xml"
+    }
+   }
+  },
+  "Illustration": {
+   "name": "Illustration",
+   "tile": "m",
+   "order": [
+    "barbell-back-squat.webp",
+    "lat-pulldown.webp",
+    "cable-fly.webp",
+    "plank.webp",
+    "musclemap-barbell-back-squat.webp",
+    "musclemap-lat-pulldown.webp"
+   ],
+   "files": {
+    "barbell-back-squat.webp": {
+     "name": "barbell-back-squat.webp",
+     "blob": "0ed286f205c316ce10651f2d10599985",
+     "size": 15180,
+     "type": "image/webp"
+    },
+    "lat-pulldown.webp": {
+     "name": "lat-pulldown.webp",
+     "blob": "a143218534abc2e23b5c5671982bfdf6",
+     "size": 11262,
+     "type": "image/webp"
+    },
+    "cable-fly.webp": {
+     "name": "cable-fly.webp",
+     "blob": "d829af1e0e8548b8304a5e53150863d7",
+     "size": 12982,
+     "type": "image/webp"
+    },
+    "plank.webp": {
+     "name": "plank.webp",
+     "blob": "bd74fee657d739ef578caf6348edb3b3",
+     "size": 12452,
+     "type": "image/webp"
+    },
+    "musclemap-barbell-back-squat.webp": {
+     "name": "musclemap-barbell-back-squat.webp",
+     "blob": "a19a58a134566a210176e44cda237f41",
+     "size": 17924,
+     "type": "image/webp"
+    },
+    "musclemap-lat-pulldown.webp": {
+     "name": "musclemap-lat-pulldown.webp",
+     "blob": "dc27cda83d4a5ba47b1f6b7e234c1274",
+     "size": 12818,
+     "type": "image/webp"
+    }
+   }
+  }
+ },
+ "blobs": {},
+ "docs": {
+  "readme": "project/README.md",
+  "sections": []
+ },
+ "lastChange": {
+  "by": "Lukas",
+  "at": "2026-10-26T20:27:52Z",
+  "via": "Claude Code",
+  "note": "BRAND-0: brandbook built from apps/mobile/src/ui tokens, controls, icons and the Forge design docs"
+ }
+}

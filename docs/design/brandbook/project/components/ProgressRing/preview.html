@@ -1,0 +1,24 @@
+<!-- @dsCard group="Status" height=96 -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ProgressRing — preview</title>
+<style>
+html,body{margin:0} body{background:var(--bg);color:var(--text);font-family:var(--font-text);padding:16px}
+.row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-full);padding:0 var(--space-xl);min-width:44px;border:0;cursor:pointer}
+.pill svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-lg);border:var(--stroke-hairline) solid var(--border)}
+[data-theme="dark"] .card{border-color:transparent}
+.group{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-xs) 0;overflow:hidden;max-width:358px}
+.lrow{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) var(--space-lg);min-height:52px;box-sizing:border-box}
+.sep{height:var(--stroke-hairline);background:var(--border)}
+.disc{width:24px;height:24px;border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;flex:none;font:600 13px/1 var(--font-text)}
+.muted{color:var(--text-muted)}
+
+</style></head><body>
+
+<div class="row" style="gap:24px">
+<div style="display:flex;align-items:center;gap:8px"><svg width="20" height="20" style="transform:rotate(-90deg)"><circle cx="10.0" cy="10.0" r="8.5" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="10.0" cy="10.0" r="8.5" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="53.41" stroke-dashoffset="32.04"/></svg><span class="caption muted">2 of 5 done</span></div>
+<svg width="44" height="44" style="transform:rotate(-90deg)"><circle cx="22.0" cy="22.0" r="20.0" fill="none" stroke="var(--border)" stroke-width="4"/><circle cx="22.0" cy="22.0" r="20.0" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="42.73"/></svg>
+<div style="position:relative;width:72px;height:72px"><svg width="72" height="72" style="transform:rotate(-90deg)"><circle cx="36.0" cy="36.0" r="33.0" fill="none" stroke="var(--border)" stroke-width="6"/><circle cx="36.0" cy="36.0" r="33.0" fill="none" stroke="var(--accent)" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.35" stroke-dashoffset="51.84"/></svg><span class="headline" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums">0:45</span></div>
+</div>
+</body></html>

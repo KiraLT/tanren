@@ -1,0 +1,24 @@
+<!-- @dsCard group="Navigation" height=96 -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>AppBar — preview</title>
+<style>
+html,body{margin:0} body{background:var(--bg);color:var(--text);font-family:var(--font-text);padding:16px}
+.row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-full);padding:0 var(--space-xl);min-width:44px;border:0;cursor:pointer}
+.pill svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-lg);border:var(--stroke-hairline) solid var(--border)}
+[data-theme="dark"] .card{border-color:transparent}
+.group{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-xs) 0;overflow:hidden;max-width:358px}
+.lrow{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) var(--space-lg);min-height:52px;box-sizing:border-box}
+.sep{height:var(--stroke-hairline);background:var(--border)}
+.disc{width:24px;height:24px;border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;flex:none;font:600 13px/1 var(--font-text)}
+.muted{color:var(--text-muted)}
+
+</style></head><body>
+
+<div style="min-height:56px;display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:var(--stroke-hairline) solid var(--border);box-sizing:border-box">
+<span class="muted" style="display:flex"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M15 18l-6-6 6-6"/></svg></span>
+<div style="flex:1"><div style="display:flex;align-items:center;gap:8px"><svg width="20" height="20" style="transform:rotate(-90deg)"><circle cx="10.0" cy="10.0" r="8.5" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="10.0" cy="10.0" r="8.5" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="53.41" stroke-dashoffset="32.04"/></svg><span class="caption muted">2 of 5 done</span></div><div class="title" style="font-family:var(--font-display)">Today</div></div>
+<div style="display:flex;align-items:center;gap:8px"><span class="subhead muted" style="font-variant-numeric:tabular-nums">3 / 6</span><span style="display:flex;gap:3px"><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--accent)"></span><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--accent)"></span><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--accent)"></span><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--border)"></span><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--border)"></span><span style="display:inline-block;width:14px;height:4px;border-radius:2px;background:var(--border)"></span></span></div>
+</div>
+</body></html>

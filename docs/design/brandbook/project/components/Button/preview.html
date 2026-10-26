@@ -1,0 +1,25 @@
+<!-- @dsCard group="Actions" height=96 -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Button — preview</title>
+<style>
+html,body{margin:0} body{background:var(--bg);color:var(--text);font-family:var(--font-text);padding:16px}
+.row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-full);padding:0 var(--space-xl);min-width:44px;border:0;cursor:pointer}
+.pill svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-lg);border:var(--stroke-hairline) solid var(--border)}
+[data-theme="dark"] .card{border-color:transparent}
+.group{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-xs) 0;overflow:hidden;max-width:358px}
+.lrow{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) var(--space-lg);min-height:52px;box-sizing:border-box}
+.sep{height:var(--stroke-hairline);background:var(--border)}
+.disc{width:24px;height:24px;border-radius:var(--radius-full);display:inline-flex;align-items:center;justify-content:center;flex:none;font:600 13px/1 var(--font-text)}
+.muted{color:var(--text-muted)}
+
+</style></head><body>
+
+<div class="row">
+<button class="pill headline" style="height:64px;background:var(--accent);color:var(--on-accent);box-shadow:var(--shadow-glow)"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 6L9 17l-5-5"/></svg>Log set</button>
+<button class="pill headline" style="height:48px;background:var(--surface);color:var(--text)">Swap</button>
+<button class="pill headline" style="height:48px;background:var(--danger-soft);color:var(--danger)">Delete</button>
+<button class="pill headline" style="height:48px;background:transparent;color:var(--accent)">Skip</button>
+</div>
+</body></html>
