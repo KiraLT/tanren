@@ -122,7 +122,7 @@ function RecentSessions({ history }: DetailProps) {
       </Text>
       {Arr.map(history.recent, ({ session, sets }) => (
         <View key={session.id} style={{ gap: space.sm }}>
-          <Text variant="caption" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
+          <Text variant="caption" tone="muted" tabular>
             {formatLoggedDate(session.startedAt)}
           </Text>
           <ListGroup>
@@ -262,8 +262,11 @@ function DetailReady({ history, layout }: DetailReadyProps) {
   return (
     <View style={{ gap: space.lg }}>
       {header}
-      {muscleMap}
-      {bestSet}
+      {/* desktop aside (632 inner): the map sits beside the Best-set card instead of above it */}
+      <View style={{ flexDirection: "row", alignItems: "stretch", gap: space.lg }}>
+        <View style={{ justifyContent: "center" }}>{muscleMap}</View>
+        <View style={{ flex: 1, justifyContent: "center" }}>{bestSet}</View>
+      </View>
       {weekBars}
       {e1RmCard}
       <RecentSessions history={history} />

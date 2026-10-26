@@ -1,4 +1,4 @@
-import type { PlannedSessionId } from "@tanren/shared"
+import type { LocalDate, PlannedSessionId } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { useState } from "react"
 import { ScrollView, View } from "react-native"
@@ -6,16 +6,19 @@ import { PlannedSessionCard } from "../../src/components/PlannedSessionCard"
 import { PlanWeek } from "../../src/components/PlanWeek"
 import { localDateOf, weekStats, weekSummary } from "../../src/components/planFormat"
 import { selectedSession } from "../../src/components/planSelection"
+import { nextUpcoming, upNextDate, upNextLines } from "../../src/components/planUpNext"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { type PlanWeekState, type PlanWeekView, usePlanWeek } from "../../src/hooks/usePlanWeek"
 import {
   AppBar,
+  Card,
   EmptyState,
   gutter,
   Page,
   rhythm,
   Skeleton,
   StatRow,
+  sizes,
   space,
   Text,
 } from "../../src/ui"
@@ -42,6 +45,55 @@ function PlanSkeleton() {
       ))}
     </View>
   )
+}
+
+/**
+ * Desktop aside, under the week tiles: the next upcoming session (title, date, one line per
+ * exercise with a tabular target). Nothing when the week has no upcoming session left.
+ */
+function UpNextCard({ view, today }: { readonly view: PlanWeekView; readonly today: LocalDate }) {
+  return Option.match(nextUpcoming(view, today), {
+    onNone: () => null,
+    onSome: (next) => {
+      const { lines, more } = upNextLines(next.session)
+      return (
+        <View style={{ gap: rhythm.labelToGroup }}>
+          <Text variant="caption" tone="muted" accessibilityRole="header">
+            Up next
+          </Text>
+          <Card
+            style={{ minHeight: sizes.upNextCard, gap: space.xs }}
+            accessibilityLabel={`Up next: ${next.session.plannedSession.name}, ${upNextDate(next)}`}
+          >
+            <Text variant="headline" numberOfLines={1}>
+              {next.session.plannedSession.name}
+            </Text>
+            <Text variant="caption" tone="muted" style={{ paddingBottom: space.xs }}>
+              {upNextDate(next)}
+            </Text>
+            {lines.map((line) => (
+              <View
+                key={line.key}
+                style={{ flexDirection: "row", alignItems: "center", gap: space.md }}
+              >
+                <Text variant="subhead" numberOfLines={1} style={{ flex: 1 }}>
+                  {line.name}
+                </Text>
+                <Text variant="subhead" tone="muted" tabular numberOfLines={1}>
+                  {line.target}
+                </Text>
+              </View>
+            ))}
+            {more === 0 ? null : (
+              <Text variant="caption" tone="muted">
+                {`+ ${more} more`}
+              </Text>
+            )}
+          </Card>
+        </View>
+      )
+    },
+  })
 }
 
 interface PlanReadyProps {
@@ -71,6 +123,7 @@ function PlanReady({ view }: PlanReadyProps) {
           </Text>
           <StatRow variant="tile" direction="column" items={weekStats(weekSummary(view))} />
         </View>
+        <UpNextCard view={view} today={today} />
       </ScrollView>
     ),
   })

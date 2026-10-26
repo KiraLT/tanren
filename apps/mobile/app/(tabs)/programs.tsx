@@ -5,6 +5,7 @@ import {
   DayCard,
   DayItems,
   DayList,
+  DayStats,
   EnrolCard,
   ProgramFinished,
   ProgramInside,
@@ -67,6 +68,7 @@ export default function ProgramsScreen() {
             onSome: (today) => (
               <>
                 <DayCard program={program} day={today} onStart={play} />
+                {wide ? <DayStats program={program} day={today} /> : null}
                 <DayItems day={today} />
               </>
             ),

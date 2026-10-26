@@ -74,17 +74,31 @@ Commits at start: PROG-3 `37f95c7` (PlayerView reps branch, byte-identical rule)
 | id | task | role/model | depends | box | agent id | status |
 |---|---|---|---|---|---|---|
 | R4a | src/ui: ListRow line props, ToggleChip compact, one stat-row rule, hairline check, Plan Up next, Programs fill, ui-measure `contentH` | engineer/sonnet | - | 20 | ab0c6cda08b128ac5 | done 23:17 |
-| R4b | Player enrolled 1280/900 + numeral decision, Today single label row, Plan rest rows >= 64, Library/detail/Progress fill | engineer/sonnet | R4a | 20 | - | todo |
-| REV-R4ab | reviewer (opus) over R4a+R4b diff, own paths | reviewer/opus | R4b | 6 | - | todo |
-| R4c-shoot | enrol seed, capture all routes 1280/900 L+D, probes, rows fragment | engineer/sonnet | R4b | 12 | - | todo |
+| R4b | Player enrolled 1280/900 + numeral decision, Plan rest rows >= 64, Library/Progress fill | engineer/sonnet | R4a | 20 | ab73d06fb175d3d30 | done 23:25 |
+| R4b2 | Today aside single label row in TodayReady.tsx (Lead grant, shared with TODAY-FIN (done)) | engineer/sonnet | R4b | 8 | a637c593e82a8b401 | done 23:26 |
+| REV-R4ab | reviewer opus | reviewer/opus | R4b2 | 6 | a5d1208faf667b64e | REQUEST CHANGES 23:27 (2 should, 2 nit) |
+| R4-fix1 | review fixes (chip 44 hit area on web, key, tokens, test) | engineer/sonnet (resume R4a) | REV | 8 | ab0c6cda08b128ac5 | done 23:30 (3 of 4 + token swap by R4c-shoot) |
+| R4c-shoot | capture 62 PNG/JSON + rows fragment | engineer/sonnet | R4-fix1 | 11 | abd9530040eeae8bf | done 23:44 |
+| R4c-design | designer review r4 | architect/fable | R4c-shoot | 7 | af85c401d115e4244 | PASS 23:47 |
 | R4c-design | designer review r4 (`UI-Pdesktop-r4.md`), scores per screen | architect/fable | R4c-shoot | 10 | - | todo |
-| R4c-fix | one fix round + final capture | engineer/sonnet | R4c-design | 5+5 | - | todo |
+| R4c-fix | not run (Lead: owner wrapping up, no fix round) | - | - | - | - | left for r5 |
 
 ### Log
 (HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome)
 - 23:13→23:17 · R4a · engineer/sonnet · ab0c6cda08b128ac5 · 172k · 60 · 1 · done, gate green (922 tests); planUpNext.ts(+test) untracked (commit with plan.tsx); no capture (R4c measures); Activity/Feed tiles are not StatRow (feed team's)
+- 23:18→23:25 · R4b · engineer/sonnet · ab73d06fb175d3d30 · 176k · 62 · 1 · done, gate green (922); Plan rest 64, Library 7 rows, Progress detail row; Player already 280/96; port 8897 held by LAND-2, used 8899 web
+- 23:25→23:26 · R4b2 · engineer/sonnet · a637c593e82a8b401 · 89k · 7 · 1 · done, 923 tests; Today aside label row 28 (no gating needed: aside is desktop-only)
+- 23:26→23:27 · REV-R4ab · reviewer/opus · a5d1208faf667b64e · 75k · 7 · 1 · REQUEST CHANGES: chip hitSlop ignored on RNW (compact = 32 px target on web), duplicate key line.name in Up next, raw 28/150 literals, missing ordering test
+- 23:27→23:30 · R4-fix1 · resume R4a engineer ab0c6cda08b128ac5 · 213k total · 36 · fixes 1,2,4 done, 3 partial; 925 tests
+- 23:38→23:44 · R4c-shoot · engineer/sonnet · abd9530040eeae8bf · 138k · 35 · 62 PNG+JSON, rows fragment, TodayReady token swap; Commit ff83f34 dirty 29
+- 23:44→23:47 · R4c-design · architect/fable · af85c401d115e4244 · 88k · 17 · PASS (all opened screens 4)
 
 ### Decisions
+- Lead rulings: PlanDayRow.tsx granted (mobile-A done); TodayReady.tsx granted for the label row only after TODAY-FIN's commit (footer prop + Finish button untouched); Feed/Activity StatRow adoption queued as a feed-side follow-up.
+- R4b: clock numeral numeralLg 96 (178x100 in the 280 ring) vs clock 64 (119x68): screenshots `$S/R4b-player-rest-1280-96.png` / `-64.png`; designer decides in R4c (apply in playerRing.ts only). `Button xl` is 64 (logButton), `lg` is 56: ui-polish Player 5 wording is wrong, fix doc.
+- R4b: Library detail 2 columns skipped (r3 inline hero already one row; ~180 px void below steps for the designer to judge). Progress at 900: subtitle wraps to 2 lines (ProgressRows.tsx, not touched).
 ### Escalations
 ### Integration checklist
 - 23:18 · Lead ruling (desktop r4 interim): PlanDayRow.tsx granted to desktop r4 for this round (mobile-A done, file clean; phone layout byte-identical); TodayReady.tsx stays with TODAY-FIN → 'Sets / Back Squat' single row deferred to r5; feed stat tiles → follow-up FEED-8 (adopt StatRow)
+
+Team gate at hand-back 23:47: pnpm -F @tanren/mobile check green (934 tests).

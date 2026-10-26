@@ -63,6 +63,10 @@ export const sizes = {
   statTile: 72,
   /** Desktop list row with a subtitle (Programs "What's inside": title over the routine line). */
   rowTall: 64,
+  /** A section label row (caption beside a value, e.g. Today "Sets" / exercise name): 28 high. */
+  labelRow: 28,
+  /** Desktop Plan aside "Up next" card: minimum height (title, date, up to 3 item lines). */
+  upNextCard: 150,
 } as const
 
 /** Window widths (px); `desktop` equals `WIDE_BREAKPOINT` (two columns). */

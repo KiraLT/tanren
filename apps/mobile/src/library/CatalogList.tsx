@@ -22,7 +22,10 @@ const NO_ROW_BORDER = { borderBottomWidth: 0 } as const
 export function CatalogList({ entries, selected, onSelect, header }: CatalogListProps) {
   const { colors } = useTheme()
   // phone rows hold one subtitle line (64 px); wider layouts have the room and stay as they were
-  const phone = useBreakpoint() === "phone"
+  const breakpoint = useBreakpoint()
+  const phone = breakpoint === "phone"
+  // desktop only: rows hold one subtitle line (tablet keeps the wrapping it had)
+  const desktop = breakpoint === "desktop"
   const { width } = useWindowDimensions()
   const subtitleFor = (item: CatalogExercise): string =>
     phone ? clampSubtitle(entrySubtitle(item), subtitleMaxChars(width)) : entrySubtitle(item)
@@ -48,6 +51,7 @@ export function CatalogList({ entries, selected, onSelect, header }: CatalogList
           leading={<ExerciseIllustration catalogId={item.catalogId} size={sizes.illustrationSm} />}
           title={item.name}
           subtitle={subtitleFor(item)}
+          {...(desktop ? { titleLines: 1, subtitleLines: 1 } : {})}
           accessibilityLabel={item.name}
           selected={Option.exists(selected, (id) => id === item.catalogId)}
           onPress={() => onSelect(item.catalogId)}

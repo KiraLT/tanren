@@ -1,5 +1,5 @@
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
-import { chipColors, chipStyle } from "./controls"
+import { chipColors, chipPressableStyle, chipStyle } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
@@ -14,6 +14,11 @@ export interface ToggleChipProps {
   readonly icon?: IconName
   /** Extra invisible tap area on every side, in px (default none: the Pressable is already 44 tall). */
   readonly hitSlop?: number
+  /**
+   * Dense chip rows: the row layout is the pill's 32, while the Pressable stays 44 tall with a
+   * -6 px vertical margin (a real target on web too, where `hitSlop` is ignored). Default off.
+   */
+  readonly compact?: boolean
   /** Outer layout only (e.g. `alignSelf`); colours come from the theme. */
   readonly style?: StyleProp<ViewStyle>
 }
@@ -22,7 +27,15 @@ export interface ToggleChipProps {
  * A 32 px pill checkbox (§5): on = `text` fill in light, `accent` in dark; off = 1 px outline. The
  * Pressable around the pill is 44 tall, so the tap target stays >= `sizes.tap`.
  */
-export function ToggleChip({ label, selected, onPress, icon, hitSlop, style }: ToggleChipProps) {
+export function ToggleChip({
+  label,
+  selected,
+  onPress,
+  icon,
+  hitSlop,
+  compact = false,
+  style,
+}: ToggleChipProps) {
   const { colors, scheme } = useTheme()
   const foreground = chipColors(selected, scheme, colors).foreground
   return (
@@ -34,11 +47,7 @@ export function ToggleChip({ label, selected, onPress, icon, hitSlop, style }: T
       aria-checked={selected}
       {...(hitSlop === undefined ? {} : { hitSlop })}
       onPress={onPress}
-      style={({ pressed }) => [
-        { minHeight: sizes.tap, justifyContent: "center" },
-        pressed && { opacity: 0.7 },
-        style,
-      ]}
+      style={({ pressed }) => [chipPressableStyle(compact), pressed && { opacity: 0.7 }, style]}
     >
       <View style={chipStyle(selected, scheme, colors)}>
         {icon === undefined ? null : <Icon name={icon} size={sizes.iconXs} color={foreground} />}

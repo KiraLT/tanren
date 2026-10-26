@@ -5,8 +5,10 @@ import {
   buttonHeights,
   buttonStyle,
   buttonVariants,
+  CHIP_COMPACT_SLOP,
   cardStyle,
   chipColors,
+  chipPressableStyle,
   chipStyle,
   DISABLED_OPACITY,
   discStyle,
@@ -20,10 +22,12 @@ import {
   ringSpec,
   rowBackground,
   rowChevron,
+  rowLinesProps,
   rowPressedBackground,
   rowStyle,
   rowTones,
   STAT_GAP,
+  STAT_GAP_DENSE,
   STAT_TILE_STACK_GAP,
   segmentedInset,
   segmentFills,
@@ -274,6 +278,27 @@ describe("ToggleChip and StatusPill", () => {
     })
   })
 
+  it("default chip: 44 tall Pressable, no margin (unchanged)", () => {
+    expect(chipPressableStyle(false)).toEqual({ minHeight: 44, justifyContent: "center" })
+    expect("marginVertical" in chipPressableStyle(false)).toBe(false)
+  })
+
+  it("compact chip: still 44 tall (real target on web), pulled -6 so the row sees 32", () => {
+    expect(CHIP_COMPACT_SLOP).toBe(6)
+    expect(chipPressableStyle(true)).toEqual({
+      minHeight: 44,
+      justifyContent: "center",
+      marginVertical: -6,
+    })
+    expect(44 + 2 * -CHIP_COMPACT_SLOP).toBe(chipStyle(false, "light", lightColors).height)
+  })
+
+  it("row line props: undefined adds no key, a number sets numberOfLines", () => {
+    expect(rowLinesProps(undefined)).toEqual({})
+    expect("numberOfLines" in rowLinesProps(undefined)).toBe(false)
+    expect(rowLinesProps(1)).toEqual({ numberOfLines: 1 })
+  })
+
   it("pills are tone text on surface", () => {
     expect(pillForeground).toEqual({
       neutral: "textMuted",
@@ -409,6 +434,12 @@ describe("statTileStyle", () => {
     expect(statTileStyle(darkColors).backgroundColor).not.toBe(
       statTileStyle(lightColors).backgroundColor,
     )
+  })
+
+  it("dense: padding 12, gap 8, same height; default stays 16", () => {
+    expect(statTileStyle(lightColors, true)).toMatchObject({ height: 72, paddingHorizontal: 12 })
+    expect(statTileStyle(lightColors, false).paddingHorizontal).toBe(16)
+    expect(STAT_GAP_DENSE).toBe(8)
   })
 
   it("fits three tiles of 166 in the 532 inner width of the Programs column", () => {

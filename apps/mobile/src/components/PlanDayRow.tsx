@@ -235,7 +235,9 @@ export function PlanDayRow({
   return (
     <View
       style={{
-        minHeight: sizes.controlLg,
+        // desktop rest rows 64 (`rowTall`, measured 63 at r3); tablet keeps 56
+        minHeight:
+          breakpoint === "desktop" && day.sessions.length === 0 ? sizes.rowTall : sizes.controlLg,
         flexDirection: "row",
         alignItems: "flex-start",
         gap: space.md,

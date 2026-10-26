@@ -119,7 +119,9 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
         }}
       />
       {desktop ? (
-        <StatRow items={exerciseStats(item)} />
+        // One desktop stat rule (ui-desktop §stat rows): in-card tiles; dense when the block is
+        // narrow (900: 340 -> 3 x 108 with 12 padding). Phone/tablet never reach this branch.
+        <StatRow variant="tile" dense={stepperSize === "xl"} items={exerciseStats(item)} />
       ) : (
         <View
           style={{

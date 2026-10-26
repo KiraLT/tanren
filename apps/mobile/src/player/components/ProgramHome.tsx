@@ -6,6 +6,7 @@ import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import {
   Button,
   Card,
+  gutter,
   ListGroup,
   ListRow,
   ProgressRing,
@@ -13,7 +14,9 @@ import {
   StatRow,
   sizes,
   space,
+  stepperSizeFor,
   Text,
+  useColumns,
 } from "../../ui"
 import { exerciseName, itemAmount } from "../cues"
 import {
@@ -209,6 +212,34 @@ export function DayCard({ program, day, onStart }: DayCardProps) {
         />
       </View>
     </Card>
+  )
+}
+
+interface DayStatsProps {
+  readonly program: Program
+  readonly day: ProgramDay
+}
+
+/**
+ * Desktop only, enrolled, between the day card and the exercises: the one stat-row rule (in-card
+ * tiles) as "Done 2/30 · Today 15 min · Exercises 7". Dense in the 404 column of a 900 window.
+ */
+export function DayStats({ program, day }: DayStatsProps) {
+  const { main } = useColumns()
+  const dense = stepperSizeFor(main - 2 * gutter.desktop) === "xl"
+  return (
+    <StatRow
+      variant="tile"
+      dense={dense}
+      items={[
+        {
+          label: "Done",
+          value: `${daysDone(day.dayNumber, program.days.length)}/${program.days.length}`,
+        },
+        { label: "Today", value: dayTrailing(day) },
+        { label: "Exercises", value: String(day.items.length) },
+      ]}
+    />
   )
 }
 

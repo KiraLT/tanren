@@ -51,6 +51,8 @@ interface FacetChipsProps {
   readonly leading?: ReactNode
   /** Phone: chips 8 apart with extra tap area; desktop keeps the original 4 / none. */
   readonly compact?: boolean
+  /** Desktop filter stack: 32 high chip rows (`ToggleChip compact`, tap target stays 44). */
+  readonly dense?: boolean
 }
 
 /** One horizontally scrolling row of single-select chips for a facet ("All" first). */
@@ -61,6 +63,7 @@ function FacetChips({
   onChange,
   leading = null,
   compact = false,
+  dense = false,
 }: FacetChipsProps) {
   return (
     <ScrollView
@@ -77,6 +80,7 @@ function FacetChips({
           selected={option.value === value}
           onPress={() => onChange(option.value)}
           {...(compact ? { hitSlop: CHIP_SLOP } : {})}
+          {...(dense ? { compact: true } : {})}
         />
       ))}
     </ScrollView>
@@ -263,6 +267,7 @@ function ExpandedFilterBar({ state, dispatch, count, location }: CatalogFilterBa
         onNone: () => null,
         onSome: (active) => (
           <ToggleChip
+            compact
             style={{ alignSelf: "flex-start" }}
             icon="mapPin"
             label={atLocationLabel(active)}
@@ -294,18 +299,21 @@ function ExpandedFilterBar({ state, dispatch, count, location }: CatalogFilterBa
         ]}
       />
       <FacetChips
+        dense
         accessibilityLabel="Muscle"
         options={MUSCLE_OPTIONS}
         value={segmentValue(state.muscle)}
         onChange={(value) => dispatch({ _tag: "Muscle", value: muscleFromValue(value) })}
       />
       <FacetChips
+        dense
         accessibilityLabel="Equipment"
         options={EQUIPMENT_OPTIONS}
         value={segmentValue(state.equipment)}
         onChange={(value) => dispatch({ _tag: "Equipment", value: equipmentFromValue(value) })}
       />
       <FacetChips
+        dense
         accessibilityLabel="Kind"
         options={KIND_OPTIONS}
         value={segmentValue(state.kind)}

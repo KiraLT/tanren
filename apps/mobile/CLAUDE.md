@@ -151,6 +151,20 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   with `Columns 5/7`, `/progress/[exerciseId]` `wide` with a split detail. Loading, empty, not-found
   and failed states never pass `wide` or `aside`: they stay one 600 column. Ready states render
   their own `Page`.
+  Desktop round 4 (designer PASS, `docs/design/reviews/UI-Pdesktop-r4.md`; shared with Lead):
+  stat rows are in-card tiles (`StatRow variant="tile"`, 72 high) on desktop for Today, Plan (aside,
+  stacked) and Programs (enrolled `DayStats`); bare only at phone/tablet; `dense` (gap 8, padding 12)
+  when the Today block is 340 (900 window) so "10,000 kg" fits 3 x 108. Feed/Activity tiles are the
+  feed team's own, not `StatRow`. Additive `src/ui` props: `ListRow titleLines/subtitleLines/tabularTitle`,
+  `ToggleChip compact` (Pressable stays 44 with `marginVertical -6`; RNW ignores `hitSlop`),
+  `sizes.labelRow` 28 (Today aside "Sets · name" one row) and `sizes.upNextCard` 150. Plan aside adds an
+  "Up next" card (`planUpNext.ts`: first `upcoming` session on a later day; renders nothing when none;
+  unreviewed visually: the seeded week is all done). Plan rest rows 64 at desktop (`PlanDayRow`). Library
+  desktop: compact chips, one-line rows (7 visible). Progress detail: map beside the Best-set card.
+  Player enrolled at 1280/900: ring 280, clock `numeralLg` 96 (`playerRing.ts ringSpec`); `Button xl` is
+  64 (`logButton`), `lg` 56. Status: PASS 4 on every desktop screen opened; left for r5: Today 390 Finish
+  button overlaps the set list (`footer` slot), Library empty pane, Player reps numeral/Finish tone,
+  Programs day rows 64.
 - Theme and design: colours only from `useTheme().colors` / `useStyles` (`src/ui/colors.ts` is the one
   place with hex; light and dark follow the device or `useThemePreference`). Web hover/focus come
   from `usePressableInteraction` (`onHoverIn/Out` state, `:focus-visible` gated `outline*` ring in

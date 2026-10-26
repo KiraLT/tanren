@@ -299,6 +299,25 @@ export const chipStyle = (selected: boolean, scheme: Scheme, colors: ColorRoles)
   }
 }
 
+/** Tap-target overhang of a chip above and below its 32 px pill (32 + 2 x 6 = 44). */
+export const CHIP_COMPACT_SLOP = (sizes.tap - sizes.chip) / 2
+
+/**
+ * Layout of the Pressable around a chip's 32 px pill. Always `sizes.tap` (44) tall, so the target
+ * is real on every platform (react-native-web ignores `hitSlop`). `compact` pulls it by
+ * `-CHIP_COMPACT_SLOP` above and below, so in a row it occupies only the pill's 32 and the
+ * 6 px overhangs (hit area only) overlap the row gap. Default: no margin, unchanged.
+ */
+export const chipPressableStyle = (compact: boolean): ViewStyle => ({
+  minHeight: sizes.tap,
+  justifyContent: "center",
+  ...(compact ? { marginVertical: -CHIP_COMPACT_SLOP } : {}),
+})
+
+/** `numberOfLines` for a row's title or subtitle: absent (RN default, unlimited) when `undefined`. */
+export const rowLinesProps = (lines: number | undefined): { readonly numberOfLines?: number } =>
+  lines === undefined ? {} : { numberOfLines: lines }
+
 export type PillTone = "neutral" | "accent" | "success" | "danger"
 
 /** Status pills are tone-coloured text (and glyph) on `surface` (§2 "Available at Home"). */
@@ -417,12 +436,18 @@ export const STAT_GAP = space.lg
 /** Gap between stacked tiles of a `StatRow variant="tile" direction="column"`. */
 export const STAT_TILE_STACK_GAP = space.sm
 
-/** One `StatRow variant="tile"` tile: `surface`, radius 16, 72 high, 16 side padding, content centred. */
-export const statTileStyle = (colors: ColorRoles): ViewStyle => ({
+/** Gap between the slots of a `dense` tile row (a 340 block at 900: 3 x 108 instead of 3 x 102). */
+export const STAT_GAP_DENSE = space.sm
+
+/**
+ * One `StatRow variant="tile"` tile: `surface`, radius 16, 72 high, 16 side padding (12 `dense`),
+ * content centred.
+ */
+export const statTileStyle = (colors: ColorRoles, dense = false): ViewStyle => ({
   height: sizes.statTile,
   backgroundColor: colors.surface,
   borderRadius: radius.lg,
-  paddingHorizontal: space.lg,
+  paddingHorizontal: dense ? space.md : space.lg,
   justifyContent: "center",
   gap: 2,
 })

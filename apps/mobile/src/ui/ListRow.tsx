@@ -12,6 +12,7 @@ import {
   type RowTitleVariant,
   type RowTone,
   rowChevron,
+  rowLinesProps,
   rowPressedBackground,
   rowStyle,
   rowTones,
@@ -91,6 +92,12 @@ export interface ListRowProps {
   /** Title ramp: `headline` (default), `body` for dense lists, `subhead`. */
   readonly titleVariant?: RowTitleVariant
   readonly subtitle?: string
+  /** `numberOfLines` of the title (default: unlimited, as before). */
+  readonly titleLines?: number
+  /** `numberOfLines` of the subtitle (default: unlimited, as before). */
+  readonly subtitleLines?: number
+  /** Title in tabular figures (a row whose title is a number or a date). Default off. */
+  readonly tabularTitle?: boolean
   /**
    * Free leading slot; `disc` / `icon` are the standard ones and win over it. `null` (not
    * `undefined`) keeps a 20 px empty slot (`ROW_ICON_SLOT`), so the title aligns with icon rows.
@@ -120,6 +127,9 @@ export function ListRow({
   title,
   titleVariant = ROW_TITLE_VARIANT,
   subtitle,
+  titleLines,
+  subtitleLines,
+  tabularTitle = false,
   leading,
   disc,
   icon,
@@ -155,11 +165,16 @@ export function ListRow({
     <>
       {lead}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant={titleVariant} tone={toneSpec.title}>
+        <Text
+          variant={titleVariant}
+          tone={toneSpec.title}
+          tabular={tabularTitle}
+          {...rowLinesProps(titleLines)}
+        >
           {title}
         </Text>
         {subtitle === undefined ? null : (
-          <Text variant="subhead" tone="muted">
+          <Text variant="subhead" tone="muted" {...rowLinesProps(subtitleLines)}>
             {subtitle}
           </Text>
         )}

@@ -16,6 +16,7 @@ import {
   ListRow,
   Page,
   SegmentBar,
+  sizes,
   space,
   Text,
   useBreakpoint,
@@ -123,11 +124,23 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
           onNone: () => null,
           onSome: (item) => (
             <>
-              <View style={{ gap: space.xs }}>
-                <Text variant="subhead" tone="muted">
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "baseline",
+                  gap: space.sm,
+                  minHeight: sizes.labelRow,
+                }}
+              >
+                <Text variant="caption" tone="muted">
                   Sets
                 </Text>
-                <Text variant="title2" accessibilityRole="header">
+                <Text
+                  variant="headline"
+                  accessibilityRole="header"
+                  numberOfLines={1}
+                  style={{ flex: 1 }}
+                >
                   {item.exercise.name}
                 </Text>
               </View>
