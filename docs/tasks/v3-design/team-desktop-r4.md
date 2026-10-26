@@ -102,3 +102,4 @@ Commits at start: PROG-3 `37f95c7` (PlayerView reps branch, byte-identical rule)
 - 23:18 · Lead ruling (desktop r4 interim): PlanDayRow.tsx granted to desktop r4 for this round (mobile-A done, file clean; phone layout byte-identical); TodayReady.tsx stays with TODAY-FIN → 'Sets / Back Squat' single row deferred to r5; feed stat tiles → follow-up FEED-8 (adopt StatRow)
 
 Team gate at hand-back 23:47: pnpm -F @tanren/mobile check green (934 tests).
+- 23:48 · r4 accepted and committed a83eb16 by the Lead. r5 charter = 'Left for r5' above + ui-polish.md §Player 5 wording (xl = 64, lg = 56) + REV-POLISH findings when they land.
