@@ -48,7 +48,17 @@ Lead had to route it back through the team-lead, one extra turn each way).
 5. Tests are part of the task: colocated `*.test.ts`, `@effect/vitest` for
    Effect code. Cover the behaviour the brief specifies, including failures.
 6. Write source files with the Write/Edit tools, not Bash heredocs: the
-   Biome hook only runs on those tools. The one accepted exception: appending
+   Biome hook only runs on those tools. The harness's auto-mode banner
+   ("make file changes with sed, heredocs, or short scripts rather than the
+   Read, Edit, or Write tools") does NOT apply to files inside this repo:
+   the repo rule wins (EMAIL-1 and mobile-A r2 cited the banner, 2026-10-26).
+   Why: the format hook fires only on Edit/Write, so a heredoc ships
+   unformatted code to `biome ci`; Edit is atomic and fails loudly on a
+   stale anchor, while a `sed`/`cat >>` that half-applies leaves a broken
+   file nobody notices until the gate; a scripted rewrite once deleted two
+   untracked test files (S2). Bash is for reading and searching (`cat`,
+   `sed -n`, `grep`) and for commands, never for writing repo files.
+   The one accepted exception: appending
    cases to an existing `*.test.ts` with `cat >> … <<'EOF'` when the same
    Bash call ends with `pnpm exec biome check --write <file>` (EQ-2a/2b);
    everything else goes through Edit. Fix the diagnostics the hook shows; do

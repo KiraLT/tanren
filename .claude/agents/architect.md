@@ -51,6 +51,17 @@ an API.
    routes and the states (`Loading`, `NotFound`, `Empty`, `Failed` of
    `/progress/[id]`, `/settings/location/[id]`): "states single-column"
    let `wide` reach Loading/NotFound and became the review's one blocker.
+   (d) Frame, width and chrome criteria are stated per ROUTE over the full
+   inventory in `apps/mobile/CLAUDE.md` "Layout" (`app/` block, incl.
+   `sign-in`, `auth/callback`, `programs/play`, and the magic-link email
+   when a design touches auth), not per screen family: UI-D's decision 5
+   let Sign-in, auth callback and every Loading/Empty state keep a 600
+   column while content routes went to 1216, and the owner's first words on
+   the live site were "each page has different design and different page
+   width". A route that keeps a different frame is a named exception with
+   the reason the owner will not notice; the spec's verification list (§4)
+   is the whole inventory, and "measured on N screens" names the omitted
+   routes.
    (c) A `VERIFY:` whose answer changes what the owner sees (the 900-px
    inline hero: 584 needed, 464 available) is a measured task in the table
    with a number, not a note; UI-D's note was never run and the reviewer

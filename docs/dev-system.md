@@ -371,3 +371,8 @@ QA, reviewer and team-lead roles keep denying the `execute` tool and never run `
 deploy|secret|login`, `d1 … --remote`, DNS changes or `eas`. Facts learned that day live in the
 `cloudflare-workers` skill ("Production deploy facts"); the state lives in `docs/handoff.md`.
 Secrets the owner pastes into chat are set once and then rotated by the owner.
+
+Hooks note (2026-10-26): hooks registered in `.claude/settings.json` are snapshotted when a session
+starts; a hook added mid-session (the EM cadence guard, `.claude/hooks/em-cadence.sh`) fires only from
+the next session. Until then the Lead dispatches the EM by the playbook rule (≥ 3 accepted reports or
+≥ 4 commits since the last `docs/retro/em-log.md` entry).

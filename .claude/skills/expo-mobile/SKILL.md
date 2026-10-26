@@ -145,7 +145,9 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 - `EXPO_PUBLIC_PLAYER_SPEED` is inlined at export time (the bundle contains `parseSpeed)("10")`) and divides
   every duration; dev/proof only.
 - Typed routes: a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it; kill
-  that PID afterwards.
+  that PID afterwards. The same task adds the route to the `app/` block of `apps/mobile/CLAUDE.md` "Layout"
+  (the canonical route inventory: designers spec, QA captures and the owner's gallery are built from it; five
+  routes were missing from it on 2026-10-26 and the review set never showed Sign-in).
 - Serve a scratch export so parallel engineers do not share `apps/mobile/dist`: `pnpm -F @tanren/worker exec
   wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`).
 

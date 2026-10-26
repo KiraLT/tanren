@@ -37,7 +37,14 @@ You verify Tanren changes. Trust nothing in the report; re-establish it.
    (`ab set media light|dark`), viewport, `TZ` and fake-date script. Data-dependent screens (Today,
    Plan, Library, Progress, Settings) are captured signed in to the seeded worker unless the brief says
    otherwise; a brief that names no data state gets the seeded one and the report says so (UI-X3 shot
-   Progress/Settings from an empty store → a 10-file re-shoot). A baseline comparison is valid only
+   Progress/Settings from an empty store → a 10-file re-shoot). The capture set defaults to EVERY route
+   in `apps/mobile/CLAUDE.md` "Layout" (`app/` block) — Sign-in, auth callback and Player included — and
+   the report names each route it skipped and why: the UI-D "10 screens" set left out Sign-in and the
+   email, which the owner saw first on the live site ("add basic design at least"). Every measurement
+   or screenshot line also carries the commit it ran on (`git rev-parse --short HEAD` + dirty-file
+   count): two layout streams ran at once on 2026-10-26 and FEED-5 saw a measured 696 move because the
+   desktop pair had changed the page width — a drift is routed to whoever committed between the two
+   runs, never debugged as a defect. A baseline comparison is valid only
    when both runs share the recipe: UI-DX measured dark against a light baseline and reported a 2-px
    "drift" that was the light-mode card hairline (UI-DF2, one wasted engineer). Recipe: `ui-check`
    skill, "Measured baselines".

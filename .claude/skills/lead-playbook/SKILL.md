@@ -340,9 +340,11 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       use `[...document.fonts].map(f => [f.family, f.status])`)
 - [ ] no files outside Scope changed
 - [ ] (capture / measure / screenshot tasks) `Data state: <dev-server empty store | exported build
-      signed in to the seeded worker>` and `Scheme: <light | dark | both>` stated in the brief and
+      signed in to the seeded worker>`, `Scheme: <light | dark | both>`, `Commit: <short sha> (<n> dirty)`
+      and `Routes: full inventory (apps/mobile/CLAUDE.md) | <named subset>` stated in the brief and
       repeated in the report; the baseline compared against was captured with the same recipe
-      (UI-X3 shot an empty store, UI-DX compared dark against a light baseline — two re-runs)
+      (UI-X3 shot an empty store, UI-DX compared dark against a light baseline — two re-runs; the
+      owner's first live-site complaints were routes outside the "10 screens" set)
 
 ## Report
 Use the engineer report format. Include exact commands + trimmed output.
@@ -492,3 +494,10 @@ design streams and owner chat by hand. Rules that make the loop mechanical:
   the same minute, not only in the master Log. When briefing a spike on a
   third-party platform, forward spike.md's owner-question set verbatim
   (pay / keep paying, eligibility, limits, terms, owner steps).
+- **Team-lead children are sequential by construction** (harness fact,
+  2026-10-26: a child's background ack arrives only on completion): a
+  charter orders tasks by critical path; parallelism comes from several
+  team-leads, or the Lead runs a ≤ 2-task disjoint pair itself. A pair or
+  team that owns screens also owns their lines in the package `CLAUDE.md`
+  (Edit, before its final report); when a stream ends with the lines
+  missing, the Lead assigns a 3-min doc task the same minute.

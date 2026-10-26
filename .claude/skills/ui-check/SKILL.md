@@ -103,7 +103,17 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   media light` (the default agent-browser scheme is dark; `cardStyle` draws a 1 px hairline in light
   only, so dark is 2 px wider / 1 px higher: UI-DX vs UI-D0 "drift"), viewport, `TZ`, fake date.
   Run `ab set media light|dark` explicitly before every measurement or screenshot and put the scheme in
-  the file name (`UI-DX-settings-390-light.json`); compare only against a baseline whose name carries
+  the file name (`UI-DX-settings-390-light.json`); an `--color-scheme` given at `open` sticks for the
+  whole session, so the open flag is not evidence of a file's scheme — the `set media` call before it is.
+  The viewport command is `ab set viewport <w> <h>` (not `--viewport` on later calls).
+  Commit-stamp every set: the report line and the set's name carry `git rev-parse --short HEAD` plus
+  `git status --short | wc -l` (dirty count). When two streams change layout at once (2026-10-26: the
+  desktop pair moved the page width while FEED-5 measured 696), compare only runs on the same commit, or
+  name the commits between them and route the diff to their author; it is drift, not a defect.
+  Rounds of one pair shoot against the pair's own `--persist-to` state dir seeded once (isolated stack
+  above), never the shared `.wrangler/state` D1: other agents' proofs mutate it (mobile-A r1→r2 found every
+  seeded session "done", so Today/Plan were not like-for-like across rounds).
+  Compare only against a baseline whose name carries
   the same scheme and recipe. The `ui-measure.js` header carries the same rule.
 - The seed week is 19–25 Oct: Today/Plan Ready need `TZ=Pacific/Kiritimati` plus an init script that
   shifts `Date` (`ab open --init-script $S/<task>-fakedate.js`, pattern in UI-D0's Log line; keep the

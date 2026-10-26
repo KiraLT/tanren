@@ -1,2 +1,3 @@
 - [Retro baseline + watchlist](project_retro-baseline.md) — owner wants wall-clock speed; step-1 metrics and repeat-waste watchlist
 - [Dispatch observations](project_dispatch-observations.md) — measured: MCP behind ToolSearch, maxTurns≈7 turns/min, role-file lag, Log tool counts undercount
+- [EM batch watchlist 2026-10-26](project_em-batch-watchlist-2026-10-26.md) — items 28–32 (Bash banner, route inventory, commit stamps, pair docs, sequential children) + capture-rework and leak metrics

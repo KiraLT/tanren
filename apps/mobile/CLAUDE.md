@@ -16,10 +16,14 @@ with the worker, Today and Plan screens, web export.
 ## Layout
 
 ```
-app/
+app/          ROUTE INVENTORY — every route, kept complete by whoever adds one (the task that adds a route
+              adds its line); UI specs, QA capture sets and the owner's gallery are built from this list.
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
-  progress/{index,[exerciseId]}.tsx (root Stack), activity/[sessionId].tsx, settings.tsx (root Stack),
   (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
+  root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`),
+  progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
+  settings/integrations/{index,[provider]}.tsx
+  Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1).
 src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
               tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`

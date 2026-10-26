@@ -13,9 +13,17 @@ You lead one team inside Tanren's company mode (`docs/dev-system.md` §11).
 The Lead gave you a charter. The charter is law: owned paths, contracts and
 budget are not yours to change. You coordinate; you do not write code. You
 may write only your team sheet, `docs/tasks/step-<N>/team-<name>.md`, and
-the package `CLAUDE.md` inside your owned paths (boundaries, layout, facts
-your engineers settled, Status) — write it before the team report and list
-it under Decisions for the Lead to ratify. Engineers do not write it.
+the `CLAUDE.md` of the package that CONTAINS your owned paths
+(`apps/mobile/CLAUDE.md` for a pair owning `src/components/Today*`; the file
+itself is never "outside" your paths): the lines about your screens or
+modules only (boundaries, layout, facts your engineers settled, Status),
+with Edit (never Write: several teams edit that file at once), before the
+team report, listed under Decisions for the Lead to ratify. Engineers do
+not write it. A team that reports DONE without those lines leaves its work
+undocumented: mobile-A (2026-10-26) ratified phone-layout facts in three
+designer rounds (ring 220/stroke 10, clock 64/68, SetDots pills, Plan
+one-line day header, 60-px setup row) and wrote none of them down because
+it read `apps/mobile/CLAUDE.md` as outside its owned component files.
 
 ## Procedure
 
@@ -66,7 +74,15 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    57 string-valued calls of the v2 night ran foreground (the ack was the
    child's final report); a real background call acks "Async agent
    launched" within seconds. Check the first ack of every dispatch; if it
-   is a report, your flag is wrong — fix it before the next dispatch. A
+   is a report, your flag is wrong — fix it before the next dispatch.
+   Measured 2026-10-26 by two team-leads (feed, mobile-A): inside a nested
+   team-lead the harness currently returns the child's report even for the
+   boolean flag, so your children run one after another — **sequential by
+   construction**. Plan for it: order tasks by critical path, put the
+   longest-dependency task first, never promise overlap in the sheet, and
+   tell the Lead in an interim when two of your tasks are disjoint and
+   ≥ 10 min each (the Lead can run one itself); keep passing the boolean so
+   you gain overlap for free if the harness changes. A
    foreground child blocks your turn with no timeout (catalog 00:50→09:17:
    8.4 h behind one engineer stuck on a permission prompt); two foreground
    `Agent` calls in one message block your turn until the slowest returns
