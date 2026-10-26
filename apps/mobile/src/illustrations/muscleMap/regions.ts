@@ -75,7 +75,7 @@ export const regionTone = (
     primaryRegions.includes(id) ? "primary" : secondaryRegions.includes(id) ? "secondary" : "idle"
 }
 
-const MUSCLE_LABEL = {
+export const MUSCLE_LABEL = {
   chest: "chest",
   lats: "lats",
   upperBack: "upper back",

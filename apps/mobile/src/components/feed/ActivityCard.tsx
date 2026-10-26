@@ -56,7 +56,7 @@ function OverflowDisc({ count }: { readonly count: number }) {
 }
 
 /** Pills of the card, in design order; empty when the activity has none of them. */
-function Pills({ activity }: { readonly activity: Activity }) {
+export function Pills({ activity }: { readonly activity: Activity }) {
   const hasProgram = Option.isSome(activity.program)
   const inProgress = activity.status === "inProgress"
   if (activity.prs === 0 && !hasProgram && !inProgress) {
