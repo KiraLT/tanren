@@ -141,3 +141,10 @@ Recorded 2026-10-19, from the owner's kickoff message:
    `team-lead` loops (change → screenshots → designer feedback, ≤ 3 rounds)
    with disjoint file sets for mobile and desktop; every round's screenshots
    go to the owner's review gallery.
+8. **Activity feed** (2026-10-26 21:16, owner, verbatim): "the app is missing
+   activities feed page- strava like activities feed." Lead reading: a
+   chronological feed of completed sessions (and guided-program days) as
+   rich cards — title, date, duration, volume, sets, exercises, PRs, muscle
+   map — as a first-class screen in the tab bar, designed in the Forge
+   system by a fable architect (ADR-0017, `docs/design/feed.md`,
+   `docs/tasks/v4-feed.md`), with the web two-column treatment.
