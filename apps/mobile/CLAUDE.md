@@ -63,6 +63,13 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   schema version via `PRAGMA user_version`; no foreign keys.
 - Writes go through `TodayRepo` (serialised by a semaphore) and emit
   `StoreEvents`, which reloads Today.
+- Today finishes its session explicitly (ADR-0018 decision 2026-10-26, TODAY-FIN): `Today.session`
+  is the open session + live set count; `src/components/today/FinishWorkout.tsx` (passed to
+  `TodayReady` as `footer`) shows a secondary lg "Finish workout" button while it has ≥ 1 set;
+  `TodayRepo.finishSession` sets `finishedAt` (≥ `startedAt`) and bumps `updatedAt`, dirty, no-op
+  (None) for unknown / finished / zero-set sessions; Today then reads as before the first set with
+  "Workout saved · n sets · <duration>" until the next set or blur. The open-session query filters
+  `finishedAt IS NULL`, so the next set opens a new session. No auto-finish of stale sessions yet.
 - Sync (`SyncEngine.background`, run by `useSync`): on mount, every 60 s, and 500 ms
   (`PUSH_DEBOUNCE`) after `requestSync`, which `useLogSet` sends after every logged set
   (taps in the window share one push; offline fails once, then waits for the loop); pull applies a

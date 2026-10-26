@@ -48,9 +48,25 @@ export interface TodayExercise {
   readonly restSeconds: number
 }
 
+/** The unfinished session Today logs into, with its live set count (any exercise). */
+export interface OpenSession {
+  readonly session: Session
+  readonly setCount: number
+}
+
 export interface Today {
   readonly plannedSession: PlannedSession
   readonly exercises: ReadonlyArray<TodayExercise>
+  /** None before the first set and again after `finishSession`. */
+  readonly session: Option.Option<OpenSession>
+}
+
+/** `finishSession`'s answer: what the confirmation line shows. */
+export interface FinishedSession {
+  readonly sessionId: SessionId
+  readonly setCount: number
+  /** `finishedAt − startedAt`, whole seconds. */
+  readonly durationSeconds: number
 }
 
 export interface LogSetInput {
@@ -121,6 +137,14 @@ export interface TodayRepoShape {
    * write), `"noSession"` when nothing is planned today (no write).
    */
   readonly addExercise: (exerciseId: ExerciseId) => Effect.Effect<AddExerciseResult, StoreError>
+  /**
+   * Finishes an open session (ADR-0018 decision 2026-10-26): `finishedAt` = now (never before
+   * `startedAt`), `updatedAt` bumped, dirty for push. `None` and no write when the session is
+   * unknown, deleted, already finished or has no live set. The next `logSet` opens a new session.
+   */
+  readonly finishSession: (
+    sessionId: SessionId,
+  ) => Effect.Effect<Option.Option<FinishedSession>, StoreError>
 }
 
 /** `TodayRepo.addExercise`'s answer; consumers match it exhaustively. */
@@ -260,7 +284,17 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
               }
             }),
           )
-          return { plannedSession, exercises: todayExercises }
+          return {
+            plannedSession,
+            exercises: todayExercises,
+            session: Option.map(
+              session,
+              (open): OpenSession => ({
+                session: open,
+                setCount: logged.length,
+              }),
+            ),
+          }
         })
 
       const today = withDeps(
@@ -424,7 +458,49 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
           ),
         )
 
-      return TodayRepo.of({ today, logSet, exerciseChoices, addExercise })
+      /** Same lock as `logSet`: a set logged mid-finish lands before the session closes. */
+      const finishSession = (sessionId: SessionId) =>
+        logLock.withPermits(1)(
+          Effect.gen(function* () {
+            const userId = yield* owner
+            const found = Arr.head(
+              yield* store
+                .all(
+                  q(
+                    `SELECT * FROM "workout_session"
+                     WHERE "id" = ? AND "userId" = ? AND "deletedAt" IS NULL AND "finishedAt" IS NULL`,
+                    sessionId,
+                    userId,
+                  ),
+                )
+                .pipe(Effect.flatMap(decodeRecords(SessionRow))),
+            )
+            const setCount = (yield* loggedSets(Option.some(sessionId))).length
+            if (Option.isNone(found) || setCount === 0) {
+              return Option.none<FinishedSession>()
+            }
+            const session = found.value
+            const now = yield* DateTime.now
+            // A device clock set back must not break `finishedAt >= startedAt` or lose LWW.
+            const finishedAt = DateTime.max(now, session.startedAt)
+            const finished = yield* Session.makeEffect({
+              ...session,
+              finishedAt: Option.some(finishedAt),
+              updatedAt: DateTime.max(now, DateTime.add(session.updatedAt, { milliseconds: 1 })),
+            }).pipe(Effect.mapError((cause) => new StoreError({ cause })))
+            yield* store.write([{ table: "session", row: finished }], { dirty: true })
+            return Option.some<FinishedSession>({
+              sessionId,
+              setCount,
+              durationSeconds: Math.floor(
+                (DateTime.toEpochMillis(finishedAt) - DateTime.toEpochMillis(session.startedAt)) /
+                  1000,
+              ),
+            })
+          }),
+        )
+
+      return TodayRepo.of({ today, logSet, exerciseChoices, addExercise, finishSession })
     }),
   )
 

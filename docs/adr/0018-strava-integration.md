@@ -90,3 +90,10 @@ literal union grows per ADR).
 - Push budget: a push waits at most 2 s to queue completed sessions, then at most 5 s to drain one row, plus the one attempt already in flight (uninterruptible); each Strava call is capped at 10 s, so the worst case is about 2 + 5 + 40 s (the 401 path: refresh, create, refresh, create). The cron drain picks up the rest.
 - Residual risk, accepted: the OAuth `state` binds the Tanren user who started the flow, not the browser that finishes it, and has no single-use nonce (a state reused within 10 min can pair with another code). Mitigations: `approval_prompt=force`, Single Player Mode, write-only scope, revocable at strava.com. Remaining token race: drain B can revoke between A's refresh response and A's `setTokens`; follow-up is a `refreshing_until` lease column.
 - Console mode is refused outside `ENVIRONMENT=local` at connect (`ConnectRejected{not-configured}`) and at the callback (400), so a production deploy still in console mode writes nothing; flip `STRAVA_MODE` to `provider` after owner steps O1/O2.
+
+## Decision 2026-10-26 23:05 (Lead)
+Sessions logged on Today never got `finishedAt` (SV-Q1: only program-player days and MCP-logged
+sessions exported). Today sessions are finished by an explicit "Finish workout" action
+(`TodayRepo.finishSession`: `finishedAt` = now, `updatedAt` bumped, pushed as an LWW update of the
+existing row); the next set opens a new session. The export predicate is unchanged (`finishedAt`
+Some on an accepted session change, §4). Auto-finish of stale sessions is a follow-up.

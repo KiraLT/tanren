@@ -2,6 +2,7 @@ import { Match } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { TodayReady } from "../../src/components/TodayReady"
+import { FinishWorkout } from "../../src/components/today/FinishWorkout"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
@@ -96,8 +97,13 @@ const renderState = Match.type<TodayState>().pipe(
       </Page>
     ),
     // Renders its own Page and AppBar: the counter and the aside follow the pager's exercise.
-    Ready: ({ plannedSession, exercises }) => (
-      <TodayReady title={plannedSession.name} accessory={<SignInEntry />} exercises={exercises} />
+    Ready: ({ plannedSession, exercises, session }) => (
+      <TodayReady
+        title={plannedSession.name}
+        accessory={<SignInEntry />}
+        exercises={exercises}
+        footer={<FinishWorkout session={session} />}
+      />
     ),
   }),
 )

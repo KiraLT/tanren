@@ -3,7 +3,7 @@ import { Effect, Exit, Option, Stream } from "effect"
 import { useCallback, useEffect, useState } from "react"
 import { failureMessage, runtime } from "../services/runtime"
 import { StoreEvents } from "../services/StoreEvents"
-import { type Today, type TodayExercise, TodayRepo } from "../services/TodayRepo"
+import { type OpenSession, type Today, type TodayExercise, TodayRepo } from "../services/TodayRepo"
 
 export type { LogSetInput, TodayExercise } from "../services/TodayRepo"
 
@@ -16,12 +16,19 @@ export type TodayState =
       readonly _tag: "Ready"
       readonly plannedSession: PlannedSession
       readonly exercises: ReadonlyArray<TodayExercise>
+      /** The unfinished session (None before the first set and after Finish workout). */
+      readonly session: Option.Option<OpenSession>
     }
 
 export const toTodayState = (today: Option.Option<Today>): TodayState =>
   Option.match(today, {
     onNone: () => ({ _tag: "Empty" }),
-    onSome: ({ plannedSession, exercises }) => ({ _tag: "Ready", plannedSession, exercises }),
+    onSome: ({ plannedSession, exercises, session }) => ({
+      _tag: "Ready",
+      plannedSession,
+      exercises,
+      session,
+    }),
   })
 
 /**

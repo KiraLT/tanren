@@ -34,6 +34,8 @@ interface TodayReadyProps {
   /** Extra AppBar control after the exercise counter (the sign-in entry; renders null when not needed). */
   readonly accessory?: ReactNode
   readonly exercises: ReadonlyArray<TodayExercise>
+  /** End of the session view, under the pager (the Finish workout slot). */
+  readonly footer?: ReactNode
 }
 
 interface ExerciseCounterProps {
@@ -144,7 +146,7 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
  * pager, store errors, and the rest timer. In the two-column layout the rest timer becomes a
  * ring in the aside, next to the current exercise's sets.
  */
-export function TodayReady({ title, accessory, exercises }: TodayReadyProps) {
+export function TodayReady({ title, accessory, exercises, footer }: TodayReadyProps) {
   const { logSet, pending, error } = useLogSet()
   const { remaining, start, stop } = useRestTimer()
   const [page, setPage] = useState(0)
@@ -209,6 +211,7 @@ export function TodayReady({ title, accessory, exercises }: TodayReadyProps) {
           onIndexChange={setPage}
           showSets={!wide}
         />
+        {footer}
         {Option.match(error, {
           onNone: () => null,
           onSome: (message) => (
