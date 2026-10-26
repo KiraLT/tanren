@@ -9,14 +9,18 @@ import {
   gutter,
   Icon,
   SetDots,
+  StatRow,
   Stepper,
   sizes,
   space,
+  stepperSizeFor,
   stroke,
   Text,
   useBreakpoint,
+  useColumns,
   useTheme,
 } from "../ui"
+import { exerciseStats } from "./exerciseStats"
 import { SetList } from "./SetList"
 import { formatKg, stepReps, stepWeight } from "./stepMath"
 import { illustrationIdFor, lastSetText } from "./todayHeader"
@@ -46,7 +50,14 @@ interface SetEntryProps {
  */
 function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
   const { colors } = useTheme()
-  const phone = useBreakpoint() === "phone"
+  const breakpoint = useBreakpoint()
+  const phone = breakpoint === "phone"
+  const desktop = breakpoint === "desktop"
+  // The block is the page column less both gutters, capped at 560: 696 -> 560 (xxl), 404 -> 340 (xl).
+  const { main } = useColumns()
+  const stepperSize = desktop
+    ? stepperSizeFor(Math.min(sizes.controlMaxWidth, main - 2 * gutter.desktop))
+    : "xl"
   const [weightKg, setWeightKg] = useState(item.prefill.weightKg)
   const [reps, setReps] = useState(item.prefill.reps)
   const setNumber = item.loggedSets.length + 1
@@ -61,10 +72,17 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
     }).then((logged) => (logged ? onLogged(item.restSeconds) : undefined))
   }
   return (
-    <View style={{ gap: space.lg }}>
+    <View
+      style={[
+        { gap: space.lg },
+        // Desktop: the controls stay a centred 560 block, the numerals are the 96 step.
+        desktop ? { alignSelf: "center", width: "100%", maxWidth: sizes.controlMaxWidth } : null,
+      ]}
+    >
       <View style={phone ? { gap: space.xl } : undefined}>
         <Stepper
           label="Weight"
+          size={stepperSize}
           valueText={formatKg(weightKg)}
           unit="kg"
           onDecrement={() => setWeightKg(stepWeight(weightKg, -1))}
@@ -73,6 +91,7 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
         />
         <Stepper
           label="Reps"
+          size={stepperSize}
           valueText={String(reps)}
           unit="reps"
           onDecrement={() => setReps(stepReps(reps, -1))}
@@ -99,19 +118,23 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
           log()
         }}
       />
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: space.sm,
-        }}
-      >
-        <Icon name="timer" size={sizes.iconSm} color={colors.textMuted} />
-        <Text variant="subhead" tone="muted">
-          Rest {formatClock(item.restSeconds)} starts after the set
-        </Text>
-      </View>
+      {desktop ? (
+        <StatRow items={exerciseStats(item)} />
+      ) : (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: space.sm,
+          }}
+        >
+          <Icon name="timer" size={sizes.iconSm} color={colors.textMuted} />
+          <Text variant="subhead" tone="muted">
+            Rest {formatClock(item.restSeconds)} starts after the set
+          </Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -129,6 +152,7 @@ const progressText = (item: TodayExercise): string => {
 /** Illustration (when the exercise maps to the catalog) beside name, set dots and the last set. */
 function ExerciseHead({ item }: { readonly item: TodayExercise }) {
   const { colors } = useTheme()
+  const desktop = useBreakpoint() === "desktop"
   const planned = item.plannedSets.length
   const logged = item.loggedSets.length
   return (
@@ -144,7 +168,7 @@ function ExerciseHead({ item }: { readonly item: TodayExercise }) {
     >
       <ExerciseIllustration
         catalogId={illustrationIdFor(item.exercise)}
-        size={sizes.illustrationMd}
+        size={desktop ? sizes.illustrationLg : sizes.illustrationMd}
       />
       <View style={{ flex: 1, gap: space.xs }}>
         <Text variant="display" accessibilityRole="header">

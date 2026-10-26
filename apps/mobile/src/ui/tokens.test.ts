@@ -39,6 +39,11 @@ describe("sizes and rhythm", () => {
     expect(sizes.illustrationXl).toBe(240)
     expect(sizes.illustrationLg).toBe(176)
     expect(sizes.pageMaxWidth).toBe(1360)
+    expect(sizes.controlMaxWidth).toBe(560)
+  })
+
+  it("adds the 280 desktop player ring", () => {
+    expect(sizes.ringXl).toBe(280)
   })
 
   it("rhythm: label -> group 8, group -> label 24, hero -> section 24, chips 8, card 16", () => {

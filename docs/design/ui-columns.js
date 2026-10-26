@@ -5,7 +5,7 @@
 //   ab eval "$(cat docs/design/ui-columns.js)"
 // Expected (+-1 px for a scrollbar): page = min(innerWidth - 64, 1360) (ui-polish D1), so main.left = 32 at 1280
 // (page 1216) and 40 at 1440 (page 1360); at 1280 7/5 = 696 / 496, 5/7 = 496 / 696, 6/6 = 596 / 596; at 900 (page 836)
-// 5/7 = 364 / 448, 7/5 = 448 / 364 (columns never below MIN_COLUMN 364). Widths per
+// every split = 404 / 408 (below 1024 all splits render 6/6); 1024 (page 960): 7/5 = 544 / 392, 5/7 = 388 / 548. Widths per
 // the screen's row in ui-desktop §3, side.left = main.left + main.width + 24, same top for both.
 // A selector that matches nothing visible (width > 0) prints null.
 (() => {
@@ -29,6 +29,8 @@
   return JSON.stringify({
     innerWidth: window.innerWidth,
     overflow,
+    frame: rect("[data-testid=page-frame]"),
+    appBar: rect("[data-testid=app-bar]"),
     nav: rect("[role=navigation]"),
     scrollWidth: document.documentElement.scrollWidth,
     main: rect("[role=main]"),

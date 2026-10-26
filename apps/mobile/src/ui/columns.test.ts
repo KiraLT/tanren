@@ -1,6 +1,54 @@
 import { describe, expect, it } from "vitest"
-import { columnsFor, MIN_COLUMN, pageMargin } from "./columns"
+import {
+  type ColumnSplit,
+  columnsFor,
+  dividerLeft,
+  effectiveSplit,
+  MIN_COLUMN,
+  pageMargin,
+  pageWidths,
+  SPLIT_MIN_WINDOW,
+} from "./columns"
 import { sizes } from "./tokens"
+
+describe("effectiveSplit", () => {
+  const splits: ReadonlyArray<ColumnSplit> = ["7/5", "5/7", "6/6"]
+
+  it("is 6/6 for every split below 1024", () => {
+    expect(SPLIT_MIN_WINDOW).toBe(1024)
+    ;[390, 768, 900, 1000, 1023].forEach((width) => {
+      splits.forEach((split) => {
+        expect(effectiveSplit(width, split)).toBe("6/6")
+      })
+    })
+  })
+
+  it("is the requested split from 1024 up", () => {
+    ;[1024, 1280, 1440, 1920].forEach((width) => {
+      splits.forEach((split) => {
+        expect(effectiveSplit(width, split)).toBe(split)
+      })
+    })
+  })
+})
+
+describe("pageWidths", () => {
+  it("caps header and body together at contentMaxWidth on phone and tablet", () => {
+    const capped = { outer: sizes.contentMaxWidth, bodyMax: undefined }
+    expect(pageWidths(columnsFor(390), false, false)).toEqual(capped)
+    expect(pageWidths(columnsFor(768), false, false)).toEqual(capped)
+  })
+
+  it("narrow desktop: header spans the page, only the body is capped at 600", () => {
+    expect(pageWidths(columnsFor(1280), false, false)).toEqual({ outer: 1216, bodyMax: 600 })
+    expect(pageWidths(columnsFor(1440), false, false)).toEqual({ outer: 1360, bodyMax: 600 })
+  })
+
+  it("two-column and wide desktop: page width, body uncapped", () => {
+    expect(pageWidths(columnsFor(1280), true, false)).toEqual({ outer: 1216, bodyMax: undefined })
+    expect(pageWidths(columnsFor(1280), false, true)).toEqual({ outer: 1216, bodyMax: undefined })
+  })
+})
 
 describe("columnsFor", () => {
   it("splits 1280 into 696 / 496 for 7/5 (page 1216 = window - 2 x 32)", () => {
@@ -25,15 +73,32 @@ describe("columnsFor", () => {
     expect(columnsFor(1000).page).toBe(936)
   })
 
-  it("clamps 900 so no column is below MIN_COLUMN (page 836)", () => {
+  it("renders every split as 6/6 at 900: 404 / 408 (page 836)", () => {
     expect(MIN_COLUMN).toBe(364)
-    // 5/7 would give 340 / 472; 7/5 would give 472 / 340 (spec lists 472/364, which sums to 860).
-    expect(columnsFor(900, "5/7")).toMatchObject({ page: 836, main: 364, side: 448, gap: 24 })
-    expect(columnsFor(900, "7/5")).toMatchObject({ page: 836, main: 448, side: 364, gap: 24 })
+    const six = { page: 836, main: 404, side: 408, gap: 24 }
+    expect(columnsFor(900, "7/5")).toMatchObject(six)
+    expect(columnsFor(900, "5/7")).toMatchObject(six)
+    expect(columnsFor(900, "6/6")).toMatchObject(six)
   })
 
-  it("keeps 900 6/6 unclamped at 404 / 408", () => {
-    expect(columnsFor(900, "6/6")).toMatchObject({ main: 404, side: 408 })
+  it("renders every split as 6/6 at 1023 (page 959: 468 / 467)", () => {
+    const six = { page: 959, main: 468, side: 467 }
+    expect(columnsFor(1023, "7/5")).toMatchObject(six)
+    expect(columnsFor(1023, "5/7")).toMatchObject(six)
+    expect(columnsFor(1023, "6/6")).toMatchObject(six)
+  })
+
+  it("applies the requested split again from 1024 (page 960)", () => {
+    // inner 936: 7/5 = 546 -> 544 on the grid, side 392; 5/7 = 390 -> 388 (ties down), side 548; both >= MIN_COLUMN.
+    expect(columnsFor(1024, "7/5")).toMatchObject({ page: 960, main: 544, side: 392 })
+    expect(columnsFor(1024, "5/7")).toMatchObject({ page: 960, main: 388, side: 548 })
+    expect(columnsFor(1024, "6/6")).toMatchObject({ page: 960, main: 468, side: 468 })
+  })
+
+  it("still guards MIN_COLUMN from 1024 up", () => {
+    const cols = columnsFor(1024, "5/7")
+    expect(cols.main).toBeGreaterThanOrEqual(MIN_COLUMN)
+    expect(cols.side).toBeGreaterThanOrEqual(MIN_COLUMN)
   })
 
   it("is one full-width column on a phone", () => {
@@ -71,5 +136,16 @@ describe("columnsFor", () => {
         expect(cols.side).toBeGreaterThanOrEqual(MIN_COLUMN)
       })
     })
+  })
+})
+
+describe("dividerLeft", () => {
+  it("centres a 1 px hairline in the 24 px gap", () => {
+    expect(dividerLeft(24, 1)).toBe(-12.5)
+  })
+
+  it("is 0-gap safe: half the hairline to the left", () => {
+    expect(dividerLeft(0, 1)).toBe(-0.5)
+    expect(dividerLeft(0, 0)).toBe(-0)
   })
 })

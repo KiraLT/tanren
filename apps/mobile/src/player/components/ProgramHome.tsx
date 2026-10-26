@@ -10,6 +10,7 @@ import {
   ListRow,
   ProgressRing,
   rhythm,
+  StatRow,
   sizes,
   space,
   Text,
@@ -20,11 +21,13 @@ import {
   dayDisc,
   dayMinutes,
   dayStateLabel,
+  daySubtitle,
   daysDone,
   dayTrailing,
   doneLabel,
   insideRows,
   programProgress,
+  programStats,
   weekWindow,
 } from "../programDays"
 
@@ -45,32 +48,56 @@ interface EnrolCardProps {
 
 /** No active enrollment: what the program is and one primary pill to start it. */
 export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
+  const desktop = useBreakpoint() === "desktop"
   return (
-    <Card>
-      <View style={{ gap: space.lg }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <ExerciseIllustration catalogId={firstCatalogId(program)} size={sizes.illustrationSm} />
-          <View style={{ flex: 1, gap: space.xs }}>
-            <Text variant="title2" accessibilityRole="header">
-              {program.name}
-            </Text>
-            <Text variant="subhead" tone="muted">
-              {`${program.tagline} · ${program.days.length} days`}
-            </Text>
+    // Desktop: a "Program" eyebrow (same 28-px slot as "What's inside" on the right) so both
+    // columns' first card starts at the same y.
+    <View style={{ gap: desktop ? rhythm.labelToGroup : 0 }}>
+      {desktop ? (
+        <Text
+          variant="caption"
+          tone="muted"
+          accessibilityRole="header"
+          style={{ paddingHorizontal: space.lg, minHeight: space.xl + space.xs }}
+        >
+          Program
+        </Text>
+      ) : null}
+      <Card>
+        <View style={{ gap: space.lg }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: desktop ? space.lg : space.md,
+            }}
+          >
+            <ExerciseIllustration
+              catalogId={firstCatalogId(program)}
+              size={desktop ? sizes.illustrationLg : sizes.illustrationSm}
+            />
+            <View style={{ flex: 1, gap: space.xs }}>
+              <Text variant={desktop ? "display" : "title2"} accessibilityRole="header">
+                {program.name}
+              </Text>
+              <Text variant="subhead" tone="muted">
+                {`${program.tagline} · ${program.days.length} days`}
+              </Text>
+            </View>
           </View>
+          <Text>{program.description}</Text>
+          <Button
+            label={`Start ${program.name}`}
+            accessibilityLabel={`Enrol in ${program.name}`}
+            icon="zap"
+            variant="primary"
+            size="lg"
+            onPress={onEnrol}
+            loading={enrolling}
+          />
         </View>
-        <Text>{program.description}</Text>
-        <Button
-          label={`Start ${program.name}`}
-          accessibilityLabel={`Enrol in ${program.name}`}
-          icon="zap"
-          variant="primary"
-          size="lg"
-          onPress={onEnrol}
-          loading={enrolling}
-        />
-      </View>
-    </Card>
+      </Card>
+    </View>
   )
 }
 
@@ -78,10 +105,22 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
  * Not enrolled, phone: "What's inside", the first week of days (name left, minutes right) under
  * the enrol card, so the page is not half empty.
  */
-export function ProgramInside({ program }: { readonly program: Program }) {
+export function ProgramInside({
+  program,
+  flush = false,
+}: {
+  readonly program: Program
+  /** Desktop side column: nothing above it, so no card -> label offset. */
+  readonly flush?: boolean
+}) {
   return (
     // The Page's section gap is 16; the card -> label gap is 24 (rhythm.groupToLabel).
-    <View style={{ gap: rhythm.labelToGroup, marginTop: rhythm.groupToLabel - space.lg }}>
+    <View
+      style={{
+        gap: rhythm.labelToGroup,
+        marginTop: flush ? 0 : rhythm.groupToLabel - space.lg,
+      }}
+    >
       <Text
         variant="caption"
         tone="muted"
@@ -91,11 +130,21 @@ export function ProgramInside({ program }: { readonly program: Program }) {
         What's inside
       </Text>
       <ListGroup>
-        {Arr.map(insideRows(program.days), (row) => (
+        {Arr.map(insideRows(program.days), (row, index) => (
           <ListRow
             key={row.dayNumber}
             title={row.title}
             titleVariant="body"
+            // Desktop only (390/768 unchanged): 64-high rows with the routine size as subtitle.
+            {...(flush
+              ? {
+                  subtitle: Option.match(Arr.get(program.days, index), {
+                    onNone: () => "",
+                    onSome: daySubtitle,
+                  }),
+                  style: { minHeight: sizes.rowTall },
+                }
+              : {})}
             accessibilityLabel={`${row.title}, ${row.trailing}`}
             trailing={
               <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
@@ -105,6 +154,16 @@ export function ProgramInside({ program }: { readonly program: Program }) {
           />
         ))}
       </ListGroup>
+    </View>
+  )
+}
+
+/** Not enrolled, desktop right column: "What's inside" (first week) and the three program stats. */
+export function ProgramPreview({ program }: { readonly program: Program }) {
+  return (
+    <View style={{ gap: rhythm.groupToLabel }}>
+      <ProgramInside program={program} flush />
+      <StatRow variant="tile" items={programStats(program.days)} />
     </View>
   )
 }

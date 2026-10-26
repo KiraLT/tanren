@@ -18,12 +18,22 @@ export {
   type ColumnSplit,
   type ColumnWidths,
   columnsFor,
+  effectiveSplit,
   MAIN_SHARE,
   MIN_COLUMN,
+  type PageWidths,
   pageMargin,
+  pageWidths,
+  SPLIT_MIN_WINDOW,
 } from "./columns"
 export type { SetDotsVariant } from "./controls"
-export { type SeparatorInset, type StepperSize, statSlotWidth } from "./controls"
+export {
+  listSeparatorStyle,
+  type SeparatorInset,
+  type StepperSize,
+  statSlotWidth,
+  stepperSizeFor,
+} from "./controls"
 export { EmptyState } from "./EmptyState"
 export { Icon, type IconName } from "./Icon"
 export { IconButton } from "./IconButton"

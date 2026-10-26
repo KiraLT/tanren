@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { darkColors, lightColors } from "./colors"
 import {
+  APP_BAR_TITLE_SLOT,
   buttonHeights,
   buttonStyle,
   buttonVariants,
@@ -12,6 +13,7 @@ import {
   listSeparatorStyle,
   numeralScale,
   pillForeground,
+  ROW_ICON_SLOT,
   ROW_TITLE_VARIANT,
   ringGeometry,
   ringSizes,
@@ -22,6 +24,7 @@ import {
   rowStyle,
   rowTones,
   STAT_GAP,
+  STAT_TILE_STACK_GAP,
   segmentedInset,
   segmentFills,
   separatorInsets,
@@ -29,10 +32,12 @@ import {
   setDotStyle,
   setPillStyle,
   statSlotWidth,
+  statTileStyle,
   stepButtonStyle,
   stepGlyphColor,
   stepperCaption,
   stepperNumeral,
+  stepperSizeFor,
   stepperSizes,
   THUMB_ROW_MIN_HEIGHT,
 } from "./controls"
@@ -149,11 +154,23 @@ describe("ListRow", () => {
     expect(listSeparatorStyle(lightColors)).toMatchObject({ height: 1, marginLeft: 16 })
   })
 
-  it("separator insets start at the text: 16 plain, 52 after an icon, 84 after a thumb", () => {
-    expect(separatorInsets).toEqual({ none: 16, icon: 52, thumb: 84 })
+  it("separator insets start at the text: 16 plain, 48 after an icon, 84 after a thumb", () => {
+    expect(separatorInsets).toEqual({ none: 16, icon: 48, thumb: 84 })
     expect(listSeparatorStyle(lightColors, "none").marginLeft).toBe(16)
-    expect(listSeparatorStyle(lightColors, "icon").marginLeft).toBe(52)
+    expect(listSeparatorStyle(lightColors, "icon").marginLeft).toBe(48)
     expect(listSeparatorStyle(lightColors, "thumb").marginLeft).toBe(84)
+  })
+
+  it("the desktop AppBar title slot leaves room for nav links and trailing at a 900 window", () => {
+    // page 836 - slot 280 - gap 12 - nav margin 16 = 528 for ~350 of links + ~100 of trailing
+    expect(APP_BAR_TITLE_SLOT).toBe(280)
+    expect(836 - APP_BAR_TITLE_SLOT - 12 - 16).toBeGreaterThanOrEqual(350 + 100)
+  })
+
+  it("the empty leading slot is as wide as the 20 px icon, so titles align at 48", () => {
+    expect(ROW_ICON_SLOT).toBe(20)
+    expect(rowStyle(true, false, lightColors).gap).toBe(12)
+    expect(separatorInsets.icon).toBe(16 + ROW_ICON_SLOT + 12)
   })
 
   it("thumb rows are 64 high with 4 px vertical padding; plain rows stay 52 / 8", () => {
@@ -361,5 +378,40 @@ describe("StatRow", () => {
     expect(statSlotWidth(358, 1)).toBe(358)
     expect(statSlotWidth(358, 0)).toBe(0)
     expect(statSlotWidth(10, 3)).toBe(0)
+  })
+})
+
+describe("stepperSizeFor", () => {
+  it("uses xxl from the 440 minimum up and xl below", () => {
+    expect(stepperSizeFor(440)).toBe("xxl")
+    expect(stepperSizeFor(439)).toBe("xl")
+  })
+
+  it("is xxl in the capped 560 block (1280) and xl in the 340 block (900)", () => {
+    expect(stepperSizeFor(560)).toBe("xxl")
+    expect(stepperSizeFor(340)).toBe("xl")
+  })
+})
+
+describe("statTileStyle", () => {
+  it("is a 72-high surface tile, radius 16, padding 16, gap 8 stacked", () => {
+    expect(STAT_TILE_STACK_GAP).toBe(8)
+    expect(statTileStyle(lightColors)).toMatchObject({
+      height: 72,
+      backgroundColor: lightColors.surface,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+    })
+  })
+
+  it("follows the theme: dark uses the dark surface", () => {
+    expect(statTileStyle(darkColors).backgroundColor).toBe(darkColors.surface)
+    expect(statTileStyle(darkColors).backgroundColor).not.toBe(
+      statTileStyle(lightColors).backgroundColor,
+    )
+  })
+
+  it("fits three tiles of 166 in the 532 inner width of the Programs column", () => {
+    expect(Math.floor(statSlotWidth(532, 3))).toBe(166)
   })
 })

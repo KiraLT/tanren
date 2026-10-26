@@ -2,9 +2,9 @@ import type { ReactNode } from "react"
 import { ScrollView, type StyleProp, View, type ViewStyle } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useColumns } from "./ColumnsView"
-import type { ColumnSplit } from "./columns"
+import { type ColumnSplit, pageWidths } from "./columns"
 import { useTheme } from "./theme"
-import { gutter, sizes, space, stroke } from "./tokens"
+import { gutter, space, stroke } from "./tokens"
 
 export interface PageProps {
   readonly children: ReactNode
@@ -15,6 +15,8 @@ export interface PageProps {
   /** Desktop: the page column is `pageMaxWidth` even without `aside` (children use `<Columns>`). */
   readonly wide?: boolean
   readonly scroll?: boolean
+  /** `scroll` only: gap between the direct children (sections). Default `space.lg` (16). */
+  readonly sectionGap?: number
   readonly padded?: boolean
   /** Rendered above the content, spanning the page column (usually an `AppBar`). */
   readonly header?: ReactNode
@@ -32,6 +34,7 @@ export function Page({
   split = "7/5",
   wide = false,
   scroll = false,
+  sectionGap = space.lg,
   padded = true,
   header,
   style,
@@ -41,11 +44,17 @@ export function Page({
   const breakpoint = columns.breakpoint
   const twoColumn = breakpoint === "desktop" && aside !== undefined
   const wideBody = breakpoint === "desktop" && wide && aside === undefined
+  const widths = pageWidths(columns, twoColumn, wideBody)
+  // Desktop narrow page: the header spans `columns.page`, the body is a centred 600 column.
+  const bodyCap: ViewStyle =
+    widths.bodyMax === undefined
+      ? {}
+      : { alignSelf: "center", width: "100%", maxWidth: widths.bodyMax }
   const padding: ViewStyle = padded ? { paddingHorizontal: gutter[breakpoint] } : {}
   const body = scroll ? (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={[padding, { paddingVertical: space.lg, gap: space.lg }]}
+      contentContainerStyle={[padding, { paddingVertical: space.lg, gap: sectionGap }]}
       contentInsetAdjustmentBehavior="automatic"
     >
       {children}
@@ -59,10 +68,11 @@ export function Page({
       style={[{ flex: 1, backgroundColor: colors.bg, alignItems: "center" }, style]}
     >
       <View
+        testID="page-frame"
         style={{
           flex: 1,
           width: "100%",
-          maxWidth: twoColumn || wideBody ? columns.page : sizes.contentMaxWidth,
+          maxWidth: widths.outer,
         }}
       >
         {header}
@@ -88,12 +98,8 @@ export function Page({
               {aside}
             </View>
           </View>
-        ) : wideBody ? (
-          <View role="main" style={{ flex: 1 }}>
-            {body}
-          </View>
         ) : (
-          <View role="main" style={{ flex: 1 }}>
+          <View role="main" style={[{ flex: 1 }, bodyCap]}>
             {body}
           </View>
         )}

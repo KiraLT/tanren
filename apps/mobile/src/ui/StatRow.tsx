@@ -1,7 +1,8 @@
 import { Array as Arr } from "effect"
 import { type StyleProp, View, type ViewStyle } from "react-native"
-import { STAT_GAP } from "./controls"
+import { STAT_GAP, STAT_TILE_STACK_GAP, statTileStyle } from "./controls"
 import { Text } from "./Text"
+import { useTheme } from "./theme"
 
 export interface StatItem {
   readonly label: string
@@ -11,18 +12,38 @@ export interface StatItem {
 
 export interface StatRowProps {
   readonly items: ReadonlyArray<StatItem>
+  /** "bare" (default): caption over value, no box. "tile": each stat in a 72-high `surface` tile. */
+  readonly variant?: "bare" | "tile"
+  /** `tile` only: "row" (default, equal widths, gap 16) or "column" (stacked full-width, gap 8). */
+  readonly direction?: "row" | "column"
   readonly style?: StyleProp<ViewStyle>
 }
 
 /**
  * Equal-width stats in one row (ui-polish §3): a muted `caption` label over a tabular `headline`
- * value, gap 16. Three slots fit 358 (108 each) and 632 (200 each).
+ * value, gap 16. Three slots fit 358 (108 each) and 632 (200 each). `variant="tile"` boxes each
+ * stat in a 72-high `surface` tile (desktop r3: Programs 3 x 166, Plan aside stacked).
  */
-export function StatRow({ items, style }: StatRowProps) {
+export function StatRow({ items, variant = "bare", direction = "row", style }: StatRowProps) {
+  const { colors } = useTheme()
+  const tile = variant === "tile"
+  const stacked = tile && direction === "column"
   return (
-    <View style={[{ flexDirection: "row", gap: STAT_GAP }, style]}>
+    <View
+      style={[
+        stacked ? { gap: STAT_TILE_STACK_GAP } : { flexDirection: "row", gap: STAT_GAP },
+        style,
+      ]}
+    >
       {Arr.map(items, (item) => (
-        <View key={item.label} style={{ flex: 1, flexBasis: 0, gap: 2 }}>
+        <View
+          key={item.label}
+          style={
+            tile
+              ? [statTileStyle(colors), stacked ? {} : { flex: 1, flexBasis: 0 }]
+              : { flex: 1, flexBasis: 0, gap: 2 }
+          }
+        >
           <Text variant="caption" tone="muted" numberOfLines={1}>
             {item.label}
           </Text>

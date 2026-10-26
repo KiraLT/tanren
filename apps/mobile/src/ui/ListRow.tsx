@@ -7,6 +7,7 @@ import {
   discStyle,
   listGroupStyle,
   listSeparatorStyle,
+  ROW_ICON_SLOT,
   ROW_TITLE_VARIANT,
   type RowTitleVariant,
   type RowTone,
@@ -35,7 +36,7 @@ export const useGrouped = (): boolean => use(GroupedContext)
 
 export interface ListGroupProps {
   readonly children: ReactNode
-  /** Hairline start: "none" 16 (default), "icon" 52 (24 icon slot), "thumb" 84 (56 thumb rows). */
+  /** Hairline start: "none" 16 (default), "icon" 48 (20 icon slot), "thumb" 84 (56 thumb rows). */
   readonly inset?: SeparatorInset
   readonly style?: StyleProp<ViewStyle>
 }
@@ -92,7 +93,7 @@ export interface ListRowProps {
   readonly subtitle?: string
   /**
    * Free leading slot; `disc` / `icon` are the standard ones and win over it. `null` (not
-   * `undefined`) keeps a 24 px empty slot, so the title aligns with icon rows.
+   * `undefined`) keeps a 20 px empty slot (`ROW_ICON_SLOT`), so the title aligns with icon rows.
    */
   readonly leading?: ReactNode
   /** Numbered disc: done (check), now (accent), todo (outline). */
@@ -146,7 +147,7 @@ export function ListRow({
     ) : icon !== undefined ? (
       <Icon name={icon} size={sizes.iconSm} color={colors[toneSpec.icon]} />
     ) : leading === null ? (
-      <View style={{ width: sizes.iconMd }} />
+      <View style={{ width: ROW_ICON_SLOT }} />
     ) : (
       leading
     )

@@ -8,9 +8,10 @@ import {
   EnrolCard,
   ProgramFinished,
   ProgramInside,
+  ProgramPreview,
 } from "../../src/player/components/ProgramHome"
 import { useProgramDay } from "../../src/player/useProgramDay"
-import { AppBar, Banner, gutter, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
+import { AppBar, Banner, Columns, gutter, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
 
 const PROGRAMS_BAR = <AppBar title="Programs" />
 
@@ -39,8 +40,15 @@ export default function ProgramsScreen() {
         </Page>
       ),
       NotEnrolled: ({ program }) => (
-        <Page header={PROGRAMS_BAR} scroll>
-          <EnrolCard program={program} enrolling={enrolling} onEnrol={() => enroll(program)} />
+        <Page header={PROGRAMS_BAR} scroll wide>
+          {/* Desktop: Columns 6/6, enrol card left, "What's inside" + stats right; below it stacks. */}
+          <Columns
+            split="6/6"
+            main={
+              <EnrolCard program={program} enrolling={enrolling} onEnrol={() => enroll(program)} />
+            }
+            side={wide ? <ProgramPreview program={program} /> : null}
+          />
           {phone ? <ProgramInside program={program} /> : null}
         </Page>
       ),

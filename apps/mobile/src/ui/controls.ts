@@ -231,13 +231,26 @@ export const listGroupStyle = (colors: ColorRoles): ViewStyle => ({
   overflow: "hidden",
 })
 
-/** Where a grouped hairline starts: the row edge, after a 24 icon slot, or after a 56 thumb. */
+/**
+ * Desktop AppBar with the nav links: leading + title share one slot of this width, so the links
+ * start at the same x on every route (the title used to size the slot: 137..275 px across routes).
+ * 280 leaves 520 for links + trailing at the 836 px page of a 900 window (links ~350, trailing ~100).
+ */
+export const APP_BAR_TITLE_SLOT = 280
+
+/**
+ * Width of a row's leading icon slot: the 20 px glyph of `ListRow icon`, and the empty slot of
+ * `leading={null}`, so both put the title at 16 + 20 + 12 = 48.
+ */
+export const ROW_ICON_SLOT = sizes.iconSm
+
+/** Where a grouped hairline starts: the row edge, after a 20 icon slot, or after a 56 thumb. */
 export type SeparatorInset = "none" | "icon" | "thumb"
 
-/** 16 / 16 + 24 + 12 = 52 / 16 + 56 + 12 = 84 (ui-polish D5): the text start, not the leading art. */
+/** 16 / 16 + 20 + 12 = 48 / 16 + 56 + 12 = 84 (ui-polish D5): the text start, not the leading art. */
 export const separatorInsets: { readonly [I in SeparatorInset]: number } = {
   none: space.lg,
-  icon: space.lg + sizes.iconMd + space.md,
+  icon: space.lg + ROW_ICON_SLOT + space.md,
   thumb: space.lg + sizes.illustrationSm + space.md,
 }
 
@@ -401,6 +414,30 @@ export const segmentedInset = (inset: boolean): ViewStyle =>
 /** Gap between the equal-width slots of a `StatRow`. */
 export const STAT_GAP = space.lg
 
+/** Gap between stacked tiles of a `StatRow variant="tile" direction="column"`. */
+export const STAT_TILE_STACK_GAP = space.sm
+
+/** One `StatRow variant="tile"` tile: `surface`, radius 16, 72 high, 16 side padding, content centred. */
+export const statTileStyle = (colors: ColorRoles): ViewStyle => ({
+  height: sizes.statTile,
+  backgroundColor: colors.surface,
+  borderRadius: radius.lg,
+  paddingHorizontal: space.lg,
+  justifyContent: "center",
+  gap: 2,
+})
+
 /** Width of one slot of a `StatRow`: `(inner - gaps) / count` (358 inner, 3 slots -> 108.67). */
 export const statSlotWidth = (inner: number, count: number): number =>
   count <= 0 ? 0 : Math.max(0, (inner - STAT_GAP * (count - 1)) / count)
+
+/**
+ * Narrowest control block (px) that holds a 96 px "107.5" between two 72 px ± buttons: 2 x (72 + 8) +
+ * about 215 for the numeral, with slack for four digits. Below it (900 px: 404 - 64 = 340) the
+ * stepper stays `xl`, otherwise the numeral runs into the buttons.
+ */
+export const STEPPER_XXL_MIN_INNER = 440
+
+/** `xxl` when the block is wide enough for the 96 numeral, else `xl`. */
+export const stepperSizeFor = (innerWidth: number): StepperSize =>
+  innerWidth >= STEPPER_XXL_MIN_INNER ? "xxl" : "xl"

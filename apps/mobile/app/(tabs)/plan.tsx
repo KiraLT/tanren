@@ -4,11 +4,21 @@ import { useState } from "react"
 import { ScrollView, View } from "react-native"
 import { PlannedSessionCard } from "../../src/components/PlannedSessionCard"
 import { PlanWeek } from "../../src/components/PlanWeek"
-import { localDateOf } from "../../src/components/planFormat"
+import { localDateOf, weekStats, weekSummary } from "../../src/components/planFormat"
 import { selectedSession } from "../../src/components/planSelection"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { type PlanWeekState, type PlanWeekView, usePlanWeek } from "../../src/hooks/usePlanWeek"
-import { AppBar, EmptyState, gutter, Page, Skeleton, space } from "../../src/ui"
+import {
+  AppBar,
+  EmptyState,
+  gutter,
+  Page,
+  rhythm,
+  Skeleton,
+  StatRow,
+  space,
+  Text,
+} from "../../src/ui"
 
 const PLAN_BAR = <AppBar title="Plan" />
 
@@ -50,8 +60,17 @@ function PlanReady({ view }: PlanReadyProps) {
   const aside = Option.match(selected, {
     onNone: () => <EmptyState title="No sessions" body="This week has no planned sessions yet." />,
     onSome: (item) => (
-      <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
+      <ScrollView
+        contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg, gap: space.lg }}
+      >
         <PlannedSessionCard item={item} />
+        {/* Desktop only: the phone shows the same numbers under the week header (PlanWeek). */}
+        <View style={{ gap: rhythm.labelToGroup }}>
+          <Text variant="caption" tone="muted" accessibilityRole="header">
+            This week
+          </Text>
+          <StatRow variant="tile" direction="column" items={weekStats(weekSummary(view))} />
+        </View>
       </ScrollView>
     ),
   })

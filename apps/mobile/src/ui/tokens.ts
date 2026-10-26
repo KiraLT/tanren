@@ -43,18 +43,26 @@ export const sizes = {
   iconLg: 28,
   ringSm: 20,
   ringMd: 44,
+  /** Desktop Player ring (ui-polish Player 5); the phone/tablet ring is `TimerRing`'s 220 default. */
+  ringXl: 280,
   chip: 32,
   illustrationSm: 56,
   illustrationMd: 104,
   illustrationLg: 176,
   illustrationXl: 240,
   contentMaxWidth: 600,
+  /** Desktop cap for a control block (stepper row) inside a wide column, centred; screens adopt it. */
+  controlMaxWidth: 560,
   /** Desktop page column cap (ui-polish D1): 1280 less 2 x 32 = 1216, capped here from 1424 up. */
   pageMaxWidth: 1360,
   /** No longer read by `Page` (UI-D1); kept exported, the barrel is additive-only. */
   asideMaxWidth: 480,
   tabBar: 56,
   appBar: 56,
+  /** Height of a `StatRow variant="tile"` tile (desktop r3: caption over a headline value). */
+  statTile: 72,
+  /** Desktop list row with a subtitle (Programs "What's inside": title over the routine line). */
+  rowTall: 64,
 } as const
 
 /** Window widths (px); `desktop` equals `WIDE_BREAKPOINT` (two columns). */

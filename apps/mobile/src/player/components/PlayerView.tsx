@@ -1,6 +1,6 @@
 import type { ProgramDay, ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
-import { ScrollView, View } from "react-native"
+import { ScrollView, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { CompletionState } from "../../hooks/usePlayer"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
@@ -17,6 +17,7 @@ import {
 } from "../../ui"
 import { clock, exerciseName, itemAmount, nextCaption } from "../cues"
 import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
+import { ringSpec } from "../playerRing"
 
 /** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
 const WORK_ILLUSTRATION = 120
@@ -58,7 +59,9 @@ interface PlayerViewProps {
  * big ring, the transport row and `Finish workout`.
  */
 export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
-  const phone = useBreakpoint() === "phone"
+  const breakpoint = useBreakpoint()
+  const phone = breakpoint === "phone"
+  const ring = ringSpec(breakpoint, useWindowDimensions().width)
   const insets = useSafeAreaInsets()
   const item = currentItem(day, state)
   const inner = state._tag === "Paused" ? state.inner : state
@@ -144,8 +147,9 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
             tone={resting ? "success" : "accent"}
             accessibilityLabel={`${s} seconds left`}
             {...(phone ? { strokeWidth: RING_STROKE } : {})}
+            {...(ring.size === undefined ? {} : { size: ring.size })}
           >
-            <Text variant={phone ? "clock" : "numeral"} accessibilityLabel={`Countdown ${s}`}>
+            <Text variant={ring.clock} accessibilityLabel={`Countdown ${s}`}>
               {clock(s)}
             </Text>
           </TimerRing>

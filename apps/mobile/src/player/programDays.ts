@@ -55,6 +55,10 @@ export const dayMinutes = (day: ProgramDay): number => Math.round(dayDurationSec
 /** Trailing value of a day row: "15 min". */
 export const dayTrailing = (day: ProgramDay): string => `${dayMinutes(day)} min`
 
+/** Subtitle of a desktop "What's inside" row: "7 exercises" (the day's routine size). */
+export const daySubtitle = (day: ProgramDay): string =>
+  `${day.items.length} ${day.items.length === 1 ? "exercise" : "exercises"}`
+
 /** "Day 2 of 30 · 7 exercises · 15 min" under the program name. */
 export const dayCardLine = (day: ProgramDay, totalDays: number): string =>
   `Day ${day.dayNumber} of ${totalDays} · ${day.items.length} ${day.items.length === 1 ? "exercise" : "exercises"} · ${dayMinutes(day)} min`
@@ -78,3 +82,18 @@ export const insideRows = (days: ReadonlyArray<ProgramDay>): ReadonlyArray<Insid
     title: day.title,
     trailing: dayTrailing(day),
   }))
+
+/**
+ * Not-enrolled desktop stat row (ui-polish Programs 3): "30 days · 15 min · 7 exercises". Minutes
+ * and exercises describe the first day (the program's typical day); an empty program shows 0.
+ */
+export const programStats = (
+  days: ReadonlyArray<ProgramDay>,
+): ReadonlyArray<{ readonly label: string; readonly value: string }> => {
+  const first = days[0]
+  return [
+    { label: "Days", value: String(days.length) },
+    { label: "Per day", value: first === undefined ? "0 min" : dayTrailing(first) },
+    { label: "Exercises", value: String(first === undefined ? 0 : first.items.length) },
+  ]
+}

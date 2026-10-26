@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import { useBreakpoint } from "../hooks/useLayoutMode"
 import { APP_NAV, isActivePath } from "./appNav"
+import { APP_BAR_TITLE_SLOT } from "./controls"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { TimerRing } from "./TimerRing"
@@ -90,8 +91,32 @@ export function AppBar({
     label: link.label,
     active: typeof link.href === "string" && isActivePath(pathname, link.href),
   }))
+  // One line with the nav (the slot is fixed, the bar height must not vary by title); else 2.
+  const titleBlock = (
+    <View style={{ flex: 1 }}>
+      {eyebrow === undefined ? null : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          {eyebrow.progress === undefined ? null : (
+            <TimerRing progress={eyebrow.progress} size={sizes.ringSm} />
+          )}
+          <Text variant="caption" tone="muted" numberOfLines={1}>
+            {eyebrow.label}
+          </Text>
+        </View>
+      )}
+      <Text variant="title" accessibilityRole="header" numberOfLines={showNav ? 1 : 2}>
+        {title}
+      </Text>
+      {subtitle === undefined ? null : (
+        <Text variant="subhead" tone="muted" numberOfLines={1}>
+          {subtitle}
+        </Text>
+      )}
+    </View>
+  )
   return (
     <View
+      testID="app-bar"
       style={[
         {
           minHeight: sizes.appBar,
@@ -106,27 +131,25 @@ export function AppBar({
         style,
       ]}
     >
-      {leading}
-      <View style={showNav ? { flexShrink: 0 } : { flex: 1 }}>
-        {eyebrow === undefined ? null : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-            {eyebrow.progress === undefined ? null : (
-              <TimerRing progress={eyebrow.progress} size={sizes.ringSm} />
-            )}
-            <Text variant="caption" tone="muted" numberOfLines={1}>
-              {eyebrow.label}
-            </Text>
-          </View>
-        )}
-        <Text variant="title" accessibilityRole="header" numberOfLines={2}>
-          {title}
-        </Text>
-        {subtitle === undefined ? null : (
-          <Text variant="subhead" tone="muted" numberOfLines={1}>
-            {subtitle}
-          </Text>
-        )}
-      </View>
+      {showNav ? (
+        <View
+          style={{
+            width: APP_BAR_TITLE_SLOT,
+            flexShrink: 0,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: space.md,
+          }}
+        >
+          {leading}
+          {titleBlock}
+        </View>
+      ) : (
+        <>
+          {leading}
+          {titleBlock}
+        </>
+      )}
       {showNav ? (
         <View
           role="navigation"

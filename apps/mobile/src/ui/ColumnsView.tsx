@@ -1,7 +1,14 @@
 import type { ReactNode } from "react"
 import { type StyleProp, useWindowDimensions, View, type ViewStyle } from "react-native"
-import { type ColumnSplit, type ColumnWidths, columnsFor } from "./columns"
-import { space } from "./tokens"
+import {
+  type ColumnSplit,
+  type ColumnWidths,
+  columnsFor,
+  dividerLeft,
+  effectiveSplit,
+} from "./columns"
+import { useTheme } from "./theme"
+import { space, stroke } from "./tokens"
 
 /** Column widths for the current window and split (`columnsFor` over `useWindowDimensions`). */
 export const useColumns = (split?: ColumnSplit): ColumnWidths =>
@@ -38,7 +45,8 @@ export function Columns({
   style,
 }: ColumnsProps) {
   const { breakpoint } = useColumns(split)
-  const [mainFlex, sideFlex] = FLEX[split]
+  const { colors } = useTheme()
+  const [mainFlex, sideFlex] = FLEX[effectiveSplit(useWindowDimensions().width, split)]
   if (breakpoint !== "desktop") {
     return (
       <View style={[{ gap: space.xl }, style]}>
@@ -61,7 +69,24 @@ export function Columns({
       <View testID="columns-main" style={{ flexGrow: mainFlex, flexShrink: 1, flexBasis: 0 }}>
         {main}
       </View>
-      <View testID="columns-side" style={{ flexGrow: sideFlex, flexShrink: 1, flexBasis: 0 }}>
+      <View
+        testID="columns-side"
+        style={{ flexGrow: sideFlex, flexShrink: 1, flexBasis: 0, alignSelf: "stretch" }}
+      >
+        {/* The same 1 px hairline `Page` draws between main and aside, centred in the gap and
+            absolute so no column width changes; the side stretches to the row height. */}
+        <View
+          testID="columns-divider"
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: dividerLeft(space.xl, stroke.hairline),
+            width: stroke.hairline,
+            backgroundColor: colors.border,
+          }}
+        />
         {side}
       </View>
     </View>
