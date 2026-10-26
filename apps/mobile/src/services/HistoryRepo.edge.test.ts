@@ -77,18 +77,14 @@ describe("HistoryRepo bodyweight and tombstones", () => {
     })),
   ]
 
-  it.effect(
-    "a bodyweight-only exercise summarises with e1RM 0 and zero volume, PR on the 10 reps",
-    () =>
-      Effect.gen(function* () {
-        yield* TestClock.setTime(Date.UTC(2026, 9, 21))
-        yield* write(base(null))
-        const [summary] = yield* HistoryRepo.use((r) => r.exercises)
-        expect(summary).toMatchObject({ totalSets: 3, bestE1Rm: 0 })
-        expect(summary?.best.reps).toBe(10)
-        const [s] = yield* HistoryRepo.use((r) => r.sessions(5))
-        expect(s).toMatchObject({ sets: 3, volumeKg: 0, prs: 1 })
-      }).pipe(Effect.provide(TestLayer)),
+  it.effect("a bodyweight-only exercise summarises with e1RM 0, best set the 10 reps", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(Date.UTC(2026, 9, 21))
+      yield* write(base(null))
+      const [summary] = yield* HistoryRepo.use((r) => r.exercises)
+      expect(summary).toMatchObject({ totalSets: 3, bestE1Rm: 0 })
+      expect(summary?.best.reps).toBe(10)
+    }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("a tombstoned exercise with live sets is not listed in exercises", () =>
@@ -105,14 +101,6 @@ describe("HistoryRepo bodyweight and tombstones", () => {
       yield* write(base("2026-10-20T08:00:00.000Z"))
       const found = yield* HistoryRepo.use((r) => r.exercise(ExerciseId.make(PULLUP)))
       expect(Option.isNone(found)).toBe(true)
-    }).pipe(Effect.provide(TestLayer)),
-  )
-
-  it.effect("sessions(0) and a negative limit return nothing and do not fail", () =>
-    Effect.gen(function* () {
-      yield* write(base(null))
-      expect(yield* HistoryRepo.use((r) => r.sessions(0))).toEqual([])
-      expect(yield* HistoryRepo.use((r) => r.sessions(-3))).toEqual([])
     }).pipe(Effect.provide(TestLayer)),
   )
 })

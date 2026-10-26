@@ -5,18 +5,18 @@ import { iconPaths } from "./iconPaths"
 describe("APP_NAV", () => {
   it("lists the five destinations in tab order", () => {
     expect(APP_NAV.map((link) => link.label)).toEqual([
+      "Feed",
       "Today",
       "Plan",
       "Programs",
       "Library",
-      "Progress",
     ])
   })
 })
 
 describe("APP_NAV glyphs", () => {
   it("gives the tabs their glyphs in order, and each route name is its href", () => {
-    expect(APP_NAV.map((link) => link.icon)).toEqual(["zap", "calendar", "grid", "book", "chart"])
+    expect(APP_NAV.map((link) => link.icon)).toEqual(["flame", "zap", "calendar", "grid", "book"])
     expect(APP_NAV.every((link) => link.href === `/${link.name}`)).toBe(true)
   })
 
@@ -28,7 +28,9 @@ describe("APP_NAV glyphs", () => {
 describe("isActivePath", () => {
   it("matches the route and its children, not a sibling with the same prefix", () => {
     expect(isActivePath("/plan", "/plan")).toBe(true)
-    expect(isActivePath("/progress/exercise/abc", "/progress")).toBe(true)
+    expect(isActivePath("/feed", "/feed")).toBe(true)
+    expect(isActivePath("/feed/x", "/feed")).toBe(true)
+    expect(isActivePath("/feedback", "/feed")).toBe(false)
     expect(isActivePath("/planner", "/plan")).toBe(false)
     expect(isActivePath("/today", "/plan")).toBe(false)
   })

@@ -4,7 +4,6 @@ import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
 import { FEED_PAGE, FeedRepo } from "./FeedRepo"
-import { HistoryRepo } from "./HistoryRepo"
 import { LocalStore } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
@@ -14,7 +13,7 @@ const StoreLayer = LocalStore.layerNoDeps.pipe(
   Layer.provideMerge(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
 )
 
-const TestLayer = Layer.mergeAll(FeedRepo.layer, HistoryRepo.layer).pipe(
+const TestLayer = FeedRepo.layer.pipe(
   Layer.provideMerge(
     Layer.mergeAll(StoreLayer, DateTime.layerCurrentZoneNamed("Europe/Vilnius").pipe(Layer.orDie)),
   ),
@@ -200,16 +199,10 @@ describe("FeedRepo.activities", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("PR counts equal HistoryRepo.sessions for the same ids", () =>
+  it.effect("counts the PRs per session over each exercise's full history", () =>
     Effect.gen(function* () {
       yield* seeded
       const activities = yield* feed(FEED_PAGE)
-      const summaries = yield* HistoryRepo.use((repo) => repo.sessions(FEED_PAGE))
-      const prsOf = (id: string) => summaries.find((s) => s.session.id === id)?.prs
-      expect(activities.map((a) => [a.sessionId, a.prs])).toEqual(
-        activities.map((a) => [a.sessionId, prsOf(a.sessionId)]),
-      )
-      // The fixture really has PRs, so the parity is not 0 === 0 everywhere.
       expect(activities.map((a) => a.prs)).toEqual([0, 0, 1, 1, 0])
     }).pipe(Effect.provide(TestLayer)),
   )

@@ -18,8 +18,8 @@ with the worker, Today and Plan screens, web export.
 ```
 app/
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
-  progress/[exerciseId].tsx (root Stack detail), settings.tsx (root Stack),
-  (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{today,plan,programs,library,progress}.tsx
+  progress/{index,[exerciseId]}.tsx (root Stack), activity/[sessionId].tsx, settings.tsx (root Stack),
+  (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
 src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
               tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
@@ -109,7 +109,7 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   tablet 600–899, desktop >= 900. Phone: one full-width column, bottom tabs. Tablet: one column
   centred at `contentMaxWidth` 600, gutter 24, bottom tabs. 390 and 768 trees are unchanged by the
   desktop work. Desktop: the tab bar is hidden (`tabBarStyle display none`) and `AppBar` renders the
-  nav (`APP_NAV`: Today, Plan, Programs, Library, Progress; active from `usePathname()`) itself, so
+  nav (`APP_NAV`: Feed, Today, Plan, Programs, Library; active from `usePathname()`) itself, so
   every screen with an `AppBar` gets it.
   Desktop columns (docs/design/ui-desktop.md §2–§3): `columnsFor(width, split)` (`src/ui/columns.ts`,
   the one place with the maths) centres a `pageMaxWidth` 1136 page (gap 24, gutter 32) and splits it
@@ -218,12 +218,12 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
 
 ## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
 
-- Routes: `/progress` (tab; Exercises | Sessions, desktop aside); `/progress/[exerciseId]` (root Stack
-  detail; a direct load with no data goes back to `/progress`); `/settings` (root Stack, reached from the
-  gear `IconButton` "Settings" in the Progress AppBar, not a tab).
+- Routes: `/progress` (root Stack, reached from the Feed AppBar chart button; exercise list, desktop aside);
+  `/progress/[exerciseId]` (root Stack detail; a direct load with no data goes back to `/progress`);
+  `/settings` (root Stack, reached from the gear `IconButton` "Settings" in the Feed AppBar, not a tab).
 - `HistoryRepo` (`src/services/HistoryRepo.ts`): local store only, live rows only, 8 Monday-based weeks;
   a PR is a set that strictly beats every earlier set.
-- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`). `useHistory` (`src/hooks`): the screens' hook over `HistoryRepo`.
+- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`). `useHistory` (`src/hooks`): the Progress screens' hook over `HistoryRepo` (exercises + one exercise's history; session lists are `FeedRepo`'s).
 - `chartGeometry` (`src/components/progress/`): pure geometry for the hand-rolled `react-native-svg`
   charts (`WeekBars`, `Sparkline`); no chart library.
 - `Account` (`src/services/Account.ts`): `session`, `signOut`, `forgetOwner`.
@@ -246,6 +246,18 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
 - Verified 2026-10-21 (X5): `Page.getInstallabilityErrors` returns `[]` with no service worker (CDP via
   `agent-browser get cdp-url`); Workers static assets serve `manifest.json` as `application/json`;
   `crossOriginIsolated` stays true.
+
+## v4 feed (ADR-0017, docs/design/feed.md)
+
+- Tab order: Feed · Today · Plan · Programs · Library (`APP_NAV`, first tab = `/feed`, icon `flame`).
+- Routes: `/feed` (`app/(tabs)/feed.tsx`; AppBar has the Progress chart button and the Settings gear),
+  `/activity/[sessionId]` (root Stack detail), `/progress` (root Stack, `app/progress/index.tsx`, Back
+  falls back to `/feed`; the old Sessions segment is gone).
+- Data: `Activity` / `buildActivity` live in `@tanren/shared` (`activity.ts`); `FeedRepo`
+  (`src/services/FeedRepo.ts`: `activities(limit)`, `activity(id)`, PR marking per exercise) over
+  `useFeed` (`src/components/feed/useFeed.ts`, built on `useStoreRead` from `useHistory`).
+- UI: `src/components/feed/` (`feedGroups`, `ActivityCard`, `ActivityDetail`, `detailText`).
+  `HistoryRepo` serves only Progress (`exercises`, `exercise`).
 
 ## Status
 

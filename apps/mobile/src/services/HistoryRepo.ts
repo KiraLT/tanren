@@ -2,7 +2,6 @@ import {
   type Exercise,
   type ExerciseId,
   ExerciseRow,
-  PlannedSessionRow,
   type Session,
   SessionRow,
   type WorkoutSet,
@@ -61,19 +60,6 @@ export interface ExerciseHistory {
   }>
 }
 
-export interface SessionSummary {
-  readonly session: Session
-  /** The live linked planned session's name, else "Workout". */
-  readonly title: string
-  /** `finishedAt − startedAt`, floored to minutes; None while unfinished. */
-  readonly durationMinutes: Option.Option<number>
-  readonly sets: number
-  readonly exercises: number
-  readonly volumeKg: number
-  /** Sets in this session that are PRs over their exercise's full history (stable). */
-  readonly prs: number
-}
-
 export interface HistoryRepoShape {
   /** Only exercises with at least one live set, `lastLoggedAt` desc. */
   readonly exercises: Effect.Effect<ReadonlyArray<ExerciseSummary>, StoreError>
@@ -81,13 +67,10 @@ export interface HistoryRepoShape {
   readonly exercise: (
     id: ExerciseId,
   ) => Effect.Effect<Option.Option<ExerciseHistory>, StoreError, DateTime.CurrentTimeZone>
-  /** Live sessions, `startedAt` desc; the UI pages by 30. */
-  readonly sessions: (limit: number) => Effect.Effect<ReadonlyArray<SessionSummary>, StoreError>
 }
 
 export const HISTORY_WEEKS = 8
 export const RECENT_SESSIONS = 10
-export const UNTITLED_SESSION = "Workout"
 
 const volumeOf = (sets: ReadonlyArray<WorkoutSet>): number =>
   Arr.reduce(sets, 0, (total, set) => total + set.weightKg * set.reps)
@@ -105,14 +88,6 @@ const NewestLoggedFirst: Order.Order<ExerciseSummary> = Order.flip(
     Order.mapInput(Order.String, (summary: ExerciseSummary) => summary.exercise.id),
   ),
 )
-
-/** Groups by exercise, then marks PRs within each exercise's chronological history. */
-const markByExercise = (sets: ReadonlyArray<WorkoutSet>): ReadonlyArray<MarkedSet> =>
-  pipe(
-    Arr.groupBy(sets, (set): string => set.exerciseId),
-    Rec.values,
-    Arr.flatMap((group) => markPrs(Arr.sort(group, Chronological))),
-  )
 
 const summarise = (
   exercise: Exercise,
@@ -178,32 +153,6 @@ export const buildHistory = (input: {
         sets: marked.filter((set) => set.sessionId === session.id),
       })),
     ),
-  }
-}
-
-/** Pure assembly of one session row; `marked` holds the session's sets with full-history PRs. */
-export const buildSessionSummary = (
-  session: Session,
-  marked: ReadonlyArray<MarkedSet>,
-  titles: ReadonlyMap<string, string>,
-): SessionSummary => {
-  const sets = marked.filter((set) => set.sessionId === session.id)
-  return {
-    session,
-    title: pipe(
-      session.plannedSessionId,
-      Option.flatMap((id) => Option.fromNullishOr(titles.get(id))),
-      Option.getOrElse(() => UNTITLED_SESSION),
-    ),
-    durationMinutes: Option.map(session.finishedAt, (finishedAt) =>
-      Math.floor(
-        (DateTime.toEpochMillis(finishedAt) - DateTime.toEpochMillis(session.startedAt)) / 60_000,
-      ),
-    ),
-    sets: sets.length,
-    exercises: Arr.dedupe(sets.map((set) => set.exerciseId)).length,
-    volumeKg: volumeOf(sets),
-    prs: sets.filter((set) => set.isPr).length,
   }
 }
 
@@ -274,37 +223,7 @@ export class HistoryRepo extends Context.Service<HistoryRepo, HistoryRepoShape>(
           return Option.some(buildHistory({ exercise: found.value, sets, sessions, now }))
         })
 
-      const sessions = (limit: number) =>
-        Effect.gen(function* () {
-          const page = yield* store
-            .all(
-              q(
-                `SELECT * FROM "workout_session" WHERE "deletedAt" IS NULL
-                 ORDER BY "startedAt" DESC, "id" DESC LIMIT ?`,
-                Math.max(0, Math.floor(limit)),
-              ),
-            )
-            .pipe(Effect.flatMap(decodeRecords(SessionRow)))
-          const ids = page.map((session) => session.id)
-          // Full history of every exercise in the page, so each session's PR count is stable.
-          const history =
-            ids.length === 0
-              ? []
-              : yield* liveSets(
-                  `AND s."exerciseId" IN (SELECT "exerciseId" FROM "workout_set"
-                   WHERE "deletedAt" IS NULL AND "sessionId" IN (${placeholders(ids)}))`,
-                  ...ids,
-                )
-          const planned = yield* whereIn(
-            `SELECT * FROM "planned_session" WHERE "deletedAt" IS NULL AND "id"`,
-            Arr.dedupe(Arr.getSomes(page.map((session) => session.plannedSessionId))),
-          ).pipe(Effect.flatMap(decodeRecords(PlannedSessionRow)))
-          const titles = new Map(planned.map((row): [string, string] => [row.id, row.name]))
-          const marked = markByExercise(history)
-          return page.map((session) => buildSessionSummary(session, marked, titles))
-        })
-
-      return HistoryRepo.of({ exercises, exercise, sessions })
+      return HistoryRepo.of({ exercises, exercise })
     }),
   )
 }

@@ -4,35 +4,23 @@ import { useRouter } from "expo-router"
 import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { ExerciseDetail } from "../../src/components/progress/ExerciseDetail"
-import { ExerciseRow, SessionRow } from "../../src/components/progress/ProgressRows"
+import { ExerciseRow } from "../../src/components/progress/ProgressRows"
 import {
   type ExerciseSummary,
   type HistoryState,
-  type SessionSummary,
   useExerciseSummaries,
-  useSessionSummaries,
 } from "../../src/hooks/useHistory"
 import {
   AppBar,
-  Button,
   EmptyState,
   gutter,
   IconButton,
   ListGroup,
   Page,
-  SegmentedControl,
   Skeleton,
   space,
   useBreakpoint,
 } from "../../src/ui"
-
-const TABS = [
-  { value: "exercises", label: "Exercises" },
-  { value: "sessions", label: "Sessions" },
-] as const
-
-/** Sessions are read in pages of this size. */
-const SESSION_PAGE = 30
 
 function ListSkeleton() {
   return (
@@ -44,14 +32,14 @@ function ListSkeleton() {
   )
 }
 
-interface ListStateProps<A> {
-  readonly state: HistoryState<ReadonlyArray<A>>
-  readonly render: (items: ReadonlyArray<A>) => ReactNode
+interface ListStateProps {
+  readonly state: HistoryState<ReadonlyArray<ExerciseSummary>>
+  readonly render: (items: ReadonlyArray<ExerciseSummary>) => ReactNode
   readonly onLogFirstSet: () => void
 }
 
-/** Loading / failed / empty / list, shared by both tabs. */
-function ListState<A>({ state, render, onLogFirstSet }: ListStateProps<A>) {
+/** Loading / failed / empty / list. */
+function ListState({ state, render, onLogFirstSet }: ListStateProps) {
   return Match.value(state).pipe(
     Match.tagsExhaustive({
       Loading: () => <ListSkeleton />,
@@ -82,16 +70,15 @@ const effectiveSelection = (
     () => Option.map(Arr.head(exercises), (summary) => summary.exercise.id),
   )
 
+/** Progress: the exercise list (and, at desktop, the selected exercise's detail). A stack route off the Feed. */
 export default function ProgressScreen() {
   const router = useRouter()
   const desktop = useBreakpoint() === "desktop"
-  const [tab, setTab] = useState<"exercises" | "sessions">("exercises")
   const [picked, setPicked] = useState<Option.Option<ExerciseId>>(Option.none())
-  const [limit, setLimit] = useState(SESSION_PAGE)
   const exercises = useExerciseSummaries().state
-  const sessions = useSessionSummaries(limit).state
 
   const goToToday = () => router.navigate("/today")
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/feed"))
   const selected = effectiveSelection(exercises._tag === "Ready" ? exercises.value : [], picked)
   const openExercise = (id: ExerciseId) =>
     desktop
@@ -120,52 +107,19 @@ export default function ProgressScreen() {
     </ListGroup>
   )
 
-  const sessionList = (items: ReadonlyArray<SessionSummary>) => (
-    <View style={{ gap: space.lg }}>
-      <ListGroup>
-        {Arr.map(items, (summary) => (
-          <SessionRow key={summary.session.id} summary={summary} />
-        ))}
-      </ListGroup>
-      {items.length >= limit ? (
-        <Button
-          label="Show more"
-          variant="secondary"
-          onPress={() => setLimit((current) => current + SESSION_PAGE)}
-        />
-      ) : null}
-    </View>
-  )
-
   return (
     <Page
       scroll
       header={
         <AppBar
           title="Progress"
-          trailing={
-            <IconButton
-              icon="settings"
-              accessibilityLabel="Settings"
-              onPress={() => router.navigate("/settings")}
-            />
-          }
+          leading={<IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={back} />}
         />
       }
       aside={exercises._tag === "Ready" && exercises.value.length > 0 ? aside : undefined}
       split="5/7"
     >
-      <SegmentedControl
-        options={TABS}
-        value={tab}
-        onChange={(value) => setTab(value === "sessions" ? "sessions" : "exercises")}
-        accessibilityLabel="Progress view"
-      />
-      {tab === "exercises" ? (
-        <ListState state={exercises} render={exerciseList} onLogFirstSet={goToToday} />
-      ) : (
-        <ListState state={sessions} render={sessionList} onLogFirstSet={goToToday} />
-      )}
+      <ListState state={exercises} render={exerciseList} onLogFirstSet={goToToday} />
     </Page>
   )
 }

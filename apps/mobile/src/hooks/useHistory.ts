@@ -2,12 +2,7 @@ import type { ExerciseId } from "@tanren/shared"
 import { type DateTime, Effect, Exit, type Option, Stream } from "effect"
 import { useCallback, useEffect, useState } from "react"
 import type { FeedRepo } from "../services/FeedRepo"
-import {
-  type ExerciseHistory,
-  type ExerciseSummary,
-  HistoryRepo,
-  type SessionSummary,
-} from "../services/HistoryRepo"
+import { type ExerciseHistory, type ExerciseSummary, HistoryRepo } from "../services/HistoryRepo"
 import { failureMessage, runtime } from "../services/runtime"
 import type { StoreError } from "../services/SqlDriver"
 import { StoreEvents } from "../services/StoreEvents"
@@ -16,7 +11,6 @@ export type {
   ExerciseHistory,
   ExerciseSummary,
   MarkedSet,
-  SessionSummary,
   WeekBucket,
 } from "../services/HistoryRepo"
 
@@ -35,8 +29,6 @@ const readExercises: StoreRead<undefined, ReadonlyArray<ExerciseSummary>> = () =
   HistoryRepo.use((repo) => repo.exercises)
 const readExercise: StoreRead<ExerciseId, Option.Option<ExerciseHistory>> = (id) =>
   HistoryRepo.use((repo) => repo.exercise(id))
-const readSessions: StoreRead<number, ReadonlyArray<SessionSummary>> = (limit) =>
-  HistoryRepo.use((repo) => repo.sessions(limit))
 
 /**
  * Runs one repo read in the app runtime and re-runs it after every store write (`StoreEvents`:
@@ -91,6 +83,3 @@ export const useExerciseSummaries = () => useStoreRead(readExercises, undefined)
 
 /** One exercise's best set, 8-week charts and recent sessions; `Ready(None)` when it is unknown. */
 export const useExerciseHistory = (id: ExerciseId) => useStoreRead(readExercise, id)
-
-/** The newest `limit` live sessions. */
-export const useSessionSummaries = (limit: number) => useStoreRead(readSessions, limit)
