@@ -9,6 +9,7 @@ import {
   daysDone,
   dayTrailing,
   doneLabel,
+  insideRows,
   programProgress,
   WEEK_LENGTH,
   weekWindow,
@@ -100,5 +101,27 @@ describe("day text", () => {
     expect(dayCardLine({ ...firstDay, items: [...Arr.take(firstDay.items, 1)] }, 30)).toContain(
       "1 exercise ·",
     )
+  })
+})
+
+describe("insideRows", () => {
+  it("lists the first week of days with their minutes", () => {
+    const rows = insideRows(CORE30.days)
+    expect(rows).toHaveLength(WEEK_LENGTH)
+    expect(rows.map((row) => row.dayNumber)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(rows[0]).toEqual({
+      dayNumber: 1,
+      title: firstDay.title,
+      trailing: dayTrailing(firstDay),
+    })
+    expect(rows.every((row) => /^\d+ min$/.test(row.trailing))).toBe(true)
+  })
+
+  it("lists what exists for a program shorter than a week", () => {
+    expect(insideRows(Arr.take(CORE30.days, 3)).map((row) => row.dayNumber)).toEqual([1, 2, 3])
+  })
+
+  it("is empty for a program without days", () => {
+    expect(insideRows([])).toEqual([])
   })
 })

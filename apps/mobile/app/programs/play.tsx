@@ -21,6 +21,7 @@ import {
   Skeleton,
   space,
   Text,
+  useBreakpoint,
 } from "../../src/ui"
 
 /** Mounted only while the countdown runs, so the screen may sleep when paused or done. */
@@ -42,6 +43,7 @@ function Player({
   useEffect(() => send("start"), [send])
   const position = progress(session.day, player)
   const playing = completion._tag === "None" && player._tag !== "Idle"
+  const phone = useBreakpoint() === "phone"
   const header = (
     <AppBar
       title={session.day.title}
@@ -50,7 +52,11 @@ function Player({
       {...Option.match(position, {
         onNone: () => ({}),
         onSome: (p) => ({
-          eyebrow: { label: eyebrowLabel(p), progress: dayFraction(p) },
+          // Phone: text only. The 20 px day ring is empty for the first exercise and repeats
+          // what "Round x/y · Exercise x/y" and the segment bar already say.
+          eyebrow: phone
+            ? { label: eyebrowLabel(p) }
+            : { label: eyebrowLabel(p), progress: dayFraction(p) },
           trailing: (
             <SegmentBar
               total={p.items}

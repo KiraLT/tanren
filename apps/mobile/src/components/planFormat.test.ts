@@ -4,13 +4,19 @@ import { describe, expect, it } from "vitest"
 import {
   formatBlockLine,
   formatDayDate,
+  formatDayShort,
+  formatItemTarget,
   formatTarget,
+  formatVolume,
   formatWeekRange,
   type SetTarget,
   sessionLabel,
   statusLabel,
   weekdayLabel,
+  weekStats,
+  weekSummary,
 } from "./planFormat"
+import { planWeekFixture } from "./planWeekFixture"
 
 const reps = Schema.decodeUnknownSync(RepTarget)
 const date = (value: string) => LocalDate.make(value)
@@ -119,6 +125,120 @@ describe("dates", () => {
 
   it("does not assume Monday: a Wednesday start reads the same way", () => {
     expect(formatWeekRange(date("2026-10-21"), date("2026-10-27"))).toBe("21–27 Oct")
+  })
+})
+
+describe("formatItemTarget", () => {
+  it("is count × reps · weight, without the rest", () => {
+    const sets = [100, 100, 100].map((kg) => set({ kg, reps: exact(5), rest: 180 }))
+    expect(formatItemTarget(sets)).toBe("3 × 5 · 100 kg")
+  })
+
+  it("keeps fractional kg and rep ranges", () => {
+    expect(formatItemTarget([set({ kg: 22.5, reps: { _tag: "Range", min: 8, max: 12 } })])).toBe(
+      "1 × 8–12 · 22.5 kg",
+    )
+  })
+
+  it("treats sets that differ only in rest as one group", () => {
+    const sets = [
+      set({ kg: 60, reps: exact(8), rest: 60 }),
+      set({ kg: 60, reps: exact(8), rest: 90 }),
+    ]
+    expect(formatItemTarget(sets)).toBe("2 × 8 · 60 kg")
+  })
+
+  it("leaves the weight out when there is none", () => {
+    expect(formatItemTarget([set({ reps: exact(12) }), set({ reps: exact(12) })])).toBe("2 × 12")
+  })
+
+  it("prints a zero weight", () => {
+    expect(formatItemTarget([set({ kg: 0, reps: exact(10) })])).toBe("1 × 10 · 0 kg")
+  })
+
+  it("collapses mixed sets to a set count and a weight range", () => {
+    const sets = [60, 100, 100].map((kg) => set({ kg, reps: exact(5) }))
+    expect(formatItemTarget(sets)).toBe("3 sets · 60–100 kg")
+  })
+
+  it("collapses mixed reps at one weight to the count and that weight", () => {
+    const sets = [set({ kg: 50, reps: exact(8) }), set({ kg: 50, reps: exact(6) })]
+    expect(formatItemTarget(sets)).toBe("2 sets · 50 kg")
+  })
+
+  it("collapses mixed bodyweight sets to the count alone", () => {
+    expect(formatItemTarget([set({ reps: exact(10) }), set({ reps: exact(8) })])).toBe("2 sets")
+  })
+
+  it("is empty without sets", () => {
+    expect(formatItemTarget([])).toBe("")
+  })
+})
+
+describe("formatDayShort", () => {
+  it("is the weekday and the day of month on one line", () => {
+    expect(formatDayShort("mon", date("2026-10-26"))).toBe("Mon 26")
+    expect(formatDayShort("sun", date("2026-11-01"))).toBe("Sun 1")
+  })
+})
+
+describe("weekSummary", () => {
+  const empty = { ...planWeekFixture, unscheduled: [] }
+  it("counts a partial week: done sessions' sets and planned volume", () => {
+    expect(weekSummary(planWeekFixture)).toEqual({
+      sessionsDone: 1,
+      sessionsTotal: 5,
+      setsDone: 5,
+      setsTotal: 13,
+      volumeKg: 3 * 100 * 5 + 2 * 80 * 8,
+    })
+  })
+
+  it("is all zero for a week without sessions", () => {
+    const week = { ...empty, days: planWeekFixture.days.map((day) => ({ ...day, sessions: [] })) }
+    expect(weekSummary(week)).toEqual({
+      sessionsDone: 0,
+      sessionsTotal: 0,
+      setsDone: 0,
+      setsTotal: 0,
+      volumeKg: 0,
+    })
+  })
+
+  it("counts sessions that have no sets", () => {
+    const days = planWeekFixture.days.map((day) => ({
+      ...day,
+      sessions: day.sessions.map((item) => ({ ...item, blocks: [] })),
+    }))
+    const summary = weekSummary({ days, unscheduled: [] })
+    expect(summary.sessionsTotal).toBe(4)
+    expect(summary.sessionsDone).toBe(1)
+    expect(summary.setsTotal).toBe(0)
+    expect(summary.volumeKg).toBe(0)
+  })
+})
+
+describe("weekStats", () => {
+  it("formats the three slots with a thousands separator", () => {
+    const stats = weekStats({
+      sessionsDone: 1,
+      sessionsTotal: 5,
+      setsDone: 5,
+      setsTotal: 13,
+      volumeKg: 4110,
+    })
+    expect(stats).toEqual([
+      { label: "Sessions", value: "1/5" },
+      { label: "Sets", value: "5/13" },
+      { label: "Volume", value: "4,110 kg" },
+    ])
+  })
+
+  it("prints zero volume and small numbers plainly", () => {
+    expect(formatVolume(0)).toBe("0 kg")
+    expect(formatVolume(999.4)).toBe("999 kg")
+    expect(formatVolume(1000)).toBe("1,000 kg")
+    expect(formatVolume(1234567)).toBe("1,234,567 kg")
   })
 })
 

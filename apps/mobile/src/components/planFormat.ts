@@ -1,6 +1,6 @@
 import { LocalDate, type PlannedSet, type Weekday } from "@tanren/shared"
 import { Array as Arr, Equivalence, Match, Option } from "effect"
-import type { PlannedSessionStatus } from "../hooks/usePlanWeek"
+import type { PlannedSessionStatus, PlanWeekView } from "../hooks/usePlanWeek"
 import { formatKg } from "./stepMath"
 
 /** The fields of a planned set the Plan screen prints. */
@@ -142,6 +142,91 @@ export const formatTarget = (sets: ReadonlyArray<SetTarget>): string => {
     ? `${body} · ${restText(first.value.rest)}`
     : body
 }
+
+/**
+ * The trailing value of a one-line plan item (phone day row): "3 × 5 · 100 kg". One group of
+ * identical sets keeps its reps; mixed groups collapse to "5 sets · 60–100 kg" so the line never
+ * wraps. No weight prints just "3 × 5"; no sets is "". Rest is left to the day card and Today.
+ */
+export const formatItemTarget = (sets: ReadonlyArray<SetTarget>): string => {
+  // Rest is not printed, so sets that differ only in rest are one group.
+  const groups = groupSets(Arr.map(sets, (set) => ({ ...set, restSeconds: Option.none<number>() })))
+  const first = Arr.head(groups)
+  if (Option.isNone(first)) return ""
+  if (groups.length === 1) {
+    const { count, reps, weight } = first.value
+    return `${count} × ${reps}${Option.match(weight, {
+      onNone: () => "",
+      onSome: (kg) => ` · ${formatKg(kg)} kg`,
+    })}`
+  }
+  const total = Arr.reduce(groups, 0, (sum, group) => sum + group.count)
+  const weights = Arr.getSomes(Arr.map(groups, (group) => group.weight))
+  if (!Arr.isArrayNonEmpty(weights)) return `${total} sets`
+  const low = Arr.reduce(weights, Number.POSITIVE_INFINITY, (a, b) => Math.min(a, b))
+  const high = Arr.reduce(weights, Number.NEGATIVE_INFINITY, (a, b) => Math.max(a, b))
+  const range = low === high ? `${formatKg(low)} kg` : `${formatKg(low)}–${formatKg(high)} kg`
+  return `${total} sets · ${range}`
+}
+
+/** "Mon 26": the weekday and day of month on one line (a phone rest row's date column). */
+export const formatDayShort = (weekday: Weekday, date: LocalDate): string =>
+  `${weekdayLabel(weekday)} ${dateParts(date).day}`
+
+export interface WeekSummary {
+  readonly sessionsDone: number
+  readonly sessionsTotal: number
+  readonly setsDone: number
+  readonly setsTotal: number
+  /** Planned volume (target kg × reps; a rep range counts its minimum) of the done sessions. */
+  readonly volumeKg: number
+}
+
+type WeekSessions = Pick<PlanWeekView, "days" | "unscheduled">
+
+const volumeOf = (set: SetTarget): number =>
+  Option.match(set.targetWeightKg, {
+    onNone: () => 0,
+    onSome: (kg) =>
+      Number(kg) *
+      Match.value(set.targetReps).pipe(
+        Match.tagsExhaustive({ Exact: ({ reps }) => reps, Range: ({ min }) => min }),
+      ),
+  })
+
+/**
+ * The week header's numbers: sessions and sets of the whole week (scheduled and unscheduled) and
+ * what is done. The plan view carries no logged sets, so "done" means the sets and volume planned
+ * in sessions whose status is `done`.
+ */
+export const weekSummary = (view: WeekSessions): WeekSummary => {
+  const sessions = [...Arr.flatMap(view.days, (day) => day.sessions), ...view.unscheduled]
+  const setsOf = (item: (typeof sessions)[number]): ReadonlyArray<SetTarget> =>
+    Arr.flatMap(item.blocks, (block) => block.sets)
+  const done = Arr.filter(sessions, (item) => item.status === "done")
+  const sum = (items: typeof sessions, f: (item: (typeof sessions)[number]) => number) =>
+    Arr.reduce(items, 0, (total, item) => total + f(item))
+  return {
+    sessionsDone: done.length,
+    sessionsTotal: sessions.length,
+    setsDone: sum(done, (item) => setsOf(item).length),
+    setsTotal: sum(sessions, (item) => setsOf(item).length),
+    volumeKg: sum(done, (item) => Arr.reduce(setsOf(item), 0, (v, set) => v + volumeOf(set))),
+  }
+}
+
+/** "2,780 kg": whole kilograms with a comma thousands separator. */
+export const formatVolume = (kg: number): string =>
+  `${String(Math.round(kg)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} kg`
+
+/** The three stat slots under the Plan header: "Sessions 1/5 · Sets 5/13 · Volume 2,780 kg". */
+export const weekStats = (
+  summary: WeekSummary,
+): ReadonlyArray<{ readonly label: string; readonly value: string }> => [
+  { label: "Sessions", value: `${summary.sessionsDone}/${summary.sessionsTotal}` },
+  { label: "Sets", value: `${summary.setsDone}/${summary.setsTotal}` },
+  { label: "Volume", value: formatVolume(summary.volumeKg) },
+]
 
 /** "Back Squat · 3 × 5 @ 100 kg · rest 180 s"; just the name when the block has no sets. */
 export const formatBlockLine = (name: string, sets: ReadonlyArray<SetTarget>): string => {

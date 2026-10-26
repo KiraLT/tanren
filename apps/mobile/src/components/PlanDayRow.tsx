@@ -90,9 +90,9 @@ export function PlanSessionRow({
       {leading === undefined ? (
         titleRow
       ) : (
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
           {leading}
-          <View style={{ flex: 1, paddingTop: space.xs }}>{titleRow}</View>
+          <View style={{ flex: 1 }}>{titleRow}</View>
         </View>
       )}
       {showBlocks ? (
@@ -106,7 +106,7 @@ export function PlanSessionRow({
   )
   const box = {
     ...(fullWidth ? {} : { flex: 1 }),
-    gap: space.xs,
+    gap: fullWidth ? space.sm : space.xs,
     borderRadius: radius.md,
     borderCurve: "continuous",
     paddingVertical: space.xs,
@@ -211,14 +211,15 @@ export function PlanDayRow({
             selected={selectedSessionId === item.plannedSession.id}
             leading={
               index === 0 ? (
-                <View accessible accessibilityLabel={dayLabel} style={{ width: DATE_COLUMN.phone }}>
-                  <Text variant="headline" tone={isToday ? "accent" : "default"}>
-                    {weekdayLabel(day.weekday)}
-                  </Text>
-                  <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
-                    {dateText}
-                  </Text>
-                </View>
+                <Text
+                  variant="headline"
+                  tone={isToday ? "accent" : "default"}
+                  tabular
+                  accessibilityLabel={dayLabel}
+                  style={{ width: DATE_COLUMN.phone }}
+                >
+                  {formatDayShort(day.weekday, day.date)}
+                </Text>
               ) : (
                 <View style={{ width: DATE_COLUMN.phone }} />
               )

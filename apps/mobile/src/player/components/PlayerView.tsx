@@ -21,6 +21,9 @@ import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../p
 /** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
 const WORK_ILLUSTRATION = 120
 
+/** Phone ring thickness (ui-polish Player 4: 12 → 10); `TimerRing`'s default stays for wider screens. */
+const RING_STROKE = 10
+
 /** Length of the running phase (for the ring); 1 when there is no countdown. */
 const phaseTotalMs = (state: PlayerState): number => {
   const phase = state._tag === "Paused" ? state.inner : state
@@ -140,8 +143,9 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
             progress={fraction}
             tone={resting ? "success" : "accent"}
             accessibilityLabel={`${s} seconds left`}
+            {...(phone ? { strokeWidth: RING_STROKE } : {})}
           >
-            <Text variant="numeral" accessibilityLabel={`Countdown ${s}`}>
+            <Text variant={phone ? "clock" : "numeral"} accessibilityLabel={`Countdown ${s}`}>
               {clock(s)}
             </Text>
           </TimerRing>
@@ -150,7 +154,7 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
     </View>
   )
 
-  /** Phone: pause 64 on `surfaceRaised`, previous/next 48, gap 32 (ui-polish §3 Player 2). */
+  /** Phone: pause 64 on a `surface` disc, previous/next 48, gap 32 (ui-polish §3 Player 2). */
   const controlsBlock = phone ? (
     <View
       style={{

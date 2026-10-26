@@ -7,6 +7,7 @@ import {
   DayList,
   EnrolCard,
   ProgramFinished,
+  ProgramInside,
 } from "../../src/player/components/ProgramHome"
 import { useProgramDay } from "../../src/player/useProgramDay"
 import { AppBar, Banner, gutter, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
@@ -16,7 +17,9 @@ const PROGRAMS_BAR = <AppBar title="Programs" />
 export default function ProgramsScreen() {
   const router = useRouter()
   const { state, enroll, enrolling } = useProgramDay()
-  const wide = useBreakpoint() === "desktop"
+  const breakpoint = useBreakpoint()
+  const wide = breakpoint === "desktop"
+  const phone = breakpoint === "phone"
   // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
   const play = () => router.push("/programs/play")
 
@@ -38,6 +41,7 @@ export default function ProgramsScreen() {
       NotEnrolled: ({ program }) => (
         <Page header={PROGRAMS_BAR} scroll>
           <EnrolCard program={program} enrolling={enrolling} onEnrol={() => enroll(program)} />
+          {phone ? <ProgramInside program={program} /> : null}
         </Page>
       ),
       Ready: ({ program, enrollment, day }) => (

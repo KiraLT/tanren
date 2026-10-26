@@ -62,3 +62,19 @@ export const dayCardLine = (day: ProgramDay, totalDays: number): string =>
 /** "1 of 30 done", the accent counter above the day list. */
 export const doneLabel = (currentDay: number, totalDays: number): string =>
   `${daysDone(currentDay, totalDays)} of ${totalDays} done`
+
+/** One row of the not-enrolled "What's inside" list. */
+export interface InsideRow {
+  readonly dayNumber: number
+  readonly title: string
+  /** "15 min". */
+  readonly trailing: string
+}
+
+/** The first `WEEK_LENGTH` days of a program as rows (fewer when the program is shorter, none for none). */
+export const insideRows = (days: ReadonlyArray<ProgramDay>): ReadonlyArray<InsideRow> =>
+  days.slice(0, WEEK_LENGTH).map((day) => ({
+    dayNumber: day.dayNumber,
+    title: day.title,
+    trailing: dayTrailing(day),
+  }))

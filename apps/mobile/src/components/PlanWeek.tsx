@@ -2,9 +2,9 @@ import type { LocalDate, PlannedSessionId } from "@tanren/shared"
 import { Option } from "effect"
 import { View } from "react-native"
 import type { PlanWeekView } from "../hooks/usePlanWeek"
-import { ListGroup, space, Text } from "../ui"
+import { ListGroup, rhythm, StatRow, space, Text, useBreakpoint } from "../ui"
 import { PlanDayRow, PlanSessionRow } from "./PlanDayRow"
-import { formatWeekRange } from "./planFormat"
+import { formatWeekRange, weekStats, weekSummary } from "./planFormat"
 
 interface PlanWeekProps {
   readonly view: PlanWeekView
@@ -28,6 +28,7 @@ export function PlanWeek({
   onSelectSession,
   showBlocks = true,
 }: PlanWeekProps) {
+  const phone = useBreakpoint() === "phone"
   const first = view.days[0]
   const last = view.days[view.days.length - 1]
   const range =
@@ -51,13 +52,19 @@ export function PlanWeek({
           onSome: (intent) => <Text tone="muted">{intent}</Text>,
         })}
       </View>
+      {phone ? (
+        <StatRow
+          items={weekStats(weekSummary(view))}
+          style={{ paddingBottom: rhythm.heroToSection }}
+        />
+      ) : null}
       <ListGroup>
         {view.days.map((day) => (
           <PlanDayRow key={day.date} day={day} isToday={day.date === today} {...selection} />
         ))}
       </ListGroup>
       {view.unscheduled.length === 0 ? null : (
-        <View style={{ paddingTop: space.xl, gap: space.sm }}>
+        <View style={{ paddingTop: rhythm.groupToLabel, gap: rhythm.labelToGroup }}>
           <Text variant="caption" tone="muted" accessibilityRole="header">
             Unscheduled
           </Text>

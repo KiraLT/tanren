@@ -3,7 +3,17 @@ import { Array as Arr, Option } from "effect"
 import { View } from "react-native"
 import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
-import { Button, Card, ListGroup, ListRow, ProgressRing, sizes, space, Text } from "../../ui"
+import {
+  Button,
+  Card,
+  ListGroup,
+  ListRow,
+  ProgressRing,
+  rhythm,
+  sizes,
+  space,
+  Text,
+} from "../../ui"
 import { exerciseName, itemAmount } from "../cues"
 import {
   dayCardLine,
@@ -13,6 +23,7 @@ import {
   daysDone,
   dayTrailing,
   doneLabel,
+  insideRows,
   programProgress,
   weekWindow,
 } from "../programDays"
@@ -63,6 +74,40 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
   )
 }
 
+/**
+ * Not enrolled, phone: "What's inside", the first week of days (name left, minutes right) under
+ * the enrol card, so the page is not half empty.
+ */
+export function ProgramInside({ program }: { readonly program: Program }) {
+  return (
+    <View style={{ gap: rhythm.labelToGroup }}>
+      <Text
+        variant="caption"
+        tone="muted"
+        accessibilityRole="header"
+        style={{ paddingHorizontal: space.lg, minHeight: space.xl + space.xs }}
+      >
+        What's inside
+      </Text>
+      <ListGroup>
+        {Arr.map(insideRows(program.days), (row) => (
+          <ListRow
+            key={row.dayNumber}
+            title={row.title}
+            titleVariant="body"
+            accessibilityLabel={`${row.title}, ${row.trailing}`}
+            trailing={
+              <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
+                {row.trailing}
+              </Text>
+            }
+          />
+        ))}
+      </ListGroup>
+    </View>
+  )
+}
+
 interface DayCardProps {
   readonly program: Program
   readonly day: ProgramDay
@@ -78,9 +123,14 @@ export function DayCard({ program, day, onStart }: DayCardProps) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
           <ProgressRing
             size="md"
+            stroke={3}
             progress={programProgress(day.dayNumber, total)}
             accessibilityLabel={`${program.name}, ${daysDone(day.dayNumber, total)} of ${total} days done`}
-          />
+          >
+            <Text variant="headline" tabular>
+              {String(day.dayNumber)}
+            </Text>
+          </ProgressRing>
           <View style={{ flex: 1, gap: space.xs }}>
             <Text variant="title2" accessibilityRole="header">
               {program.name}
@@ -109,7 +159,7 @@ interface DayItemsProps {
 /** Today's exercises as a grouped list: name left, reps or seconds right (phone only). */
 export function DayItems({ day }: DayItemsProps) {
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: rhythm.labelToGroup }}>
       <Text
         variant="caption"
         tone="muted"
@@ -152,7 +202,7 @@ export function DayList({ program, currentDay }: DayListProps) {
   const wide = useBreakpoint() === "desktop"
   const days = wide ? program.days : weekWindow(program.days, currentDay)
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: rhythm.labelToGroup }}>
       <View
         style={{
           flexDirection: "row",

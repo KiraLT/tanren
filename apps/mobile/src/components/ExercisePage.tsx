@@ -154,6 +154,7 @@ function ExerciseHead({ item }: { readonly item: TodayExercise }) {
           <Text variant="subhead">{progressText(item)}</Text>
           {planned === 0 ? null : (
             <SetDots
+              variant="pill"
               total={planned}
               completed={logged}
               accessibilityLabel={`${Math.min(logged, planned)} of ${planned} sets done`}
