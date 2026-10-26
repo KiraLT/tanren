@@ -9,6 +9,8 @@ import {
   formatVolume,
   formatWeekStart,
   hasE1RmTrend,
+  latestE1RmText,
+  sparklineEndLabels,
   trendLabel,
   volumeLabel,
   weekBarsHeading,
@@ -113,5 +115,47 @@ describe("chart labels", () => {
       { weekStart: "b", e1Rm: Option.some(116.666) },
     ]
     expect(trendLabel(trend)).toBe("Estimated 1RM, last 2 weeks: no sets, 116.7 kg")
+  })
+})
+
+const trendOf = (values: ReadonlyArray<Option.Option<number>>) =>
+  values.map((e1Rm, index) => ({
+    weekStart: `2026-09-${String(7 + 7 * index).padStart(2, "0")}`,
+    e1Rm,
+  }))
+const none = Option.none<number>()
+
+describe("sparklineEndLabels", () => {
+  it("gives no caption when no week has sets", () => {
+    expect(sparklineEndLabels(trendOf([none, none, none]))).toEqual([])
+    expect(sparklineEndLabels([])).toEqual([])
+  })
+
+  it("gives one caption for a lone week", () => {
+    expect(sparklineEndLabels(trendOf([none, Option.some(100), none]))).toEqual([
+      { index: 1, text: "14 Sep" },
+    ])
+  })
+
+  it("captions the first and last week with sets, and the current week as 'This week'", () => {
+    const trend = trendOf([none, Option.some(90), Option.some(95), none, Option.some(105)])
+    expect(sparklineEndLabels(trend)).toEqual([
+      { index: 1, text: "14 Sep" },
+      { index: 4, text: "This week" },
+    ])
+    const early = trendOf([Option.some(90), none, Option.some(95), none])
+    expect(sparklineEndLabels(early)).toEqual([
+      { index: 0, text: "7 Sep" },
+      { index: 2, text: "21 Sep" },
+    ])
+  })
+})
+
+describe("latestE1RmText", () => {
+  it("is the newest week's e1RM as kg, or None without sets", () => {
+    expect(latestE1RmText(trendOf([Option.some(90), Option.some(105), none]))).toEqual(
+      Option.some("105 kg"),
+    )
+    expect(latestE1RmText(trendOf([none, none]))).toEqual(Option.none())
   })
 })

@@ -12,7 +12,7 @@ import { AppBar, Columns, IconButton, Page, rhythm } from "../src/ui"
 export default function SettingsScreen() {
   const router = useRouter()
   // A direct load has no history to go back to.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/today"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/feed"))
   return (
     <Page
       scroll

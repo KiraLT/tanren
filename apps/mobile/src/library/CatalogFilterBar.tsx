@@ -4,10 +4,12 @@ import { type ReactNode, useState } from "react"
 import { Pressable, ScrollView, TextInput, View } from "react-native"
 import {
   Button,
+  Icon,
   radius,
   rhythm,
   sizes,
   space,
+  stroke,
   Text,
   ToggleChip,
   type,
@@ -78,6 +80,63 @@ function FacetChips({
         />
       ))}
     </ScrollView>
+  )
+}
+
+interface LocationChipProps {
+  readonly label: string
+  readonly selected: boolean
+  readonly onPress: () => void
+}
+
+/**
+ * The count row's "At <location>" toggle: an outlined pill (the ToggleChip's filled "on" state would
+ * make it a second selection beside "All"). On = accent outline and pin, label in the 700 weight.
+ * Same 32 px pill in a 44 px tap box as ToggleChip; the box is pulled into the 32 px count row.
+ */
+function LocationChip({ label, selected, onPress }: LocationChipProps) {
+  const { colors } = useTheme()
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: selected }}
+      // react-native-web drops `accessibilityState.checked`; `aria-checked` reaches the DOM too.
+      aria-checked={selected}
+      hitSlop={CHIP_SLOP}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          minHeight: sizes.tap,
+          justifyContent: "center",
+          marginVertical: -(sizes.tap - COUNT_ROW_HEIGHT) / 2,
+        },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <View
+        style={{
+          height: sizes.chip,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: space.xs,
+          paddingHorizontal: space.md,
+          borderRadius: radius.full,
+          borderWidth: stroke.hairline,
+          borderColor: selected ? colors.accent : colors.border,
+          backgroundColor: "transparent",
+        }}
+      >
+        <Icon
+          name="mapPin"
+          size={sizes.iconXs}
+          color={selected ? colors.accent : colors.textMuted}
+        />
+        <Text variant="caption" style={selected ? { fontWeight: "700" } : undefined}>
+          {label}
+        </Text>
+      </View>
+    </Pressable>
   )
 }
 
@@ -173,13 +232,9 @@ function CollapsedFilterBar({ state, dispatch, count, location }: CatalogFilterB
           {Option.match(location, {
             onNone: () => null,
             onSome: (active) => (
-              <ToggleChip
-                // the 44 px tap row overflows the 32 px count row; the pill itself stays 32
-                style={{ marginVertical: -(sizes.tap - COUNT_ROW_HEIGHT) / 2 }}
-                icon="mapPin"
+              <LocationChip
                 label={atLocationLabel(active)}
                 selected={state.atLocation}
-                hitSlop={CHIP_SLOP}
                 onPress={() => dispatch({ _tag: "AtLocation", value: !state.atLocation })}
               />
             ),

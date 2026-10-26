@@ -197,6 +197,28 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   inside" list. Open (UI-P-left): `Stepper` unit slot (the "kg" caption still sits under the
   numeral), Plan session row 172 vs 156 (card padding 11 vs 8), Programs hero 56 vs 104, `Page`
   `sectionGap` default 16 (24 wanted).
+- Phone layout (pair mobile-B, accepted r2, `docs/design/reviews/UI-PmobileB-r2.md`; 390):
+  Library = search + "Filters · n" chip (opens `FilterSheet`, an RN `Modal` slide sheet with the
+  Equipment and Kind facets and "Clear filters"; `@expo/ui` is not installed, pageSheet is ignored
+  on web), one muscle chip row starting with "All", then a 28-px count row with the outlined local
+  `LocationChip` ("At <location>", accent border + pin) on the right so "All" is the only filled pill;
+  first row at 148 in the content frame. Rows are `ListRow thumb` (64, hairline at 84); the phone
+  subtitle is clamped by `clampSubtitle`/`subtitleMaxChars` (33 chars at 390, `catalogFormat.ts`)
+  because `ListRow` has no `numberOfLines`. Chips: pitch 32 + 8: `ToggleChip` taps are 44 tall, so wrap
+  views pull each chip by `CHIP_PULL` (-6) and add `rowGap` 8. Library detail: availability chip,
+  then `lastDoneText` ("Last done 24 Oct · 75 kg × 8", via `illustrationIdFor` → `useExerciseSummaries`
+  → `useExerciseHistory`) when history exists. Progress rows `thumb` + tabular date. Progress detail
+  (stacked): two-up tiles map 160 × 176 + Best-set 182 × 176 (numeral 56, local constant: the ramp has
+  no 56 step), Volume bars, Estimated 1RM card (header + trailing latest value, `Sparkline` 72, end
+  dates from `sparklineEndLabels`), recent-session values tabular. Tooltip: one-line pill
+  (`tooltipCaption`, `tooltipWidth` rounds the measured padded width up + 1: a fractional
+  `onLayout` width truncated the label; measured once). Settings: label→group 8 / group→label 24
+  (`rhythm`), Sign out aligned at x = 64 with a 20-wide spacer (`leading={null}` is a 24 slot, icons
+  are 20), preset rows read "Preset · n items". Location editor: "N items selected" caption under the
+  name field. Back from Settings falls back to `/feed`. Open (UI-P-left): dark `surfaceRaised` tile
+  behind illustrations stays until IMG-7 re-tints the art (§7 says transparent); `ListRow`
+  `titleLines`/`subtitleLines` + tabular title (src/ui) would replace the clamp and the empty-title
+  hack; Volume/1RM cards are 4 px shorter in dark than light.
 
 ## Commands
 

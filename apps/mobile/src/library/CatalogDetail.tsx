@@ -1,7 +1,9 @@
-import { activeLocation, type CatalogExercise } from "@tanren/shared"
-import { Match, Option } from "effect"
+import { activeLocation, type CatalogExercise, type ExerciseId } from "@tanren/shared"
+import { Array as Arr, Match, Option } from "effect"
 import { ScrollView, View } from "react-native"
+import { illustrationIdFor } from "../components/todayHeader"
 import { useAddToToday } from "../hooks/useAddToToday"
+import { useExerciseHistory, useExerciseSummaries } from "../hooks/useHistory"
 import { useProfile } from "../hooks/useProfile"
 import {
   Banner,
@@ -17,7 +19,7 @@ import {
   useTheme,
 } from "../ui"
 import { type AddOutcome, NO_SESSION_TITLE, noticeCopy } from "./addToToday"
-import { equipmentLabel, humanize, needsLine } from "./catalogFormat"
+import { equipmentLabel, humanize, lastDoneText, needsLine } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
 import { MuscleMapImage } from "./MuscleMapImage"
 
@@ -127,6 +129,42 @@ export function CatalogHero({
   )
 }
 
+/** The "Last done" line for one logged exercise; drawn only once its history has loaded. */
+function LastDoneFor({ exerciseId }: { readonly exerciseId: ExerciseId }) {
+  const { state } = useExerciseHistory(exerciseId)
+  const text =
+    state._tag === "Ready"
+      ? Option.flatMap(state.value, (history) => lastDoneText(history.recent))
+      : Option.none<string>()
+  return Option.match(text, {
+    onNone: () => null,
+    onSome: (line) => (
+      <Text variant="subhead" tone="muted" tabular accessibilityLabel={line}>
+        {line}
+      </Text>
+    ),
+  })
+}
+
+/**
+ * "Last done 18 Oct · 105 kg × 5" when the owner has logged this catalog exercise. The lookup:
+ * `useExerciseSummaries` (exercises with live sets, newest first) matched on `illustrationIdFor`
+ * (the exercise's own `catalogId`, else an exact name or alias match) equal to the entry's id.
+ */
+function LastDone({ entry }: { readonly entry: CatalogExercise }) {
+  const { state } = useExerciseSummaries()
+  if (state._tag !== "Ready") {
+    return null
+  }
+  const found = Arr.findFirst(state.value, ({ exercise }) =>
+    Option.exists(illustrationIdFor(exercise), (id) => id === entry.catalogId),
+  )
+  return Option.match(found, {
+    onNone: () => null,
+    onSome: ({ exercise }) => <LastDoneFor exerciseId={exercise.id} />,
+  })
+}
+
 /**
  * Name first, the hero (unless it sits in the desktop aside), numbered-disc steps, availability at
  * the active location, and a sticky "Add to today's session" below the scrolling content.
@@ -183,6 +221,7 @@ export function CatalogDetail({ entry, hero = true, inline = false }: CatalogDet
             </View>
           ),
         })}
+        <LastDone entry={entry} />
       </ScrollView>
       <View style={{ gap: space.sm, paddingTop: space.sm, paddingBottom: space.md }}>
         {Option.match(outcome, {

@@ -7,7 +7,8 @@ import {
   MuscleGroup,
   missingEquipment,
 } from "@tanren/shared"
-import { Array as Arr, Option, Schema } from "effect"
+import { Array as Arr, type DateTime, Option, Order, Schema } from "effect"
+import { formatLoggedDate, formatSetText } from "../components/progress/progressFormat"
 
 /** `"upperBack"` → `"Upper back"`, `"smithMachine"` → `"Smith machine"`. */
 export const humanize = (key: string): string => {
@@ -85,6 +86,48 @@ export const equipmentLabel = (equipment: ReadonlyArray<CatalogEquipment>): stri
 /** List row subtitle: primary muscles · equipment, e.g. "Quads, Glutes · Barbell". */
 export const entrySubtitle = (entry: CatalogExercise): string =>
   `${entry.primaryMuscles.map(humanize).join(", ")} · ${equipmentLabel(entry.equipment)}`
+
+/**
+ * Longest row subtitle (characters) that fits one line beside a 56 px thumb. `ListRow` has no
+ * `numberOfLines` and `src/ui` is not ours, so the library cuts the text itself. Measured at 390:
+ * the text column is 258 px (window - 32 margin - 100 for padding, thumb and gap) and a 15 px
+ * subhead averages 7 px a character but "Upper back, Lats · Seated row mach…" (35) still wrapped:
+ * 7.6 per character leaves the margin (33 at 390).
+ */
+export const subtitleMaxChars = (windowWidth: number): number =>
+  Math.max(16, Math.floor((windowWidth - 132) / 7.6))
+
+/** `text` cut to `max` characters with a trailing "…" (kept whole when it fits). */
+export const clampSubtitle = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`
+
+/** The slice of `ExerciseHistory["recent"]` the "Last done" row reads. */
+export interface RecentSession {
+  readonly session: { readonly startedAt: DateTime.Utc }
+  readonly sets: ReadonlyArray<{ readonly weightKg: number; readonly reps: number }>
+}
+
+type SetLoad = RecentSession["sets"][number]
+
+const byLoadThenReps: Order.Order<SetLoad> = Order.combine(
+  Order.mapInput(Order.Number, (set: SetLoad) => set.weightKg),
+  Order.mapInput(Order.Number, (set: SetLoad) => set.reps),
+)
+
+/**
+ * "Last done 18 Oct · 105 kg × 5": the newest session with sets (`recent` is newest first), its
+ * heaviest set (more reps on a tie). `None` when there is no history, so the row is not drawn.
+ */
+export const lastDoneText = (recent: ReadonlyArray<RecentSession>): Option.Option<string> =>
+  Option.flatMap(
+    Arr.findFirst(recent, ({ sets }) => sets.length > 0),
+    ({ session, sets }) =>
+      Option.map(
+        Arr.last(Arr.sort(sets, byLoadThenReps)),
+        (top) =>
+          `Last done ${formatLoggedDate(session.startedAt)} · ${formatSetText(top.weightKg, top.reps)}`,
+      ),
+  )
 
 /** Detail muscle line: primary, then secondary in brackets when there are any. */
 export const musclesLine = (entry: CatalogExercise): string => {

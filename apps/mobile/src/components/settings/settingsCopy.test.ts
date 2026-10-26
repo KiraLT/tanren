@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "@effect/vitest"
-import type { CatalogEquipment } from "@tanren/shared"
+import { type CatalogEquipment, LOCATION_PRESETS } from "@tanren/shared"
 import { Option } from "effect"
 import {
   APPEARANCE_OPTIONS,
@@ -46,9 +46,19 @@ describe("APPEARANCE_OPTIONS", () => {
 
 describe("presetItemsLabel", () => {
   it("counts items and says bodyweight only for none", () => {
-    expect(presetItemsLabel(0)).toBe("Bodyweight only")
-    expect(presetItemsLabel(1)).toBe("1 item")
-    expect(presetItemsLabel(24)).toBe("24 items")
+    expect(presetItemsLabel(0)).toBe("Preset · Bodyweight only")
+    expect(presetItemsLabel(1)).toBe("Preset · 1 item")
+    expect(presetItemsLabel(24)).toBe("Preset · 24 items")
+  })
+
+  it("names every preset kind with its own count", () => {
+    const labels = Object.values(LOCATION_PRESETS).map((preset) =>
+      presetItemsLabel(preset.equipment.length),
+    )
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.every((label) => /^Preset · (Bodyweight only|\d+ items?)$/.test(label))).toBe(
+      true,
+    )
   })
 })
 

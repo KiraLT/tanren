@@ -6,8 +6,8 @@ import type { ExerciseHistory } from "../../services/HistoryRepo"
 import { space, Text, useTheme } from "../../ui"
 import { ChartFrame } from "./ChartFrame"
 import { ChartHover, type HoverMark, TOOLTIP_STRIP } from "./ChartHover"
-import { columnCenters, hoverBand, sparklineShape } from "./chartGeometry"
-import { formatKg1, formatWeekStart, trendLabel } from "./progressFormat"
+import { columnCenters, hoverBand, sparklineShape, tooltipLeft } from "./chartGeometry"
+import { formatKg1, formatWeekStart, sparklineEndLabels, trendLabel } from "./progressFormat"
 
 const PLOT = 72
 const LINE_WIDTH = 2
@@ -16,6 +16,9 @@ const DOT_RADIUS = 5
 const RING_WIDTH = 2
 /** Room for a marker and its ring at the plot edges. */
 const PAD = DOT_RADIUS + RING_WIDTH + 1
+/** Date captions under the plot's first and last marker. */
+const LABEL_ROW = 20
+const LABEL_WIDTH = 72
 
 interface SparklineProps {
   /** `ExerciseHistory.e1RmTrend`: eight weeks, oldest first, `None` where nothing was logged. */
@@ -24,16 +27,18 @@ interface SparklineProps {
 
 /**
  * The weekly best e1RM as a 2 px line in one muted hue with 10 px markers on a surface ring; the
- * latest week is the accent. Weeks without sets leave a gap, a lone week is a dot. Tooltip on hover.
+ * latest week is the accent. Weeks without sets leave a gap, a lone week is a dot. Date captions
+ * under the first and last marker. Tooltip on hover: its strip overlaps the card's header row
+ * (negative top margin) instead of leaving 32 px of blank above the line.
  */
 export function Sparkline({ trend }: SparklineProps) {
   const { colors } = useTheme()
   const [active, setActive] = useState<Option.Option<number>>(Option.none())
   const values = Arr.map(trend, (week) => week.e1Rm)
-  const latest = Arr.last(Arr.getSomes(values))
+  const labels = sparklineEndLabels(trend)
   return (
-    <View style={{ gap: space.sm }}>
-      <ChartFrame height={TOOLTIP_STRIP + PLOT} accessibilityLabel={trendLabel(trend)}>
+    <View style={{ marginTop: -TOOLTIP_STRIP }}>
+      <ChartFrame height={TOOLTIP_STRIP + PLOT + LABEL_ROW} accessibilityLabel={trendLabel(trend)}>
         {(width) => {
           const shape = sparklineShape(values, { width, height: PLOT }, PAD)
           const centers = columnCenters(trend.length, width, PAD)
@@ -82,6 +87,26 @@ export function Sparkline({ trend }: SparklineProps) {
                     )
                   })}
                 </Svg>
+                <View style={{ height: LABEL_ROW, paddingTop: space.xs }}>
+                  {Arr.map(labels, ({ index, text }) => (
+                    <Text
+                      key={index}
+                      variant="caption"
+                      tone="muted"
+                      tabular
+                      numberOfLines={1}
+                      style={{
+                        position: "absolute",
+                        top: space.xs,
+                        width: LABEL_WIDTH,
+                        textAlign: "center",
+                        left: tooltipLeft(centers[index] ?? 0, LABEL_WIDTH, width),
+                      }}
+                    >
+                      {text}
+                    </Text>
+                  ))}
+                </View>
               </View>
               <ChartHover
                 marks={marks}
@@ -94,12 +119,6 @@ export function Sparkline({ trend }: SparklineProps) {
           )
         }}
       </ChartFrame>
-      <Text variant="caption" tone="muted">
-        {Option.match(latest, {
-          onNone: () => "No sets in the last 8 weeks",
-          onSome: (e1Rm) => `Latest weekly best ${formatKg1(e1Rm)}`,
-        })}
-      </Text>
     </View>
   )
 }

@@ -2,7 +2,13 @@ import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { Pressable, View } from "react-native"
 import { radius, space, stroke, Text, useTheme } from "../../ui"
-import { TOOLTIP_MAX_WIDTH, tooltipCaption, tooltipLeft, tooltipWidth } from "./chartGeometry"
+import {
+  TOOLTIP_MAX_WIDTH,
+  TOOLTIP_PAD_X,
+  tooltipCaption,
+  tooltipLeft,
+  tooltipWidth,
+} from "./chartGeometry"
 
 /** Height (px) of the strip above the plot where the tooltip floats, so it never covers a mark. */
 export const TOOLTIP_STRIP = 32
@@ -39,7 +45,12 @@ function Tooltip({ mark, chartWidth }: TooltipProps) {
   return (
     <View
       pointerEvents="none"
-      onLayout={(event) => setWidth(tooltipWidth(event.nativeEvent.layout.width, chartWidth))}
+      // first layout only: once pinned, the pill reports its own width and the +1 slack would ratchet
+      onLayout={(event) =>
+        setWidth((pinned) =>
+          pinned > 0 ? pinned : tooltipWidth(event.nativeEvent.layout.width, chartWidth),
+        )
+      }
       style={{
         position: "absolute",
         top: 0,
@@ -49,7 +60,7 @@ function Tooltip({ mark, chartWidth }: TooltipProps) {
         maxWidth: Math.min(TOOLTIP_MAX_WIDTH, chartWidth),
         opacity: width > 0 ? 1 : 0,
         justifyContent: "center",
-        paddingHorizontal: space.sm,
+        paddingHorizontal: TOOLTIP_PAD_X,
         height: TOOLTIP_STRIP - space.xs,
         borderRadius: radius.full,
         borderCurve: "continuous",

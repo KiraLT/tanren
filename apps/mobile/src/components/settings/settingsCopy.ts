@@ -30,9 +30,12 @@ export const APPEARANCE_OPTIONS: ReadonlyArray<{
   { value: "dark", label: "Dark" },
 ]
 
-/** Preset row subtitle: "Bodyweight only", "1 item", "24 items". */
+/**
+ * Preset row subtitle: "Preset · Bodyweight only", "Preset · 1 item", "Preset · 36 items". The
+ * prefix keeps an "Add gym" row from reading as a duplicate of the saved "Gym · 36 items".
+ */
 export const presetItemsLabel = (count: number): string =>
-  count === 0 ? "Bodyweight only" : `${count} ${count === 1 ? "item" : "items"}`
+  `Preset · ${count === 0 ? "Bodyweight only" : `${count} ${count === 1 ? "item" : "items"}`}`
 
 /** Caption under the location name: "No items selected", "1 item selected", "5 items selected". */
 export const itemsSelectedLabel = (count: number): string =>

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { CatalogExercise, Location } from "@tanren/shared"
-import { Option, Schema } from "effect"
+import { DateTime, Option, Schema } from "effect"
 import {
   ALL,
   atLocationLabel,
+  clampSubtitle,
   EQUIPMENT_OPTIONS,
   entrySubtitle,
   equipmentFromValue,
@@ -11,12 +12,14 @@ import {
   facetLabel,
   humanize,
   KIND_OPTIONS,
+  lastDoneText,
   MUSCLE_OPTIONS,
   muscleFromValue,
   musclesLine,
   needsLine,
   resultCount,
   segmentValue,
+  subtitleMaxChars,
 } from "./catalogFormat"
 
 const decodeEntry = Schema.decodeUnknownSync(CatalogExercise)
@@ -112,5 +115,53 @@ describe("location copy", () => {
     expect(facetLabel("ezBar")).toBe("EZ bar")
     expect(facetLabel("assistedPullUpMachine")).toBe("Assisted pull-up machine")
     expect(facetLabel("gluteHamDeveloper")).toBe("Glute-ham developer")
+  })
+})
+
+describe("clampSubtitle", () => {
+  it("keeps a subtitle that fits and ends a long one with an ellipsis within the cap", () => {
+    const max = subtitleMaxChars(390)
+    expect(max).toBe(33)
+    expect(clampSubtitle("Core · Bodyweight", max)).toBe("Core · Bodyweight")
+    const long = "Chest, Triceps · Smith machine, Bench"
+    const cut = clampSubtitle(long, max)
+    expect(cut.length).toBeLessThanOrEqual(max)
+    expect(cut.endsWith("…")).toBe(true)
+    expect(long.startsWith(cut.slice(0, -1))).toBe(true)
+  })
+
+  it("does not cut a subtitle that is exactly at the cap", () => {
+    expect(clampSubtitle("abcde", 5)).toBe("abcde")
+    expect(clampSubtitle("abcdef", 5)).toBe("abcd…")
+  })
+})
+
+describe("lastDoneText", () => {
+  const at = (day: number) => DateTime.makeUnsafe(new Date(2026, 9, day, 12))
+
+  it("is None without history", () => {
+    expect(lastDoneText([])).toEqual(Option.none())
+    expect(lastDoneText([{ session: { startedAt: at(18) }, sets: [] }])).toEqual(Option.none())
+  })
+
+  it("names the newest session's date and its heaviest set", () => {
+    const recent = [
+      {
+        session: { startedAt: at(18) },
+        sets: [
+          { weightKg: 100, reps: 5 },
+          { weightKg: 105, reps: 5 },
+          { weightKg: 105, reps: 3 },
+        ],
+      },
+      { session: { startedAt: at(11) }, sets: [{ weightKg: 120, reps: 1 }] },
+    ]
+    expect(lastDoneText(recent)).toEqual(Option.some("Last done 18 Oct · 105 kg × 5"))
+  })
+
+  it("reads a bodyweight set as reps", () => {
+    expect(
+      lastDoneText([{ session: { startedAt: at(18) }, sets: [{ weightKg: 0, reps: 12 }] }]),
+    ).toEqual(Option.some("Last done 18 Oct · 12 reps"))
   })
 })

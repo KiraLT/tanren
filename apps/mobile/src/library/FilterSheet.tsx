@@ -1,5 +1,5 @@
 import { Modal, Pressable, ScrollView, View } from "react-native"
-import { Button, radius, rhythm, space, Text, ToggleChip, useTheme } from "../ui"
+import { Button, radius, rhythm, sizes, space, Text, ToggleChip, useTheme } from "../ui"
 import {
   EQUIPMENT_OPTIONS,
   equipmentFromValue,
@@ -12,6 +12,8 @@ import { hasFilter, type SearchAction, type SearchState } from "./searchState"
 
 /** Invisible extra tap area around a 32 px chip (the Pressable is 44 tall already). */
 const CHIP_SLOP = 6
+/** Half the gap between the 44 tap box and the 32 pill: the chip's vertical margin pulls it in. */
+const CHIP_PULL = (sizes.tap - sizes.chip) / 2
 
 interface FacetWrapProps {
   readonly title: string
@@ -29,11 +31,20 @@ function FacetWrap({ title, options, value, onChange }: FacetWrapProps) {
       </Text>
       <View
         accessibilityLabel={title}
-        style={{ flexDirection: "row", flexWrap: "wrap", columnGap: rhythm.chipGap }}
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          columnGap: rhythm.chipGap,
+          // pitch 40 = chip 32 + rowGap 8: the 44 tap box is pulled in by CHIP_PULL per side and the
+          // padding gives it back at the group's edges so the pills do not move
+          rowGap: rhythm.chipGap,
+          paddingVertical: CHIP_PULL,
+        }}
       >
         {options.map((option) => (
           <ToggleChip
             key={option.value}
+            style={{ marginVertical: -CHIP_PULL }}
             label={option.label}
             hitSlop={CHIP_SLOP}
             selected={option.value === value}

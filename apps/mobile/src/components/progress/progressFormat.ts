@@ -80,6 +80,49 @@ export const trendLabel = (trend: ExerciseHistory["e1RmTrend"]): string => {
   return `Estimated 1RM, last ${trend.length} weeks: ${values} kg`
 }
 
+/** The trailing headline of the Estimated 1RM card: "105 kg", the latest week with sets. */
+export const latestE1RmText = (trend: ExerciseHistory["e1RmTrend"]): Option.Option<string> =>
+  Option.map(Arr.last(Arr.getSomes(Arr.map(trend, (week) => week.e1Rm))), formatKg1)
+
+export interface SparklineEndLabel {
+  /** Index into the trend, so the caption can sit under that week's marker. */
+  readonly index: number
+  readonly text: string
+}
+
+/**
+ * Date captions under the Estimated 1RM sparkline: the first and the last week with sets (one
+ * caption for a lone week, none for no sets). The current week reads "This week" as on the bars.
+ */
+export const sparklineEndLabels = (
+  trend: ExerciseHistory["e1RmTrend"],
+): ReadonlyArray<SparklineEndLabel> => {
+  const withSets = Arr.filter(
+    Arr.map(trend, (week, index) => ({ week, index })),
+    ({ week }) => Option.isSome(week.e1Rm),
+  )
+  const label = ({
+    week,
+    index,
+  }: {
+    readonly week: { readonly weekStart: string }
+    readonly index: number
+  }) => ({
+    index,
+    text: index === trend.length - 1 ? "This week" : formatWeekStart(week.weekStart),
+  })
+  const first = Arr.head(withSets)
+  const last = Arr.last(withSets)
+  return Option.match(first, {
+    onNone: () => [],
+    onSome: (start) =>
+      Option.match(last, {
+        onNone: () => [label(start)],
+        onSome: (end) => (end.index === start.index ? [label(start)] : [label(start), label(end)]),
+      }),
+  })
+}
+
 /** "7 Sep" for a week's local-Monday `YYYY-MM-DD`; anything unparsable is shown as is. */
 export const formatWeekStart = (weekStart: string): string =>
   Option.match(Schema.decodeUnknownOption(LocalDate)(weekStart), {

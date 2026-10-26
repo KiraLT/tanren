@@ -1,10 +1,10 @@
 import type { CatalogExercise, CatalogId } from "@tanren/shared"
 import { Option } from "effect"
 import type { ReactElement } from "react"
-import { FlatList, View } from "react-native"
-import { EmptyState, ListRow, sizes, useTheme } from "../ui"
+import { FlatList, useWindowDimensions, View } from "react-native"
+import { EmptyState, ListRow, sizes, useBreakpoint, useTheme } from "../ui"
 import { listSeparatorStyle } from "../ui/controls"
-import { entrySubtitle } from "./catalogFormat"
+import { clampSubtitle, entrySubtitle, subtitleMaxChars } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
 
 export interface CatalogListProps {
@@ -21,6 +21,11 @@ const NO_ROW_BORDER = { borderBottomWidth: 0 } as const
 /** The search results, virtualised: the catalog holds a few hundred entries. */
 export function CatalogList({ entries, selected, onSelect, header }: CatalogListProps) {
   const { colors } = useTheme()
+  // phone rows hold one subtitle line (64 px); wider layouts have the room and stay as they were
+  const phone = useBreakpoint() === "phone"
+  const { width } = useWindowDimensions()
+  const subtitleFor = (item: CatalogExercise): string =>
+    phone ? clampSubtitle(entrySubtitle(item), subtitleMaxChars(width)) : entrySubtitle(item)
   return (
     <FlatList
       data={entries}
@@ -42,7 +47,7 @@ export function CatalogList({ entries, selected, onSelect, header }: CatalogList
           style={NO_ROW_BORDER}
           leading={<ExerciseIllustration catalogId={item.catalogId} size={sizes.illustrationSm} />}
           title={item.name}
-          subtitle={entrySubtitle(item)}
+          subtitle={subtitleFor(item)}
           accessibilityLabel={item.name}
           selected={Option.exists(selected, (id) => id === item.catalogId)}
           onPress={() => onSelect(item.catalogId)}

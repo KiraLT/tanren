@@ -86,9 +86,18 @@ export const TOOLTIP_MAX_WIDTH = 180
 export const tooltipCaption = (value: string, label: string): string =>
   `${value} · ${label.replace(/^Week of /, "wk of ")}`
 
-/** Pill width: the measured natural width, never above `TOOLTIP_MAX_WIDTH` or the chart. */
+/** Horizontal padding of the tooltip pill (each side); `natural` below includes it. */
+export const TOOLTIP_PAD_X = 12
+
+/**
+ * Pill width from the measured natural width of the PADDED pill (text + 2 x padding + border),
+ * never above `TOOLTIP_MAX_WIDTH` or the chart. `onLayout` reports the width rounded down
+ * (measured on web: text 110.33 px, pill 128.33 reported as 128), and pinning that leaves the
+ * text box 0.33 px short, so the label ends in an ellipsis ("0 kg · wk of 7 S…"): round up and
+ * add 1 px of slack.
+ */
 export const tooltipWidth = (natural: number, chartWidth: number): number =>
-  Math.max(0, Math.min(natural, TOOLTIP_MAX_WIDTH, chartWidth))
+  Math.max(0, Math.min(Math.ceil(natural) + 1, TOOLTIP_MAX_WIDTH, chartWidth))
 
 /** Left edge of a tooltip centred on `center`, kept inside `[0, chartWidth]`. */
 export const tooltipLeft = (center: number, tooltipWidth: number, chartWidth: number): number =>

@@ -8,6 +8,7 @@ import {
   roundedTopBarPath,
   sparklineShape,
   TOOLTIP_MAX_WIDTH,
+  TOOLTIP_PAD_X,
   tooltipCaption,
   tooltipLeft,
   tooltipWidth,
@@ -156,8 +157,21 @@ describe("tooltipCaption and tooltipWidth", () => {
     expect(tooltipCaption("1,175 kg", "This week")).toBe("1,175 kg · This week")
   })
 
-  it("keeps a short pill natural and caps a long one at 180", () => {
-    expect(tooltipWidth(120, 300)).toBe(120)
+  it("gives the 18-character first-bar label room for its whole text", () => {
+    // "0 kg · wk of 7 Sep": text 110.33 px + 2 x TOOLTIP_PAD_X + 2 x 1 px border = 136.33, which
+    // onLayout reports as 136; the pinned width must not be below the real pill (it was 128 vs
+    // 128.33 before, and the label ended in an ellipsis)
+    const caption = tooltipCaption("0 kg", "Week of 7 Sep")
+    expect(caption).toHaveLength(18)
+    const natural = 110.33 + 2 * TOOLTIP_PAD_X + 2
+    const width = tooltipWidth(Math.floor(natural), 358)
+    expect(width).toBeGreaterThanOrEqual(natural)
+    expect(width).toBeLessThanOrEqual(TOOLTIP_MAX_WIDTH)
+  })
+
+  it("keeps a short pill natural (plus 1 px of slack) and caps a long one at 180", () => {
+    expect(tooltipWidth(120, 300)).toBe(121)
+    expect(tooltipWidth(119.6, 300)).toBe(121)
     expect(tooltipWidth(240, 300)).toBe(TOOLTIP_MAX_WIDTH)
   })
 
@@ -169,5 +183,11 @@ describe("tooltipCaption and tooltipWidth", () => {
 
   it("clamps the right edge with the capped width", () => {
     expect(tooltipLeft(340, tooltipWidth(240, 358), 358)).toBe(178)
+  })
+
+  it("clamps the first bar's pill to the left edge and the last bar's to the right", () => {
+    const width = tooltipWidth(136, 358)
+    expect(tooltipLeft(11, width, 358)).toBe(0)
+    expect(tooltipLeft(347, width, 358)).toBe(358 - width)
   })
 })

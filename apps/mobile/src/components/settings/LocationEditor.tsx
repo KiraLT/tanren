@@ -33,6 +33,8 @@ import { useLocations } from "./useLocations"
 
 /** Invisible extra tap area around a 32 px chip (the Pressable is 44 tall already). */
 const CHIP_SLOP = 6
+/** Half the gap between the 44 tap box and the 32 pill: the chip's vertical margin pulls it in. */
+const CHIP_PULL = (sizes.tap - sizes.chip) / 2
 
 export interface LocationEditorProps {
   readonly location: Location
@@ -112,13 +114,17 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
           flexDirection: "row",
           flexWrap: "wrap",
           columnGap: rhythm.chipGap,
+          // pitch 40 = chip 32 + rowGap 8: each chip's 44 tap box is pulled in by CHIP_PULL on both
+          // sides, and the padding gives it back at the group's edges so the pills do not move
+          rowGap: rhythm.chipGap,
           paddingHorizontal: space.lg,
-          paddingVertical: space.sm,
+          paddingVertical: space.sm + CHIP_PULL,
         }}
       >
         {EQUIPMENT_GROUPS[group].map((equipment) => (
           <ToggleChip
             key={equipment}
+            style={{ marginVertical: -CHIP_PULL }}
             label={facetLabel(equipment)}
             selected={location.equipment.includes(equipment)}
             hitSlop={CHIP_SLOP}

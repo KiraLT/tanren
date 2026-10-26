@@ -25,6 +25,7 @@ import {
   formatLoggedDate,
   formatSetText,
   hasE1RmTrend,
+  latestE1RmText,
   weekBarsHeading,
   weekSeries,
 } from "./progressFormat"
@@ -85,18 +86,19 @@ function BestSetCard({ history, tile = false }: DetailProps & { readonly tile?: 
               </View>
               <Text
                 variant="numeral"
+                tabular
                 glow
                 style={tile ? TILE_NUMERAL : { paddingVertical: space.xs }}
               >
                 {parts.value}
               </Text>
-              <Text variant="label" tone="muted">
+              <Text variant="label" tone="muted" tabular>
                 {parts.unit}
               </Text>
               {Option.match(e1Rm, {
                 onNone: () => null,
                 onSome: (text) => (
-                  <Text variant="subhead" tone="muted">
+                  <Text variant="subhead" tone="muted" tabular>
                     {text}
                   </Text>
                 ),
@@ -127,12 +129,19 @@ function RecentSessions({ history }: DetailProps) {
             {Arr.map(sets, (set, index) => (
               <ListRow
                 key={set.id}
+                // ListRow's title has no tabular switch (src/ui is not ours): the value is the
+                // leading Text, so the figures align down the list; the empty title only holds the flex
                 leading={
-                  <Text variant="caption" tone="muted" style={{ minWidth: space.xxl }}>
-                    {`Set ${index + 1}`}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: space.md }}>
+                    <Text variant="caption" tone="muted" style={{ minWidth: space.xxl }}>
+                      {`Set ${index + 1}`}
+                    </Text>
+                    <Text variant="headline" tabular>
+                      {formatSetText(set.weightKg, set.reps)}
+                    </Text>
+                  </View>
                 }
-                title={formatSetText(set.weightKg, set.reps)}
+                title=""
                 trailing={set.isPr ? <StatusPill label="PR" tone="accent" /> : undefined}
                 accessibilityLabel={`Set ${index + 1}, ${formatSetText(set.weightKg, set.reps)}${set.isPr ? ", personal record" : ""}`}
               />
@@ -181,7 +190,19 @@ function DetailReady({ history, layout }: DetailReadyProps) {
   )
   const e1RmCard = hasE1RmTrend(history.e1RmTrend) ? (
     <Card style={{ gap: space.md }}>
-      <Text variant="headline">Estimated 1RM</Text>
+      <View
+        style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}
+      >
+        <Text variant="headline">Estimated 1RM</Text>
+        {Option.match(latestE1RmText(history.e1RmTrend), {
+          onNone: () => null,
+          onSome: (text) => (
+            <Text variant="headline" tabular>
+              {text}
+            </Text>
+          ),
+        })}
+      </View>
       <Sparkline trend={history.e1RmTrend} />
     </Card>
   ) : null
