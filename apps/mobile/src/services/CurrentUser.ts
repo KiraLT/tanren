@@ -1,4 +1,4 @@
-import { UserId } from "@tanren/shared"
+import { ROW_TABLE, UserId } from "@tanren/shared"
 import { Context, Effect, Layer, Option, Schema, Stream, SubscriptionRef } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { LOCAL_USER_ID } from "../store/localUser"
@@ -92,6 +92,30 @@ const storedOwner = LocalStore.use((store) => store.all(readOwner)).pipe(
   Effect.map(Option.flatMap(Schema.decodeUnknownOption(UserId))),
   Effect.orElseSucceed(() => Option.none<UserId>()),
 )
+
+/** Live sets in the offline store; 0 when the store cannot be read. */
+export const localSetCount = LocalStore.use((store) =>
+  store.all({
+    sql: `SELECT COUNT(*) AS "n" FROM "${ROW_TABLE.set}" WHERE "deletedAt" IS NULL`,
+    params: [],
+  }),
+).pipe(
+  Effect.map((rows) => {
+    const n = rows[0]?.n
+    return typeof n === "number" ? n : 0
+  }),
+  Effect.orElseSucceed(() => 0),
+)
+
+/**
+ * The account on this device for the sign-in gate (`authGate.gateFor`): the resolved user, else
+ * the owner the store was re-keyed to, so an expired session (`get-session` null) is not a gate.
+ * `forgetOwner` (sign-out) removes the stored owner.
+ */
+export const gateAccount = (signedIn: Option.Option<UserId>) =>
+  Option.isSome(signedIn)
+    ? Effect.succeed(signedIn)
+    : storedOwner.pipe(Effect.orElseSucceed(() => Option.none<UserId>()))
 
 /**
  * The signed-in user: resolved when the app runtime is built, and again on `refresh` (after a

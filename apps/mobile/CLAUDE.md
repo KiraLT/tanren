@@ -185,6 +185,18 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   no-op). No foreground notification handler. Live Activity adapter (P7) not built (gated).
 - `EXPO_PUBLIC_PLAYER_SPEED` (export-time inlined) divides every duration — browser proofs only.
 - The Today "Core 30 · Day N" banner belongs in `src/components/TodayReady.tsx` (design's file).
+- Phone layout (pair mobile-A, ratified r3, `docs/design/reviews/UI-PmobileA-r3.md`; measured at 390):
+  Today setup row = 56–60-px `ListRow` on a `surface` group (`surfaceRaised` equals the page
+  background in light); weight/reps blocks 92 high, gap 24, unit as `caption`; `SetDots
+  variant="pill"` (10×6, current set 16×6 accent). Player: body `space-between`, pause 64 filled
+  `surface`, prev/next 48, "Next · <exercise> <s>" caption (`nextAfterWork`, `playerMachine.ts`),
+  clock `Text variant="clock"` 64/68, `TimerRing` stroke 10 (local `RING_STROKE`), the eyebrow ring
+  dropped on phone (tablet/desktop keep it). Plan: rest rows 52, one-line session items and day
+  header, `StatRow` week stats (done = sessions with status done; a rep range counts its minimum),
+  section gap 24. Programs: `ProgressRing` with the day number (stroke 3), not-enrolled "What's
+  inside" list. Open (UI-P-left): `Stepper` unit slot (the "kg" caption still sits under the
+  numeral), Plan session row 172 vs 156 (card padding 11 vs 8), Programs hero 56 vs 104, `Page`
+  `sectionGap` default 16 (24 wanted).
 
 ## Commands
 

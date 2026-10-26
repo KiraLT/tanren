@@ -1,7 +1,9 @@
 import { useFonts } from "expo-font"
-import { SplashScreen, Stack } from "expo-router"
+import { Redirect, SplashScreen, Stack, usePathname } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
+import { View, type ViewStyle } from "react-native"
+import { useAuthGate } from "../src/hooks/useAuthGate"
 import { useSync } from "../src/hooks/useSync"
 import { ThemeProvider, useTheme } from "../src/ui"
 import { fonts } from "../src/ui/tokens"
@@ -30,8 +32,11 @@ function ThemedStatusBar() {
 export default function RootLayout() {
   useSync()
   const [fontsLoaded, fontError] = useFonts(FONT_MAP)
+  const pathname = usePathname()
+  // Same helper on web and native (ADR-0019): no account and no local sets shows only sign-in.
+  const gate = useAuthGate(pathname)
   // A failed load still renders: `type` keeps the 800 weight, so the system face stands in heavy.
-  const ready = fontsLoaded || fontError !== null
+  const ready = (fontsLoaded || fontError !== null) && gate !== "loading"
   useEffect(() => {
     if (ready) {
       SplashScreen.hide()
@@ -43,7 +48,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <ThemedStatusBar />
-      <Stack screenOptions={{ headerShown: false }} />
+      {/* The navigator must be mounted for a redirect; it stays invisible until the gate lifts. */}
+      <View style={gate === "allow" ? visible : hidden}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </View>
+      {gate === "sign-in" ? <Redirect href="/sign-in" /> : null}
     </ThemeProvider>
   )
 }
+
+const visible: ViewStyle = { flex: 1 }
+const hidden: ViewStyle = { flex: 1, opacity: 0 }
