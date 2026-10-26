@@ -311,3 +311,5 @@ Source: docs/plan.md step 2 · Status: building · Started: 2026-10-20 22:06 · 
 - 23:15 · PROG-3 review fixes committed c52a09f; PROG-1/2/3 all reviewed → Amendment 11 code complete (dark captures with desktop r4). GAL-1 round 3 (14 s): integrations S1–S4 + prog3 R1–R2 sections; gallery v9 publish
 - 23:16 · index.html pre-mount bg fix committed 122d4a2 (PROG-3 engineer, 1 min; mobile gate 917 tests)
 - 23:18 · desktop r4 R4a done (gate 922 tests, 4 min); rulings: PlanDayRow granted, TodayReady deferred, FEED-8 queued (feed stat tiles → StatRow)
+- 23:20 · TODAY-FIN accepted (engineer/opus, 7.4 min, root gate 1935): Finish workout button + finishSession; WIP bbec89e; REV-TF dispatched; TodayReady.tsx released to desktop r4; follow-ups: auto-finish stale sessions (N h), button placement at 390×844 (design pair)
+- 23:21 · LAND-R PASS (designer/fable, ~8 min): hero 4/3, features 3/4, CTA 4, footer 4; probes green; nicer items 1–2 (hero centring at 1280, card images 120 at 390) + doc lines → LAND-3 (LAND engineer resumed, 8 min); items 3 (light-scheme amber vs rust) and 4 (name repeated in eyebrow) left as design-doc notes
