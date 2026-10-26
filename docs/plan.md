@@ -126,3 +126,18 @@ Recorded 2026-10-19, from the owner's kickoff message:
    system ("Forge": A light / C dark, D's round controls and cards, icons and
    rules, background-free illustrations also on the exercise page;
    `docs/design/ui-direction-final.md`).
+7. **Design polish, pairs** (2026-10-26 21:15, owner, after the Forge screens
+   and the first desktop-column work, verbatim): "Yeah. Overall I like design
+   but it looks like not finished fully. There a too many white spaces, it
+   does not looks like it fills the page. Mobile is kinda ok, desktop is
+   bigger problem. But even for mobile I think we should still work on
+   smaller UI improvements to make overall the looks more profesional. Spawn
+   multiple agents for both desktop and mobile to review and improve design.
+   They can work in peers: engineer make change, outputs ss - designed
+   reviews it and gives feedback. Before that designed should research how
+   to make modern and profesional mobile app UI." Lead reading: a fable
+   designer researches first (`docs/design/ui-polish.md`: principles, per-
+   screen critique, pair plan); then engineer + designer pairs run as
+   `team-lead` loops (change → screenshots → designer feedback, ≤ 3 rounds)
+   with disjoint file sets for mobile and desktop; every round's screenshots
+   go to the owner's review gallery.
