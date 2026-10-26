@@ -36,6 +36,9 @@ export const sizes = {
   illustrationMd: 104,
   illustrationLg: 176,
   contentMaxWidth: 600,
+  /** Desktop page column: 1280 less 72 px margins; holds main + 24 gap + side (`columnsFor`). */
+  pageMaxWidth: 1136,
+  /** No longer read by `Page` (UI-D1); kept exported, the barrel is additive-only. */
   asideMaxWidth: 480,
   tabBar: 56,
   appBar: 56,

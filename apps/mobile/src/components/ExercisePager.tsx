@@ -5,11 +5,10 @@ import {
   type NativeSyntheticEvent,
   ScrollView,
   type ScrollViewInstance,
-  useWindowDimensions,
   View,
 } from "react-native"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
-import { gutter, IconButton, sizes, space, Text, useBreakpoint } from "../ui"
+import { gutter, IconButton, space, Text, useColumns } from "../ui"
 import { ExercisePage } from "./ExercisePage"
 
 interface ExercisePagerProps {
@@ -47,9 +46,7 @@ export function ExercisePager({
   showSets = true,
 }: ExercisePagerProps) {
   const scrollRef = useRef<ScrollViewInstance>(null)
-  const { width: windowWidth } = useWindowDimensions()
-  const breakpoint = useBreakpoint()
-  const width = Math.min(windowWidth, sizes.contentMaxWidth)
+  const { breakpoint, main: width } = useColumns()
   const count = exercises.length
   const index = clampPage(rawIndex, count)
 
