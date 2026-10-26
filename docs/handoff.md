@@ -377,3 +377,40 @@ Log in `docs/tasks/step-2.md`.
   to the gallery each round).
 - Live at 21:11: UI-DX (qa), UI-P0 (architect). Next: DX accept → DX2 → gallery; P0 accept → pairs;
   `/retro` for the day (incidents: scratchpad purge, Expo Go SDK lag, wrangler config auto-write, zsh `$A`).
+
+## Compact-safe at 22:30 2026-10-26 (HEAD after this commit) — 7 streams live, production partly stale
+- **Production:** API/MCP Worker live (v 53708cc3 from `d3e0975`) and web live (`68f01204`) — BOTH STALE vs HEAD.
+  Pending redeploy carries: designed magic-link email (`EMAIL-1`), sign-in gate + styled sign-in (ADR-0019),
+  Feed tab + activity detail + Progress route (FEED-1…6), polish rounds, desktop foundation. Blockers: (1) HEAD
+  does not build the web app from a clean checkout — committed `app/settings.tsx` imports the strava team's
+  uncommitted `IntegrationsSection` (SV-6) → commit SV-6 as a unit when TL-strava reports; (2) Worker deploy
+  rejected: `INTEGRATION_TOKEN_KEY` (now uploaded as a secret) and `STRAVA_MODE: "provider"` needs the Strava
+  client secret the owner does not have → TL-strava asked to set `env.production` `STRAVA_MODE: "console"`
+  until owner steps O1/O2. Deploy recipe: `git worktree add --detach $S/deploy-wt HEAD` → `pnpm install
+  --frozen-lockfile` → `EXPO_PUBLIC_API_URL=https://api.tanren.me CI=1 pnpm -F @tanren/mobile export:web` →
+  `apps/worker: wrangler deploy --env production` and `wrangler deploy -c wrangler.web.jsonc --env production`
+  (the worktree at `$S/deploy-wt` exists; recreate if purged). Owner has signed in on tanren.me (magic link
+  arrived, old plain template).
+- **Live agents** (ids in the scratchpad `live-agents.txt`; they report by SendMessage/notification):
+  pair desktop (frame-consistency round; ruling: one page frame on every route, 6/6 below 1024, mobile-A files
+  free), pair mobile-B (round 2), team feed (FEED-X qa; then muscleGroups fix), team strava (SV-4/5/6/7 → review →
+  SV-Q1), PROG-0 (ADR-0020 rep-based program items; engineering after the desktop pair releases PlayerView),
+  BRAND-0 (brandbook artifact https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa, empty until it publishes),
+  LOGO-2 (final mark J3 = 力 with amber hook; icon set; app.json; sign-in mark).
+- **Owner decisions today:** Amendments 7–12 in plan.md (polish pairs, feed, Strava + Integrations page, logo,
+  Core 30 rep targets, brandbook); logo pick J3; Expo back on 58; "pin 57" discarded; deploy delegated to the
+  Lead; EM cadence hook registered by the owner (fires from the next session — do not restart Claude Code
+  while agents run; tell the owner when quiet).
+- **Owner-gated:** Strava subscription (continuous; app goes Inactive on lapse) + API app (callback domain
+  api.tanren.me) + `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET`; Claude app connector; `eas init` for
+  `NATIVE_RETURN_PREFIXES`; EAS Update; rotate the Resend key; Apple Health with the native build.
+- **Gallery:** https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ (v6: original 27, desktop two-column X1–X11,
+  mobile-A r2 pass, desktop r1). Add on PASS rounds: mobile-A r3 (`UI-PmobileA-r3-*`), mobile-B when it passes,
+  FEED-X `UI-FEED-*`, desktop final, sign-in `UI-SIGNIN-*`.
+- **Process:** EM batches 1–3 done today (role files updated; forward deltas to live agents on every batch);
+  next batch due (hook rule ≥ 4 commits). Incidents PENDING: WIP commit of a shared file (settings.tsx) →
+  lead-playbook rule "never commit a file two live streams edit unless both pieces land; build from a clean
+  worktree before deploys". Retro for the day after the streams land.
+- **Next in order:** TL-strava reply → commit SV-6 + console flip → Worker + web deploy from the worktree →
+  tell the owner → mobile-B/desktop/FEED-X/LOGO-2/BRAND-0 acceptances (commit per report, gallery on PASS)
+  → PROG tasks → EM batch 4 → `/retro` → handoff.
