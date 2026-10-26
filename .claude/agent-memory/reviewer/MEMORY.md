@@ -1,1 +1,1 @@
-- [UI probe overflow gotcha](ui-probe-overflow-gotcha.md) — RNW ScrollView clips overflowX; gate wide/aside on Ready states
+- [UI probe overflow gotcha](ui-probe-overflow-gotcha.md) — RNW ScrollView clips overflowX and hides docH/--full captures (use a tall viewport); filter the hidden Stack from histograms
