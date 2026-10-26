@@ -158,3 +158,10 @@ Recorded 2026-10-19, from the owner's kickoff message:
    each completed session pushed as a Weight Training activity by the
    Worker with a retry queue, disconnect + status visible (ADR-0018,
    `docs/design/integrations.md`, `docs/tasks/v4-strava.md`).
+10. **Logo and icon** (2026-10-26 22:05, owner, verbatim): "Also generate
+   logo and icon with chatgpt api". Lead reading: candidates from the
+   OpenAI image API in three directions (abstracted 鍛 stroke mark, anvil
+   and spark, forged "T" bar with amber heat), a contact sheet for the
+   owner's pick, then the final set — iOS icon 1024, adaptive icon,
+   favicon, splash icon, transparent mark for the sign-in wordmark — wired
+   into `app.json`.
