@@ -24,7 +24,14 @@ const flag = (name: string) => argv.includes(name)
 const argValue = (name: string) => Option.fromNullishOr(argv[argv.indexOf(name) + 1])
 const outDir = resolve(
   Option.getOrElse(flag("--out") ? argValue("--out") : Option.none(), () =>
-    join(here, "..", "assets", "brand", "candidates"),
+    join(
+      here,
+      "..",
+      "assets",
+      "brand",
+      "candidates",
+      flag("--wordmark") || flag("--wordmark-sheet") ? "wordmark" : "",
+    ),
   ),
 )
 const sheetDir = join(here, "..", "..", "..", "docs", "design", "screens")
@@ -53,6 +60,8 @@ type Candidate = {
   readonly prompt: string
   /** `--final` entries only: the image background the request asks for. */
   readonly background?: "opaque" | "transparent"
+  /** `--wordmark` entries only: the request size (landscape). */
+  readonly size?: string
 }
 const CANDIDATES: ReadonlyArray<Candidate> = [
   {
@@ -119,6 +128,46 @@ const FINALS: ReadonlyArray<Candidate> = [
   },
 ]
 
+/**
+ * LOGO-3 (`--wordmark`, plan Amendment 14): six lettered-wordmark candidates W1 to W6, 1536x1024 transparent
+ * png at quality medium (about $0.04 each, about $0.25 per run; one extra call per id that returns no alpha),
+ * written to `assets/brand/candidates/wordmark/` (git-ignored). Owner: "Currently we have more like icon than
+ * the logo ... Maybe we need logo variation where Tanren is written in icon like style?"
+ * `--wordmark-sheet` (no key) builds `docs/design/screens/LOGO-3-wordmark-sheet.png`, the sign-in mock and
+ * the gallery rows fragment `LOGO-3-rows.html`.
+ */
+const WORD_CORE =
+  "vector-like flat ink #16181D on a transparent background, perfectly flat solid fills, no texture, no background, no glow, no shadow, no extra marks, dry-brush restraint, one single ink weight, bold hand-brushed lettering with tapered stroke ends in the same flat two-stroke brush language as a brush kanji, legible at 80 px wide, generous margin, centred"
+const WORD_MARK =
+  "the Japanese kanji 力 drawn as exactly two bold flat brush strokes with tapered ends, heavier stroke weight than typical, the first stroke ink #16181D and the second hooked sweeping stroke amber #F59E0B, the glyph about as tall as the capital letters"
+const WORD_AMBER = "amber #F59E0B"
+const WORDMARKS: ReadonlyArray<Candidate> = [
+  {
+    id: "W1",
+    prompt: `${WORD_CORE}. The word TANREN in capital letters, brush-lettered, one line, wide letter spacing. Exactly one accent: the crossbar of the T has a short hooked ${WORD_AMBER} stroke. Everything else ink.`,
+  },
+  {
+    id: "W2",
+    prompt: `${WORD_CORE}. A horizontal logo lockup: ${WORD_MARK}, at the left; the word TANREN in capital brush letters to its right, all ink, baseline aligned with the bottom of the kanji. The amber hook appears only on the kanji mark, never on the letters.`,
+  },
+  {
+    id: "W3",
+    prompt: `${WORD_CORE}. The word TANREN in condensed, heavier capital lettering with the proportions of Barlow Condensed Bold but hand-brushed, no serif, tight spacing. Exactly one accent: the final N has its last diagonal stroke in ${WORD_AMBER} with a small hook. Everything else ink.`,
+  },
+  {
+    id: "W4",
+    prompt: `${WORD_CORE}. A horizontal logo lockup: ${WORD_MARK}, at the left; the word TANREN in capital brush letters to its right, baseline aligned. Under the Latin letters a small line of Japanese 鍛錬 brushed in the same ink, about 40 percent of the height of the Latin letters. The amber hook appears only on the kanji mark.`,
+  },
+  {
+    id: "W5",
+    prompt: `${WORD_CORE}. A stacked logo lockup, centred: ${WORD_MARK}, above; the word TANREN in capital brush letters below it, all ink, the word about as wide as the kanji is tall. The amber hook appears only on the kanji mark.`,
+  },
+  {
+    id: "W6",
+    prompt: `${WORD_CORE}. A ligature wordmark: the word TANREN where the T is the first stroke of the kanji 力 (the long diagonal stroke with its horizontal bar) in ink and the second hooked sweeping stroke of 力 in ${WORD_AMBER} sits as the accent beside it, and the remaining letters A N R E N follow in the same brush, one line, all ink.`,
+  },
+].map((entry) => ({ ...entry, background: "transparent", size: "1536x1024" }))
+
 /** LOGO-1b: gpt-image-1 is refused on /v1/images/generations for this account, so no first attempt. */
 const MODEL = "gpt-image-1.5"
 
@@ -155,9 +204,10 @@ const runGenerate = async () => {
         () => [],
       )
     : []
-  const selected = (flag("--final") ? FINALS : CANDIDATES).filter(
-    (c) => only.length === 0 || only.includes(c.id),
-  )
+  const table = flag("--wordmark") ? WORDMARKS : flag("--final") ? FINALS : CANDIDATES
+  const selected = table.filter((c) => only.length === 0 || only.includes(c.id))
+  /** Ids already re-requested once for coming back without alpha (`--wordmark`). */
+  const noAlphaRetried = new Set<string>()
   const quality = flag("--final") ? FINAL_QUALITY : P.IMAGE_QUALITY
   /** API calls made, counting retries and the model fallback (reported by the run). */
   const calls = { count: 0 }
@@ -172,7 +222,7 @@ const runGenerate = async () => {
         model,
         prompt: entry.prompt,
         n: 1,
-        size: P.IMAGE_SIZE,
+        size: entry.size ?? P.IMAGE_SIZE,
         quality,
         output_format: "png",
         // gpt-image-1.5 left the background on "auto" and returned alpha for 2 of 9 icons (A1, B2):
@@ -234,6 +284,23 @@ const runGenerate = async () => {
       })
     }
     const bytes = Buffer.from(image.value.b64_json, "base64")
+    if (entry.background === "transparent") {
+      const alpha = yield* Effect.promise(() =>
+        sharp(bytes)
+          .metadata()
+          .then((m) => m.hasAlpha),
+      )
+      if (alpha !== true) {
+        // One re-request per id (the retry schedule below), then a hard failure.
+        const again = !noAlphaRetried.has(entry.id)
+        noAlphaRetried.add(entry.id)
+        return yield* new LogoFailed({
+          name: entry.id,
+          reason: "no alpha channel in a transparent request",
+          retryable: again,
+        })
+      }
+    }
     yield* Effect.try({
       try: () => writeFileSync(file, bytes),
       catch: (cause) =>
@@ -251,7 +318,7 @@ const runGenerate = async () => {
 
   const program = Effect.gen(function* () {
     yield* Console.log(
-      `logo:generate ${MODEL} ${P.IMAGE_SIZE} ${quality} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
+      `logo:generate ${MODEL} ${flag("--wordmark") ? "1536x1024" : P.IMAGE_SIZE} ${quality} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
     )
     const attempt = (entry: Candidate) =>
       generate(entry).pipe(
@@ -265,7 +332,7 @@ const runGenerate = async () => {
         }),
         Effect.result,
       )
-    const results = yield* Effect.forEach(selected, attempt, { concurrency: 3 })
+    const results = yield* Effect.forEach(selected, attempt, { concurrency: 6 })
     const failures = results.flatMap((r) => (Result.isFailure(r) ? [r.failure] : []))
     yield* Effect.forEach(failures, (f) => Console.error(`  x ${f.name}: ${f.reason}`))
     yield* Console.log(`logo:generate API calls: ${calls.count}`)
@@ -479,7 +546,161 @@ const runExport = async (rawDir: string) => {
   )
 }
 
-if (flag("--export")) {
+/**
+ * LOGO-3 sheets. The candidates are dark ink on transparency, so the dark ground gets the ink recoloured to
+ * off-white (the amber accent keeps its colour; alpha is untouched, so any halo the model drew would show).
+ */
+const ONE_GROUND = {
+  paper: { bg: PAPER_HEX, ink: hexRgb("#16181D") },
+  dark: { bg: GRAPHITE_HEX, ink: hexRgb("#F6F4EF") },
+} as const
+
+const recolourInk = async (file: string, ink: Rgb): Promise<Buffer> => {
+  const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const pixels = Array.from({ length: info.width * info.height }, (_, n) => {
+    const i = n * 4
+    const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0]
+    const accent = r - b > ACCENT_RB
+    return accent ? [r, g, b, data[i + 3] ?? 0] : [ink[0], ink[1], ink[2], data[i + 3] ?? 0]
+  })
+  return sharp(Uint8Array.from(pixels.flat()), {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer()
+}
+
+/** The candidate trimmed to its ink bounds, recoloured for a ground. */
+const wordmarkOn = async (id: string, ground: keyof typeof ONE_GROUND): Promise<Buffer> =>
+  sharp(await recolourInk(join(outDir, `${id}.png`), ONE_GROUND[ground].ink))
+    .trim({ threshold: 8 })
+    .png()
+    .toBuffer()
+
+const WORDMARK_IDS = ["W1", "W2", "W3", "W4", "W5", "W6"] as const
+const ROWS_FILE = "LOGO-3-rows.html"
+
+const rowsHtml = () => {
+  const figure = (badges: ReadonlyArray<string>, name: string, small: string, shot: string) =>
+    `    <figure><figcaption>${badges.map((b) => `<span class="badge">${b}</span>`).join("")}<span class="name">${name}<small>${small}</small></span></figcaption><a class="shot" href="shots/${shot}" target="_blank"><img src="shots/${shot}" alt="${name}" loading="lazy"></a></figure>`
+  return `<section id="wordmark">
+  <h2>Lettered wordmark candidates (LOGO-3)</h2>
+  <p class="sub">W1 TANREN alone, amber hook on the T. W2 lockup, mark left. W3 condensed, hook on the final N. W4 lockup with 鍛錬. W5 stacked. W6 ligature (the T is the first stroke of 力). Each on paper (top) and dark (below); then W2 and W5 on the sign-in grounds.</p>
+  <div class="grid wide">
+${figure(WORDMARK_IDS, "Wordmarks", "paper and dark rows, 1536x1024 transparent, medium", "LOGO-3-wordmark-sheet.png")}
+${figure(["mock"], "Sign-in mock", "W2 and W5, light and dark, 2x", "LOGO-3-wordmark-signin-mock.png")}
+  </div>
+</section>
+`
+}
+
+const runWordmarkSheet = async () => {
+  mkdirSync(sheetDir, { recursive: true })
+  const tileW = 480
+  const tileH = 320
+  const gap = 24
+  const caption = 44
+  const cols = 3
+  const cellH = tileH * 2 + caption
+  const place = async (id: string, ground: keyof typeof ONE_GROUND, left: number, top: number) => {
+    const glyph = await sharp(await wordmarkOn(id, ground))
+      .resize(tileW - 80, tileH - 80, { fit: "inside" })
+      .png()
+      .toBuffer()
+    const base = await sharp({
+      create: { width: tileW, height: tileH, channels: 3, background: ONE_GROUND[ground].bg },
+    })
+      .composite([{ input: glyph, gravity: "centre" }])
+      .png()
+      .toBuffer()
+    return { input: base, left, top }
+  }
+  const tiles = await Promise.all(
+    WORDMARK_IDS.flatMap((id, i) => {
+      const left = gap + (i % cols) * (tileW + gap)
+      const top = gap + Math.floor(i / cols) * (cellH + gap)
+      return [
+        place(id, "paper", left, top),
+        place(id, "dark", left, top + tileH),
+        Promise.resolve({
+          input: label(id, 200, 36, GRAPHITE_HEX, 28),
+          left,
+          top: top + tileH * 2 + 8,
+        }),
+      ]
+    }),
+  )
+  await sharp({
+    create: {
+      width: gap + cols * (tileW + gap),
+      height: gap + 2 * (cellH + gap),
+      channels: 3,
+      background: "#d9d6cf",
+    },
+  })
+    .composite(tiles)
+    .png()
+    .toFile(join(sheetDir, "LOGO-3-wordmark-sheet.png"))
+
+  // Sign-in mock at 2x: a 390 px phone column per scheme; W2 trimmed to a 48 px (96 px at 2x) lockup height,
+  // W5 stacked at 88 px (176 px at 2x) so its 力 is about 48 px.
+  const colW = 780
+  const pad = 32
+  const rowH = 680
+  const grounds = [
+    { ground: "paper", page: "#FFFFFF", text: "#16181D", field: "#F5F5F5" },
+    { ground: "dark", page: "#0F1113", text: "#F6F4EF", field: "#16181D" },
+  ] as const
+  const lockups = [
+    { id: "W2", height: 96 },
+    { id: "W5", height: 176 },
+  ] as const
+  const panels = await Promise.all(
+    lockups.flatMap(({ id, height }, row) =>
+      grounds.map(async (g, col) => {
+        const lockup = await sharp(await wordmarkOn(id, g.ground))
+          .resize({ height })
+          .png()
+          .toBuffer()
+        const ui = Buffer.from(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${colW}" height="${rowH}"><text x="${pad}" y="${pad + 96 + 200}" font-family="Helvetica, Arial, sans-serif" font-weight="800" font-size="72" fill="${g.text}">Sign in</text><rect x="${pad}" y="${pad + 96 + 260}" width="${colW - pad * 2}" height="88" rx="16" fill="${g.field}"/><rect x="${pad}" y="${pad + 96 + 372}" width="${colW - pad * 2}" height="100" rx="50" fill="#C2410C"/></svg>`,
+        )
+        return [
+          {
+            input: await sharp({
+              create: { width: colW, height: rowH, channels: 3, background: g.page },
+            })
+              .png()
+              .toBuffer(),
+            left: col * (colW + gap),
+            top: row * (rowH + gap),
+          },
+          { input: ui, left: col * (colW + gap), top: row * (rowH + gap) },
+          { input: lockup, left: col * (colW + gap) + pad, top: row * (rowH + gap) + pad },
+        ]
+      }),
+    ),
+  )
+  await sharp({
+    create: {
+      width: 2 * colW + gap,
+      height: 2 * rowH + gap,
+      channels: 3,
+      background: "#d9d6cf",
+    },
+  })
+    .composite(panels.flat())
+    .png()
+    .toFile(join(sheetDir, "LOGO-3-wordmark-signin-mock.png"))
+  writeFileSync(join(sheetDir, ROWS_FILE), rowsHtml())
+  console.log(
+    `logo:wordmark-sheet wrote the sheet, the sign-in mock and ${ROWS_FILE} in ${sheetDir}`,
+  )
+}
+
+if (flag("--wordmark-sheet")) {
+  await runWordmarkSheet()
+} else if (flag("--export")) {
   await runExport(resolve(Option.getOrElse(argValue("--export"), () => outDir)))
 } else if (flag("--sheet")) {
   await runSheet()
