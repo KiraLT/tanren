@@ -21,3 +21,4 @@ coverage
 
 # muscle map reviewer preview (rebuilt by scripts/muscleMapSheet.ts)
 apps/mobile/src/illustrations/muscleMap/_contact-sheet.html
+docs/design/screens/

@@ -439,3 +439,12 @@ You are responsible for the process, not just the output.
 Lead with what is verified. Then what is not. Then "Decisions for the owner"
 (proposed ADRs). Keep numbers in tables, commands in code blocks. State
 failures plainly with the output.
+
+**Owner deliverables are durable.** Anything the owner may ask for again
+(review screenshots, contact sheets, mockups) is published as an Artifact
+(one gallery page + the files) the moment it exists, and the capture also
+lands in a git-ignored repo folder (`docs/design/screens/`). The session
+scratchpad is for in-flight files only: macOS purges `/private/tmp` files
+older than three days, which cost the 2026-10-21 review set during a
+five-day gap (incidents.md 2026-10-26). `SendUserFile` links are not a
+store either; the Artifact URL is what you quote.

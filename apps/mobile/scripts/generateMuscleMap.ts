@@ -4,15 +4,18 @@
  * back figure in one square, catalog primary/secondary muscles) from OpenAI `gpt-image-1`
  * (`POST /v1/images/generations`, plain fetch, transparent webp), written to `<dir>/<catalogId>.webp`.
  * No `--catalog`: the 5 `SAMPLE_IDS`. Existing files are skipped, so a re-run retries only failures.
+ * `--reference <catalogId|auto>` (IMG-6): `POST /v1/images/edits` with that good map
+ * (`assets/musclemaps/<id>.webp`) as the input image and a recolour-only prompt; `auto` picks the
+ * good map whose muscles overlap most. Same size, quality and transparency as the text mode.
  * Cost: about $0.04 per medium 1024² image (5 samples ≈ $0.21; `--all`, 291 ids ≈ $12).
  * Pure logic: src/illustrations/muscleMapPrompt.ts.
  *
  * The key comes from `node --env-file-if-exists=.env.images`; this script never prints it, and API
  * error text goes through `redactSecrets`.
  */
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { registerHooks } from "node:module"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Console, Data, Effect, Option, Result, Schedule, Schema } from "effect"
 
@@ -57,6 +60,58 @@ class MapFailed extends Data.TaggedError("MapFailed")<{
   readonly retryable: boolean
 }> {}
 
+/** Committed good maps: the reference-edit inputs (`--reference`). */
+const mapsDir = join(dirname(fileURLToPath(import.meta.url)), "..", M.MUSCLE_MAP_DIR)
+
+/** Edits model; `MUSCLE_EDIT_MODEL` overrides it (the account may not offer `gpt-image-1` there). */
+const EDIT_MODEL = process.env.MUSCLE_EDIT_MODEL ?? P.IMAGE_MODEL
+
+/** Reference catalog id for one map: the `--reference` id, or (auto) the best-overlapping good map. */
+const referenceFor = (entry: (typeof maps)[number]): Option.Option<string> =>
+  Option.flatMap(args.reference, (ref) =>
+    ref === "auto"
+      ? Option.map(
+          M.pickReference(entry, CATALOG, [
+            ...M.MISSING_MUSCLE_MAPS,
+            ...CATALOG.map((c) => c.catalogId).filter(
+              (id) => !existsSync(join(mapsDir, `${id}.webp`)),
+            ),
+          ]),
+          (picked) => picked.catalogId,
+        )
+      : existsSync(join(mapsDir, `${ref}.webp`))
+        ? Option.some(ref)
+        : Option.none(),
+  )
+
+/**
+ * `POST /v1/images/edits` (multipart/form-data; `image` + `prompt` required, `model`, `n`, `size`,
+ * `quality`, `background`, `output_format`, `output_compression` optional; checked against the OpenAI
+ * OpenAPI spec via context7, IMG-6). The reference webp is the input image.
+ */
+const editRequest = (entry: (typeof maps)[number], referenceId: string, signal: AbortSignal) => {
+  const form = new FormData()
+  form.append("model", EDIT_MODEL)
+  form.append("prompt", M.muscleMapEditPrompt(entry))
+  form.append("n", "1")
+  form.append("size", P.IMAGE_SIZE)
+  form.append("quality", P.IMAGE_QUALITY)
+  form.append("output_format", "webp")
+  form.append("output_compression", String(P.IMAGE_COMPRESSION))
+  form.append("background", "transparent")
+  form.append(
+    "image",
+    new Blob([readFileSync(join(mapsDir, `${referenceId}.webp`))], { type: "image/webp" }),
+    `${referenceId}.webp`,
+  )
+  return fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+    signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
+  })
+}
+
 /** Extra attempts per map after the first, with exponential back-off from 10 s. */
 const RETRIES = 3
 
@@ -65,26 +120,39 @@ const generate = Effect.fn("generate")(function* (entry: (typeof maps)[number]) 
   const file = join(outDir, `${spec.name}.webp`)
   if (existsSync(file)) return yield* Console.log(`  skip ${spec.name} (exists)`)
   const started = performance.now()
+  const reference = Option.isSome(args.reference) ? Option.some(referenceFor(entry)) : Option.none()
+  if (Option.isSome(reference) && Option.isNone(reference.value)) {
+    return yield* new MapFailed({
+      name: spec.name,
+      reason: "no reference map found (auto) or the reference id has no file",
+      retryable: false,
+    })
+  }
   const response = yield* Effect.tryPromise({
     try: (signal) =>
-      fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: P.IMAGE_MODEL,
-          prompt: M.muscleMapPrompt(entry),
-          n: 1,
-          size: P.IMAGE_SIZE,
-          quality: P.IMAGE_QUALITY,
-          output_format: "webp",
-          output_compression: P.IMAGE_COMPRESSION,
-          ...P.backgroundParams(true),
-        }),
-        signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
-      }),
+      Option.isSome(reference) && Option.isSome(reference.value)
+        ? editRequest(entry, reference.value.value, signal)
+        : fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: P.IMAGE_MODEL,
+              prompt: M.muscleMapPrompt(entry),
+              n: 1,
+              size: P.IMAGE_SIZE,
+              quality: P.IMAGE_QUALITY,
+              output_format: "webp",
+              output_compression: P.IMAGE_COMPRESSION,
+              ...P.backgroundParams(true),
+            }),
+            signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
+          }),
     catch: (cause) =>
       new MapFailed({ name: spec.name, reason: P.redactSecrets(String(cause)), retryable: true }),
   })
+  if (Option.isSome(reference) && Option.isSome(reference.value)) {
+    yield* Console.log(`  edit ${spec.name} from reference ${reference.value.value}`)
+  }
   const body = yield* Effect.tryPromise({
     try: () => response.json(),
     catch: () =>

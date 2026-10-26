@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { CATALOG } from "@tanren/shared"
-import { Array as Arr, Order, Result } from "effect"
+import { CATALOG, type MuscleGroup } from "@tanren/shared"
+import { Array as Arr, Option, Order, Result } from "effect"
 import { describe, expect, it } from "vitest"
 import {
   DRAWABLE_MUSCLES,
@@ -9,10 +9,12 @@ import {
   MUSCLE_ANATOMY,
   MUSCLE_MAP_DIR,
   MUSCLE_MAP_FILE,
+  muscleMapEditPrompt,
   muscleMapImagesSource,
   muscleMapPrompt,
   muscleTiers,
   parseMuscleArgs,
+  pickReference,
   SAMPLE_IDS,
   selectMaps,
 } from "./muscleMapPrompt"
@@ -136,7 +138,7 @@ describe("muscleTiers", () => {
 describe("parseMuscleArgs", () => {
   it("requires --out <dir> and defaults to the samples", () => {
     expect(parseMuscleArgs(["--", "--out", "/tmp/m"])).toEqual(
-      Result.succeed({ out: "/tmp/m", selection: { _tag: "Samples" } }),
+      Result.succeed({ out: "/tmp/m", selection: { _tag: "Samples" }, reference: Option.none() }),
     )
     expect(Result.isFailure(parseMuscleArgs([]))).toBe(true)
     expect(Result.isFailure(parseMuscleArgs(["--out"]))).toBe(true)
@@ -145,18 +147,92 @@ describe("parseMuscleArgs", () => {
 
   it("reads --catalog <id,…> in any order", () => {
     expect(parseMuscleArgs(["--catalog", "plank, face-pull", "--out", "o"])).toEqual(
-      Result.succeed({ out: "o", selection: { _tag: "Ids", ids: ["plank", "face-pull"] } }),
+      Result.succeed({
+        out: "o",
+        selection: { _tag: "Ids", ids: ["plank", "face-pull"] },
+        reference: Option.none(),
+      }),
     )
+  })
+
+  it("reads --reference <id|auto> and rejects it without a value", () => {
+    expect(parseMuscleArgs(["--catalog", "plank", "--out", "o", "--reference", "auto"])).toEqual(
+      Result.succeed({
+        out: "o",
+        selection: { _tag: "Ids", ids: ["plank"] },
+        reference: Option.some("auto"),
+      }),
+    )
+    expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--reference"]))).toBe(true)
+    expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--reference", "--all"]))).toBe(true)
   })
 
   it("reads --catalog --all and rejects half-forms", () => {
     expect(parseMuscleArgs(["--catalog", "--all", "--out", "o"])).toEqual(
-      Result.succeed({ out: "o", selection: { _tag: "All" } }),
+      Result.succeed({ out: "o", selection: { _tag: "All" }, reference: Option.none() }),
     )
     expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--all"]))).toBe(true)
     expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--catalog"]))).toBe(true)
     expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--catalog", ","]))).toBe(true)
     expect(Result.isFailure(parseMuscleArgs(["--out", "o", "--catalog", "a", "--all"]))).toBe(true)
+  })
+})
+
+describe("muscleMapEditPrompt", () => {
+  const plank = {
+    catalogId: "plank",
+    primaryMuscles: ["core"],
+    secondaryMuscles: ["shoulders"],
+  } as const
+  const prompt = muscleMapEditPrompt(plank)
+
+  it("keeps the reference style and recolours only the listed muscles", () => {
+    expect(prompt).toContain("same figure, same style, same palette")
+    expect(prompt).toContain("Highlight ONLY the muscles listed above")
+    expect(prompt).toContain("Solid ember #C2410C on abdominals and obliques")
+  })
+
+  it("orders a figure with no listed muscle visible to stay fully grey", () => {
+    const crunch = muscleMapEditPrompt({
+      catalogId: "crunch",
+      primaryMuscles: ["core"],
+      secondaryMuscles: [],
+    })
+    expect(crunch).toContain("The RIGHT figure (back view) has NO highlighted muscle")
+    expect(crunch).not.toContain("The LEFT figure (front view) has NO highlighted muscle")
+    expect(prompt).not.toContain("has NO highlighted muscle")
+  })
+
+  it("reuses the neutral rules and forbids text", () => {
+    expect(prompt).toContain("do not colour any part of the chest")
+    expect(prompt).toContain("No text, labels")
+  })
+})
+
+describe("pickReference", () => {
+  const entry = (catalogId: string, primaryMuscles: ReadonlyArray<MuscleGroup>) => ({
+    catalogId,
+    primaryMuscles,
+    secondaryMuscles: [] as ReadonlyArray<MuscleGroup>,
+  })
+  const catalog = [
+    entry("a-curl", ["biceps"]),
+    entry("b-crunch", ["core"]),
+    entry("c-crunch", ["core", "chest"]),
+    entry("target", ["core"]),
+  ]
+
+  it("takes the entry with the most overlapping muscles, first on ties", () => {
+    const picked = pickReference(catalog[3] ?? entry("x", []), catalog, [])
+    expect(Option.map(picked, (e) => e.catalogId)).toEqual(Option.some("b-crunch"))
+  })
+
+  it("skips excluded ids and the target, and is None without a shared muscle", () => {
+    const target = catalog[3] ?? entry("x", [])
+    expect(Option.map(pickReference(target, catalog, ["b-crunch"]), (e) => e.catalogId)).toEqual(
+      Option.some("c-crunch"),
+    )
+    expect(pickReference(target, catalog, ["b-crunch", "c-crunch"])).toEqual(Option.none())
   })
 })
 

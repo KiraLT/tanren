@@ -151,6 +151,64 @@ export const muscleMapPrompt = (input: MuscleMapInput): string => {
   ].join("\n")
 }
 
+/**
+ * Reference-edit prompt (IMG-6): the images **edits** endpoint gets a good map as the input image, so
+ * the figures, style and palette come from it and the prompt only says what to recolour.
+ */
+export const muscleMapEditPrompt = (input: MuscleMapInput): string => {
+  const tiers = muscleTiers(input)
+  return [
+    "Edit the input image: it is a flat vector muscle chart with a FRONT figure on the left and a BACK figure on the right. Keep the same figures, the same pose, the same layout, the same style and the same palette; same figure, same style, same palette.",
+    "Recolour the muscles: first reset every muscle and the whole body to the flat neutral grey of the body, removing every highlight that is in the input image.",
+    figure(tiers, "front", "LEFT figure (front view)"),
+    figure(tiers, "back", "RIGHT figure (back view)"),
+    ...(["front", "back"] as const).flatMap((view) =>
+      names(tiers.primary, view).length + names(tiers.secondary, view).length === 0
+        ? [
+            `The ${view === "front" ? "LEFT figure (front view)" : "RIGHT figure (back view)"} has NO highlighted muscle: make it completely flat neutral grey from head to feet, with no orange, red or peach anywhere on it, not on the shoulders, arms or back.`,
+          ]
+        : [],
+    ),
+    `Highlight ONLY the muscles listed above: primary muscles in solid ember ${PRIMARY_HEX}, secondary muscles in pale peach ${SECONDARY_HEX}; everything else stays neutral grey (${BODY_HEX}). Keep each colour strictly inside its own muscle's shape.`,
+    ...neutralRules(tiers),
+    "Background: fully transparent, no backdrop, no floor, no shadow, no frame.",
+    "No text, labels, letters, numbers, arrows, logos or watermarks anywhere.",
+  ].join("\n")
+}
+
+const MUSCLE_KEYS = (input: MuscleMapInput): ReadonlyArray<string> => {
+  const tiers = muscleTiers(input)
+  return [...tiers.primary, ...tiers.secondary]
+}
+
+/**
+ * Auto-pick the reference for `target`: a catalog entry with a good map (not `excluded`, not the
+ * target) whose primary + secondary muscles overlap the target's most (Jaccard); ties go to the first
+ * in catalog order. None when no candidate shares a muscle.
+ */
+export const pickReference = <A extends MuscleMapInput>(
+  target: MuscleMapInput,
+  catalog: ReadonlyArray<A>,
+  excluded: ReadonlyArray<string>,
+): Option.Option<A> => {
+  const mine = MUSCLE_KEYS(target)
+  const scored = catalog
+    .filter((entry) => entry.catalogId !== target.catalogId && !excluded.includes(entry.catalogId))
+    .map((entry) => {
+      const theirs = MUSCLE_KEYS(entry)
+      const shared = mine.filter((m) => theirs.includes(m)).length
+      const union = mine.length + theirs.filter((m) => !mine.includes(m)).length
+      return { entry, score: union === 0 ? 0 : shared / union, shared }
+    })
+    .filter((s) => s.shared > 0)
+  return Option.map(
+    Arr.reduce(scored, Option.none<(typeof scored)[number]>(), (best, s) =>
+      Option.isSome(best) && best.value.score >= s.score ? best : Option.some(s),
+    ),
+    (s) => s.entry,
+  )
+}
+
 /** IMG-5a samples: legs, pull, push, rear delts, core. Must be catalog ids. */
 export const SAMPLE_IDS: ReadonlyArray<string> = [
   "barbell-back-squat",
@@ -168,16 +226,19 @@ export type MuscleSelection =
 export interface MuscleArgs {
   readonly out: string
   readonly selection: MuscleSelection
+  /** `--reference <catalogId|auto>`: edit a good map instead of text-to-image (IMG-6); None = text mode. */
+  readonly reference: Option.Option<string>
 }
 
 export const MUSCLE_USAGE =
-  "usage: generateMuscleMap.ts --out <dir> [--catalog <id,…> | --catalog --all]  (no --catalog: the 5 samples)"
+  "usage: generateMuscleMap.ts --out <dir> [--catalog <id,…> | --catalog --all] [--reference <catalogId|auto>]  (no --catalog: the 5 samples; --reference edits that good map via /v1/images/edits, auto = the good map with the most overlapping muscles)"
 
 interface Flags {
   readonly out: Option.Option<string>
   readonly ids: Option.Option<ReadonlyArray<string>>
   readonly catalog: boolean
   readonly all: boolean
+  readonly reference: Option.Option<string>
 }
 
 const isValue = (value: string | undefined): value is string =>
@@ -206,6 +267,11 @@ const readFlags = (args: ReadonlyArray<string>, flags: Flags): Result.Result<Fla
       : readFlags(args.slice(1), { ...flags, catalog: true })
   }
   if (flag === "--all") return readFlags(args.slice(1), { ...flags, all: true })
+  if (flag === "--reference") {
+    return isValue(value)
+      ? readFlags(rest, { ...flags, reference: Option.some(value) })
+      : Result.fail("--reference needs a catalog id or auto")
+  }
   return Result.fail(`unknown argument ${flag}`)
 }
 
@@ -214,25 +280,32 @@ export const parseMuscleArgs = (argv: ReadonlyArray<string>): Result.Result<Musc
   Result.flatMap(
     readFlags(
       argv.filter((a) => a !== "--"),
-      { out: Option.none(), ids: Option.none(), catalog: false, all: false },
+      {
+        out: Option.none(),
+        ids: Option.none(),
+        catalog: false,
+        all: false,
+        reference: Option.none(),
+      },
     ),
     (flags): Result.Result<MuscleArgs, string> => {
       if (Option.isNone(flags.out)) return Result.fail("--out <dir> is required")
       const out = flags.out.value
+      const reference = flags.reference
       if (flags.all && Option.isSome(flags.ids)) return Result.fail("--all takes no id list")
       if (flags.all) {
         return flags.catalog
-          ? Result.succeed({ out, selection: { _tag: "All" } })
+          ? Result.succeed({ out, selection: { _tag: "All" }, reference })
           : Result.fail("--all needs --catalog")
       }
       if (Option.isSome(flags.ids)) {
         return flags.ids.value.length === 0
           ? Result.fail("--catalog needs at least one id")
-          : Result.succeed({ out, selection: { _tag: "Ids", ids: flags.ids.value } })
+          : Result.succeed({ out, selection: { _tag: "Ids", ids: flags.ids.value }, reference })
       }
       return flags.catalog
         ? Result.fail("--catalog needs <id,…> or --all")
-        : Result.succeed({ out, selection: { _tag: "Samples" } })
+        : Result.succeed({ out, selection: { _tag: "Samples" }, reference })
     },
   )
 
@@ -251,21 +324,11 @@ export const selectMaps = <A extends MuscleMapInput>(
 }
 
 /**
- * Catalog ids with no generated map: after two regenerations (IMG-5d, IMG-5e) the model still
- * painted the chest or the legs against the catalog muscles, so `MuscleMapImage` shows the SVG
- * map for them. Do not regenerate into these without checking the result on a sheet.
+ * Catalog ids with no generated map (`MuscleMapImage` shows the SVG map for them). Empty since
+ * IMG-6: the 9 that text-to-image painted wrongly (IMG-5d, IMG-5e) came out right as a
+ * `--reference` edit of a good map (`muscle:generate --reference auto`). Check any new entry on a sheet.
  */
-export const MISSING_MUSCLE_MAPS: ReadonlyArray<string> = [
-  "barbell-wrist-curl",
-  "bird-dog",
-  "crunch",
-  "dumbbell-overhead-triceps-extension",
-  "hollow-hold",
-  "kettlebell-halo",
-  "plank",
-  "push-up",
-  "standing-cable-crunch",
-]
+export const MISSING_MUSCLE_MAPS: ReadonlyArray<string> = []
 
 /** Where the shrunk per-exercise maps live (committed assets). */
 export const MUSCLE_MAP_DIR = "assets/musclemaps"
