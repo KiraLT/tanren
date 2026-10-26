@@ -16,6 +16,7 @@ export default function LocationScreen() {
   return (
     <Page
       scroll
+      wide
       header={
         <AppBar
           title={lookup._tag === "Found" ? lookup.location.name : "Location"}

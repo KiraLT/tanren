@@ -5,7 +5,7 @@ import { AccountSection } from "../src/components/settings/AccountSection"
 import { AppearanceSection } from "../src/components/settings/AppearanceSection"
 import { DataSection } from "../src/components/settings/DataSection"
 import { EquipmentSection } from "../src/components/settings/EquipmentSection"
-import { AppBar, IconButton, Page, space } from "../src/ui"
+import { AppBar, Columns, IconButton, Page, space } from "../src/ui"
 
 /** Root-Stack route reached from the Progress header: Account, Appearance, Units, Data, About. */
 export default function SettingsScreen() {
@@ -15,6 +15,7 @@ export default function SettingsScreen() {
   return (
     <Page
       scroll
+      wide
       header={
         <AppBar
           title="Settings"
@@ -22,13 +23,22 @@ export default function SettingsScreen() {
         />
       }
     >
-      <View style={{ gap: space.xl }}>
-        <AccountSection />
-        <EquipmentSection />
-        <AppearanceSection />
-        <DataSection />
-        <AboutSection />
-      </View>
+      <Columns
+        split="6/6"
+        main={
+          <View style={{ gap: space.xl }}>
+            <AccountSection />
+            <EquipmentSection />
+          </View>
+        }
+        side={
+          <View style={{ gap: space.xl }}>
+            <AppearanceSection />
+            <DataSection />
+            <AboutSection />
+          </View>
+        }
+      />
     </Page>
   )
 }
