@@ -41,7 +41,7 @@ Case-collision check 2026-10-26 22:48: `ls apps/mobile/src/components | tr A-Z a
 Role engineer, model sonnet. Time box: one generation run + 10 min. Permissions: unattended; the key only via `node --env-file-if-exists=.env.images`; never read or print `.env*`.
 Files (exclusive): `apps/mobile/scripts/generateLanding.ts`, `apps/mobile/package.json` (add `"landing:generate": "node --env-file-if-exists=.env.images scripts/generateLanding.ts"`, `"landing:shrink": "node scripts/generateLanding.ts --shrink"`), `.gitignore` (+ `apps/mobile/assets/landing/raw/`), `apps/mobile/assets/landing/*.webp`.
 Spec: `docs/design/landing.md` §5 — STYLE prefix + the 5 motif prompts verbatim, `gpt-image-1.5`, 1024, `quality "high"`, `output_format "png"`, `background "transparent"`; copy the fetch/retry/redaction structure of `scripts/generateLogo.ts:165–200` (`grep -n "const post\|redactSecrets\|Schedule" apps/mobile/scripts/generateLogo.ts`). Skip ids whose raw PNG exists. `--shrink`: sharp `fit: "contain"` with transparent background, hero 1024, others 512, `.webp({ quality: 82, alphaQuality: 90 })`.
-Done when: 5 webps exist; `du -sh apps/mobile/assets/landing` ≤ 1.5 MB and each file within its §5 budget (output in the report); `node -e` prints width/height/hasAlpha per file via sharp metadata (all `hasAlpha: true`); `pnpm check` green; report names the cost (count × $0.20) and any prompt that needed a retry.
+Done when: 5 webps exist; `du -ch apps/mobile/assets/landing/*.webp` ≤ 1.5 MB and each file within its §5 budget (output in the report); `node -e` prints width/height/hasAlpha per file via sharp metadata (all `hasAlpha: true`); `pnpm check` green; report names the cost (count × $0.20) and any prompt that needed a retry.
 
 ### LAND-1 — Landing page and gate render
 Role engineer, model opus. Time box: 20 min. Permissions: unattended; agent-browser `--session LAND-1` only.
@@ -53,7 +53,7 @@ Done when: `pnpm check` green (copy test covers 4 features and non-empty strings
 Role engineer, model sonnet. Time box: 10 min. Depends on ILL-1 and LAND-1 accepted.
 Files (exclusive): `apps/mobile/src/components/landing/landingImages.ts`, `docs/design/screens/UI-LAND-*.png` (overwrite).
 Do: replace each `Option.none()` with `Option.some(require("../../../assets/landing/<id>.webp"))` (`ls apps/mobile/assets/landing` first; output in the report). Re-run the LAND-1 export + capture + probe table.
-Done when: `pnpm check` green; the four screenshots show illustrations (no placeholder tiles); probe table within design §7 PASS bands; `du -sh apps/mobile/assets/landing` repeated in the report.
+Done when: `pnpm check` green; the four screenshots show illustrations (no placeholder tiles); probe table within design §7 PASS bands; `du -ch apps/mobile/assets/landing/*.webp` repeated in the report.
 
 ### LAND-R — Designer review
 Role reviewer (design direction is fable-only, plan Amendment 6), model fable. Time box: 10 min. Read-only.

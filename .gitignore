@@ -25,3 +25,6 @@ docs/design/screens/
 
 # logo candidates (LOGO-1, scripts/generateLogo.ts)
 apps/mobile/assets/brand/candidates/
+
+# landing illustration raw PNGs (ILL-1, scripts/generateLanding.ts)
+apps/mobile/assets/landing/raw/

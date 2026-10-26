@@ -14,6 +14,8 @@
     "images:generate": "node --env-file-if-exists=.env.images scripts/generateIllustrations.ts",
     "images:shrink": "node scripts/shrinkImages.ts",
     "images:map": "node --import ./scripts/resolveTs.ts scripts/imageMap.ts",
+    "landing:generate": "node --env-file-if-exists=.env.images scripts/generateLanding.ts",
+    "landing:shrink": "node scripts/generateLanding.ts --shrink",
     "logo:generate": "node --env-file-if-exists=.env.images scripts/generateLogo.ts",
     "logo:sheet": "node scripts/generateLogo.ts --sheet",
     "muscle:generate": "node --env-file-if-exists=.env.images scripts/generateMuscleMap.ts",
