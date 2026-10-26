@@ -189,6 +189,7 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 - `PhaseAlerts` (port, ADR-0012): one pending local notification at the phase end; the layer loads
   `expo-notifications` via dynamic `import()` (node tests never load it; web or failed import →
   no-op). No foreground notification handler. Live Activity adapter (P7) not built (gated).
+- Reps items (ADR-0020): numeral + Done `xl`, no ring, `next` on Done; sets log `reps = count`.
 - `EXPO_PUBLIC_PLAYER_SPEED` (export-time inlined) divides every duration — browser proofs only.
 - The Today "Core 30 · Day N" banner belongs in `src/components/TodayReady.tsx` (design's file).
 - Phone layout (pair mobile-A, ratified r3, `docs/design/reviews/UI-PmobileA-r3.md`; measured at 390):

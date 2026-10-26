@@ -15,7 +15,7 @@ import {
   TimerRing,
   useBreakpoint,
 } from "../../ui"
-import { clock, exerciseName, itemAmount, nextCaption } from "../cues"
+import { clock, exerciseName, itemAmount, nextCaption, repsOf } from "../cues"
 import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
 import { ringSpec } from "../playerRing"
 
@@ -24,6 +24,9 @@ const WORK_ILLUSTRATION = 120
 
 /** Phone ring thickness (ui-polish Player 4: 12 → 10); `TimerRing`'s default stays for wider screens. */
 const RING_STROKE = 10
+
+/** `TimerRing`'s default diameter: the reps block is at least this tall (`ring.size` when set). */
+const DEFAULT_RING_SIZE = 220
 
 /** Length of the running phase (for the ring); 1 when there is no countdown. */
 const phaseTotalMs = (state: PlayerState): number => {
@@ -127,20 +130,49 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
     </View>
   )
 
+  const doneButton = (
+    <Button
+      label="Done"
+      accessibilityLabel={`Done with ${name}`}
+      icon="check"
+      variant="primary"
+      size="xl"
+      disabled={paused}
+      onPress={() => send("next")}
+      style={{ alignSelf: "stretch" }}
+    />
+  )
+
   const ringBlock = (
     <View style={{ alignItems: "center" }}>
       {Option.match(seconds, {
-        onNone: () => (
-          <Button
-            label="Done"
-            accessibilityLabel={`Done with ${name}`}
-            icon="check"
-            variant="primary"
-            size="lg"
-            onPress={() => send("next")}
-            style={{ alignSelf: "stretch" }}
-          />
-        ),
+        // A reps item (ADR-0020): numeral + caption + Done, as tall as the ring so the transport
+        // row does not move between a timed and a reps item (design v2-programs §9).
+        onNone: () =>
+          Option.match(Option.flatMap(item, repsOf), {
+            onNone: () => doneButton,
+            onSome: (count) => (
+              <View
+                style={{
+                  minHeight: ring.size ?? DEFAULT_RING_SIZE,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  alignSelf: "stretch",
+                  gap: space.lg,
+                }}
+              >
+                <View style={{ alignItems: "center", gap: space.xs }}>
+                  <Text variant={ring.clock} accessibilityLabel={`${count} reps`}>
+                    {count}
+                  </Text>
+                  <Text variant="caption" tone="muted">
+                    reps
+                  </Text>
+                </View>
+                {doneButton}
+              </View>
+            ),
+          }),
         onSome: (s) => (
           <TimerRing
             progress={fraction}
