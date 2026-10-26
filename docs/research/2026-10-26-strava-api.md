@@ -19,3 +19,10 @@
 
 ## Sources (all seen 2026-10-26)
 developers.strava.com/docs/authentication · /docs/reference · /docs/rate-limits · /docs/getting-started · /docs/uploads · /docs/webhooks · /guidelines · strava.com/legal/api · strava.com/legal/api_policy · support.strava.com/hc/en-us/articles/216917527 · trainerroad.com/forum/t/apple-health-sync-via-strava-blocked-options/70560
+
+## Subscription lapse (spike, 2026-10-26)
+**Q: create the app, then cancel?** Answer: it does NOT keep working (inferred from one third-party status page plus the official continuing-requirement wording); plan on a continuous subscription.
+- Continuous (verified, official): the community post "An Update To Our Developer Program" (communityhub.strava.com/insider-journal-9/an-update-to-our-developer-program-13428): "A Strava subscription will be required to access the API as a Standard Tier developer." and "Subscription required for existing Standard Tier developers." (effective 2026-06-30 for existing apps, so the requirement applies to already-created apps). API Policy 3.3: "a requirement that the developer or specified end users maintain an active Strava subscription"; 3.4: "You must currently meet, and continue to meet, all eligibility…".
+- Lapse behaviour (single secondary source, Terra status page, 2026-07-02): "Applications without one receive an 'Inactive' response from Strava and stop delivering new data." App is reactivated in API settings after resubscribing (credentials survival UNVERIFIED; Strava community question 13648 of 2026-07-07 has 0 answers).
+- Free trial (verified, official post): "Active developers* without a current subscription are entitled to 3-months free." Active = "have made an API request in 2026"; code arrives by email. Whether it covers a brand-new app creator: UNVERIFIED (not stated).
+- Athlete side (UNVERIFIED): no doc requires the connecting athlete to subscribe; policy 3.3 says "developer or specified end users". Here the developer is the athlete, so moot.
