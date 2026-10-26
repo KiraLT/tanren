@@ -2,7 +2,8 @@ import { useFonts } from "expo-font"
 import { Redirect, SplashScreen, Stack, usePathname } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useEffect } from "react"
-import { View, type ViewStyle } from "react-native"
+import { Platform, View, type ViewStyle } from "react-native"
+import { Landing } from "../src/components/landing/Landing"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import { useSync } from "../src/hooks/useSync"
 import { ThemeProvider, useTheme } from "../src/ui"
@@ -48,14 +49,22 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <ThemedStatusBar />
-      {/* The navigator must be mounted for a redirect; it stays invisible until the gate lifts. */}
+      {/* The navigator must stay mounted for the redirect and the landing's `router.replace`; while
+          gated it is `display: none`, so it neither shows nor takes height (ADR-0021). */}
       <View style={gate === "allow" ? visible : hidden}>
         <Stack screenOptions={{ headerShown: false }} />
       </View>
-      {gate === "sign-in" ? <Redirect href="/sign-in" /> : null}
+      {gate === "sign-in" ? (
+        // Web shows strangers the landing on every gated route; native keeps the sign-in screen.
+        Platform.OS === "web" ? (
+          <Landing />
+        ) : (
+          <Redirect href="/sign-in" />
+        )
+      ) : null}
     </ThemeProvider>
   )
 }
 
 const visible: ViewStyle = { flex: 1 }
-const hidden: ViewStyle = { flex: 1, opacity: 0 }
+const hidden: ViewStyle = { flex: 1, display: "none" }
