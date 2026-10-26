@@ -28,7 +28,7 @@ Numbers are data, not prose: `100 kg x 5`, `3:00`, `0/5`, `4,110 kg`. Dates in t
 
 ## Logo system
 
-**Mark: 力 in two brush strokes** (owner's pick 2026-10-26, candidate J3). The first stroke is off-white on graphite; the hooked second stroke is amber, the heat in the forge. 力 means strength; paired with the name 鍛錬, the mark says what the training produces and the name says how. Considered and set aside: J2 (both strokes neutral) and J1 (the M8 ring as brush strokes). The final files (iOS icon 1024, adaptive icon, favicon, splash, transparent mark on paper and graphite) are in production; the Logo asset group holds the interim render until they land.
+**Mark: 力 in two brush strokes** (owner's pick 2026-10-26, candidate J3). The first stroke is off-white on graphite; the hooked second stroke is amber, the heat in the forge. 力 means strength; paired with the name 鍛錬, the mark says what the training produces and the name says how. Considered and set aside: J2 (both strokes neutral) and J1 (the M8 ring as brush strokes). The final set lives in the Logo asset group: `icon.png` (iOS 1024, opaque graphite #16181D), `adaptive-icon.png`, `splash-icon.png`, `favicon.png` (48), and the two marks. **Two-file rule**: `mark.png` (transparent, off-white first stroke) on dark surfaces; the `mark-paper.png` tile at radius 12 on light surfaces, as the sign-in screen does at 48 px. A traced SVG of the mark is still to come.
 
 **Wordmark**: `TANREN` in Barlow Condensed ExtraBold, uppercase, letter-spacing 4 px at 22-34 px (the one permitted use of caps and tracking in the system, ratified 2026-10-26; the sign-in screen and the email header use it). Colour `text` on `bg`; `on-accent` only inside an accent block.
 

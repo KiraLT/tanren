@@ -1,7 +1,14 @@
 # Logo
 
-The mark is 力 (chikara, strength) in two brush strokes: the first off-white on graphite, the hooked second stroke amber (the heat). Owner's pick 2026-10-26 (candidate J3).
+The mark is 力 (chikara, strength) in two brush strokes: the first off-white on graphite, the hooked second stroke amber (the heat). Owner's pick 2026-10-26 (candidate J3); final set produced the same evening (`apps/mobile/assets/brand/`, wired in `app.json`).
 
-- `J3-interim-mark.png` — the picked candidate as rendered by the generator (1024 px, opaque graphite). **Interim**: the final set (iOS icon 1024 no alpha, adaptive icon, favicon, splash icon, transparent mark on paper and on graphite) is being produced into `apps/mobile/assets/brand/` and replaces this file when it lands.
+**The two-file rule**: on a dark surface use `mark.png` (transparent, off-white first stroke); on a light surface use the `mark-paper.png` tile, which carries its own paper square, at radius 12 (the sign-in screen shows it at 48 px). Never put `mark.png` on paper (the first stroke vanishes) and never recolour either file.
 
-Rules in the brand book's Logo system section: clear space = wordmark cap height, mark >= 24 px, wordmark `TANREN` in Barlow Condensed ExtraBold tracked 4 px, >= 80 px wide. Never recolour the strokes.
+- `icon.png` — iOS app icon, 1024 x 1024, opaque graphite `#16181D`, no alpha; the strokes sit inside the central 80 % for the rounded mask.
+- `adaptive-icon.png` — Android adaptive-icon foreground, 1024, same graphite ground.
+- `splash-icon.png` — 512, transparent, centred on the theme's `bg` by the splash screen.
+- `favicon.png` — 48, graphite tile.
+- `mark.png` — 512, transparent: dark surfaces, the lockup beside the wordmark in dark.
+- `mark-paper.png` — 512, opaque paper tile: light surfaces (sign-in, email, the lockup in light).
+
+Rules (brand book, Logo system): clear space = the wordmark's cap height (or a quarter of the mark's width); mark >= 24 px; wordmark `TANREN` in Barlow Condensed ExtraBold tracked 4 px, >= 80 px wide; lockup mark left of the wordmark, gap = half the mark's width.

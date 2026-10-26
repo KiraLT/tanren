@@ -19,13 +19,48 @@
    "name": "Logo",
    "tile": "l",
    "order": [
-    "J3-interim-mark.png"
+    "mark.png",
+    "mark-paper.png",
+    "icon.png",
+    "adaptive-icon.png",
+    "splash-icon.png",
+    "favicon.png"
    ],
    "files": {
-    "J3-interim-mark.png": {
-     "name": "J3-interim-mark.png",
-     "blob": "a3796e4ca37eeb9e247b443e0469c81e",
-     "size": 169557,
+    "mark.png": {
+     "name": "mark.png",
+     "blob": "633ede923ca06fbb1e236318cfe23b39",
+     "size": 14453,
+     "type": "image/png"
+    },
+    "mark-paper.png": {
+     "name": "mark-paper.png",
+     "blob": "3b8f79df87fdbf9b59ea6d56961d255f",
+     "size": 10037,
+     "type": "image/png"
+    },
+    "icon.png": {
+     "name": "icon.png",
+     "blob": "d9587f1d8727ecbfa6f78589e8ae2648",
+     "size": 21724,
+     "type": "image/png"
+    },
+    "adaptive-icon.png": {
+     "name": "adaptive-icon.png",
+     "blob": "d40deb514ce040a97772522a0fd21525",
+     "size": 20686,
+     "type": "image/png"
+    },
+    "splash-icon.png": {
+     "name": "splash-icon.png",
+     "blob": "9c9908c920d4ff45857675728f579098",
+     "size": 14453,
+     "type": "image/png"
+    },
+    "favicon.png": {
+     "name": "favicon.png",
+     "blob": "ecea9fec1c012170870929905a6cec41",
+     "size": 1724,
      "type": "image/png"
     }
    }
@@ -376,8 +411,8 @@
  },
  "lastChange": {
   "by": "Lukas",
-  "at": "2026-10-26T20:27:52Z",
+  "at": "2026-10-26T20:53:27Z",
   "via": "Claude Code",
-  "note": "BRAND-0: brandbook built from apps/mobile/src/ui tokens, controls, icons and the Forge design docs"
+  "note": "BRAND-1: final mark set (icon, adaptive, splash, favicon, mark, mark-paper) replaces the interim J3 render"
  }
 }
