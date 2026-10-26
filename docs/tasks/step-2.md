@@ -325,3 +325,5 @@ Source: docs/plan.md step 2 · Status: building · Started: 2026-10-20 22:06 · 
 - 23:31 · AUTO-FIN accepted (TODAY-FIN engineer resumed, 2 min, 929 tests): WIP 889cfea; REV-AF dispatched
 - 23:32 · BRAND-2a committed f12629b (hook on mark-ink → #C2410C ratified). Left: BRAND-2b OG image + in-app SVG use (after the wordmark pick)
 - 23:34 · REV-AF (reviewer/opus): REQUEST CHANGES 889cfea — load-time soft-delete can tombstone a server session between pull pages; fix: run after pullLoop under the sync lock + dirty-only delete; backfill guard 48 h in completedSessionIds (Lead decision); AUTO-FIN engineer resumed (12 min). 889cfea must NOT be deployed until the fix lands
+- 23:40 · AUTO-FIN fix r2 (5 min; mobile 934, worker 500): trigger moved to SyncEngine after pullLoop, dirty-only delete, 48 h backfill guard; WIP 7dbf3bd; REV-AF r2 (blocking only) dispatched
+- 23:41 · REV-AF r2 APPROVE 7dbf3bd; startup close removed next (after-pull only), then the reviewed commit
