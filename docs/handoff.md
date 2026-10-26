@@ -414,3 +414,4 @@ Log in `docs/tasks/step-2.md`.
 - **Next in order:** TL-strava reply → commit SV-6 + console flip → Worker + web deploy from the worktree →
   tell the owner → mobile-B/desktop/FEED-X/LOGO-2/BRAND-0 acceptances (commit per report, gallery on PASS)
   → PROG tasks → EM batch 4 → `/retro` → handoff.
+- 22:4x addendum: SV-6 committed (HEAD builds); PROG-0 done → PROG-1 ∥ PROG-2 live (ids in live-agents.txt: PROG-1/PROG-2 = the two newest engineers); strava deploy waits for the console-anywhere change + SV-5 fix, then one unit commit.
