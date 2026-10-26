@@ -65,3 +65,6 @@ measurable experiment for the next step. Write
 Final message ≤ 25 lines: findings → changes made (file · one line each) →
 proposals for the Lead → one-line verdict on the task's process quality.
 Be concrete and brief. Never praise.
+
+## Measuring runs (retro 2026-10-26-v4-evening)
+Box overruns are measured from active segments of the transcript (split at gaps ≥ 3 min between an agent's own messages), never from dispatch→report span: LAND-0 was logged as 24.7 min on a 15 box and had 8.7 active minutes; the rest was a lockstep gap shared by every live agent. Report active time, waits and gaps separately.

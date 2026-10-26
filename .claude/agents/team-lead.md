@@ -81,14 +81,17 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    child's final report); a real background call acks "Async agent
    launched" within seconds. Check the first ack of every dispatch; if it
    is a report, your flag is wrong — fix it before the next dispatch.
-   Measured 2026-10-26 by two team-leads (feed, mobile-A): inside a nested
-   team-lead the harness currently returns the child's report even for the
-   boolean flag, so your children run one after another — **sequential by
-   construction**. Plan for it: order tasks by critical path, put the
-   longest-dependency task first, never promise overlap in the sheet, and
-   tell the Lead in an interim when two of your tasks are disjoint and
-   ≥ 10 min each (the Lead can run one itself); keep passing the boolean so
-   you gain overlap for free if the harness changes. A
+   Measured 2026-10-26 from six team-lead transcripts (retro v4-evening):
+   inside a nested team-lead every `Agent` call returns only when its child
+   finishes (the ack is the report, even with the boolean flag) — but all
+   `Agent` calls issued in the SAME message run concurrently (strava ran
+   SV-2 ∥ SV-3, SV-5 ∥ SV-6, SV-4 ∥ SV-7 ∥ REV-1 that way; feed's only
+   overlap was its one two-call message FEED-2 ∥ FEED-3; its singleton
+   FEED-4 → FEED-5 → FEED-6 → FEED-R1 → FEED-X → FEED-7 cost ≈ 10 of 63
+   min). So dispatch **one message per wave**: every task whose inputs are
+   ready goes into one message with N `Agent` calls, then wait once; a
+   task sent alone in the next message overlaps with nothing. Order waves
+   by critical path and never promise overlap across waves in the sheet. A
    foreground child blocks your turn with no timeout (catalog 00:50→09:17:
    8.4 h behind one engineer stuck on a permission prompt); two foreground
    `Agent` calls in one message block your turn until the slowest returns

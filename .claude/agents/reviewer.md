@@ -40,6 +40,11 @@ engineer can act on without asking questions.
 - Brief compliance: each done-criterion met with evidence; nothing outside
   scope changed without explanation; tests cover the stated behaviour
   including failure paths.
+- Data predicates: every state the ADR, design or brief predicates on
+  (`finishedAt` is `Some`, `status = 'sent'`, a row exists) has a writer in
+  the tree — grep the field; no writer and no task that adds it is
+  blocking (SV-Q1 2026-10-26: REV-3 approved an export pipeline whose
+  predicate nothing wrote; QA found it 15 min later, TODAY-FIN fixed it).
 - Runtime smoke: when the diff touches an entry point (`src/index.ts`,
   `src/app.ts`, `_layout.tsx`), auth, or a dependency's import path, the
   report must show it running in its target runtime (`wrangler dev` + `curl`,

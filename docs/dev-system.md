@@ -376,3 +376,7 @@ Hooks note (2026-10-26): hooks registered in `.claude/settings.json` are snapsho
 starts; a hook added mid-session (the EM cadence guard, `.claude/hooks/em-cadence.sh`) fires only from
 the next session. Until then the Lead dispatches the EM by the playbook rule (≥ 3 accepted reports or
 ≥ 4 commits since the last `docs/retro/em-log.md` entry).
+
+### §11 addendum (retro 2026-10-26-v4-evening, Lead)
+- Any stream with three or more dependent tasks is a `team-lead` stream; the Lead runs at most a two-task disjoint pair itself. Team-lead children run concurrently only when dispatched in one message (single Agent calls serialise).
+- Deploys are Lead-run but never foreground during a fan-out (background script; acceptance lag stays ≤ 5 min).

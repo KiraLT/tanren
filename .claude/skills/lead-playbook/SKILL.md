@@ -393,6 +393,15 @@ markers and run `git status --short` on every path the file imports before
 strava team's untracked `IntegrationsSection`; HEAD did not build for an
 hour). A deploy always builds from a fresh `git worktree add --detach … HEAD`,
 never from the dirty tree (`scratchpad/deploy.sh` is the recipe).
+(7) **Queued rows and background deploys** (retro 2026-10-26-v4-evening): a
+task the Lead defers ("REV-POLISH when the desktop pair ends") is a `queued`
+row in the task sheet, re-read at every acceptance — REV-POLISH sat in a Log
+line for 90 min and the polish code shipped in two deploys unreviewed. A
+deploy never runs in the Lead's foreground during a fan-out: `deploy.sh` in
+the background (or a sonnet release engineer); metric: no acceptance lag
+> 5 min while a deploy runs (DEPLOY-2 by hand made REV-PL/LOGO-3/LAND-1/
+PROG-3 wait 10–12 min each). Keep ≤ 8 live agents until the lockstep-gap
+cause (22:32–22:51, every agent idle together) is known.
 
 ## Big diffs: fan the review out
 
@@ -512,10 +521,15 @@ design streams and owner chat by hand. Rules that make the loop mechanical:
   the same minute, not only in the master Log. When briefing a spike on a
   third-party platform, forward spike.md's owner-question set verbatim
   (pay / keep paying, eligibility, limits, terms, owner steps).
-- **Team-lead children are sequential by construction** (harness fact,
-  2026-10-26: a child's background ack arrives only on completion): a
-  charter orders tasks by critical path; parallelism comes from several
-  team-leads, or the Lead runs a ≤ 2-task disjoint pair itself. A pair or
+- **Team-lead children run in parallel only when dispatched in ONE message**
+  (retro 2026-10-26-v4-evening corrects the earlier "sequential by
+  construction" reading: the strava team-lead ran 2–3 children at once four
+  times; single `Agent` calls serialise and cost the feed team ≈ 10 of 63
+  min). Charters say "dispatch each wave in one message"; a stream with ≥ 3
+  dependent tasks is a team-lead, not Lead-run (Lead-run program reps 0.37 /
+  landing 0.52 critical-path ratio vs team-led 0.56–0.96). A file a pair holds
+  for more than one round gets a prop-gated branch or a sibling file for the
+  waiting task instead of a wait (PROG-3 waited 28 min for PlayerView.tsx). A pair or
   team that owns screens also owns their lines in the package `CLAUDE.md`
   (Edit, before its final report); when a stream ends with the lines
   missing, the Lead assigns a 3-min doc task the same minute.

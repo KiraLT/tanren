@@ -226,6 +226,15 @@ declares no class: `provider.ts` only calls `new OAuthProvider`.
   In zsh, `R="--resolve …"; curl $R` does not word-split: write the flag inline or use an array.
 - Cert packs for new custom domains sit in `pending_validation` for minutes while the universal
   `*.tanren.me` cert already serves; `wrangler deploy` printing the custom domain is not yet "live".
+- Deploying from a clean `git worktree` (DEPLOY-2, 22:57–23:13): under the isolated linker `wrangler`
+  lives in `apps/worker/node_modules/.bin`, not the root — `cd apps/worker && pnpm exec wrangler
+  deploy --env production` (the root `node_modules/.bin/wrangler` path fails; one wasted run).
+  `triggers.crons` under `env.production` is rejected with code 10063 until the account has a
+  workers.dev subdomain: owner enables it once (dashboard → Workers & Pages → account subdomain)
+  or the trigger is dropped for that deploy; `pnpm deploy:preflight` should check it before the
+  upload. The Cloudflare MCP's OAuth token expires within a session (owner re-auth) — a deploy
+  script never depends on it. Verify on the live chunk, not the version id: `curl -s
+  https://tanren.me/<_layout chunk> | grep -c '<string from the change>'` (DEPLOY-3, 23:27).
 
 ## Vendor plugin skills
 

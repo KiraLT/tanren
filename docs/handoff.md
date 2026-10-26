@@ -32,7 +32,13 @@ traced SVG mark, desktop polish round 4 (in flight at the time of writing — se
 - AUTO-FIN done and reviewed (close only after a complete pull under the sync lock; soft-delete only
   never-pushed empty sessions; 48 h Strava backfill guard). Not yet deployed. Known limit: an offline device
   that never completes a pull never auto-closes.
-<!-- DESKTOP_R4_RESULT --> <!-- RETRO_EXPERIMENT -->
+<!-- DESKTOP_R4_RESULT --> 
+## Experiment for the next step (retro 2026-10-26-v4-evening)
+Wave dispatch + background deploy. Metrics that decide it: zero Lead acceptance edges > 5 min; team-lead
+streams ≥ 1.3 children-active ÷ wall; desktop r5 PASS ≤ 45 min wall. Research spike open: do background
+subagents pause while the main session is blocked, or were 22:32–22:51 provider throttles?
+(`docs/research/process-lockstep-gaps.md` when it lands). Retro verdict: throughput high (9 streams,
+3 deploys, 64 acceptances in 3 h), process quality medium (≈ 30 min lost to Lead stalls + lockstep gaps).
 
 ## Owner-gated (exact steps)
 1. **Strava** (O1–O3 in `docs/design/deploy.md`): keep the subscription; API app at strava.com/settings/api
