@@ -45,7 +45,15 @@ export interface IntegrationRepoShape {
   readonly upsert: (row: IntegrationRow) => Effect.Effect<void, PersistenceError>
   /** Both rotated tokens and the expiry in ONE update (the old refresh token dies at once). */
   readonly setTokens: (id: Uuid, tokens: IntegrationTokens) => Effect.Effect<void, PersistenceError>
-  readonly markRevoked: (id: Uuid, updatedAt: Timestamp) => Effect.Effect<void, PersistenceError>
+  /**
+   * Revokes only the row version the caller saw (`updated_at = seenUpdatedAt`): a row whose tokens
+   * another drain rotated meanwhile is left alone (no-op).
+   */
+  readonly markRevoked: (
+    id: Uuid,
+    seenUpdatedAt: Timestamp,
+    updatedAt: Timestamp,
+  ) => Effect.Effect<void, PersistenceError>
   /** Deletes the integration and that user's exports of the provider in one batch. */
   readonly remove: (userId: UserId, provider: Provider) => Effect.Effect<void, PersistenceError>
 }
@@ -91,9 +99,10 @@ export class IntegrationRepo extends Context.Service<IntegrationRepo, Integratio
             WHERE id = ${r.id}`,
       })
       const revoke = SqlSchema.void({
-        Request: Schema.Struct({ id: Uuid, updatedAt: Timestamp }),
-        execute: ({ id, updatedAt }) =>
-          sql`UPDATE integration SET status = 'revoked', updated_at = ${updatedAt} WHERE id = ${id}`,
+        Request: Schema.Struct({ id: Uuid, seenUpdatedAt: Timestamp, updatedAt: Timestamp }),
+        execute: ({ id, seenUpdatedAt, updatedAt }) =>
+          sql`UPDATE integration SET status = 'revoked', updated_at = ${updatedAt}
+            WHERE id = ${id} AND updated_at = ${seenUpdatedAt}`,
       })
 
       return {
@@ -105,8 +114,8 @@ export class IntegrationRepo extends Context.Service<IntegrationRepo, Integratio
           updateTokens({ id, ...tokens }).pipe(
             Effect.mapError(persistenceError("integration.setTokens")),
           ),
-        markRevoked: (id, updatedAt) =>
-          revoke({ id, updatedAt }).pipe(
+        markRevoked: (id, seenUpdatedAt, updatedAt) =>
+          revoke({ id, seenUpdatedAt, updatedAt }).pipe(
             Effect.mapError(persistenceError("integration.markRevoked")),
           ),
         remove: (userId, provider) =>

@@ -17,6 +17,7 @@ import { ExerciseRepo, PersistenceError, PlanRepo, ProfileRepo, SessionRepo } fr
 import { Sync } from "../sync/Sync"
 import { Api } from "./Api"
 import { CurrentUser } from "./Authentication"
+import { IntegrationsLive } from "./IntegrationsHandlers"
 
 const isOtherError = <E>(error: E): error is Exclude<E, PersistenceError> =>
   !(error instanceof PersistenceError)
@@ -303,4 +304,5 @@ export const HandlersLive = Layer.mergeAll(
   SetsLive,
   PlansLive,
   SyncLive,
+  IntegrationsLive,
 )

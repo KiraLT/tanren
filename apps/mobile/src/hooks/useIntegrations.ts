@@ -80,7 +80,9 @@ const reasonOf = (cause: Cause.Cause<unknown>): IntegrationsFailure =>
     onSome: (failure) =>
       Predicate.isTagged(failure, "IntegrationsRequestFailed") &&
       Predicate.hasProperty(failure, "reason") &&
-      (failure.reason === "offline" || failure.reason === "not-connected")
+      (failure.reason === "offline" ||
+        failure.reason === "not-connected" ||
+        failure.reason === "not-configured")
         ? failure.reason
         : "server",
   })

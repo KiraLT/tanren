@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { SessionId } from "@tanren/shared"
-import { DateTime, Effect, Layer, Logger, Option, Redacted, Ref } from "effect"
+import { DateTime, Effect, Fiber, Layer, Logger, Option, Redacted, Ref } from "effect"
 import {
   Headers,
   HttpClient,
@@ -8,12 +8,14 @@ import {
   type HttpClientRequest,
   HttpClientResponse,
 } from "effect/http"
+import { TestClock } from "effect/testing"
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
 import { envVars as localEnv } from "../testing/fixtures"
 import {
   type NewActivity,
   STRAVA_ACTIVITIES_URL,
+  STRAVA_REQUEST_TIMEOUT,
   STRAVA_REVOKE_URL,
   STRAVA_TOKEN_URL,
   StravaApi,
@@ -63,6 +65,7 @@ const TOKEN_BODY = {
 type Reply =
   | { readonly _tag: "Status"; readonly status: number; readonly body: string }
   | { readonly _tag: "Transport" }
+  | { readonly _tag: "Hang" }
 
 const ok = (body: unknown): Reply => ({ _tag: "Status", status: 200, body: JSON.stringify(body) })
 const status = (code: number): Reply => ({ _tag: "Status", status: code, body: "" })
@@ -82,21 +85,23 @@ const stubbed = (reply: Reply) =>
     const client = HttpClient.make((request) =>
       Ref.update(seen, (all) => [...all, request]).pipe(
         Effect.andThen(
-          reply._tag === "Transport"
-            ? Effect.fail(
-                new HttpClientError.HttpClientError({
-                  reason: new HttpClientError.TransportError({
-                    request,
-                    description: "connection reset",
+          reply._tag === "Hang"
+            ? Effect.never
+            : reply._tag === "Transport"
+              ? Effect.fail(
+                  new HttpClientError.HttpClientError({
+                    reason: new HttpClientError.TransportError({
+                      request,
+                      description: "connection reset",
+                    }),
                   }),
-                }),
-              )
-            : Effect.succeed(
-                HttpClientResponse.fromWeb(
-                  request,
-                  new Response(reply.body, { status: reply.status }),
+                )
+              : Effect.succeed(
+                  HttpClientResponse.fromWeb(
+                    request,
+                    new Response(reply.body, { status: reply.status }),
+                  ),
                 ),
-              ),
         ),
       ),
     )
@@ -310,6 +315,36 @@ describe("StravaApi.layerHttp", () => {
         status: Option.some(422),
       })
       expect(yield* lines).toEqual([])
+    }),
+  )
+
+  it.effect("keeps Strava's invalid-client 400 (resource Application) as rejected", () =>
+    Effect.gen(function* () {
+      const { run } = yield* stubbed({
+        _tag: "Status",
+        status: 400,
+        body: '{"message":"Bad Request","errors":[{"resource":"Application","code":"invalid"}]}',
+      })
+      const error = yield* Effect.flip(run((api) => api.createActivity(ACCESS, activity)))
+      expect({ reason: error.reason, status: error.status }).toEqual({
+        reason: "rejected",
+        status: Option.some(400),
+      })
+    }),
+  )
+
+  it.effect("ends a request that hangs past 10 s as transport", () =>
+    Effect.gen(function* () {
+      const { run } = yield* stubbed({ _tag: "Hang" })
+      const fiber = yield* Effect.forkChild(
+        Effect.flip(run((api) => api.createActivity(ACCESS, activity))),
+      )
+      yield* TestClock.adjust(STRAVA_REQUEST_TIMEOUT)
+      const error = yield* Fiber.join(fiber)
+      expect({ reason: error.reason, status: error.status }).toEqual({
+        reason: "transport",
+        status: Option.none(),
+      })
     }),
   )
 

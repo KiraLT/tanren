@@ -30,6 +30,13 @@ export const IDLE_SUBTITLE = "Exports finished sessions"
 export const REVOKED_SUBTITLE = "Strava stopped accepting Tanren. Connect again"
 export const DETAIL_BODY =
   "Finished sessions are posted as 'Weight Training' activities. One way; Tanren never reads your Strava data."
+/** Shown while production runs the console provider (no registered Strava app yet). */
+export const GO_LIVE_NOTE = "Strava connection goes live after the owner registers the app."
+
+/** The detail card's extra line: the go-live note for a disconnected provider only. */
+export const detailNote = (status: Pick<ProviderStatus, "state">): Option.Option<string> =>
+  status.state === "disconnected" ? Option.some(GO_LIVE_NOTE) : Option.none()
+
 export const NOT_CONNECTED_TITLE = "Not connected"
 export const REVOKED_TITLE = "Access ended"
 export const CONNECT_LABEL = "Connect with Strava"
@@ -265,17 +272,33 @@ export const isBlocked = (
   rows: ReadonlyArray<Pick<ActivityExport, "status">>,
 ): boolean => status.blockedExports > 0 || rows.some((row) => row.status === "blocked")
 
-/** Copy for a failed load or action (`IntegrationsRequestFailed` reasons). */
-export const failureTitle = (reason: "offline" | "server" | "not-connected"): string =>
+/** `IntegrationsRequestFailed` reasons (the service's internal error, mirrored here as copy keys). */
+export type FailureReason = "offline" | "server" | "not-connected" | "not-configured"
+
+/** Copy for a failed load or action. */
+export const failureTitle = (reason: FailureReason): string =>
   ({
     offline: "Integrations need a connection",
     server: "Integrations could not be loaded",
     "not-connected": "Strava is not connected",
+    "not-configured": GO_LIVE_NOTE,
   })[reason]
 
-export const failureBody = (reason: "offline" | "server" | "not-connected"): string =>
+export const failureBody = (reason: FailureReason): string =>
   ({
     offline: "Connect to the internet and sign in, then try again.",
     server: "The server did not answer. Try again in a moment.",
     "not-connected": "Connect Strava first.",
+    "not-configured": "No Strava app is registered yet.",
   })[reason]
+
+/**
+ * The banner after a failed action. `not-configured` (no Strava app registered yet) is an info
+ * note with the go-live copy, not an error: there is nothing to try again.
+ */
+export const actionBanner = (
+  reason: FailureReason,
+): { readonly tone: "info" | "danger"; readonly title: string; readonly body?: string } =>
+  reason === "not-configured"
+    ? { tone: "info", title: GO_LIVE_NOTE }
+    : { tone: "danger", title: failureTitle(reason), body: failureBody(reason) }

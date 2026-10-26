@@ -1,5 +1,8 @@
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
+import { Effect, Option } from "effect"
+import { WorkerConfig } from "../src/Config"
 import {
   type Check,
   checkDns,
@@ -20,10 +23,15 @@ const production = (overrides: {
   readonly d1?: string
   readonly kv?: string
   readonly routes?: ReadonlyArray<{ pattern: string; custom_domain: boolean }>
+  /** `undefined` = the default cron; `"absent"` = no `triggers` block at all. */
+  readonly crons?: ReadonlyArray<string> | "absent"
 }) =>
   JSON.stringify({
     env: {
       production: {
+        ...(overrides.crons === "absent"
+          ? {}
+          : { triggers: { crons: overrides.crons ?? ["*/5 * * * *"] } }),
         routes: overrides.routes ?? [
           { pattern: "api.tanren.me", custom_domain: true },
           { pattern: "mcp.tanren.me", custom_domain: true },
@@ -36,6 +44,8 @@ const production = (overrides: {
           EMAIL_FROM: "Tanren <login@tanren.me>",
           MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
           NATIVE_RETURN_PREFIXES: "exps://u.expo.dev/3f2c1a9e-1111-4222-8333-444455556666/",
+          STRAVA_MODE: "provider",
+          STRAVA_CLIENT_ID: "123456",
           ...overrides.vars,
         },
         d1_databases: [
@@ -160,6 +170,88 @@ describe("checkProduction native sign-in and tightened vars", () => {
   })
 })
 
+describe("checkProduction Strava export", () => {
+  const failingFor = (overrides: Parameters<typeof production>[0]) =>
+    failing(checkProduction(parseWrangler(production(overrides))))
+  const nextOf = (overrides: Parameters<typeof production>[0], id: string) =>
+    Option.getOrElse(
+      checkProduction(parseWrangler(production(overrides))).find((c) => c.id === id)?.next ??
+        Option.none(),
+      () => "",
+    )
+
+  it("passes provider mode, a real client id, no secret vars and a cron", () => {
+    const ids = checkProduction(parseWrangler(production({}))).map((c) => c.id)
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        "prod.var.STRAVA_MODE",
+        "prod.var.STRAVA_CLIENT_ID",
+        "prod.novar.INTEGRATION_TOKEN_KEY",
+        "prod.novar.STRAVA_CLIENT_SECRET",
+        "prod.crons",
+      ]),
+    )
+    expect(failingFor({})).toEqual([])
+  })
+
+  it("passes console mode with the client-id placeholder and says exports are only logged", () => {
+    const overrides = {
+      vars: { STRAVA_MODE: "console", STRAVA_CLIENT_ID: "<owner: strava client id>" },
+    }
+    expect(failingFor(overrides)).toEqual([])
+    const row = checkProduction(parseWrangler(production(overrides))).find(
+      (c) => c.id === "prod.var.STRAVA_CLIENT_ID",
+    )
+    expect(row?.status).toBe("ok")
+    expect(row?.detail).toContain("console: exports are only logged until O1/O2")
+  })
+
+  it("fails provider mode with the client-id placeholder", () => {
+    expect(
+      failingFor({
+        vars: { STRAVA_MODE: "provider", STRAVA_CLIENT_ID: "<owner: strava client id>" },
+      }),
+    ).toEqual(["prod.var.STRAVA_CLIENT_ID"])
+  })
+
+  it("fails an unknown STRAVA_MODE and a missing STRAVA_MODE", () => {
+    expect(failingFor({ vars: { STRAVA_MODE: "live" } })).toEqual(["prod.var.STRAVA_MODE"])
+    const text = production({}).replace(/"STRAVA_MODE":"[^"]*",/, "")
+    expect(failing(checkProduction(parseWrangler(text)))).toEqual(["prod.var.STRAVA_MODE"])
+  })
+
+  it("fails STRAVA_CLIENT_ID while the owner placeholder or an empty value is in it", () => {
+    expect(failingFor({ vars: { STRAVA_CLIENT_ID: "<owner: strava client id>" } })).toEqual([
+      "prod.var.STRAVA_CLIENT_ID",
+    ])
+    expect(failingFor({ vars: { STRAVA_CLIENT_ID: "" } })).toEqual(["prod.var.STRAVA_CLIENT_ID"])
+    const text = production({}).replace(/"STRAVA_CLIENT_ID":"[^"]*",?/, "")
+    expect(failing(checkProduction(parseWrangler(text)))).toEqual(["prod.var.STRAVA_CLIENT_ID"])
+  })
+
+  it("fails INTEGRATION_TOKEN_KEY as a var and points at wrangler secret put", () => {
+    const overrides = { vars: { INTEGRATION_TOKEN_KEY: "AAAA" } }
+    expect(failingFor(overrides)).toEqual(["prod.novar.INTEGRATION_TOKEN_KEY"])
+    expect(nextOf(overrides, "prod.novar.INTEGRATION_TOKEN_KEY")).toContain(
+      "wrangler secret put INTEGRATION_TOKEN_KEY --env production",
+    )
+  })
+
+  it("fails STRAVA_CLIENT_SECRET as a var and points at wrangler secret put", () => {
+    const overrides = { vars: { STRAVA_CLIENT_SECRET: "shh" } }
+    expect(failingFor(overrides)).toEqual(["prod.novar.STRAVA_CLIENT_SECRET"])
+    expect(nextOf(overrides, "prod.novar.STRAVA_CLIENT_SECRET")).toContain(
+      "wrangler secret put STRAVA_CLIENT_SECRET --env production",
+    )
+  })
+
+  it("fails when env.production has no triggers.crons (missing block or empty list)", () => {
+    expect(failingFor({ crons: "absent" })).toEqual(["prod.crons"])
+    expect(failingFor({ crons: [] })).toEqual(["prod.crons"])
+    expect(nextOf({ crons: "absent" }, "prod.crons")).toContain('"crons": ["*/5 * * * *"]')
+  })
+})
+
 describe("checkExportApiUrl", () => {
   it("is ok when the bundle mentions api.tanren.me", () => {
     expect(checkExportApiUrl(Option.some(true)).status).toBe("ok")
@@ -223,15 +315,16 @@ describe("checkWhoami", () => {
 })
 
 describe("checkSecrets, checkGate and ownerSession", () => {
-  it("lists both secret commands as info and warns about .dev.vars.production", () => {
+  it("lists every secret command as info and warns about .dev.vars.production", () => {
     const rows = checkSecrets(["/x/.dev.vars.production"])
-    expect(rows.map((r) => r.status)).toEqual(["info", "info", "info"])
-    expect(Option.getOrElse(rows[0]?.next ?? Option.none(), () => "")).toContain(
-      "secret put BETTER_AUTH_SECRET --env production",
-    )
-    expect(Option.getOrElse(rows[1]?.next ?? Option.none(), () => "")).toContain(
-      "secret put RESEND_API_KEY --env production",
-    )
+    expect(rows.map((r) => r.status)).toEqual(["info", "info", "info", "info", "info"])
+    const nextOf = (index: number) => Option.getOrElse(rows[index]?.next ?? Option.none(), () => "")
+    expect(nextOf(0)).toContain("secret put BETTER_AUTH_SECRET --env production")
+    expect(nextOf(1)).toContain("secret put RESEND_API_KEY --env production")
+    expect(nextOf(2)).toContain("secret put STRAVA_CLIENT_SECRET --env production")
+    expect(nextOf(2)).toContain('not needed while STRAVA_MODE is "console"')
+    expect(nextOf(3)).toContain("secret put INTEGRATION_TOKEN_KEY --env production")
+    expect(nextOf(3)).toContain("openssl rand -base64 32")
     expect(checkSecrets([]).at(-1)?.status).toBe("ok")
   })
 
@@ -249,4 +342,33 @@ describe("checkSecrets, checkGate and ownerSession", () => {
     expect(steps.filter((s) => s.done).length).toBe(3)
     expect(steps.find((s) => s.command.includes("secret put"))?.done).toBe(false)
   })
+})
+
+describe("wrangler.jsonc env.production.vars", () => {
+  it.effect("load through WorkerConfig with ENVIRONMENT=production and fake secrets", () =>
+    Effect.gen(function* () {
+      const text = yield* Effect.promise(() =>
+        readFile(join(import.meta.dirname, "..", "wrangler.jsonc"), "utf8"),
+      )
+      const vars = Option.match(parseWrangler(text), {
+        onNone: () => ({}),
+        onSome: (config) => config.env?.production?.vars ?? {},
+      })
+      const config = yield* WorkerConfig.pipe(
+        Effect.provide(
+          WorkerConfig.layerFromEnv({
+            ...vars,
+            BETTER_AUTH_SECRET: "test-only-auth-secret",
+            RESEND_API_KEY: "re_test_only_not_a_key",
+            INTEGRATION_TOKEN_KEY: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", // 32 x 0x01, test only
+          }),
+        ),
+      )
+      expect(config.environment).toBe("production")
+      expect(config.stravaMode).toBe("console")
+      expect(
+        failing(checkProduction(parseWrangler(text)).filter((c) => c.id.includes("STRAVA"))),
+      ).toEqual([])
+    }),
+  )
 })

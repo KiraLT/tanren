@@ -68,8 +68,8 @@ const hmacKey = (secret: Redacted.Redacted<string>) =>
     ),
   )
 
-/** `b64url(HMAC-SHA256(secret, input))`, 43 chars. */
-const mac = (secret: Redacted.Redacted<string>, input: string) =>
+/** `b64url(HMAC-SHA256(secret, input))`, 43 chars. Also signs the Strava connect `state`. */
+export const mac = (secret: Redacted.Redacted<string>, input: string) =>
   Effect.gen(function* () {
     const key = yield* hmacKey(secret)
     const signature = yield* Effect.promise(() =>
@@ -79,7 +79,7 @@ const mac = (secret: Redacted.Redacted<string>, input: string) =>
   })
 
 /** Constant-time check of `macText` against `input` (`subtle.verify`). */
-const macMatches = (secret: Redacted.Redacted<string>, input: string, macText: string) =>
+export const macMatches = (secret: Redacted.Redacted<string>, input: string, macText: string) =>
   Effect.gen(function* () {
     const bytes = fromB64url(macText)
     if (Option.isNone(bytes)) {

@@ -81,6 +81,11 @@ describe("every route requires a session", () => {
     ["GET", "/plans/current"],
     ["POST", "/sync/push"],
     ["POST", "/sync/pull"],
+    ["GET", "/integrations"],
+    ["POST", "/integrations/strava/connect"],
+    ["DELETE", "/integrations/strava"],
+    ["GET", "/integrations/strava/exports?limit=10"],
+    ["POST", "/integrations/strava/exports/retry"],
   ]
   it("answers 401 signed out, even with an empty or garbage body", async () => {
     const app = newApp()

@@ -2,10 +2,13 @@ import { ActivityExport, ProviderStatus } from "@tanren/shared"
 import { DateTime, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
+  actionBanner,
   BLOCKED_COPY,
   detailHeadline,
+  detailNote,
   exportRow,
   formatDayTime,
+  GO_LIVE_NOTE,
   IDLE_SUBTITLE,
   isBlocked,
   PENDING_SUBTITLE,
@@ -105,6 +108,33 @@ describe("settingsSubtitle", () => {
     expect(
       settingsSubtitle(Option.some({ strava: status({ state: "disconnected" }), zone: UTC })),
     ).toBe("Strava · Not connected")
+  })
+})
+
+describe("actionBanner", () => {
+  it("shows the go-live note as info when Strava is not configured", () => {
+    expect(actionBanner("not-configured")).toEqual({ tone: "info", title: GO_LIVE_NOTE })
+  })
+
+  it("keeps the danger copy for other failures", () => {
+    expect(actionBanner("offline")).toEqual({
+      tone: "danger",
+      title: "Integrations need a connection",
+      body: "Connect to the internet and sign in, then try again.",
+    })
+  })
+})
+
+describe("detailNote", () => {
+  it("shows the go-live note for a disconnected provider", () => {
+    expect(detailNote({ state: "disconnected" })).toEqual(Option.some(GO_LIVE_NOTE))
+  })
+
+  it("hides it once connected or revoked", () => {
+    expect([detailNote({ state: "connected" }), detailNote({ state: "revoked" })]).toEqual([
+      Option.none(),
+      Option.none(),
+    ])
   })
 })
 

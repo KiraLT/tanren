@@ -1,6 +1,7 @@
 import {
   ActivityExport,
   type ActivityExportId,
+  ConnectRejected,
   ConnectResponse,
   IntegrationsStatus,
 } from "@tanren/shared"
@@ -17,11 +18,12 @@ import { NativeSession, withSession } from "./NativeSession"
 
 /**
  * Internal: an Integrations request failed. `offline` = no network or a timeout; `not-connected`
- * = the worker answered 409 `IntegrationNotConnected`; `server` = any other non-2xx (a 404 on
- * retry included) or an unreadable body.
+ * = the worker answered 409 `IntegrationNotConnected`; `not-configured` = a 400 `ConnectRejected`
+ * with reason `not-configured` (no Strava app registered yet); `server` = any other non-2xx (a
+ * 404 on retry, a 400 `return-to` included) or an unreadable body.
  */
 export class IntegrationsRequestFailed extends Data.TaggedError("IntegrationsRequestFailed")<{
-  readonly reason: "offline" | "server" | "not-connected"
+  readonly reason: "offline" | "server" | "not-connected" | "not-configured"
 }> {}
 
 export type IntegrationsFailure = IntegrationsRequestFailed["reason"]
@@ -56,6 +58,19 @@ export const failureOfHttp = (
   return failed(conflict ? "not-connected" : "server")
 }
 
+/** A 400 is read once more: `ConnectRejected{reason:"not-configured"}` is its own reason. */
+const failureOfResponse = (
+  cause: HttpClientError.HttpClientError,
+): Effect.Effect<IntegrationsRequestFailed> =>
+  cause.reason._tag === "StatusCodeError" && cause.reason.response.status === 400
+    ? HttpClientResponse.schemaBodyJson(ConnectRejected)(cause.reason.response).pipe(
+        Effect.map((body) =>
+          failed(body.reason === "not-configured" ? "not-configured" : "server"),
+        ),
+        Effect.orElseSucceed(() => failed("server")),
+      )
+    : Effect.succeed(failureOfHttp(cause))
+
 const ExportList = Schema.Array(ActivityExport)
 
 const make = (baseUrl: Effect.Effect<string>) =>
@@ -70,7 +85,7 @@ const make = (baseUrl: Effect.Effect<string>) =>
         Effect.flatMap((authorised) => client.execute(authorised)),
         Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
         Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-        Effect.mapError(failureOfHttp),
+        Effect.catch((cause) => Effect.flatMap(failureOfResponse(cause), Effect.fail)),
         Effect.timeoutOrElse({
           duration: REQUEST_TIMEOUT,
           orElse: () => Effect.fail(failed("offline")),

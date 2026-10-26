@@ -1,15 +1,15 @@
 import type { ProviderStatus } from "@tanren/shared"
-import type { DateTime } from "effect"
+import { type DateTime, Option } from "effect"
 import { View } from "react-native"
 import type { ActionState } from "../../hooks/useIntegrations"
 import { Button, Card, ListGroup, ListRow, rhythm, StatusPill, space, Text } from "../../ui"
 import {
+  actionBanner,
   CONNECT_LABEL,
   DETAIL_BODY,
   DISCONNECT_LABEL,
   detailHeadline,
-  failureBody,
-  failureTitle,
+  detailNote,
   providerRow,
 } from "../settings/integrationsCopy"
 import { StatusBanner } from "./StatusBanner"
@@ -43,6 +43,10 @@ export function StravaCard({ strava, zone, action, onConnect, onDisconnect }: St
             <StatusPill label={pill.label} tone={pill.tone} />
           </View>
           <Text tone="muted">{DETAIL_BODY}</Text>
+          {Option.match(detailNote(strava), {
+            onNone: () => null,
+            onSome: (note) => <Text tone="muted">{note}</Text>,
+          })}
           {canConnect ? (
             <Button
               label={CONNECT_LABEL}
@@ -67,13 +71,7 @@ export function StravaCard({ strava, zone, action, onConnect, onDisconnect }: St
           />
         </ListGroup>
       ) : null}
-      {action._tag === "Failed" ? (
-        <StatusBanner
-          tone="danger"
-          title={failureTitle(action.reason)}
-          body={failureBody(action.reason)}
-        />
-      ) : null}
+      {action._tag === "Failed" ? <StatusBanner {...actionBanner(action.reason)} /> : null}
     </View>
   )
 }

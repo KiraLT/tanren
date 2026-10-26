@@ -146,11 +146,9 @@ const decodeEnv = (env: unknown): Effect.Effect<WorkerConfigShape, ConfigError> 
         message: `STRAVA_MODE "provider" needs the STRAVA_CLIENT_SECRET secret`,
       })
     }
-    if (raw.ENVIRONMENT !== "local" && raw.STRAVA_MODE === "console") {
-      return yield* new ConfigError({
-        message: `STRAVA_MODE "console" is only allowed when ENVIRONMENT is "local" (got "${raw.ENVIRONMENT}")`,
-      })
-    }
+    // "console" is allowed in every environment: it only logs and never calls Strava, so production
+    // runs it until the owner has a Strava app (docs/design/deploy.md §Strava secrets). The fake
+    // INTEGRATION_TOKEN_KEY stays local-only below.
     const stravaConsoleFail = yield* Option.match(Option.fromNullishOr(raw.STRAVA_CONSOLE_FAIL), {
       onNone: () => Effect.succeed(Option.none<"inactive">()),
       onSome: (value) =>

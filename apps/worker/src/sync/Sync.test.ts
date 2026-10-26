@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
 import { decodeCursor, encodeCursor } from "@tanren/db"
-import { type PushResponse, SyncCursor } from "@tanren/shared"
-import { DateTime, Effect, Layer, Option } from "effect"
+import { type PushResponse, Session, type SyncChange, SyncCursor } from "@tanren/shared"
+import { DateTime, Effect, Fiber, Layer, Option, Ref } from "effect"
 import { TestClock } from "effect/testing"
+import { ExportQueue } from "../integrations/ExportQueue"
 import { ExerciseRepo, MemoryStore, Repositories } from "../repos"
-import { at, ex, exercise, userA, userB } from "./fixtures"
-import { Sync } from "./Sync"
+import { at, ex, exercise, session, T0, userA, userB } from "./fixtures"
+import { ENQUEUE_BUDGET, EXPORT_BUDGET, Sync } from "./Sync"
 import { SyncStore, SyncStoreMemory } from "./SyncStore"
 
 const stored: PushResponse = {
@@ -23,6 +24,7 @@ const StubStore = Layer.succeed(
     pull: () => Effect.succeed({ changes: [ex(exercise(1))], cursor, hasMore: true }),
   }),
 )
+const StubLayers = Layer.mergeAll(StubStore, ExportQueue.layerDisabled)
 
 describe("Sync service", () => {
   it.effect("returns the store's PushResponse unchanged", () =>
@@ -30,7 +32,7 @@ describe("Sync service", () => {
       // Aliased: a `.push(` member call trips the noMutation plugin.
       const { push } = yield* Sync
       expect(yield* push(userA, { changes: [ex(exercise(1))] })).toEqual(stored)
-    }).pipe(Effect.provide(Sync.layer.pipe(Layer.provide(StubStore)))),
+    }).pipe(Effect.provide(Sync.layer.pipe(Layer.provide(StubLayers)))),
   )
 
   it.effect("stamps a pull page with the server time", () =>
@@ -39,12 +41,14 @@ describe("Sync service", () => {
       const page = yield* (yield* Sync).pull(userA, { since: Option.none(), limit: 10 })
       expect(page).toMatchObject({ cursor, hasMore: true })
       expect(DateTime.formatIso(page.serverTime)).toBe("2026-10-20T12:00:00.000Z")
-    }).pipe(Effect.provide(Sync.layer.pipe(Layer.provide(StubStore)))),
+    }).pipe(Effect.provide(Sync.layer.pipe(Layer.provide(StubLayers)))),
   )
 })
 
 const SyncLayer = Sync.layer.pipe(
-  Layer.provideMerge(Layer.mergeAll(SyncStoreMemory, Repositories.layerMemoryNoDeps)),
+  Layer.provideMerge(
+    Layer.mergeAll(SyncStoreMemory, Repositories.layerMemoryNoDeps, ExportQueue.layerDisabled),
+  ),
   Layer.provideMerge(MemoryStore.layer),
 )
 
@@ -98,6 +102,129 @@ describe("Sync on the memory store (Node fake of @tanren/db's SyncStore)", () =>
     Effect.gen(function* () {
       const position = { seq: 7, rank: 1, id: "0000000A-0000-4000-8000-0000000000AB" }
       expect(yield* decodeCursor(encodeCursor(position))).toEqual(position)
+    }),
+  )
+})
+
+const finished = Session.make({
+  ...session(0x51, T0),
+  finishedAt: Option.some(at("2026-10-19T09:00:00.000Z")),
+})
+const sessionChange: SyncChange = { table: "session", row: finished }
+const completedResponse: PushResponse = {
+  accepted: [{ table: "session", id: finished.id, updatedAt: finished.updatedAt }],
+  conflicts: [],
+  rejected: [],
+  serverTime: at("2026-10-20T12:00:00.000Z"),
+}
+const storeReturning = (response: PushResponse) =>
+  Layer.succeed(
+    SyncStore,
+    SyncStore.of({
+      getRows: () => Effect.succeed([]),
+      apply: () => Effect.succeed(response),
+      pull: () => Effect.succeed({ changes: [], cursor, hasMore: false }),
+    }),
+  )
+type Call = readonly ["enqueue", number] | readonly ["drain", Option.Option<string>, number]
+/** An `ExportQueue` that records its calls and runs `enqueue` / `drain` as given. */
+const recordingQueue = (
+  calls: Ref.Ref<ReadonlyArray<Call>>,
+  drain: Effect.Effect<number>,
+  enqueue: Effect.Effect<void>,
+) =>
+  Layer.succeed(
+    ExportQueue,
+    ExportQueue.of({
+      enqueueCompleted: (_userId, changes) =>
+        Ref.update(calls, (all) => [...all, ["enqueue", changes.length] as const]).pipe(
+          Effect.andThen(enqueue),
+        ),
+      drain: ({ userId, max }) =>
+        Ref.update(calls, (all) => [...all, ["drain", userId, max] as const]).pipe(
+          Effect.andThen(drain),
+        ),
+    }),
+  )
+const pushWith = (
+  response: PushResponse,
+  changes: ReadonlyArray<SyncChange>,
+  drain: Effect.Effect<number>,
+  enqueue: Effect.Effect<void> = Effect.void,
+) =>
+  Effect.gen(function* () {
+    const calls = yield* Ref.make<ReadonlyArray<Call>>([])
+    const { push } = yield* Effect.provide(
+      Effect.gen(function* () {
+        return yield* Sync
+      }),
+      Sync.layer.pipe(
+        Layer.provide(
+          Layer.mergeAll(storeReturning(response), recordingQueue(calls, drain, enqueue)),
+        ),
+      ),
+    )
+    const fiber = yield* Effect.forkChild(push(userA, { changes }))
+    yield* TestClock.adjust(ENQUEUE_BUDGET)
+    yield* TestClock.adjust(EXPORT_BUDGET)
+    const result = yield* Fiber.join(fiber)
+    return { result, calls: yield* Ref.get(calls) }
+  })
+
+describe("Sync.push exports completed sessions (design §6)", () => {
+  it.effect("enqueues then drains one row of the user for an accepted finished session", () =>
+    Effect.gen(function* () {
+      const { result, calls } = yield* pushWith(
+        completedResponse,
+        [sessionChange],
+        Effect.succeed(1),
+      )
+      expect(result).toEqual(completedResponse)
+      expect(calls).toEqual([
+        ["enqueue", 1],
+        ["drain", Option.some(userA), 1],
+      ])
+    }),
+  )
+
+  it.effect("calls no export at all when the push completes no session", () =>
+    Effect.gen(function* () {
+      const { calls } = yield* pushWith(stored, [ex(exercise(1))], Effect.succeed(0))
+      expect(calls).toEqual([])
+    }),
+  )
+
+  it.effect("returns the store's response when the drain outlives the 5 s budget", () =>
+    Effect.gen(function* () {
+      const { result } = yield* pushWith(completedResponse, [sessionChange], Effect.never)
+      expect(result).toEqual(completedResponse)
+    }),
+  )
+
+  it.effect("cuts a hung enqueue off at 2 s and still runs the drain", () =>
+    Effect.gen(function* () {
+      const { result, calls } = yield* pushWith(
+        completedResponse,
+        [sessionChange],
+        Effect.succeed(0),
+        Effect.never,
+      )
+      expect(result).toEqual(completedResponse)
+      expect(calls).toEqual([
+        ["enqueue", 1],
+        ["drain", Option.some(userA), 1],
+      ])
+    }),
+  )
+
+  it.effect("returns the store's response when the export dies", () =>
+    Effect.gen(function* () {
+      const { result } = yield* pushWith(
+        completedResponse,
+        [sessionChange],
+        Effect.die("strava exploded"),
+      )
+      expect(result).toEqual(completedResponse)
     }),
   )
 })

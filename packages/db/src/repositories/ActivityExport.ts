@@ -41,7 +41,10 @@ export const NewExport = Schema.Struct({
 })
 export type NewExport = typeof NewExport.Type
 
-/** How one attempt ended; `now` becomes `updated_at`. Every outcome counts one attempt. */
+/**
+ * How one attempt ended; `now` becomes `updated_at`. Every outcome counts one attempt except
+ * `Blocked`, which resets `attempts` to 0: rounds against an inactive app never count toward `dead`.
+ */
 export const ExportOutcome = Schema.Union([
   Schema.TaggedStruct("Sent", { externalActivityId: Schema.String, now: Timestamp }),
   Schema.TaggedStruct("Failed", { reason: ExportFailureReason, now: Timestamp }),
@@ -155,7 +158,8 @@ export class ActivityExportRepo extends Context.Service<
         now: Timestamp,
       }),
       execute: (r) =>
-        sql`UPDATE activity_export SET status = ${r.status}, attempts = attempts + 1,
+        sql`UPDATE activity_export SET status = ${r.status},
+            attempts = CASE WHEN ${r.status} = 'blocked' THEN 0 ELSE attempts + 1 END,
             external_activity_id = COALESCE(${r.externalActivityId}, external_activity_id),
             last_error = ${r.lastError},
             next_attempt_at = COALESCE(${r.nextAttemptAt}, next_attempt_at),

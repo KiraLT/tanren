@@ -51,7 +51,7 @@ describe("IntegrationRepo", () => {
       const user = userOf(3)
       const first = row(3, user)
       yield* repo.upsert(first)
-      yield* repo.markRevoked(first.id, T1)
+      yield* repo.markRevoked(first.id, T0, T1)
       const reconnect = row(4, user, {
         externalId: "99999",
         displayName: "New Name",
@@ -100,9 +100,35 @@ describe("IntegrationRepo", () => {
       const user = userOf(6)
       const stored = row(6, user)
       yield* repo.upsert(stored)
-      yield* repo.markRevoked(stored.id, T1)
+      yield* repo.markRevoked(stored.id, T0, T1)
       expect(yield* repo.get(user, "strava")).toEqual(
         Option.some({ ...stored, status: "revoked", updatedAt: T1 }),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("markRevoked of a row version rotated meanwhile is a no-op", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const user = userOf(9)
+      const stored = row(9, user)
+      yield* repo.upsert(stored)
+      const rotated = {
+        access: SealedToken.make("v1.iv.access-rotated"),
+        refresh: SealedToken.make("v1.iv.refresh-rotated"),
+        expiresAt: time("2026-10-26T17:00:00.000Z"),
+        updatedAt: T1,
+      }
+      yield* repo.setTokens(stored.id, rotated)
+      yield* repo.markRevoked(stored.id, T0, time("2026-10-26T12:00:00.000Z"))
+      expect(yield* repo.get(user, "strava")).toEqual(
+        Option.some({
+          ...stored,
+          accessToken: rotated.access,
+          refreshToken: rotated.refresh,
+          expiresAt: rotated.expiresAt,
+          updatedAt: T1,
+        }),
       )
     }).pipe(Effect.provide(TestLayer)),
   )

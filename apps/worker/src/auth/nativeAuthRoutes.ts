@@ -67,7 +67,7 @@ interface Bucket {
  * is the Workers rate-limiting binding, see apps/worker/CLAUDE.md). Expired buckets are dropped on
  * every call, so the map stays as small as the set of recent callers.
  */
-const makeLimiter = Effect.gen(function* () {
+export const makeLimiter = Effect.gen(function* () {
   const buckets = yield* Ref.make(HashMap.empty<string, Bucket>())
   return (key: string) =>
     Effect.gen(function* () {
@@ -196,7 +196,7 @@ const decodeChallenge = Schema.decodeUnknownOption(PkceChallenge)
 const decodeBeginState = Schema.decodeUnknownOption(BeginState)
 const decodeExpiry = Schema.decodeUnknownOption(Schema.NumberFromString.check(Schema.isInt()))
 
-const clientIp = (request: HttpServerRequest.HttpServerRequest): string =>
+export const clientIp = (request: HttpServerRequest.HttpServerRequest): string =>
   request.headers["cf-connecting-ip"] ?? "unknown"
 
 /**

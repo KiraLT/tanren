@@ -242,7 +242,24 @@ describe("ActivityExportRepo.settle", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("Blocked parks the row with the reason, the retry time and one more attempt", () =>
+  it.effect("Blocked after failed attempts resets attempts to 0; the next failure counts 1", () =>
+    Effect.gen(function* () {
+      const repo = yield* ActivityExportRepo
+      const user = userOf(25)
+      const pending = { reason: "transport", nextAttemptAt: later, now: later } as const
+      yield* repo.enqueue([fresh(25, user)])
+      yield* repo.settle(exportId(25), { _tag: "Pending", ...pending })
+      yield* repo.settle(exportId(25), { _tag: "Pending", ...pending })
+      yield* repo.settle(exportId(25), { _tag: "Blocked", ...pending, reason: "app_inactive" })
+      const blocked = (yield* repo.list(user, "strava", 5))[0]
+      expect(blocked).toMatchObject({ status: "blocked", attempts: 0 })
+      yield* repo.settle(exportId(25), { _tag: "Pending", ...pending })
+      const after = (yield* repo.list(user, "strava", 5))[0]
+      expect(after).toMatchObject({ status: "pending", attempts: 1 })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("Blocked parks the row with the reason and the retry time, attempts reset to 0", () =>
     Effect.gen(function* () {
       const next = time("2026-10-26T16:30:00.000Z")
       const row = yield* settled(24, userOf(24), {
@@ -251,7 +268,7 @@ describe("ActivityExportRepo.settle", () => {
         nextAttemptAt: next,
         now: later,
       })
-      expect(row).toMatchObject({ status: "blocked", attempts: 1 })
+      expect(row).toMatchObject({ status: "blocked", attempts: 0 })
       expect(row?.lastError).toEqual(Option.some("app_inactive"))
       expect(row?.nextAttemptAt).toEqual(next)
       expect(row?.updatedAt).toEqual(later)

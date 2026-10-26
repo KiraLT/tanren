@@ -1,3 +1,4 @@
+import type { ActivityExportRepo, IntegrationRepo } from "@tanren/db"
 import { IdGenerator } from "@tanren/shared"
 import { Effect, Layer, Match } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
@@ -11,6 +12,10 @@ import type { Sessions } from "./auth/Sessions"
 import { SessionsLive } from "./auth/SessionsLive"
 import { WorkerConfig } from "./Config"
 import type { EnvVars } from "./Env"
+import { callbackRoutes } from "./integrations/callbackRoutes"
+import { ExportQueue } from "./integrations/ExportQueue"
+import { StravaApi } from "./integrations/StravaApi"
+import { TokenSeal } from "./integrations/TokenSeal"
 import {
   D1Layer,
   type ExerciseRepo,
@@ -20,6 +25,7 @@ import {
   Repositories,
   type SessionRepo,
 } from "./repos"
+import { MemoryIntegrations } from "./repos/MemoryIntegrations"
 import { Sync } from "./sync/Sync"
 import { SyncStore, SyncStoreMemory } from "./sync/SyncStore"
 
@@ -37,17 +43,33 @@ export type AuthMode =
       readonly betterAuth: Layer.Layer<BetterAuth, never, WorkerConfig>
     }
 
-export type Persistence = ProfileRepo | ExerciseRepo | PlanRepo | SessionRepo | SyncStore
+export type Persistence =
+  | ProfileRepo
+  | ExerciseRepo
+  | PlanRepo
+  | SessionRepo
+  | SyncStore
+  | IntegrationRepo
+  | ActivityExportRepo
 
 export interface AppServices {
   readonly auth: AuthMode
   /** Repositories and sync store. Default: `memoryPersistence(MemoryStore.layer)`. */
   readonly persistence?: Layer.Layer<Persistence>
+  /** The Strava export queue `Sync.push` feeds. Default: `ExportQueue.layerDisabled` (memory store). */
+  readonly exports?: Layer.Layer<ExportQueue, never, WorkerConfig>
+  /** Strava for the connect callback and disconnect. Default: `StravaApi.layer` (`STRAVA_MODE`). */
+  readonly strava?: Layer.Layer<StravaApi, never, WorkerConfig>
 }
 
-/** The memory repositories and sync store on one store, so REST writes show up in pull. */
+/**
+ * The memory repositories and sync store on one store, so REST writes show up in pull; the
+ * integration repositories keep their own in-memory state (`MemoryIntegrations`).
+ */
 export const memoryPersistence = (store: Layer.Layer<MemoryStore>): Layer.Layer<Persistence> =>
-  Layer.mergeAll(Repositories.layerMemoryNoDeps, SyncStoreMemory).pipe(Layer.provide(store))
+  Layer.mergeAll(Repositories.layerMemoryNoDeps, SyncStoreMemory, MemoryIntegrations.layer).pipe(
+    Layer.provide(store),
+  )
 
 /**
  * The `@tanren/db` repositories and sync store on the D1 binding (the Worker). `D1Client.layer`
@@ -94,13 +116,24 @@ const authLayers = (mode: AuthMode): AuthLayers =>
 export const makeApp = (env: EnvVars, services: AppServices): App => {
   const auth = authLayers(services.auth)
   const persistence = services.persistence ?? memoryPersistence(MemoryStore.layer)
+  // One reference, so the API and the Strava callback share one built instance (one memory store).
+  const shared = Layer.mergeAll(
+    persistence,
+    IdGenerator.layer,
+    services.strava ?? StravaApi.layer,
+    TokenSeal.layer,
+  )
   const api = HttpApiBuilder.layer(Api).pipe(
     Layer.provide(HandlersLive),
     Layer.provide(Authentication.layer),
     Layer.provide(Sync.layer),
-    Layer.provide(Layer.mergeAll(persistence, IdGenerator.layer, auth.sessions)),
+    Layer.provide(
+      Layer.mergeAll(shared, auth.sessions, services.exports ?? ExportQueue.layerDisabled),
+    ),
   )
-  const app = Layer.mergeAll(api, auth.routes).pipe(
+  // A plain route next to `auth.routes`: it answers 303 / HTML and reads no session (design §4).
+  const callback = callbackRoutes.pipe(Layer.provide(shared))
+  const app = Layer.mergeAll(api, auth.routes, callback).pipe(
     Layer.provide(corsLayer),
     Layer.provide(WorkerConfig.layerFromEnv(env)),
     Layer.provide(HttpServer.layerServices),

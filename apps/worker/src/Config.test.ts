@@ -301,11 +301,48 @@ describe("Strava and integration token config", () => {
     }),
   )
 
-  it.effect("fails outside local with STRAVA_MODE console", () =>
+  it.effect("accepts STRAVA_MODE console in production without a client secret", () =>
     Effect.gen(function* () {
-      const error = yield* Effect.flip(load({ ...productionEnv, STRAVA_MODE: "console" }))
+      const config = yield* load(
+        withoutVar({ ...productionEnv, STRAVA_MODE: "console" }, "STRAVA_CLIENT_SECRET"),
+      )
+      expect(config.environment).toBe("production")
+      expect(config.stravaMode).toBe("console")
+      expect(Option.isNone(config.stravaClientSecret)).toBe(true)
+    }),
+  )
+
+  it.effect("still refuses the fake key in production with STRAVA_MODE console", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({
+          ...productionEnv,
+          STRAVA_MODE: "console",
+          INTEGRATION_TOKEN_KEY: FAKE_INTEGRATION_TOKEN_KEY,
+        }),
+      )
       expect(error).toBeInstanceOf(ConfigError)
-      expect(error.message).toContain('STRAVA_MODE "console"')
+      expect(error.message).toContain("fake")
+    }),
+  )
+
+  it.effect("still needs a 32-byte key in production with STRAVA_MODE console", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, STRAVA_MODE: "console", INTEGRATION_TOKEN_KEY: "AAAA" }),
+      )
+      expect(error.message).toContain("32 bytes")
+    }),
+  )
+
+  it.effect("allows STRAVA_CONSOLE_FAIL in production console mode", () =>
+    Effect.gen(function* () {
+      const config = yield* load({
+        ...productionEnv,
+        STRAVA_MODE: "console",
+        STRAVA_CONSOLE_FAIL: "inactive",
+      })
+      expect(config.stravaConsoleFail).toEqual(Option.some("inactive"))
     }),
   )
 

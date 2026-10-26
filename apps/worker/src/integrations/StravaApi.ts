@@ -92,8 +92,10 @@ const failed = (reason: ExportFailureReason, status: Option.Option<number>) =>
  * status and body are unverified (research 2026-10-26 "Subscription lapse"), so 403 is always
  * treated as inactive and any other 4xx (not 401/429) only when the text matches.
  */
-const INACTIVE_BODY = /inactive|application/i
+const INACTIVE_BODY = /inactive/i
 const LOGGED_BODY_CHARS = 500
+/** The longest one Strava request (or its body) may take; past it the attempt is `transport`. */
+export const STRAVA_REQUEST_TIMEOUT = "10 seconds"
 
 /** The one log line for an inactive app. Only Strava's response goes in: never a request header. */
 const logApplicationRefused = (status: number, body: string) =>
@@ -109,6 +111,7 @@ const failureOf = (response: HttpClientResponse.HttpClientResponse) => {
     return Effect.fail(plain)
   }
   return response.text.pipe(
+    Effect.timeout(STRAVA_REQUEST_TIMEOUT),
     Effect.orElseSucceed(() => ""),
     Effect.flatMap((body) =>
       status === 403 || INACTIVE_BODY.test(body)
@@ -176,6 +179,8 @@ const makeHttp = Effect.gen(function* () {
   /** Runs a request; a non-2xx status becomes `StravaRequestFailed`, a lost connection `transport`. */
   const send = (request: HttpClientRequest.HttpClientRequest) =>
     client.execute(request).pipe(
+      // Bounded: the export runs each attempt uninterruptibly, so a hung request must end itself.
+      Effect.timeout(STRAVA_REQUEST_TIMEOUT),
       Effect.mapError(() => failed("transport", Option.none())),
       Effect.flatMap((response) =>
         response.status >= 200 && response.status < 300
@@ -190,6 +195,7 @@ const makeHttp = Effect.gen(function* () {
     response: HttpClientResponse.HttpClientResponse,
   ) =>
     response.json.pipe(
+      Effect.timeout(STRAVA_REQUEST_TIMEOUT),
       Effect.mapError(() => failed("provider_error", Option.some(response.status))),
       Effect.flatMap((body) =>
         Schema.decodeUnknownEffect(schema)(body).pipe(
@@ -288,7 +294,8 @@ const CONSOLE_INACTIVE_STATUS = 403
 const CONSOLE_INACTIVE_BODY = '{"message":"Application is inactive (console simulation)"}'
 
 /**
- * `STRAVA_MODE=console` (local only): no network. Logs what it would do, without any token or
+ * `STRAVA_MODE=console`: no network. Console mode is also what production runs until the owner has
+ * a Strava app; connect/callback refuse it outside local. Logs what it would do, without any token or
  * code, and answers with fake tokens that expire in six hours like Strava's.
  */
 const makeConsole = (fail: Option.Option<"inactive">) =>
@@ -342,7 +349,8 @@ export class StravaApi extends Context.Service<StravaApi, StravaApiShape>()(
   /** `layerHttp` over the Workers `fetch`. Needs `WorkerConfig`. */
   static readonly layerLive = this.layerHttp.pipe(Layer.provide(FetchHttpClient.layer))
   /**
-   * Logs instead of calling Strava. Local only (`WorkerConfig` refuses it elsewhere). With
+   * Logs instead of calling Strava. Console mode is also what production runs until the owner has
+   * a Strava app; connect/callback refuse it outside local. With
    * `Some("inactive")` `createActivity` fails like an inactive Strava app.
    */
   static readonly layerConsoleWith = (fail: Option.Option<"inactive">) =>

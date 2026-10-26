@@ -1,15 +1,25 @@
-import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
+import {
+  createExecutionContext,
+  createScheduledController,
+  waitOnExecutionContext,
+} from "cloudflare:test"
 import { env } from "cloudflare:workers"
 import { afterAll, describe, expect, it } from "@effect/vitest"
-import { Exercise, IdGenerator, PullResponse, PushResponse } from "@tanren/shared"
-import { Array as Arr, DateTime, Effect, Layer, Option, Schema } from "effect"
-import { d1Persistence } from "./app"
+import { ActivityExportRepo, SealedToken as DbSealedToken, IntegrationRepo } from "@tanren/db"
+import { Exercise, IdGenerator, PullResponse, PushResponse, UserId, Uuid } from "@tanren/shared"
+import { Array as Arr, Clock, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { type App, d1Persistence, makeApp } from "./app"
 import { DEV_USER_EMAIL, DEV_USER_ID } from "./auth/devUser"
+import { Sessions } from "./auth/Sessions"
+import { FAKE_INTEGRATION_TOKEN_KEY, WorkerConfig } from "./Config"
 import worker from "./index"
+import { signState } from "./integrations/connect"
+import { ExportQueue } from "./integrations/ExportQueue"
+import { TokenSeal } from "./integrations/TokenSeal"
 import { DEV_PRINCIPAL, McpAuth } from "./mcp/McpAuth"
 import { makeMcp } from "./mcp/McpRoute"
 import { writeTools } from "./mcp/writeTools"
-import { ExerciseRepo } from "./repos"
+import { D1Layer, ExerciseRepo, Repositories } from "./repos"
 import { exercise } from "./sync/fixtures"
 import { countingD1 } from "./testing/countingD1"
 import { envVars } from "./testing/fixtures"
@@ -304,5 +314,145 @@ describe("D1 statement budget (Free: 50 per invocation)", () => {
     expect(value.status).toBe(200)
     expect(value.body).toContain('\\"sets\\":3')
     expect(statements).toBeLessThanOrEqual(5)
+  })
+})
+
+describe("scheduled (cron export drain, design §6)", () => {
+  it("drains with no due exports and settles through waitUntil", async () => {
+    const ctx = createExecutionContext()
+    worker.scheduled(createScheduledController({ cron: "*/5 * * * *" }), env, ctx)
+    await waitOnExecutionContext(ctx)
+    const rows = await env.DB.prepare("SELECT COUNT(*) AS n FROM activity_export").first("n")
+    expect(rows).toBe(0)
+  })
+})
+
+describe("/sync/push exports a completed session within the push (design §6)", () => {
+  const counting = countingD1(env.DB)
+  const persistence = d1Persistence(counting.db)
+  const exportsLayer = ExportQueue.layerD1(counting.db)
+  const appFor = (userId: UserId) =>
+    makeApp(envVars, {
+      auth: { _tag: "Fixed", sessions: Sessions.layerFixed(Option.some(userId)) },
+      persistence,
+      exports: exportsLayer,
+    })
+  const CONNECTED = UserId.make(id(0x7a1))
+  const UNCONNECTED = UserId.make(id(0x7b1))
+  const connected = appFor(CONNECTED)
+  const unconnected = appFor(UNCONNECTED)
+  afterAll(() => Promise.all([connected.dispose(), unconnected.dispose()]))
+
+  const sessionRow = (n: number, userId: UserId, finishedAt: string | null) => ({
+    table: "session",
+    row: {
+      id: id(n),
+      userId,
+      createdAt: T0,
+      updatedAt: T0,
+      deletedAt: null,
+      startedAt: "2026-10-19T07:12:00.000Z",
+      finishedAt,
+      plannedSessionId: null,
+      notes: null,
+    },
+  })
+  const pushOn = async (app: App, change: unknown) => {
+    const before = counting.statements()
+    const response = await app.handler(
+      new Request(`${BASE}/sync/push`, json("", "POST", { changes: [change] })),
+    )
+    expect(response.status).toBe(200)
+    const body = Schema.decodeUnknownSync(PushResponse)(await response.json())
+    return { body, statements: counting.statements() - before }
+  }
+  const exportsOf = (userId: UserId) =>
+    Effect.runPromise(
+      Effect.flatMap(ActivityExportRepo, (repo) => repo.list(userId, "strava", 10)).pipe(
+        Effect.provide(Repositories.layer.pipe(Layer.provide(D1Layer(env.DB)), Layer.orDie)),
+      ),
+    )
+
+  it("an active integration gets a sent activity_export row before the response", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const seal = yield* TokenSeal
+        const now = yield* DateTime.now
+        yield* (yield* IntegrationRepo).upsert({
+          id: Uuid.make(id(0x7a2)),
+          userId: CONNECTED,
+          provider: "strava",
+          status: "active",
+          externalId: "athlete",
+          displayName: "Athlete",
+          accessToken: DbSealedToken.make(yield* seal.seal(Redacted.make("access"))),
+          refreshToken: DbSealedToken.make(yield* seal.seal(Redacted.make("refresh"))),
+          expiresAt: DateTime.add(now, { hours: 6 }),
+          scope: "activity:write",
+          createdAt: now,
+          updatedAt: now,
+        })
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            Repositories.layer.pipe(Layer.provide(D1Layer(env.DB)), Layer.orDie),
+            TokenSeal.layerWithKey(Redacted.make(FAKE_INTEGRATION_TOKEN_KEY)),
+          ),
+        ),
+      ),
+    )
+    const change = sessionRow(0x7a3, CONNECTED, "2026-10-19T08:00:00.000Z")
+    const { body, statements } = await pushOn(connected, change)
+    console.log("/sync/push completed session with integration: D1 statements", statements)
+    expect(Arr.map(body.accepted, (a) => a.id)).toEqual([id(0x7a3)])
+    const rows = await exportsOf(CONNECTED)
+    expect(Arr.map(rows, (row) => [row.sessionId, row.status, row.externalActivityId])).toEqual([
+      [id(0x7a3), "sent", Option.some(`console-${id(0x7a3).slice(0, 8)}`)],
+    ])
+  })
+
+  it("without an integration a completed push costs 2 statements more than an open one", async () => {
+    const open = await pushOn(unconnected, sessionRow(0x7b2, UNCONNECTED, null))
+    const done = await pushOn(
+      unconnected,
+      sessionRow(0x7b3, UNCONNECTED, "2026-10-19T08:00:00.000Z"),
+    )
+    console.log(
+      "/sync/push open vs completed without integration",
+      open.statements,
+      done.statements,
+    )
+    // The integration read (enqueue) and the due-row read (drain); nothing is written.
+    expect(done.statements - open.statements).toBe(2)
+    expect(await exportsOf(UNCONNECTED)).toEqual([])
+  })
+})
+
+describe("/integrations/strava/callback through the default export (design §4)", () => {
+  it("a state signed with the test key answers 303 and stores the integration in D1", async () => {
+    const config = WorkerConfig.fromEnvSync(env)
+    const returnTo = "http://localhost:8790/settings/integrations"
+    const now = await Effect.runPromise(Clock.currentTimeMillis)
+    const state = await Effect.runPromise(
+      signState(config, { userId: UserId.make(DEV_USER_ID), returnTo, expiresAt: now + 60_000 }),
+    )
+    const response = await call(
+      `/integrations/strava/callback?${new URLSearchParams({ state, code: "console", scope: "read,activity:write" })}`,
+      { headers: { "cf-connecting-ip": "198.51.100.4" } },
+    )
+    expect(response.status).toBe(303)
+    expect(response.headers.get("location")).toBe(`${returnTo}?connected=strava`)
+    expect(response.headers.get("cache-control")).toBe("no-store")
+    const row = await env.DB.prepare(
+      "SELECT status, display_name, scope, access_token FROM integration WHERE user_id = ? AND provider = 'strava'",
+    )
+      .bind(DEV_USER_ID)
+      .first()
+    expect(row).toMatchObject({
+      status: "active",
+      display_name: "Console Athlete",
+      scope: "read,activity:write",
+    })
+    expect(String(row?.access_token).startsWith("v1.")).toBe(true)
   })
 })

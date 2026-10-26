@@ -27,6 +27,7 @@ import {
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup } from "effect/http-api"
 import { Authentication } from "./Authentication"
+import { IntegrationsApi } from "./IntegrationsApi"
 
 const Internal = HttpApiError.InternalServerError
 const readErrors = [NotFound, Internal]
@@ -189,4 +190,5 @@ export class Api extends HttpApi.make("tanren")
   .add(SessionsApi)
   .add(SetsApi)
   .add(PlansApi)
-  .add(SyncApi) {}
+  .add(SyncApi)
+  .add(IntegrationsApi) {}

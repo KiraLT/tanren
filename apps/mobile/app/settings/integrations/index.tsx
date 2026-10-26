@@ -1,7 +1,7 @@
 import { Option } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
-import { View } from "react-native"
+import { Platform, View } from "react-native"
 import { AboutIntegrations, ProviderList } from "../../../src/components/integrations/ProviderList"
 import { LoadFailedBanner, StatusBanner } from "../../../src/components/integrations/StatusBanner"
 import { type ReturnBanner, returnBanner } from "../../../src/components/settings/integrationsCopy"
@@ -17,8 +17,16 @@ const useReturnBanner = () => {
     const incoming = returnBanner({ connected, error })
     if (Option.isSome(incoming)) {
       setBanner(incoming)
-      // `router.setParams` merges, so the keys are set to undefined to drop them.
-      router.setParams({ connected: undefined, error: undefined })
+      if (Platform.OS === "web") {
+        // Web: `router.setParams` leaves the query in the address bar (expo-router 58: its linking
+        // update re-writes `?error=` after any replaceState done alongside it), so a reload showed
+        // the banner again. Rewrite the URL in place instead: no navigation, the screen stays.
+        // (`router.replace` was tried: it remounts the screen and the banner is lost.)
+        window.history.replaceState(window.history.state, "", window.location.pathname)
+      } else {
+        // `router.setParams` merges, so the keys are set to undefined to drop them.
+        router.setParams({ connected: undefined, error: undefined })
+      }
     }
   }, [connected, error, router])
   return { banner, dismiss: () => setBanner(Option.none()) }

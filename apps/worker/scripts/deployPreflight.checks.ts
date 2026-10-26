@@ -51,6 +51,9 @@ const ProductionEnv = Schema.Struct({
   name: Schema.optionalKey(Schema.String),
   routes: Schema.optionalKey(Schema.Array(Route)),
   vars: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  triggers: Schema.optionalKey(
+    Schema.Struct({ crons: Schema.optionalKey(Schema.Array(Schema.String)) }),
+  ),
   d1_databases: Schema.optionalKey(
     Schema.Array(Schema.Struct({ binding: Schema.String, database_id: Schema.String })),
   ),
@@ -111,6 +114,42 @@ export const isTanrenSender = (value: string): boolean =>
   new RegExp(`^(?:[^<>]*<)?[^\\s<>@]+@${MAIL_DOMAIN.replace(".", "\\.")}>?$`).test(value.trim())
 
 const isLocal = (value: string): boolean => /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(value)
+
+/** An owner-fill placeholder (`<owner: …>`) or an empty value is not a real Strava client id. */
+const isStravaClientId = (value: string): boolean =>
+  value.trim() !== "" && !value.includes("<") && !value.includes(">")
+
+/**
+ * The client id is required only in `provider` mode. In `console` mode the placeholder is accepted
+ * (it still loads in Config.ts) and the row says exports are only logged until O1/O2.
+ */
+const stravaClientIdChecks = (vars: Readonly<Record<string, string>>): ReadonlyArray<Check> => {
+  const id = "prod.var.STRAVA_CLIENT_ID"
+  const label = "env.production.vars.STRAVA_CLIENT_ID"
+  return vars.STRAVA_MODE === "console"
+    ? [ok(id, label, "console: exports are only logged until O1/O2")]
+    : [
+        varCheck(
+          vars,
+          "STRAVA_CLIENT_ID",
+          isStravaClientId,
+          "the Client ID from strava.com/settings/api (owner step O2, docs/design/deploy.md §Strava secrets)",
+        ),
+      ]
+}
+
+/** Secrets live in Cloudflare (`wrangler secret put`); a var would be readable in the config and the dashboard. */
+export const STRAVA_SECRETS_NOT_VARS = ["INTEGRATION_TOKEN_KEY", "STRAVA_CLIENT_SECRET"] as const
+
+const notAVar = (vars: Readonly<Record<string, string>>, name: string): Check =>
+  name in vars
+    ? fail(
+        `prod.novar.${name}`,
+        `${name} is not in env.production.vars`,
+        "present as a plain var",
+        `${EDIT}: delete it, then cd apps/worker && pnpm exec wrangler secret put ${name} --env production`,
+      )
+    : ok(`prod.novar.${name}`, `${name} is not in env.production.vars`)
 
 const hasCustomDomain = (config: ProductionBlock, pattern: string): boolean =>
   Arr.some(
@@ -184,6 +223,25 @@ export const checkProduction = (config: Option.Option<WranglerConfig>): Readonly
       isNativePrefixes,
       `"${NATIVE_PREFIX_ROOT}<projectId>/" with the id from eas init (apps/mobile/app.json extra.eas.projectId)`,
     ),
+    // Strava export (docs/design/deploy.md §Strava secrets): Config.ts accepts "console" | "provider".
+    // Production runs "console" (only logs, never calls Strava) until the owner has a Strava app
+    // (O1/O2); then "provider" with a real client id.
+    varCheck(
+      vars,
+      "STRAVA_MODE",
+      (v) => v === "provider" || v === "console",
+      '"console" or "provider"',
+    ),
+    ...stravaClientIdChecks(vars),
+    ...Arr.map(STRAVA_SECRETS_NOT_VARS, (name) => notAVar(vars, name)),
+    Arr.isReadonlyArrayNonEmpty(block.triggers?.crons ?? [])
+      ? ok("prod.crons", "env.production.triggers.crons", (block.triggers?.crons ?? []).join(", "))
+      : fail(
+          "prod.crons",
+          "env.production.triggers.crons",
+          "missing or empty: the export queue would never drain",
+          `${EDIT}: "triggers": { "crons": ["*/5 * * * *"] } (a named env may not inherit the top-level triggers)`,
+        ),
     Option.match(d1, {
       onNone: () => fail("prod.d1", "D1 binding DB", "missing", EDIT),
       onSome: (d) =>
@@ -244,7 +302,22 @@ export const checkWeb = (config: Option.Option<WranglerConfig>): ReadonlyArray<C
 
 /* ---------- 3. secrets ---------- */
 
-export const SECRETS = ["BETTER_AUTH_SECRET", "RESEND_API_KEY"] as const
+export const SECRETS = [
+  "BETTER_AUTH_SECRET",
+  "RESEND_API_KEY",
+  "STRAVA_CLIENT_SECRET",
+  "INTEGRATION_TOKEN_KEY",
+] as const
+
+/** Where the value of a secret comes from, appended to its command (docs/design/deploy.md §3, §Strava secrets). */
+const SECRET_HINT: Readonly<Record<(typeof SECRETS)[number], string>> = {
+  BETTER_AUTH_SECRET: "   # openssl rand -base64 32",
+  RESEND_API_KEY: "   # from Resend",
+  STRAVA_CLIENT_SECRET:
+    '   # Client Secret from strava.com/settings/api; not needed while STRAVA_MODE is "console" (only before the flip to "provider")',
+  INTEGRATION_TOKEN_KEY:
+    "   # value: openssl rand -base64 32 (keep a copy: losing it forces a Strava reconnect)",
+}
 
 /** `wrangler secret list` needs a login, so secrets are listed, never verified. */
 export const checkSecrets = (devVarsFound: ReadonlyArray<string>): ReadonlyArray<Check> => [
@@ -253,7 +326,7 @@ export const checkSecrets = (devVarsFound: ReadonlyArray<string>): ReadonlyArray
       `secret.${name}`,
       `secret ${name}`,
       "not verifiable without a login; run it once",
-      `cd apps/worker && pnpm exec wrangler secret put ${name} --env production`,
+      `cd apps/worker && pnpm exec wrangler secret put ${name} --env production${SECRET_HINT[name]}`,
     ),
   ),
   Arr.isReadonlyArrayEmpty(devVarsFound)
@@ -388,7 +461,7 @@ export const ownerSession = (checks: ReadonlyArray<Check>): ReadonlyArray<Sessio
   },
   {
     command:
-      "paste both ids and the EAS project id (NATIVE_RETURN_PREFIXES) into wrangler.jsonc env.production",
+      "paste both ids, the EAS project id (NATIVE_RETURN_PREFIXES) and the Strava client id (STRAVA_CLIENT_ID) into wrangler.jsonc env.production",
     done: allOk(checks, "prod"),
   },
   {

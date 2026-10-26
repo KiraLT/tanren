@@ -222,7 +222,27 @@ describe("Integrations.connect", () => {
     }),
   )
 
-  it.effect("maps a 400 ConnectRejected to server", () =>
+  it.effect("maps a 400 ConnectRejected not-configured to not-configured", () =>
+    Effect.gen(function* () {
+      const { result } = yield* scenario(
+        (service) => service.connect("http://localhost:8790/settings/integrations"),
+        () => json({ _tag: "ConnectRejected", reason: "not-configured" }, 400),
+      )
+      expect(reasonOf(result)).toBe("not-configured")
+    }),
+  )
+
+  it.effect("maps an undecodable 400 to server", () =>
+    Effect.gen(function* () {
+      const { result } = yield* scenario(
+        (service) => service.connect("http://localhost:8790/settings/integrations"),
+        () => json({ message: "bad request" }, 400),
+      )
+      expect(reasonOf(result)).toBe("server")
+    }),
+  )
+
+  it.effect("maps a 400 ConnectRejected return-to to server", () =>
     Effect.gen(function* () {
       const { result } = yield* scenario(
         (service) => service.connect("https://evil.test/settings/integrations"),
