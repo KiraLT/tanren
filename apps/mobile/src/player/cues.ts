@@ -127,6 +127,15 @@ export const itemAmount = (item: ProgramItem): string =>
     }),
   )
 
+/** `Some(count)` for a reps item, `None` for a timed one (ADR-0020: the work screen shows a numeral). */
+export const repsOf = (item: ProgramItem): Option.Option<number> =>
+  Match.value(item).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      timed: () => Option.none<number>(),
+      reps: ({ reps }) => Option.some<number>(reps),
+    }),
+  )
+
 /**
  * The work screen's preview line under the transport row: "Next · Crunch 25 s". `None` when no
  * exercise follows (last item of the last round) or the player is not on a work phase.

@@ -8,10 +8,12 @@ import {
   cueFor,
   exerciseName,
   initialRun,
+  itemAmount,
   nextCaption,
   type PlayerRun,
   parseSpeed,
   reduceRun,
+  repsOf,
 } from "./cues"
 import { type PlayerConfig, type PlayerEventTag, playerEvent } from "./playerMachine"
 
@@ -285,6 +287,83 @@ describe("nextCaption", () => {
     })
     const started = reduceRun({ day: repsDay, speed: 1 })(initialRun(0), playerEvent("start", T0))
     expect(nextCaption(repsDay, started.player)).toEqual(Option.some("Next · Zz B 12 reps"))
+  })
+})
+
+describe("reps items (ADR-0020)", () => {
+  const repsItem = { kind: "reps", catalogId: "zz-reps-move", reps: 12, restSeconds: 15 }
+  const timedItem = { kind: "timed", catalogId: "zz-timed-move", seconds: 25, restSeconds: 60 }
+  const mixed = Schema.decodeUnknownSync(ProgramDay)({
+    dayNumber: 1,
+    title: "Day 1 · Mixed",
+    rounds: 1,
+    restBetweenRoundsSeconds: 0,
+    items: [repsItem, timedItem],
+  })
+  const mixedConfig: PlayerConfig = { day: mixed, speed: 1 }
+  const mixedRun = (events: ReadonlyArray<readonly [PlayerEventTag, number]>): PlayerRun =>
+    Arr.reduce(events, initialRun(0), (state, [tag, nowMs]) =>
+      reduceRun(mixedConfig)(state, playerEvent(tag, nowMs)),
+    )
+  const [first, second] = mixed.items
+
+  it("repsOf is Some(count) for a reps item and None for a timed one", () => {
+    expect(first === undefined ? Option.none() : repsOf(first)).toEqual(Option.some(12))
+    expect(second === undefined ? Option.some(-1) : repsOf(second)).toEqual(Option.none())
+  })
+
+  it("itemAmount spells a reps item as '12 reps' and a timed one as '25 s'", () => {
+    expect(first === undefined ? "" : itemAmount(first)).toBe("12 reps")
+    expect(second === undefined ? "" : itemAmount(second)).toBe("25 s")
+  })
+
+  it("alertFor is None on the reps work phase", () => {
+    expect(alertFor(mixedConfig, mixedRun([["start", T0]]).player)).toEqual(Option.none())
+  })
+
+  it("alertFor is None on the reps work phase after a long tick and while paused", () => {
+    expect(
+      alertFor(
+        mixedConfig,
+        mixedRun([
+          ["start", T0],
+          ["tick", T0 + 600_000],
+        ]).player,
+      ),
+    ).toEqual(Option.none())
+    expect(
+      alertFor(
+        mixedConfig,
+        mixedRun([
+          ["start", T0],
+          ["pause", T0 + 100],
+        ]).player,
+      ),
+    ).toEqual(Option.none())
+  })
+
+  it("once resting, alertFor names the next item and its amount at the rest deadline", () => {
+    const resting = mixedRun([
+      ["start", T0],
+      ["next", T0 + 5_000],
+    ])
+    expect(resting.player._tag).toBe("Resting")
+    expect(alertFor(mixedConfig, resting.player)).toEqual(
+      Option.some({ atMs: T0 + 5_000 + 15_000, text: "Rest over — Zz Timed Move, 25 s" }),
+    )
+  })
+
+  it("nextCaption from the reps phase previews the timed item", () => {
+    expect(nextCaption(mixed, mixedRun([["start", T0]]).player)).toEqual(
+      Option.some("Next · Zz Timed Move 25 s"),
+    )
+  })
+
+  it("cueFor from Idle into the reps Working phase is 'work'", () => {
+    const started = mixedRun([["start", T0]])
+    expect(started.previous._tag).toBe("Idle")
+    expect(started.player).toMatchObject({ _tag: "Working", endsAtMs: Option.none() })
+    expect(cueFor(started.previous, started.player)).toBe("work")
   })
 })
 

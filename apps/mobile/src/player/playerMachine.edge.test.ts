@@ -234,6 +234,66 @@ describe("playerMachine reps items and rest 0", () => {
     expect(s).toMatchObject({ _tag: "Working", endsAtMs: Option.none() })
   })
 
+  // ADR-0020 §4: a reps item is a Working phase with no deadline; only `next` ends it.
+  describe("a reps work phase followed by a timed item (ADR-0020)", () => {
+    const mixedDay = Schema.decodeUnknownSync(ProgramDay)({
+      dayNumber: 1,
+      title: "Day 1 · Mixed",
+      rounds: 1,
+      items: [
+        { kind: "reps", catalogId: "zz-reps-move", reps: 12, restSeconds: 15 },
+        timed("zz-timed-move", 25, 60),
+      ],
+      restBetweenRoundsSeconds: 0,
+    })
+    const c = cfg(1, mixedDay)
+    const started = run([["start", T0]], c)
+
+    it("start enters Working with no deadline", () => {
+      expect(started).toMatchObject({ _tag: "Working", itemIndex: 0, endsAtMs: Option.none() })
+    })
+
+    it("a tick ten minutes later stays on the same phase", () => {
+      const later = step(c)(started, playerEvent("tick", T0 + 600_000))
+      expect(later).toEqual(started)
+      expect(phaseKey(later)).toBe(phaseKey(started))
+    })
+
+    it("next enters the rest with a deadline of now + the item's rest", () => {
+      const nowMs = T0 + 7_000
+      const rest = step(c)(started, playerEvent("next", nowMs))
+      expect(rest).toMatchObject({
+        _tag: "Resting",
+        itemIndex: 0,
+        phaseStartMs: nowMs,
+        endsAtMs: nowMs + 15_000,
+      })
+    })
+
+    it("pause freezes it with no remaining time", () => {
+      const paused = step(c)(started, playerEvent("pause", T0 + 100))
+      expect(paused).toMatchObject({ _tag: "Paused", remainingMs: Option.none() })
+    })
+
+    it("resume returns the Working phase still without a deadline", () => {
+      const resumed = run(
+        [
+          ["pause", T0 + 100],
+          ["resume", T0 + 5_000],
+        ],
+        c,
+        started,
+      )
+      expect(resumed).toMatchObject({ _tag: "Working", itemIndex: 0, endsAtMs: Option.none() })
+    })
+
+    it("remainingMs is None on the reps phase, running or paused", () => {
+      expect(remainingMs(started, T0 + 3_000)).toEqual(Option.none())
+      const paused = step(c)(started, playerEvent("pause", T0 + 100))
+      expect(remainingMs(paused, T0 + 3_000)).toEqual(Option.none())
+    })
+  })
+
   it("previous on the very first item restarts it, never goes negative", () => {
     const s = run([
       ["start", T0],
