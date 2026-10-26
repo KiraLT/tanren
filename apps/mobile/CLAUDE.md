@@ -247,6 +247,17 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   so every call falls back once to `gpt-image-1.5` (a refused call is not billed, but counts as an API call); the
   request sends `background: "opaque"` because `auto` returned alpha for 2 of 9 icons.
 
+- Final mark (LOGO-2, owner pick J3: kanji 力, off-white first stroke, amber `#F59E0B` hook, on graphite `#16181D`):
+  `pnpm logo:generate --final --out <dir>` makes `F-icon`, `F-paper`, `F-mark` at quality `high` (about $0.60 per
+  attempt; a second attempt goes to another `--out`); `F-mark` (`background: transparent`) came back as a glow
+  twice, so it is unused. `pnpm exec node scripts/generateLogo.ts --export <dir>` (no key; `<dir>` holds the
+  chosen `F-icon.png` + `F-paper.png`) keys the glyph out of them (alpha from the distance to the corner
+  background, strokes recoloured to the exact brand colours, so the icon background is exactly `#16181D`,
+  not the model's drifted `#282B33`), trims it and writes the tracked `assets/brand/{icon,adaptive-icon,
+  splash-icon,favicon,mark,mark-paper}.png` and `public/icons/{icon-192,icon-512,maskable-512,apple-touch-180}.png`
+  (`app.json` icon/splash/adaptiveIcon/favicon point at them). The first stroke is off-white: use `mark.png` only
+  on dark surfaces and `mark-paper.png` (paper tile) on light ones (`app/sign-in.tsx`). `candidates/` stays ignored.
+
 ## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
 
 - Routes: `/progress` (root Stack, reached from the Feed AppBar chart button; exercise list, desktop aside);
@@ -271,11 +282,11 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   native shows the banner "Signed out. Reopen the app to finish." Offline or non-2xx gives `SignOutFailed`
   and nothing local changes. A different user on the same device is not built. The sign-out runtime proof
   is pending INT-X.
-- PWA: `public/manifest.json` (`theme_color` #C2410C = light accent, `background_color` #FFFFFF) and
-  `public/icons/{icon.svg, icon-192, icon-512, maskable-512, apple-touch-icon}.png`, rendered once from the
-  SVG with agent-browser. `public/index.html` comes from `expo customize` (works under the isolated linker)
+- PWA: `public/manifest.json` (`theme_color` and `background_color` #16181D = the LOGO-2 icon graphite) and
+  `public/icons/{icon-192, icon-512, maskable-512, apple-touch-180}.png` (exported from the final mark, see
+  Illustrations; the old `icon.svg` and `apple-touch-icon.png` are gone). `public/index.html` comes from `expo customize` (works under the isolated linker)
   and carries a `biome-ignore lint/a11y/useValidLang` comment for the `%LANG_ISO_CODE%` placeholder: re-add
-  it after any re-customize. `src/pwa/manifest.test.ts` keeps the colours equal to the tokens. There is no
+  it after any re-customize. `src/pwa/manifest.test.ts` keeps the manifest and `index.html` colours equal to the brand graphite. There is no
   service worker (an offline shell would be a Workbox step).
 - Verified 2026-10-21 (X5): `Page.getInstallabilityErrors` returns `[]` with no service worker (CDP via
   `agent-browser get cdp-url`); Workers static assets serve `manifest.json` as `application/json`;

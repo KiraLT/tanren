@@ -6,8 +6,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/brand/icon.png",
+    "splash": {
+      "image": "./assets/brand/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#16181D"
+    },
     "ios": { "supportsTablet": true, "bundleIdentifier": "me.tanren.app" },
-    "web": { "bundler": "metro", "output": "single" },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/brand/adaptive-icon.png",
+        "backgroundColor": "#16181D"
+      }
+    },
+    "web": { "bundler": "metro", "output": "single", "favicon": "./assets/brand/favicon.png" },
     "plugins": [
       "expo-router",
       "expo-sqlite",

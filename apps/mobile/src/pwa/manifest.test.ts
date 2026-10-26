@@ -3,8 +3,9 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
-import { lightColors } from "../ui/colors"
 
+/** The LOGO-2 icon background (`assets/brand/icon.png`), also the splash and adaptive-icon colour. */
+const BRAND_GRAPHITE = "#16181D"
 const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public")
 const readPublic = (file: string): string => readFileSync(join(publicDir, file), "utf8")
 
@@ -40,12 +41,12 @@ describe("public/manifest.json", () => {
     })
   })
 
-  it("uses the light design tokens for its colours", () => {
-    expect(manifest.theme_color).toBe(lightColors.accent)
-    expect(manifest.background_color).toBe(lightColors.bg)
+  it("uses the brand graphite (the icon background) for its colours", () => {
+    expect(manifest.theme_color).toBe(BRAND_GRAPHITE)
+    expect(manifest.background_color).toBe(BRAND_GRAPHITE)
   })
 
-  it("lists the 192, 512, maskable and any-size icons", () => {
+  it("lists the 192, 512, maskable and apple touch icons", () => {
     const by = (src: string) => manifest.icons.find((icon) => icon.src === src)
     expect(by("icons/icon-192.png")).toMatchObject({ sizes: "192x192", type: "image/png" })
     expect(by("icons/icon-512.png")).toMatchObject({ sizes: "512x512", type: "image/png" })
@@ -54,11 +55,11 @@ describe("public/manifest.json", () => {
       type: "image/png",
       purpose: "maskable",
     })
-    expect(by("icons/icon.svg")).toMatchObject({ sizes: "any", type: "image/svg+xml" })
+    expect(by("icons/apple-touch-180.png")).toMatchObject({ sizes: "180x180", type: "image/png" })
   })
 
   it("points every icon at a file that exists", () => {
-    const files = [...manifest.icons.map((icon) => icon.src), "icons/apple-touch-icon.png"]
+    const files = manifest.icons.map((icon) => icon.src)
     const missing = files.filter((file) => !existsSync(join(publicDir, file)))
     expect(missing).toEqual([])
   })
@@ -69,8 +70,8 @@ describe("public/index.html", () => {
 
   it("links the manifest and icons", () => {
     expect(html).toContain('<link rel="manifest" href="/manifest.json" />')
-    expect(html).toContain('<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />')
-    expect(html).toContain('<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />')
+    expect(html).toContain('<link rel="icon" href="/icons/icon-192.png" type="image/png" />')
+    expect(html).toContain('<link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />')
     expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes" />')
   })
 

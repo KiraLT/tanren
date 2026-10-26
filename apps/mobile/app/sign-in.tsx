@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { TextInput, View, type ViewStyle } from "react-native"
+import { Image, type ImageStyle, TextInput, View, type ViewStyle } from "react-native"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import {
   SIGN_IN_SUPPORTED,
@@ -38,7 +38,7 @@ export default function SignInScreen() {
   const { state, send } = useSendMagicLink()
   const [email, setEmail] = useState(__DEV__ ? DEV_EMAIL : "")
   const styles = useStyles(createStyles)
-  const { colors } = useTheme()
+  const { colors, scheme } = useTheme()
   const sending = state._tag === "Sending"
   const sent = state._tag === "Sent"
   const backToToday = () => router.replace("/today")
@@ -114,6 +114,13 @@ export default function SignInScreen() {
   return (
     <Page scroll>
       <View style={column}>
+        {/* The mark's first stroke is off-white: light pages get the paper tile, dark pages the bare mark. */}
+        <Image
+          source={scheme === "dark" ? MARK : MARK_PAPER}
+          style={markStyle}
+          accessibilityIgnoresInvertColors
+          accessible={false}
+        />
         <Text
           variant="title"
           accessibilityLabel="Tanren"
@@ -130,6 +137,12 @@ export default function SignInScreen() {
     </Page>
   )
 }
+
+const MARK = require("../assets/brand/mark.png")
+const MARK_PAPER = require("../assets/brand/mark-paper.png")
+
+/** The Tanren mark above the wordmark (LOGO-2): 48 px, rounded like the paper tile. */
+const markStyle: ImageStyle = { width: 48, height: 48, borderRadius: radius.md }
 
 const column: ViewStyle = {
   width: "100%",

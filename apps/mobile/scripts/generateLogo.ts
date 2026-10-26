@@ -48,7 +48,12 @@ const BURNT = "burnt-orange (#C2410C)"
  */
 const SHEET_PREFIX = "LOGO-1c"
 
-type Candidate = { readonly id: string; readonly prompt: string }
+type Candidate = {
+  readonly id: string
+  readonly prompt: string
+  /** `--final` entries only: the image background the request asks for. */
+  readonly background?: "opaque" | "transparent"
+}
 const CANDIDATES: ReadonlyArray<Candidate> = [
   {
     id: "J1",
@@ -81,6 +86,36 @@ const CANDIDATES: ReadonlyArray<Candidate> = [
   {
     id: "J8",
     prompt: `${BASE}. ${PAPER}. The kanji 力 in ${INK} brush strokes with the stroke ends tapered, no accent.`,
+  },
+]
+
+/**
+ * LOGO-2 (`--final`): the owner's pick J3 (kanji 力, off-white first stroke, amber hook, on graphite) redrawn
+ * at quality `high` as three finals. `--final` writes `<out>/F-icon.png`, `F-paper.png`, `F-mark.png`; a
+ * second attempt goes to another `--out` dir. `--export <dir>` (no key) turns the chosen raw files in `<dir>`
+ * into the tracked `assets/brand/*.png` and the PWA icons under `public/icons/`.
+ * Cost: about $0.20 per high image, three = about $0.60 per attempt.
+ */
+const FINAL_QUALITY = "high"
+const FINAL_CORE =
+  "the Japanese kanji 力 drawn as exactly two bold flat brush strokes with tapered ends, heavier stroke weight than typical, the first stroke FIRST_COLOR and the second hooked sweeping stroke SECOND_COLOR, perfectly flat solid background, no gradient, no glow, no texture, no outline, no shadow, no other marks, the glyph filling about 60% of the canvas, centred"
+const finalPrompt = (first: string, second: string, background: string) =>
+  `${FINAL_CORE.replace("FIRST_COLOR", first).replace("SECOND_COLOR", second)}. ${background}.`
+const FINALS: ReadonlyArray<Candidate> = [
+  {
+    id: "F-icon",
+    prompt: finalPrompt(OFF_WHITE, AMBER, `Solid ${GRAPHITE}`),
+    background: "opaque",
+  },
+  {
+    id: "F-paper",
+    prompt: finalPrompt(INK, BURNT, `Solid ${PAPER}`),
+    background: "opaque",
+  },
+  {
+    id: "F-mark",
+    prompt: finalPrompt(OFF_WHITE, AMBER, "Transparent background, only the two strokes"),
+    background: "transparent",
   },
 ]
 
@@ -120,11 +155,14 @@ const runGenerate = async () => {
         () => [],
       )
     : []
-  const selected = CANDIDATES.filter((c) => only.length === 0 || only.includes(c.id))
+  const selected = (flag("--final") ? FINALS : CANDIDATES).filter(
+    (c) => only.length === 0 || only.includes(c.id),
+  )
+  const quality = flag("--final") ? FINAL_QUALITY : P.IMAGE_QUALITY
   /** API calls made, counting retries and the model fallback (reported by the run). */
   const calls = { count: 0 }
 
-  const post = (model: string, prompt: string, signal: AbortSignal) => {
+  const post = (model: string, entry: Candidate, signal: AbortSignal) => {
     // biome-ignore lint/plugin/noMutation: run-local call counter for the cost report
     calls.count += 1
     return fetch("https://api.openai.com/v1/images/generations", {
@@ -132,14 +170,14 @@ const runGenerate = async () => {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model,
-        prompt,
+        prompt: entry.prompt,
         n: 1,
         size: P.IMAGE_SIZE,
-        quality: P.IMAGE_QUALITY,
+        quality,
         output_format: "png",
         // gpt-image-1.5 left the background on "auto" and returned alpha for 2 of 9 icons (A1, B2):
-        // an icon candidate must be opaque unless --transparent.
-        background: flag("--transparent") ? "transparent" : "opaque",
+        // an icon candidate must be opaque unless --transparent (or the final says so).
+        background: entry.background ?? (flag("--transparent") ? "transparent" : "opaque"),
       }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
     })
@@ -152,7 +190,7 @@ const runGenerate = async () => {
     yield* Console.log(`  start ${entry.id} ${new Date().toTimeString().slice(0, 8)}`)
     const request = (model: string) =>
       Effect.tryPromise({
-        try: (signal) => post(model, entry.prompt, signal),
+        try: (signal) => post(model, entry, signal),
         catch: (cause) =>
           new LogoFailed({
             name: entry.id,
@@ -213,7 +251,7 @@ const runGenerate = async () => {
 
   const program = Effect.gen(function* () {
     yield* Console.log(
-      `logo:generate ${MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
+      `logo:generate ${MODEL} ${P.IMAGE_SIZE} ${quality} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
     )
     const attempt = (entry: Candidate) =>
       generate(entry).pipe(
@@ -331,7 +369,119 @@ const runSheet = async () => {
   console.log(`logo:sheet wrote ${big} and ${small} (${present.length} candidates)`)
 }
 
-if (flag("--sheet")) {
+/**
+ * LOGO-2 export. The model drifts its flat colours (graphite came back as about #282B33, strokes a shade
+ * off) and `background: transparent` returned a glow, so a final is never used raw: the glyph is keyed out
+ * of the generated image (alpha from the distance to the corner-estimated background, scaled to the distance
+ * between the background and the brand stroke colour, noise floor `KEY_FLOOR`), every pixel gets the exact
+ * brand stroke colour of its class (accent when red minus blue is above `ACCENT_RB`), the matte is trimmed,
+ * and the glyph is re-centred on a solid brand background or on transparency at a stated fraction of the
+ * canvas. `F-icon` provides the transparent mark and the dark tiles, `F-paper` the paper tile.
+ */
+type Rgb = readonly [number, number, number]
+const hexRgb = (hex: string): Rgb => [
+  Number.parseInt(hex.slice(1, 3), 16),
+  Number.parseInt(hex.slice(3, 5), 16),
+  Number.parseInt(hex.slice(5, 7), 16),
+]
+const distance = (a: Rgb, b: Rgb) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
+const KEY_FLOOR = 10
+const KEY_SATURATION = 0.7
+const ACCENT_RB = 40
+
+type Palette = { readonly bg: string; readonly first: string; readonly accent: string }
+const DARK_PALETTE: Palette = { bg: "#16181D", first: "#F6F4EF", accent: "#F59E0B" }
+const PAPER_PALETTE: Palette = { bg: "#F6F4EF", first: "#16181D", accent: "#C2410C" }
+
+/** The glyph as a trimmed RGBA png buffer in exact brand colours. */
+const keyGlyph = async (file: string, palette: Palette): Promise<Buffer> => {
+  const { data, info } = await sharp(file).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  const at = (x: number, y: number): Rgb => {
+    const i = (y * info.width + x) * 3
+    return [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0]
+  }
+  const corners = [
+    at(2, 2),
+    at(info.width - 3, 2),
+    at(2, info.height - 3),
+    at(info.width - 3, info.height - 3),
+  ]
+  const mean = (channel: 0 | 1 | 2) =>
+    corners.reduce((sum, c) => sum + c[channel], 0) / corners.length
+  const bg: Rgb = [mean(0), mean(1), mean(2)]
+  const first = hexRgb(palette.first)
+  const accent = hexRgb(palette.accent)
+  const rgba = Array.from({ length: info.width * info.height }, (_, n) => {
+    const p = at(n % info.width, Math.floor(n / info.width))
+    const stroke = p[0] - p[2] > ACCENT_RB ? accent : first
+    const full = distance(stroke, bg)
+    // Opaque from KEY_SATURATION of the expected distance: the model's strokes are a shade off brand.
+    const span = full * KEY_SATURATION - KEY_FLOOR
+    const alpha = Math.min(1, Math.max(0, (distance(p, bg) - KEY_FLOOR) / span))
+    return [stroke[0], stroke[1], stroke[2], Math.round(alpha * 255)]
+  })
+  return sharp(Uint8Array.from(rgba.flat()), {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .trim({ threshold: 8 })
+    .png()
+    .toBuffer()
+}
+
+/** `glyph` fitted to `fraction` of a `size` canvas and centred on `background` (none = transparent). */
+const tile = async (
+  glyph: Buffer,
+  size: number,
+  fraction: number,
+  background: Option.Option<string>,
+) => {
+  const box = Math.round(size * fraction)
+  const fitted = await sharp(glyph).resize(box, box, { fit: "inside" }).png().toBuffer()
+  const composed = sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: Option.getOrElse(background, () => "#00000000"),
+    },
+  }).composite([{ input: fitted, gravity: "centre" }])
+  // A solid background means an opaque file (iOS rejects alpha in the app icon).
+  return (Option.isSome(background) ? composed.removeAlpha() : composed)
+    .png({ compressionLevel: 9, palette: true, quality: 100, effort: 10 })
+    .toBuffer()
+}
+
+const runExport = async (rawDir: string) => {
+  const dark = await keyGlyph(join(rawDir, "F-icon.png"), DARK_PALETTE)
+  const paper = await keyGlyph(join(rawDir, "F-paper.png"), PAPER_PALETTE)
+  const brand = join(here, "..", "assets", "brand")
+  const icons = join(here, "..", "public", "icons")
+  mkdirSync(icons, { recursive: true })
+  const graphite = Option.some(DARK_PALETTE.bg)
+  const jobs: ReadonlyArray<readonly [string, Promise<Buffer>]> = [
+    [join(brand, "icon.png"), tile(dark, 1024, 0.6, graphite)],
+    [join(brand, "adaptive-icon.png"), tile(dark, 1024, 0.58, graphite)],
+    [join(brand, "splash-icon.png"), tile(dark, 512, 0.76, Option.none())],
+    [join(brand, "favicon.png"), tile(dark, 48, 0.76, graphite)],
+    [join(brand, "mark.png"), tile(dark, 512, 0.76, Option.none())],
+    [join(brand, "mark-paper.png"), tile(paper, 512, 0.6, Option.some(PAPER_PALETTE.bg))],
+    [join(icons, "icon-192.png"), tile(dark, 192, 0.6, graphite)],
+    [join(icons, "icon-512.png"), tile(dark, 512, 0.6, graphite)],
+    [join(icons, "maskable-512.png"), tile(dark, 512, 0.5, graphite)],
+    [join(icons, "apple-touch-180.png"), tile(dark, 180, 0.6, graphite)],
+  ]
+  await Promise.all(
+    jobs.map(async ([file, bytes]) => {
+      const buffer = await bytes
+      writeFileSync(file, buffer)
+      console.log(`logo:export ${file} ${buffer.length} bytes`)
+    }),
+  )
+}
+
+if (flag("--export")) {
+  await runExport(resolve(Option.getOrElse(argValue("--export"), () => outDir)))
+} else if (flag("--sheet")) {
   await runSheet()
 } else {
   await runGenerate()
