@@ -124,6 +124,12 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   must return a user; a PNG showing the sign-in form on a route other than `/sign-in` is a capture failure —
   re-sign-in and re-shoot, never hand it over. Capture scripts in `$S` start with `#!/bin/zsh` (the desktop
   harness broke under `sh`).
+- Gallery check (GAL-2): a capture task that adds rows to the review gallery HTML runs
+  `node docs/design/gallery.mjs [html] [screensDir]` and pastes its output (badge uniqueness, missing
+  shots; exit 1 on missing is expected while the 60 v1 shots live only in the published artifact). It
+  rewrites the checked-in manifest `docs/design/screens/gallery.json`. The Lead publishes from
+  `node docs/design/gallery.mjs --publish` (map of shots on disk; duplicate badges are the only hard
+  failure). A new section picks a badge prefix not already in `gallery.json`.
 - `ui-measure.js` `docH` (`documentElement.scrollHeight`) equals the viewport height on every route whose
   ScrollView scrolls (RNW pins the body to 100 %), so it proves nothing about page length (LAND-1,
   2026-10-26). Read the scrolling column's `scrollHeight` (`contentH`) instead; desktop r4 adds the probe.
