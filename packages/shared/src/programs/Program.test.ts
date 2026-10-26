@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import { failingPaths } from "../testing"
 import { findProgram, PROGRAMS } from "./index"
-import { dayDurationSeconds, Program, ProgramDay, ProgramId, SECONDS_PER_REP } from "./Program"
+import { dayDurationSeconds, Program, ProgramDay, ProgramId } from "./Program"
 
 const timed = (seconds: number, restSeconds: number) => ({
   kind: "timed",
@@ -51,18 +51,13 @@ describe("dayDurationSeconds", () => {
     expect(dayDurationSeconds(day)).toBe(3 * (90 + 30) + 2 * 60)
   })
 
-  it("counts 10 reps as 20 seconds (SECONDS_PER_REP = 2)", () => {
-    expect(SECONDS_PER_REP).toBe(2)
-    expect(10 * SECONDS_PER_REP).toBe(20)
-  })
-
-  it("estimates a reps item at SECONDS_PER_REP per rep", () => {
+  it("estimates 10 reps as 20 seconds (2 s a rep; the item's own rest is unused)", () => {
     const day = Schema.decodeUnknownSync(ProgramDay)({
       ...dayWire,
       rounds: 1,
       items: [{ kind: "reps", catalogId: "sit-up", reps: 10, restSeconds: 30 }],
     })
-    expect(dayDurationSeconds(day)).toBe(10 * SECONDS_PER_REP)
+    expect(dayDurationSeconds(day)).toBe(20)
   })
 })
 

@@ -168,8 +168,8 @@ const dayWire = (dayNumber: number) =>
 export const CORE30: Program = Schema.decodeUnknownSync(Program)({
   programId: "core-30",
   name: "Core 30",
-  tagline: "Thirty days of timed core work, from foundation to peak.",
+  tagline: "Thirty days of core work: counted reps and timed holds, from foundation to peak.",
   description:
-    "Thirty guided days of timed core exercises. Three rotating routines hit the front, the obliques and the back and hips; every seventh day is a short recovery. Work intervals grow and rests shrink as the weeks go by.",
+    "Thirty guided days of core work, with counted reps for most moves and timed holds for planks and cardio. Three rotating routines hit the front, the obliques and the back and hips; every seventh day is a short recovery. Work intervals grow and rests shrink as the weeks go by.",
   days: Arr.makeBy(30, (index) => dayWire(index + 1)),
 })
