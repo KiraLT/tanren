@@ -29,9 +29,9 @@ traced SVG mark, desktop polish round 4 (in flight at the time of writing — se
 - Desktop polish r4 team-lead (charter `docs/tasks/v3-design/team-desktop-r4.md`): told to stop after one
   capture + designer review, report by 23:55. On report: commit (WIP if not PASS), insert its
   `UI-Pdesktop-r4-rows.html` fragment into the gallery source, publish v11, log scores.
-- AUTO-FIN: REV-AF r2 APPROVE on `7dbf3bd` (close after a completed pull under the sync lock; soft-delete only
-  never-pushed empty sessions; 48 h Strava backfill guard). Last tweak in flight: startup close removed so the
-  close is after-pull only. Deployable once that lands (next deploy picks it up).
+- AUTO-FIN done and reviewed (close only after a complete pull under the sync lock; soft-delete only
+  never-pushed empty sessions; 48 h Strava backfill guard). Not yet deployed. Known limit: an offline device
+  that never completes a pull never auto-closes.
 <!-- DESKTOP_R4_RESULT --> <!-- RETRO_EXPERIMENT -->
 
 ## Owner-gated (exact steps)
