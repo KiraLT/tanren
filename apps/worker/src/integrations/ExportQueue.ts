@@ -95,24 +95,34 @@ export const failureOutcome = (
   return policy[reason]()
 }
 
+/** A session finished longer than this before it was completed (pushed) is not exported. */
+export const EXPORT_BACKFILL_HOURS = 48
+
 /**
  * Sessions this push completed: a `session` change with `finishedAt` Some and `deletedAt` None
- * whose id the store accepted (design §6, ADR-0018 §4).
+ * whose id the store accepted (design §6, ADR-0018 §4), and whose `finishedAt` is at most
+ * `EXPORT_BACKFILL_HOURS` before the accepted `updatedAt` (the moment it became completed): an
+ * auto-finished or long-offline session is not backfilled to Strava (ADR-0018, REV-AF).
  */
 export const completedSessionIds = (
   changes: PushRequest["changes"],
   accepted: PushResponse["accepted"],
 ): ReadonlyArray<SessionId> => {
-  const acceptedIds = pipe(
-    accepted,
-    Arr.filter((change) => change.table === "session"),
-    Arr.map((change) => change.id),
-  )
+  const acceptedSessions = Arr.filter(accepted, (change) => change.table === "session")
+  const isRecent = (id: SessionId, finishedAt: DateTime.Utc) =>
+    Arr.some(
+      acceptedSessions,
+      (change) =>
+        change.id === id &&
+        !DateTime.isLessThan(
+          finishedAt,
+          DateTime.subtract(change.updatedAt, { hours: EXPORT_BACKFILL_HOURS }),
+        ),
+    )
   return Arr.flatMap(changes, (change) =>
     change.table === "session" &&
-    Option.isSome(change.row.finishedAt) &&
     Option.isNone(change.row.deletedAt) &&
-    Arr.contains(acceptedIds, change.row.id)
+    Option.exists(change.row.finishedAt, (finishedAt) => isRecent(change.row.id, finishedAt))
       ? [change.row.id]
       : [],
   )

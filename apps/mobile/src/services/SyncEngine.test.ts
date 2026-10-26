@@ -442,3 +442,77 @@ describe("SyncEngine.syncOnce", () => {
     ),
   )
 })
+
+describe("SyncEngine auto-finish (REV-AF)", () => {
+  /** A signed-out phone with Today on top of the sync stack, talking to the server as itself. */
+  const openTodayPhone = Effect.gen(function* () {
+    const context = yield* Layer.build(
+      Layer.mergeAll(TodayRepo.layerNoDeps, SyncEngine.layerNoDeps).pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            LocalStore.layerNoDeps.pipe(
+              Layer.provideMerge(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
+            ),
+            MockSyncServer.transport(LOCAL_USER_ID),
+            CurrentUser.layerTest(Option.none()),
+            IdGenerator.layerTest,
+            DateTime.layerCurrentZoneNamed("Europe/Vilnius").pipe(Layer.orDie),
+          ),
+        ),
+      ),
+    )
+    return <A, E>(effect: Effect.Effect<A, E, Phone>): Effect.Effect<A, E> =>
+      Effect.provide(effect, context satisfies Context.Context<Phone>)
+  })
+  const sessionState = query(`SELECT "finishedAt", "deletedAt", "_dirty" FROM "workout_session"`)
+
+  it.effect("finishes a pulled stale session at its last loggedAt once the pull has landed", () =>
+    withServer(
+      Effect.gen(function* () {
+        yield* serverPush([
+          exercise(EXERCISE_ID, "Squat", at(0)),
+          session(at(0)),
+          workoutSet(100, at(1)),
+        ])
+        yield* TestClock.setTime(Date.parse("2026-10-20T12:00:00.000Z"))
+        const phone = yield* openTodayPhone
+        yield* phone(syncOnce)
+        expect(yield* phone(sessionState)).toEqual([
+          { finishedAt: at(1), deletedAt: null, _dirty: 1 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("leaves a pulled open session that is fresh untouched", () =>
+    withServer(
+      Effect.gen(function* () {
+        yield* serverPush([
+          exercise(EXERCISE_ID, "Squat", at(0)),
+          session(at(0)),
+          workoutSet(100, at(1)),
+        ])
+        yield* TestClock.setTime(Date.parse("2026-10-20T10:00:00.000Z"))
+        const phone = yield* openTodayPhone
+        yield* phone(syncOnce)
+        expect(yield* phone(sessionState)).toEqual([
+          { finishedAt: null, deletedAt: null, _dirty: 0 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("never runs from a Today read: a stale local session stays open until a sync", () =>
+    withServer(
+      Effect.gen(function* () {
+        const phone = yield* openTodayPhone
+        yield* phone(write([session(at(0)), workoutSet(100, at(1))], false))
+        yield* TestClock.setTime(Date.parse("2026-10-20T12:00:00.000Z"))
+        yield* phone(TodayRepo.use((repo) => repo.today))
+        expect((yield* phone(sessionState))[0]?.finishedAt).toBeNull()
+        yield* phone(syncOnce)
+        expect((yield* phone(sessionState))[0]?.finishedAt).toBe(at(1))
+      }),
+    ),
+  )
+})

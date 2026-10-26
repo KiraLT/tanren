@@ -36,6 +36,25 @@ import { encodeChange, LocalChange, LocalStore } from "./LocalStore"
 import { SqlDriver, type SqlRecord, type SqlStatement, StoreError } from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
 import { SyncTransport, type TransportError } from "./SyncTransport"
+import { TodayRepo } from "./TodayRepo"
+
+/**
+ * AUTO-FIN (ADR-0018, REV-AF): closes stale open sessions. Runs only where no pull page can be
+ * half-applied: right after `pullLoop` has landed every page, and once when `background` starts
+ * (under the sync lock, before its first round). `TodayRepo` is read from the caller's context
+ * (`serviceOption`): the app runtime has it; engine-only tests do not, and then this is a no-op.
+ * A failure is logged and never fails the sync.
+ */
+const closeStaleSessions: Effect.Effect<void> = Effect.serviceOption(TodayRepo).pipe(
+  Effect.flatMap(
+    Option.match({
+      onNone: () => Effect.void,
+      onSome: (repo) => DateTime.now.pipe(Effect.flatMap(repo.finishStaleSessions)),
+    }),
+  ),
+  Effect.catch((error) => Effect.logWarning("SyncEngine: closing stale sessions failed", error)),
+  Effect.asVoid,
+)
 
 export const PULL_PAGE_LIMIT = 200
 /** Fallback period of the background loop. */
@@ -286,6 +305,8 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
       const syncOnce = Effect.gen(function* () {
         const { pushed, rejected } = yield* pushLoop(0, 0)
         const { pulled, serverTime } = yield* pullLoop(0)
+        // Every page has landed: a pulled session now has all its sets (REV-AF).
+        yield* closeStaleSessions
         return { pushed, rejected, pulled, serverTime }
       }).pipe(Effect.withSpan("SyncEngine.syncOnce"))
 
@@ -325,7 +346,11 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
         syncOnceExclusive,
         rekeyLocalUser,
         requestSync: Queue.offer(wake, undefined).pipe(Effect.asVoid),
-        background: (report) => Effect.forever(round(report)),
+        // Startup close under the lock: no pull can be running, so none is half-applied.
+        background: (report) =>
+          lock
+            .withPermits(1)(closeStaleSessions)
+            .pipe(Effect.andThen(Effect.forever(round(report)))),
       })
     }),
   )

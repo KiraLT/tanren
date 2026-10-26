@@ -1,7 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { DateTime, Option } from "effect"
 import { at, session, T0, userA } from "../sync/fixtures"
-import { completedSessionIds, failureOutcome, MAX_ATTEMPTS, nextAttempt } from "./ExportQueue"
+import {
+  completedSessionIds,
+  EXPORT_BACKFILL_HOURS,
+  failureOutcome,
+  MAX_ATTEMPTS,
+  nextAttempt,
+} from "./ExportQueue"
 
 const NOW = at("2026-10-26T12:00:00.000Z")
 const plus = (minutes: number) => Option.some(DateTime.add(NOW, { minutes }))
@@ -83,5 +89,21 @@ describe("completedSessionIds", () => {
     )
     expect(ids).toEqual([session(1, T0).id])
     expect(userA).toBe(session(1, T0).userId)
+  })
+
+  it("skips a session finished more than EXPORT_BACKFILL_HOURS before it was completed", () => {
+    const finishedAt = (n: number, hoursBefore: number) => ({
+      table: "session" as const,
+      row: {
+        ...session(n, T0),
+        finishedAt: Option.some(DateTime.subtract(NOW, { hours: hoursBefore })),
+      },
+    })
+    const acceptedAtNow = (n: number) => ({ ...accepted(n), updatedAt: NOW })
+    const ids = completedSessionIds(
+      [finishedAt(1, EXPORT_BACKFILL_HOURS), finishedAt(2, EXPORT_BACKFILL_HOURS + 1)],
+      [acceptedAtNow(1), acceptedAtNow(2)],
+    )
+    expect(ids).toEqual([session(1, T0).id])
   })
 })

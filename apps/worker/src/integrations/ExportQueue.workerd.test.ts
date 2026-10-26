@@ -152,6 +152,9 @@ const seed = (
     const row = Session.make({
       ...session(0xc000 + n, DateTime.subtract(now, { minutes: 48 })),
       userId,
+      // Completed now: the fixture's fixed `updatedAt` (T0) would make a January finish look
+      // older than EXPORT_BACKFILL_HOURS and skip the export.
+      updatedAt: now,
       finishedAt: Option.some(now),
     })
     const sessions = yield* SessionRepo

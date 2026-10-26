@@ -280,7 +280,7 @@ describe("TodayRepo.finishStaleSessions", () => {
     ),
   )
 
-  it.effect("soft-deletes a stale open session with zero live sets", () =>
+  it.effect("soft-deletes a device-created, never-pushed stale session with zero live sets", () =>
     run(
       Effect.gen(function* () {
         const set = yield* (yield* TodayRepo).logSet(input(yield* squatOf(yield* seededToday)))
@@ -292,6 +292,40 @@ describe("TodayRepo.finishStaleSessions", () => {
         expect(yield* finishStale).toBe(1)
         const row = yield* sessionRow(set.sessionId)
         expect(row.deletedAt.pipe(Option.map(millis))).toEqual(Option.some(NOW + 181 * 60 * 1000))
+        expect(Option.isNone(row.finishedAt)).toBe(true)
+      }),
+    ),
+  )
+})
+
+describe("TodayRepo.finishStaleSessions boundaries (REV-AF)", () => {
+  it.effect("leaves a session whose last set is exactly 180 min old untouched", () =>
+    run(
+      Effect.gen(function* () {
+        const set = yield* (yield* TodayRepo).logSet(input(yield* squatOf(yield* seededToday)))
+        yield* TestClock.adjust("180 minutes")
+        expect(yield* finishStale).toBe(0)
+        expect(Option.isNone((yield* sessionRow(set.sessionId)).finishedAt)).toBe(true)
+      }),
+    ),
+  )
+
+  it.effect("leaves a pulled (not dirty) stale open session with no local sets alone", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* TodayRepo
+        const store = yield* LocalStore
+        const set = yield* repo.logSet(input(yield* squatOf(yield* seededToday)))
+        // As if pulled: acknowledged by the server, its sets not (yet) here.
+        yield* store.all({
+          sql: `UPDATE "workout_session" SET "_dirty" = 0 WHERE "id" = ?`,
+          params: [set.sessionId],
+        })
+        yield* store.all({ sql: `DELETE FROM "workout_set" WHERE "id" = ?`, params: [set.id] })
+        yield* TestClock.adjust("181 minutes")
+        expect(yield* finishStale).toBe(0)
+        const row = yield* sessionRow(set.sessionId)
+        expect(Option.isNone(row.deletedAt)).toBe(true)
         expect(Option.isNone(row.finishedAt)).toBe(true)
       }),
     ),
