@@ -320,3 +320,7 @@ Source: docs/plan.md step 2 · Status: building · Started: 2026-10-20 22:06 · 
 - 23:25 · GAL-2 r2 done (40 s): DW1–DW7 rename, --publish mode, stable gallery.json; committed dc1190a; gallery v10 published (landing full-page shots)
 - 23:26 · DEPLOY-3 DONE: a049b38 live (worker + web 04b66cb7; gate in worktree green; cron trigger still pending workers.dev subdomain). Live now: landing for signed-out web, reps player, Finish workout, dark pre-mount bg, strava fix r2
 - 23:27 · DEPLOY-3 verified on tanren.me: _layout chunk e4cecc5b carries assets/landing ×5 + 'Sign in with a magic link'; today chunk carries 'Finish workout'; /health ok; index.html has the dark pre-mount style
+- 23:31 · BRAND-2a accepted (engineer/sonnet, 2 min, 89k tokens, 18 tool uses): mark.svg / mark-ink.svg / mark-paper.svg traced (potrace, 7.6 KB, 0.19 % alpha diff); hook on mark-ink → #C2410C (resumed, 3 min); then commit
+- 23:31 · owner 23:27: 'start finishing your work' → no new streams; desktop r4 told to stop after one capture + review (report by 23:55); RETRO (EM fable, effort max, 20 min) dispatched; handoff rewrite after the last report
+- 23:31 · AUTO-FIN accepted (TODAY-FIN engineer resumed, 2 min, 929 tests): WIP 889cfea; REV-AF dispatched
+- 23:32 · BRAND-2a committed f12629b (hook on mark-ink → #C2410C ratified). Left: BRAND-2b OG image + in-app SVG use (after the wordmark pick)
