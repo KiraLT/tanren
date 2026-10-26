@@ -29,8 +29,11 @@ traced SVG mark, desktop polish round 4 (in flight at the time of writing — se
 - Desktop polish r4 team-lead (charter `docs/tasks/v3-design/team-desktop-r4.md`): told to stop after one
   capture + designer review, report by 23:55. On report: commit (WIP if not PASS), insert its
   `UI-Pdesktop-r4-rows.html` fragment into the gallery source, publish v11, log scores.
-- REV-AF (reviewer) on the auto-finish WIP `889cfea`: blocking question = can the empty-session soft-delete
-  remove a session that has sets on the server but none locally? If yes → guard before un-WIP.
+- AUTO-FIN WIP `889cfea` got REQUEST CHANGES (REV-AF): a Today reload between pull pages can tombstone a
+  server session whose sets are still on the next page. Fix in flight (engineer resumed): run
+  `finishStaleSessions` after `pullLoop` under the sync lock, soft-delete only `_dirty = 1` never-pushed rows,
+  48 h backfill guard in `completedSessionIds` (Lead decision). **Do not deploy HEAD until this lands** (or
+  revert 889cfea before a deploy).
 - RETRO EM (fable, effort max) writing `docs/retro/2026-10-26-v4-evening.md`: apply its P-lines to the
   Lead's files, record the experiment below, commit.
 <!-- DESKTOP_R4_RESULT --> <!-- RETRO_EXPERIMENT -->
