@@ -226,7 +226,7 @@ work s, R = reps = count for the phase; `restSeconds` as §3):
 | Forge 22–27 | 40 | 20 | 5 | 45 | 17.0 / 17.0 / 17.0 |
 | Peak 29–30 | 45 | 22 | 5 | 15 | — / 17.5 / 17.6 |
 
-Recovery days ≈ 4.0 min (3 × 20 reps × 2 s + 75 s hold + rests; supersedes §3's 6.0 min).
+Recovery days ≈ 4.3 min (255 s: 3 × 20 reps × 2 s + 75 s hold + 3 × 20 s rest; supersedes §3's 6.0 min).
 
 Minutes use `dayDurationSeconds` with reps at 2 s each (A Foundation: 5·24 + 2·25 = 170 work + 90 rest
 = 260 × 3 + 2·60 = 900 s). Every training day stays inside 12–18 min; day 30 (17.6, template C: 4·45 + 3·44 = 312 work) ≥ day 1 (15.0).

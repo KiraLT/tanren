@@ -59,7 +59,7 @@ interface PlayerViewProps {
 /**
  * The running player body (the app bar with the day progress is the route's): the work screen is
  * a 120 px illustration beside the name, the rest screen a 56 px one beside "Next"; both carry the
- * big ring, the transport row and `Finish workout`.
+ * big ring (a reps item: count numeral + Done, ADR-0020), the transport row and `Finish workout`.
  */
 export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
   const breakpoint = useBreakpoint()
