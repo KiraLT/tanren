@@ -12,6 +12,8 @@ export interface ToggleChipProps {
   readonly onPress: () => void
   /** Leading 16 px glyph (`home`, `dumbbell`, …). */
   readonly icon?: IconName
+  /** Extra invisible tap area on every side, in px (default none: the Pressable is already 44 tall). */
+  readonly hitSlop?: number
   /** Outer layout only (e.g. `alignSelf`); colours come from the theme. */
   readonly style?: StyleProp<ViewStyle>
 }
@@ -20,7 +22,7 @@ export interface ToggleChipProps {
  * A 32 px pill checkbox (§5): on = `text` fill in light, `accent` in dark; off = 1 px outline. The
  * Pressable around the pill is 44 tall, so the tap target stays >= `sizes.tap`.
  */
-export function ToggleChip({ label, selected, onPress, icon, style }: ToggleChipProps) {
+export function ToggleChip({ label, selected, onPress, icon, hitSlop, style }: ToggleChipProps) {
   const { colors, scheme } = useTheme()
   const foreground = chipColors(selected, scheme, colors).foreground
   return (
@@ -30,6 +32,7 @@ export function ToggleChip({ label, selected, onPress, icon, style }: ToggleChip
       accessibilityState={{ checked: selected }}
       // react-native-web drops `accessibilityState.checked`; `aria-checked` reaches the DOM too.
       aria-checked={selected}
+      {...(hitSlop === undefined ? {} : { hitSlop })}
       onPress={onPress}
       style={({ pressed }) => [
         { minHeight: sizes.tap, justifyContent: "center" },

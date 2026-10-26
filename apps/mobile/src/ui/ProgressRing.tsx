@@ -1,6 +1,7 @@
+import type { ReactNode } from "react"
 import { type StyleProp, View, type ViewStyle } from "react-native"
 import Svg, { Circle } from "react-native-svg"
-import { clamp01, type RingSize, ringGeometry, ringSizes } from "./controls"
+import { clamp01, type RingSize, ringGeometry, ringSpec } from "./controls"
 import { useTheme } from "./theme"
 
 export type { RingSize } from "./controls"
@@ -10,6 +11,12 @@ export interface ProgressRingProps {
   readonly progress: number
   /** `sm` 20 / 3 stroke (app bar eyebrow), `md` 44 / 4 stroke (cards). */
   readonly size?: RingSize
+  /** Stroke width in px, overriding the size preset's. */
+  readonly stroke?: number
+  /** Outer diameter in px, overriding the size preset's (e.g. the Player's 220 ring). */
+  readonly diameter?: number
+  /** Centred over the ring (absolutely positioned, ignores touches). */
+  readonly children?: ReactNode
   readonly accessibilityLabel: string
   readonly style?: StyleProp<ViewStyle>
 }
@@ -18,11 +25,14 @@ export interface ProgressRingProps {
 export function ProgressRing({
   progress,
   size = "sm",
+  stroke,
+  diameter,
+  children,
   accessibilityLabel,
   style,
 }: ProgressRingProps) {
   const { colors } = useTheme()
-  const spec = ringSizes[size]
+  const spec = ringSpec(size, { stroke, diameter })
   const ring = ringGeometry(spec.size, spec.stroke, progress)
   return (
     <View
@@ -53,6 +63,22 @@ export function ProgressRing({
           fill="none"
         />
       </Svg>
+      {children === undefined ? null : (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: spec.size,
+            height: spec.size,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {children}
+        </View>
+      )}
     </View>
   )
 }

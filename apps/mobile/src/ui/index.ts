@@ -14,7 +14,16 @@ export { Button, type ButtonSize, type ButtonVariant } from "./Button"
 export { Card } from "./Card"
 export { Columns, type ColumnsProps, useColumns } from "./ColumnsView"
 export type { ColorRoles } from "./colors"
-export { type ColumnSplit, type ColumnWidths, columnsFor, MAIN_SHARE } from "./columns"
+export {
+  type ColumnSplit,
+  type ColumnWidths,
+  columnsFor,
+  MAIN_SHARE,
+  MIN_COLUMN,
+  pageMargin,
+} from "./columns"
+export type { SetDotsVariant } from "./controls"
+export { type SeparatorInset, type StepperSize, statSlotWidth } from "./controls"
 export { EmptyState } from "./EmptyState"
 export { Icon, type IconName } from "./Icon"
 export { IconButton } from "./IconButton"
@@ -32,6 +41,7 @@ export { SegmentBar } from "./SegmentBar"
 export { SegmentedControl } from "./SegmentedControl"
 export { SetDots } from "./SetDots"
 export { Skeleton } from "./Skeleton"
+export { type StatItem, StatRow, type StatRowProps } from "./StatRow"
 export { StatusPill } from "./StatusPill"
 export { Stepper } from "./Stepper"
 export { Text } from "./Text"
@@ -53,10 +63,12 @@ export {
   gutter,
   motion,
   radius,
+  rhythm,
   sizes,
   space,
   statusTone,
   stroke,
   type Tone,
+  type TypeVariant,
   type,
 } from "./tokens"

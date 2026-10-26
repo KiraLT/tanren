@@ -14,15 +14,23 @@ export const DISABLED_OPACITY = 0.4
 
 // Stepper -------------------------------------------------------------------------------------
 
-export type StepperSize = "lg" | "xl"
+export type StepperSize = "lg" | "xl" | "xxl"
 
-/** Hit area per size (`xl` = `sizes.stepperButton` 64) and the ± glyph inside it. */
+/**
+ * Hit area per size (`xl` = `sizes.stepperButton` 64) and the ± glyph inside it. `xxl` (72, ui-polish
+ * D3) is the desktop size and renders its numeral as `numeralLg` (`stepperNumeral`).
+ */
 export const stepperSizes: {
   readonly [S in StepperSize]: { readonly hit: number; readonly glyph: number }
 } = {
   lg: { hit: sizes.controlLg, glyph: sizes.iconMd },
   xl: { hit: sizes.stepperButton, glyph: sizes.stepperGlyph },
+  xxl: { hit: 72, glyph: 34 },
 }
+
+/** Ramp step of the stepper value: `numeralLg` at `xxl`, `numeral` otherwise. */
+export const stepperNumeral = (size: StepperSize): "numeral" | "numeralLg" =>
+  size === "xxl" ? "numeralLg" : "numeral"
 
 /** The line under the value: "Weight · kg", or just "Reps" when the unit repeats the label. */
 export const stepperCaption = (label: string, unit: string): string =>
@@ -162,13 +170,18 @@ export const discStyle = (state: DiscState, colors: ColorRoles): DiscSpec => {
 }
 
 /** Rows lose their own border inside a `ListGroup` (it draws the hairlines between rows). */
-export const rowStyle = (grouped: boolean, selected: boolean, colors: ColorRoles): ViewStyle => ({
-  minHeight: ROW_MIN_HEIGHT,
+export const rowStyle = (
+  grouped: boolean,
+  selected: boolean,
+  colors: ColorRoles,
+  thumb = false,
+): ViewStyle => ({
+  minHeight: thumb ? THUMB_ROW_MIN_HEIGHT : ROW_MIN_HEIGHT,
   flexDirection: "row",
   alignItems: "center",
   gap: space.md,
   paddingHorizontal: space.lg,
-  paddingVertical: space.sm,
+  paddingVertical: thumb ? space.xs : space.sm,
   backgroundColor: rowBackground(selected, colors),
   ...(grouped ? {} : { borderBottomWidth: stroke.hairline, borderBottomColor: colors.border }),
 })
@@ -218,12 +231,28 @@ export const listGroupStyle = (colors: ColorRoles): ViewStyle => ({
   overflow: "hidden",
 })
 
-/** Hairline between grouped rows, inset to the row text edge. */
-export const listSeparatorStyle = (colors: ColorRoles): ViewStyle => ({
+/** Where a grouped hairline starts: the row edge, after a 24 icon slot, or after a 56 thumb. */
+export type SeparatorInset = "none" | "icon" | "thumb"
+
+/** 16 / 16 + 24 + 12 = 52 / 16 + 56 + 12 = 84 (ui-polish D5): the text start, not the leading art. */
+export const separatorInsets: { readonly [I in SeparatorInset]: number } = {
+  none: space.lg,
+  icon: space.lg + sizes.iconMd + space.md,
+  thumb: space.lg + sizes.illustrationSm + space.md,
+}
+
+/** Hairline between grouped rows, inset to the row text edge (default 16). */
+export const listSeparatorStyle = (
+  colors: ColorRoles,
+  inset: SeparatorInset = "none",
+): ViewStyle => ({
   height: stroke.hairline,
-  marginLeft: space.lg,
+  marginLeft: separatorInsets[inset],
   backgroundColor: colors.border,
 })
+
+/** Row with a 56 thumb: 64 high, vertical padding 4 (the thumb sets the height). */
+export const THUMB_ROW_MIN_HEIGHT = 64
 
 // Chips and pills -----------------------------------------------------------------------------
 
@@ -279,6 +308,20 @@ export const ringSizes: {
   md: { size: sizes.ringMd, stroke: 4 },
 }
 
+export interface RingSpec {
+  readonly size: number
+  readonly stroke: number
+}
+
+/** Resolved ring box: the size preset, with an optional `stroke` and/or `diameter` override. */
+export const ringSpec = (
+  size: RingSize,
+  overrides: { readonly stroke?: number | undefined; readonly diameter?: number | undefined } = {},
+): RingSpec => ({
+  size: overrides.diameter ?? ringSizes[size].size,
+  stroke: overrides.stroke ?? ringSizes[size].stroke,
+})
+
 export const clamp01 = (value: number): number =>
   Number.isNaN(value) ? 0 : Math.min(1, Math.max(0, value))
 
@@ -327,8 +370,37 @@ export const setDotStyle = (state: DiscState, colors: ColorRoles): ViewStyle => 
   }
 }
 
+export type SetDotsVariant = "dot" | "pill"
+
+/** Gap between pill marks (ui-polish §3 Today 2). */
+export const SET_PILL_GAP = 4
+
+/** Pill marks: 10 x 6, the current one 16 x 6; done `textMuted`, now `accent`, todo `border`. */
+export const setPillStyle = (state: DiscState, colors: ColorRoles): ViewStyle => {
+  const fill: { readonly [S in DiscState]: string } = {
+    done: colors.textMuted,
+    now: colors.accent,
+    todo: colors.border,
+  }
+  return {
+    width: state === "now" ? 16 : 10,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: fill[state],
+  }
+}
+
 // SegmentedControl ----------------------------------------------------------------------------
 
 /** `inset` aligns the control with the 16 px text edge of the card it sits in (§5, UI-X 6). */
 export const segmentedInset = (inset: boolean): ViewStyle =>
   inset ? { marginHorizontal: space.lg } : {}
+
+// StatRow -------------------------------------------------------------------------------------
+
+/** Gap between the equal-width slots of a `StatRow`. */
+export const STAT_GAP = space.lg
+
+/** Width of one slot of a `StatRow`: `(inner - gaps) / count` (358 inner, 3 slots -> 108.67). */
+export const statSlotWidth = (inner: number, count: number): number =>
+  count <= 0 ? 0 : Math.max(0, (inner - STAT_GAP * (count - 1)) / count)

@@ -15,26 +15,47 @@ import {
   ROW_TITLE_VARIANT,
   ringGeometry,
   ringSizes,
+  ringSpec,
   rowBackground,
   rowChevron,
   rowPressedBackground,
   rowStyle,
   rowTones,
+  STAT_GAP,
   segmentedInset,
   segmentFills,
+  separatorInsets,
   setDotStates,
   setDotStyle,
+  setPillStyle,
+  statSlotWidth,
   stepButtonStyle,
   stepGlyphColor,
   stepperCaption,
+  stepperNumeral,
   stepperSizes,
+  THUMB_ROW_MIN_HEIGHT,
 } from "./controls"
 
 const idle = { pressed: false, hovered: false, disabled: false }
 
 describe("Stepper", () => {
-  it("xl is a 64 px hit area with a 30 px glyph, lg 56 / 24", () => {
-    expect(stepperSizes).toEqual({ xl: { hit: 64, glyph: 30 }, lg: { hit: 56, glyph: 24 } })
+  it("xl is a 64 px hit area with a 30 px glyph, lg 56 / 24, xxl 72 / 34", () => {
+    expect(stepperSizes).toEqual({
+      xxl: { hit: 72, glyph: 34 },
+      xl: { hit: 64, glyph: 30 },
+      lg: { hit: 56, glyph: 24 },
+    })
+  })
+
+  it("only xxl renders the numeral as numeralLg", () => {
+    expect(stepperNumeral("xxl")).toBe("numeralLg")
+    expect(stepperNumeral("xl")).toBe("numeral")
+    expect(stepperNumeral("lg")).toBe("numeral")
+  })
+
+  it("xxl buttons are 72 x 72 circles", () => {
+    expect(stepButtonStyle("xxl", idle, lightColors)).toMatchObject({ width: 72, height: 72 })
   })
 
   it("is borderless and fill-less at rest", () => {
@@ -126,6 +147,24 @@ describe("ListRow", () => {
     expect(rowStyle(true, false, lightColors)).not.toHaveProperty("borderBottomWidth")
     expect(rowStyle(false, false, lightColors).borderBottomWidth).toBe(1)
     expect(listSeparatorStyle(lightColors)).toMatchObject({ height: 1, marginLeft: 16 })
+  })
+
+  it("separator insets start at the text: 16 plain, 52 after an icon, 84 after a thumb", () => {
+    expect(separatorInsets).toEqual({ none: 16, icon: 52, thumb: 84 })
+    expect(listSeparatorStyle(lightColors, "none").marginLeft).toBe(16)
+    expect(listSeparatorStyle(lightColors, "icon").marginLeft).toBe(52)
+    expect(listSeparatorStyle(lightColors, "thumb").marginLeft).toBe(84)
+  })
+
+  it("thumb rows are 64 high with 4 px vertical padding; plain rows stay 52 / 8", () => {
+    const thumb = rowStyle(true, false, lightColors, true)
+    expect(THUMB_ROW_MIN_HEIGHT).toBe(64)
+    expect(thumb).toMatchObject({ minHeight: 64, paddingVertical: 4 })
+    expect(rowStyle(true, false, lightColors, false)).toMatchObject({
+      minHeight: 52,
+      paddingVertical: 8,
+    })
+    expect(rowStyle(true, false, lightColors)).toEqual(rowStyle(true, false, lightColors, false))
   })
 
   it("pressed tint differs from the group surface", () => {
@@ -268,11 +307,59 @@ describe("Progress marks", () => {
     })
     expect(setDotStyle("todo", darkColors).backgroundColor).toBe(darkColors.border)
   })
+
+  it("set pills are 10 x 6 radius 3, the current one 16 wide accent", () => {
+    expect(setPillStyle("now", lightColors)).toEqual({
+      width: 16,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: lightColors.accent,
+    })
+    expect(setPillStyle("done", lightColors)).toEqual({
+      width: 10,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: lightColors.textMuted,
+    })
+    expect(setPillStyle("todo", darkColors)).toEqual({
+      width: 10,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: darkColors.border,
+    })
+  })
+
+  it("ring spec: preset by default, stroke and diameter override independently", () => {
+    expect(ringSpec("sm")).toEqual({ size: 20, stroke: 3 })
+    expect(ringSpec("md")).toEqual({ size: 44, stroke: 4 })
+    expect(ringSpec("sm", { stroke: 5 })).toEqual({ size: 20, stroke: 5 })
+    expect(ringSpec("md", { diameter: 220 })).toEqual({ size: 220, stroke: 4 })
+    expect(ringSpec("md", { diameter: 220, stroke: 10 })).toEqual({ size: 220, stroke: 10 })
+    expect(ringSpec("md", { stroke: undefined, diameter: undefined })).toEqual({
+      size: 44,
+      stroke: 4,
+    })
+  })
 })
 
 describe("SegmentedControl", () => {
   it("inset aligns with the 16 px card text edge", () => {
     expect(segmentedInset(true)).toEqual({ marginHorizontal: 16 })
     expect(segmentedInset(false)).toEqual({})
+  })
+})
+
+describe("StatRow", () => {
+  it("splits the inner width into equal slots with 16 gaps", () => {
+    expect(STAT_GAP).toBe(16)
+    expect(statSlotWidth(358, 3)).toBeCloseTo(108.67, 1) // the spec rounds to 108
+    expect(statSlotWidth(632, 3)).toBe(200)
+    expect(statSlotWidth(532, 3)).toBeCloseTo(166.67, 1)
+  })
+
+  it("handles the boundaries: one slot is the full width, none or a tiny width is 0", () => {
+    expect(statSlotWidth(358, 1)).toBe(358)
+    expect(statSlotWidth(358, 0)).toBe(0)
+    expect(statSlotWidth(10, 3)).toBe(0)
   })
 })

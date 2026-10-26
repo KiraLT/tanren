@@ -3,7 +3,9 @@
 //
 // Usage (agent-browser, same as ui-measure.js; set the viewport first, e.g. `ab set viewport 1280 800`):
 //   ab eval "$(cat docs/design/ui-columns.js)"
-// Expected at 1280 (+-1 px for a scrollbar): main.left = (innerWidth - 1136) / 2 = 72, widths per
+// Expected (+-1 px for a scrollbar): page = min(innerWidth - 64, 1360) (ui-polish D1), so main.left = 32 at 1280
+// (page 1216) and 40 at 1440 (page 1360); at 1280 7/5 = 696 / 496, 5/7 = 496 / 696, 6/6 = 596 / 596; at 900 (page 836)
+// 5/7 = 364 / 448, 7/5 = 448 / 364 (columns never below MIN_COLUMN 364). Widths per
 // the screen's row in ui-desktop §3, side.left = main.left + main.width + 24, same top for both.
 // A selector that matches nothing visible (width > 0) prints null.
 (() => {

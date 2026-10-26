@@ -15,6 +15,7 @@ import {
   stepButtonStyle,
   stepGlyphColor,
   stepperCaption,
+  stepperNumeral,
   stepperSizes,
 } from "./controls"
 import { Icon, type IconName } from "./Icon"
@@ -126,10 +127,13 @@ export function Stepper({
           accessibilityLabel={`${label}: ${valueText} ${unit}`}
         >
           <Text
-            variant="numeral"
+            variant={stepperNumeral(size)}
             glow
             {...numeralFit}
-            style={[{ fontVariant: ["tabular-nums"], flexShrink: 0 }, webNumeralSize(width)]}
+            style={[
+              { fontVariant: ["tabular-nums"], flexShrink: 0 },
+              size === "xxl" ? {} : webNumeralSize(width),
+            ]}
           >
             {valueText}
           </Text>

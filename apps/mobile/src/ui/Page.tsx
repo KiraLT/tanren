@@ -80,6 +80,11 @@ export function Page({
                 borderLeftColor: colors.border,
               }}
             >
+              {/* Pinned by construction (ui-polish D2, verified at 1280x800 and 900x800): the page
+                  is viewport-high and only the main body scrolls, so this column's top stays at
+                  the same y while main scrolls and no `position: sticky` is needed. An aside taller
+                  than the viewport scrolls in its own ScrollView, which the screen supplies
+                  (Today, Plan, Programs, Library detail already do). */}
               {aside}
             </View>
           </View>

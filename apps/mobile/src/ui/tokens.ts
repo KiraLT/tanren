@@ -3,6 +3,18 @@ import type { TextStyle } from "react-native"
 /** Static design tokens (ui-direction-final §3–§4, §8). Colours resolve per scheme via `useTheme`. */
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 } as const
 
+/**
+ * Section rhythm (ui-polish D5, all breakpoints): label -> its group 8, group -> next label 24,
+ * hero -> first section 24, chip rows 8 apart, card inner padding 16. Additive: `space` is unchanged.
+ */
+export const rhythm = {
+  labelToGroup: space.sm,
+  groupToLabel: space.xl,
+  heroToSection: space.xl,
+  chipGap: space.sm,
+  cardPadding: space.lg,
+} as const
+
 /** Screen edge padding per breakpoint. */
 export const gutter = { phone: 16, tablet: 24, desktop: 32 } as const
 
@@ -35,9 +47,10 @@ export const sizes = {
   illustrationSm: 56,
   illustrationMd: 104,
   illustrationLg: 176,
+  illustrationXl: 240,
   contentMaxWidth: 600,
-  /** Desktop page column: 1280 less 72 px margins; holds main + 24 gap + side (`columnsFor`). */
-  pageMaxWidth: 1136,
+  /** Desktop page column cap (ui-polish D1): 1280 less 2 x 32 = 1216, capped here from 1424 up. */
+  pageMaxWidth: 1360,
   /** No longer read by `Page` (UI-D1); kept exported, the barrel is additive-only. */
   asideMaxWidth: 480,
   tabBar: 56,
@@ -73,6 +86,8 @@ export const fonts = {
 
 export type TypeVariant =
   | "numeral"
+  | "numeralLg"
+  | "clock"
   | "display"
   | "title"
   | "title2"
@@ -95,6 +110,22 @@ export const type: { readonly [K in TypeVariant]: TextStyle } = {
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
   },
+  /** Desktop hero numeral (ui-polish D3): `ExercisePage` weight/reps at >= 900. */
+  numeralLg: {
+    fontFamily: fonts.display,
+    fontSize: 96,
+    lineHeight: 100,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
+  /** Player clock inside the ring (ui-polish Player 4). */
+  clock: {
+    fontFamily: fonts.display,
+    fontSize: 64,
+    lineHeight: 68,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
   display: { fontFamily: fonts.display, fontSize: 34, lineHeight: 38, fontWeight: "800" },
   title: { fontFamily: fonts.display, fontSize: 28, lineHeight: 30, fontWeight: "800" },
   title2: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
@@ -104,6 +135,9 @@ export const type: { readonly [K in TypeVariant]: TextStyle } = {
   caption: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
   label: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
 }
+
+/** `Text tabular`: equal-width figures so compared numbers align (ui-polish D6). */
+export const tabularStyle: TextStyle = { fontVariant: ["tabular-nums"] }
 
 export type Tone = "neutral" | "accent" | "success" | "danger"
 

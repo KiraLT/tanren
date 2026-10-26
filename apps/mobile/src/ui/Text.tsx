@@ -1,7 +1,7 @@
 import { Text as RNText, type TextProps as RNTextProps } from "react-native"
 import type { ColorRoles } from "./colors"
 import { useTheme } from "./theme"
-import { glowRadius, type TypeVariant, type } from "./tokens"
+import { glowRadius, type TypeVariant, tabularStyle, type } from "./tokens"
 
 export type TextTone = "default" | "muted" | "accent" | "success" | "danger" | "onAccent"
 
@@ -23,6 +23,8 @@ export interface TextProps extends RNTextProps {
    * `numberOfLines`/`adjustsFontSizeToFit` (RNW `overflow: hidden`), so give it room first.
    */
   readonly glow?: boolean
+  /** Tabular figures (`fontVariant: ["tabular-nums"]`) for compared numbers (ui-polish D6). */
+  readonly tabular?: boolean
 }
 
 /**
@@ -33,12 +35,22 @@ export function Text({
   variant = "body",
   tone = "default",
   glow = false,
+  tabular = false,
   style,
   ...rest
 }: TextProps) {
   const { colors } = useTheme()
   const shadow = glow ? { textShadowColor: colors.glow, textShadowRadius: glowRadius } : undefined
   return (
-    <RNText {...rest} style={[type[variant], { color: colors[toneRole[tone]] }, shadow, style]} />
+    <RNText
+      {...rest}
+      style={[
+        type[variant],
+        { color: colors[toneRole[tone]] },
+        tabular ? tabularStyle : undefined,
+        shadow,
+        style,
+      ]}
+    />
   )
 }

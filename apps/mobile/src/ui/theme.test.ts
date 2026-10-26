@@ -112,10 +112,12 @@ describe("type ramp (ui-direction-final §3)", () => {
     expect(type.numeral.fontVariant).toEqual(["tabular-nums"])
   })
 
-  it("has the nine sizes and line heights of the spec", () => {
+  it("has the eleven sizes and line heights of the spec (numeralLg and clock added in UI-P)", () => {
     const ramp = Object.entries(type).map(([name, s]) => `${name} ${s.fontSize}/${s.lineHeight}`)
     expect(ramp).toEqual([
       "numeral 72/76",
+      "numeralLg 96/100",
+      "clock 64/68",
       "display 34/38",
       "title 28/30",
       "title2 22/28",

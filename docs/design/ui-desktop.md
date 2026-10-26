@@ -6,11 +6,11 @@ Scope: how every screen uses the width at tablet (600–899) and desktop (≥ 90
 ## 1. Decisions
 
 1. **Navigation**: the tab bar stays hidden at desktop and the five links stay in the `AppBar` (`APP_NAV`, built in UI-1b). No left rail: a rail costs 72–240 px of the width we want for content, and root-Stack routes (Settings, Location editor, detail routes, player) sit outside `(tabs)`, so a rail would need a second mount. One answer for all screens.
-2. **Page width**: a desktop page is `sizes.pageMaxWidth = 1136` wide, centred (1280 − 1136 = 144 → 72 px margin each side). It holds two columns separated by a 24 gap; each column pads `gutter.desktop` 32 inside (as today), so the visible outer gutter is 32 + the margin. The old 600 + 24 + 480 = 1104 page goes.
+2. **Page width** (changed by ui-polish D1, UI-P): a desktop page is `min(window − 2·32, sizes.pageMaxWidth = 1360)` wide, centred (1280 → page 1216, margin 32; 1440 → 1360, margin 40). It holds two columns separated by a 24 gap; each column pads `gutter.desktop` 32 inside (as today), so the visible outer gutter is 32 + the margin. The old 1136 page (72 px margins at 1280) goes.
 3. **Splits** (`ColumnSplit`): `"7/5"` (default: focus left, context right), `"5/7"` (master–detail: list left, detail right), `"6/6"` (symmetric sections). Main-column width is rounded to the 4-pt grid; the side takes the rest.
-   - 1280, page 1136, gap 24 → 1112 to split: `7/5` main 648 (inner 584) / side 464 (inner 400); `5/7` 464 / 648; `6/6` 556 / 556.
-   - 900, page 900 → 876: `7/5` 512 / 364 (inner 300: everything placed in a 5-column fits 300, see §3); `5/7` 364 / 512; `6/6` 436 / 440.
-   - ≥ 1136 + anything: page stays 1136; wider windows only grow the margins.
+   - 1280, page 1216, gap 24 → 1192 to split: `7/5` main 696 (inner 632) / side 496 (inner 432); `5/7` 496 / 696; `6/6` 596 / 596.
+   - 900, page 836 → 812: `6/6` 404 / 408; `7/5` would be 472 / 340 and `5/7` 340 / 472, so the clamp `MIN_COLUMN = 364` (inner 300: everything placed in a 5-column fits 300, see §3) gives `7/5` 448 / 364 and `5/7` 364 / 448 (main stays on the 4-pt grid, main + 24 + side = page).
+   - ≥ 1424 (1360 + 2·32): page stays 1360; wider windows only grow the margins.
 4. **Tablet (600–899) is unchanged**: one column centred at `contentMaxWidth` 600 (inner 552), gutter 24, bottom tabs. Two useful columns need ≥ 2 × 300 + 24 = 624 of content; 552 cannot hold them (the Library hero alone is 176 + 144 = 320).
 5. **Single-column screens at desktop** (600 centred, unchanged): Player (focus, `nav={false}`), Sign-in, auth callback, and every Loading / Empty / Failed state of every screen. Everything else is two columns.
 6. **Type scale**: unchanged at every breakpoint. The ramp (`tokens.ts` `type`) is the ramp; desktop gets width, not bigger type.
@@ -23,7 +23,7 @@ Scope: how every screen uses the width at tablet (600–899) and desktop (≥ 90
 export type ColumnSplit = "7/5" | "6/6" | "5/7"
 export interface ColumnWidths {
   readonly breakpoint: Breakpoint
-  /** The page column `Page` centres: window at phone, min(window, 600) at tablet, min(window, 1136) at desktop. */
+  /** The page column `Page` centres: window at phone, min(window, 600) at tablet, min(window − 2·32, 1360) at desktop. */
   readonly page: number
   /** Main column (incl. its 32 padding). Phone: window; tablet: page; desktop: the split share. */
   readonly main: number
@@ -36,12 +36,15 @@ export const MAIN_SHARE: { readonly [S in ColumnSplit]: number } = { "7/5": 7 / 
 export const columnsFor = (width: number, split: ColumnSplit = "7/5"): ColumnWidths
 //   phone:   { page: width, main: width, side: 0, gap: 0 }
 //   tablet:  { page: min(width, 600), main: page, side: 0, gap: 0 }
-//   desktop: page = min(width, sizes.pageMaxWidth); gap = space.xl;
-//            main = Math.ceil(((page − gap) · MAIN_SHARE[split]) / 4 − 0.5) · 4; side = page − gap − main
+//   desktop: page = min(width − 2·pageMargin, sizes.pageMaxWidth); pageMargin = gutter.desktop = 32; gap = space.xl;
+//            share = Math.ceil(((page − gap) · MAIN_SHARE[split]) / 4 − 0.5) · 4
+//            main = clamp(share, ceil4(MIN_COLUMN), floor4(page − gap − MIN_COLUMN)); side = page − gap − main
 //            (rounding rule as built in UI-D1: ceil(x − 0.5) on the 4-px grid, so ties round DOWN; that is
-//            what makes 6/6 at 900 = 436 / 440 as pinned, where Math.round would give 440 / 436)
-// Tests pin: (1280,"7/5") → 648/464; (1280,"5/7") → 464/648; (1280,"6/6") → 556/556; (900,"7/5") → 512/364;
-//            (390) → page 390 main 390; (768) → page 600 main 600; (1920) → page 1136.
+//            what makes 6/6 at 900 = 404 / 408 as pinned, where Math.round would give 408 / 404)
+// MIN_COLUMN = 364 (exported), pageMargin = 32 (exported from columns.ts)
+// Tests pin: (1280,"7/5") → 696/496; (1280,"5/7") → 496/696; (1280,"6/6") → 596/596; (900,"7/5") → 448/364;
+//            (900,"5/7") → 364/448; (900,"6/6") → 404/408; (390) → page 390 main 390; (768) → page 600 main 600;
+//            (1440) and (1920) → page 1360.
 
 // ColumnsView.tsx
 export const useColumns = (split?: ColumnSplit): ColumnWidths   // useWindowDimensions().width → columnsFor
@@ -66,11 +69,11 @@ readonly split?: ColumnSplit        // default "7/5"; which share `aside` gets
 readonly wide?: boolean             // desktop: page column = pageMaxWidth even without `aside` (children use <Columns>)
 ```
 
-Behaviour per breakpoint: phone/tablet unchanged (one column, `maxWidth: contentMaxWidth`, `aside` ignored). Desktop with `aside`: `maxWidth: columns.page` (1136 at 1280), main `width: columns.main, flexShrink: 0, role="main"`, side `flex: 1` (= `columns.side`), hairline left, `role="complementary"` (existing). Desktop with `wide` and no `aside`: `maxWidth: columns.page`, one `role="main"` body padded 32 → inner 1072. Neither: `maxWidth: contentMaxWidth` 600 (unchanged). `ExercisePager` takes its page width from `useColumns().main` (phone: window, tablet: min(window, 600), desktop 648 at 1280) instead of `Math.min(windowWidth, sizes.contentMaxWidth)`; the two agree below desktop, so 390/768 are pixel-equal.
+Behaviour per breakpoint: phone/tablet unchanged (one column, `maxWidth: contentMaxWidth`, `aside` ignored). Desktop with `aside`: `maxWidth: columns.page` (1216 at 1280), main `width: columns.main, flexShrink: 0, role="main"`, side `flex: 1` (= `columns.side`), hairline left, `role="complementary"` (existing). Desktop with `wide` and no `aside`: `maxWidth: columns.page`, one `role="main"` body padded 32 → inner 1072. Neither: `maxWidth: contentMaxWidth` 600 (unchanged). `ExercisePager` takes its page width from `useColumns().main` (phone: window, tablet: min(window, 600), desktop 648 at 1280) instead of `Math.min(windowWidth, sizes.contentMaxWidth)`; the two agree below desktop, so 390/768 are pixel-equal.
 
-Tokens: `sizes.pageMaxWidth: 1136` added; `contentMaxWidth` 600 and `asideMaxWidth` 480 stay exported (barrel is frozen-additive) but `Page` no longer reads `asideMaxWidth`.
+Tokens: `sizes.pageMaxWidth: 1360` (was 1136); `contentMaxWidth` 600 and `asideMaxWidth` 480 stay exported (barrel is frozen-additive) but `Page` no longer reads `asideMaxWidth`.
 
-## 3. Screens at desktop (1280; page 1136 centred at x 72; columns include their 32 inner padding)
+## 3. Screens at desktop (1280; columns include their 32 inner padding; UI-P: page is now 1216 centred at x 32, so every column width and "648 / 464"-style pair below is stale: read the new pairs in §1.2 and ui-polish §3)
 
 | screen | route | Page | main (left) | side (right) | primary action | change vs now |
 | --- | --- | --- | --- | --- | --- | --- |
