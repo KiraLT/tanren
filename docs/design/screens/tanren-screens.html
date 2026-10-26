@@ -1,0 +1,272 @@
+<title>Tanren Forge Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap">
+<style>
+  /* Layout: a contact sheet. Three bands (phone light, phone dark, desktop); each shot is a numbered
+     card the owner can quote by its badge. Forge tokens: paper light / graphite dark, amber accent. */
+  :root {
+    --bg: #f6f4ef;
+    --fg: #16181d;
+    --muted: #6b6f78;
+    --line: #d9d5cc;
+    --card: #ffffff;
+    --accent: #c2410c;
+    --display: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+    --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1114; --fg: #f2efe8; --muted: #9a9ea8; --line: #2a2e35; --card: #181b20; --accent: #f59e0b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1114; --fg: #f2efe8; --muted: #9a9ea8; --line: #2a2e35; --card: #181b20; --accent: #f59e0b;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.45;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 48px;
+  }
+  header { max-width: 1200px; margin: 0 auto 28px; display: grid; gap: 8px; }
+  h1 { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 6vw, 56px); line-height: 1; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  header p { margin: 0; color: var(--muted); max-width: 65ch; }
+  header kbd { font-family: var(--body); font-size: 13px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; background: var(--card); }
+  section { max-width: 1200px; margin: 0 auto 40px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1.1; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .grid.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr)); }
+  figure { margin: 0; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+  figcaption { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .badge { font-family: var(--display); font-weight: 800; font-size: 20px; line-height: 1; min-width: 36px; height: 30px; padding: 0 8px; display: inline-grid; place-items: center; border-radius: 8px; background: var(--accent); color: #fff; font-variant-numeric: tabular-nums; }
+  .name { font-weight: 600; font-size: 14px; }
+  .name small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+  a.shot { display: block; background: var(--bg); }
+  a.shot:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+  img { display: block; width: 100%; height: auto; max-width: 100%; }
+  footer { max-width: 1200px; margin: 0 auto; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+  @media (prefers-reduced-motion: no-preference) { a.shot img { transition: opacity .15s; } a.shot:hover img { opacity: .92; } }
+</style>
+
+<header>
+  <h1>Tanren Forge screens</h1>
+  <p>The screenshots (65 after v7: original 27, then feed, sign-in and mobile round 2) of the Forge redesign, captured from the headless web build on 2026-10-26 at 390 px (phone) and 1280 px (desktop). Reply with the badge and a verdict, for example <kbd>3: map too small</kbd> or <kbd>D5: like the ring</kbd>. Tap a shot to open it full size. Progress and Settings are signed in to the seeded month (14 exercises with history, locations Gym and Home); the other screens run on the local store.</p>
+</header>
+
+<section id="light">
+  <h2>Phone, light</h2>
+  <p class="sub">1 to 10, in app order.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">1</span><span class="name">Today<small>today</small></span></figcaption><a class="shot" href="shots/today-390-light.png" target="_blank"><img src="shots/today-390-light.png" alt="Today screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">2</span><span class="name">Library<small>library</small></span></figcaption><a class="shot" href="shots/library-390-light.png" target="_blank"><img src="shots/library-390-light.png" alt="Library screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">3</span><span class="name">Library detail<small>Barbell Back Squat</small></span></figcaption><a class="shot" href="shots/library-back-squat-390-light.png" target="_blank"><img src="shots/library-back-squat-390-light.png" alt="Library detail for Barbell Back Squat, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">4</span><span class="name">Programs<small>programs</small></span></figcaption><a class="shot" href="shots/programs-390-light.png" target="_blank"><img src="shots/programs-390-light.png" alt="Programs screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">5</span><span class="name">Player<small>guided program</small></span></figcaption><a class="shot" href="shots/player-390-light.png" target="_blank"><img src="shots/player-390-light.png" alt="Program player, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">6</span><span class="name">Plan<small>current week</small></span></figcaption><a class="shot" href="shots/plan-390-light.png" target="_blank"><img src="shots/plan-390-light.png" alt="Plan screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">7</span><span class="name">Progress<small>progress</small></span></figcaption><a class="shot" href="shots/progress-390-light.png" target="_blank"><img src="shots/progress-390-light.png" alt="Progress screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">8</span><span class="name">Progress detail<small>Barbell Back Squat</small></span></figcaption><a class="shot" href="shots/progress-back-squat-390-light.png" target="_blank"><img src="shots/progress-back-squat-390-light.png" alt="Progress detail for Barbell Back Squat, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">9</span><span class="name">Settings<small>settings</small></span></figcaption><a class="shot" href="shots/settings-390-light.png" target="_blank"><img src="shots/settings-390-light.png" alt="Settings screen, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">10</span><span class="name">Location editor<small>Home equipment</small></span></figcaption><a class="shot" href="shots/settings-edit-home-390-light.png" target="_blank"><img src="shots/settings-edit-home-390-light.png" alt="Location editor for Home, light" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="dark">
+  <h2>Phone, dark</h2>
+  <p class="sub">D1 to D10, the same screens.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">D1</span><span class="name">Today</span></figcaption><a class="shot" href="shots/today-390-dark.png" target="_blank"><img src="shots/today-390-dark.png" alt="Today screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D2</span><span class="name">Library</span></figcaption><a class="shot" href="shots/library-390-dark.png" target="_blank"><img src="shots/library-390-dark.png" alt="Library screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D3</span><span class="name">Library detail<small>Barbell Back Squat</small></span></figcaption><a class="shot" href="shots/library-back-squat-390-dark.png" target="_blank"><img src="shots/library-back-squat-390-dark.png" alt="Library detail for Barbell Back Squat, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D4</span><span class="name">Programs</span></figcaption><a class="shot" href="shots/programs-390-dark.png" target="_blank"><img src="shots/programs-390-dark.png" alt="Programs screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D5</span><span class="name">Player</span></figcaption><a class="shot" href="shots/player-390-dark.png" target="_blank"><img src="shots/player-390-dark.png" alt="Program player, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D6</span><span class="name">Plan</span></figcaption><a class="shot" href="shots/plan-390-dark.png" target="_blank"><img src="shots/plan-390-dark.png" alt="Plan screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D7</span><span class="name">Progress</span></figcaption><a class="shot" href="shots/progress-390-dark.png" target="_blank"><img src="shots/progress-390-dark.png" alt="Progress screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D8</span><span class="name">Progress detail<small>Barbell Back Squat</small></span></figcaption><a class="shot" href="shots/progress-back-squat-390-dark.png" target="_blank"><img src="shots/progress-back-squat-390-dark.png" alt="Progress detail for Barbell Back Squat, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D9</span><span class="name">Settings</span></figcaption><a class="shot" href="shots/settings-390-dark.png" target="_blank"><img src="shots/settings-390-dark.png" alt="Settings screen, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">D10</span><span class="name">Location editor<small>Home equipment</small></span></figcaption><a class="shot" href="shots/settings-edit-home-390-dark.png" target="_blank"><img src="shots/settings-edit-home-390-dark.png" alt="Location editor for Home, dark" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="desktop">
+  <h2>Desktop, 1280</h2>
+  <p class="sub">DW1 to DW5 light, DW6 and DW7 dark.</p>
+  <div class="grid wide">
+    <figure><figcaption><span class="badge">DW1</span><span class="name">Today<small>light</small></span></figcaption><a class="shot" href="shots/today-1280-light.png" target="_blank"><img src="shots/today-1280-light.png" alt="Today at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW2</span><span class="name">Library detail<small>light</small></span></figcaption><a class="shot" href="shots/library-back-squat-1280-light.png" target="_blank"><img src="shots/library-back-squat-1280-light.png" alt="Library detail at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW3</span><span class="name">Programs<small>light</small></span></figcaption><a class="shot" href="shots/programs-1280-light.png" target="_blank"><img src="shots/programs-1280-light.png" alt="Programs at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW4</span><span class="name">Progress detail<small>light</small></span></figcaption><a class="shot" href="shots/progress-back-squat-1280-light.png" target="_blank"><img src="shots/progress-back-squat-1280-light.png" alt="Progress detail at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW5</span><span class="name">Settings<small>light</small></span></figcaption><a class="shot" href="shots/settings-1280-light.png" target="_blank"><img src="shots/settings-1280-light.png" alt="Settings at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW6</span><span class="name">Today<small>dark</small></span></figcaption><a class="shot" href="shots/today-1280-dark.png" target="_blank"><img src="shots/today-1280-dark.png" alt="Today at desktop width, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">DW7</span><span class="name">Library detail<small>dark</small></span></figcaption><a class="shot" href="shots/library-back-squat-1280-dark.png" target="_blank"><img src="shots/library-back-squat-1280-dark.png" alt="Library detail at desktop width, dark" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="desktop2">
+  <h2>Desktop, two columns (1280)</h2>
+  <p class="sub">X1 to X11, after the column work (commit 838a2f0, light). The owner's verdict "does not fill the page" is being worked on by the desktop pair; this group updates each round.</p>
+  <div class="grid wide">
+    <figure><figcaption><span class="badge">X1</span><span class="name">Today<small>7/5, session list in the aside</small></span></figcaption><a class="shot" href="shots/dx-today-1280.png" target="_blank"><img src="shots/dx-today-1280.png" alt="Today at 1280 with two columns" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X2</span><span class="name">Library<small>5/7</small></span></figcaption><a class="shot" href="shots/dx-library-1280.png" target="_blank"><img src="shots/dx-library-1280.png" alt="Library at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X3</span><span class="name">Library detail route<small>Goblet Squat</small></span></figcaption><a class="shot" href="shots/dx-library-goblet-squat-1280.png" target="_blank"><img src="shots/dx-library-goblet-squat-1280.png" alt="Library detail route at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X4</span><span class="name">Programs<small>not enrolled</small></span></figcaption><a class="shot" href="shots/dx-programs-1280.png" target="_blank"><img src="shots/dx-programs-1280.png" alt="Programs at 1280, not enrolled" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X5</span><span class="name">Programs<small>enrolled, day items</small></span></figcaption><a class="shot" href="shots/dx-programs-enrolled-1280.png" target="_blank"><img src="shots/dx-programs-enrolled-1280.png" alt="Programs at 1280, enrolled" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X6</span><span class="name">Player<small>single column</small></span></figcaption><a class="shot" href="shots/dx-player-1280.png" target="_blank"><img src="shots/dx-player-1280.png" alt="Player at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X7</span><span class="name">Plan<small>7/5</small></span></figcaption><a class="shot" href="shots/dx-plan-1280.png" target="_blank"><img src="shots/dx-plan-1280.png" alt="Plan at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X8</span><span class="name">Progress<small>5/7</small></span></figcaption><a class="shot" href="shots/dx-progress-1280.png" target="_blank"><img src="shots/dx-progress-1280.png" alt="Progress at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X9</span><span class="name">Progress detail<small>split 7/5</small></span></figcaption><a class="shot" href="shots/dx-progress-back-squat-1280.png" target="_blank"><img src="shots/dx-progress-back-squat-1280.png" alt="Progress detail at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X10</span><span class="name">Settings<small>6/6</small></span></figcaption><a class="shot" href="shots/dx-settings-1280.png" target="_blank"><img src="shots/dx-settings-1280.png" alt="Settings at 1280" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">X11</span><span class="name">Location editor<small>5/7</small></span></figcaption><a class="shot" href="shots/dx-settings-edit-home-1280.png" target="_blank"><img src="shots/dx-settings-edit-home-1280.png" alt="Location editor at 1280" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="polish-a1">
+  <h2>Polish, mobile-A, round 2 (designer pass)</h2>
+  <p class="sub">A1 to A6 light, A1d to A6d dark. Designer scores: Today 4, Player 4, Plan 4, Programs 4 and 4. Round 3 adopts the new shared primitives (set pills, ring day number, 64 px clock) and is the last round for this pair.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">A1</span><span class="name">Today</span></figcaption><a class="shot" href="shots/pa2-today-light.png" target="_blank"><img src="shots/pa2-today-light.png" alt="Today, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A2</span><span class="name">Plan</span></figcaption><a class="shot" href="shots/pa2-plan-light.png" target="_blank"><img src="shots/pa2-plan-light.png" alt="Plan, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A3</span><span class="name">Player</span></figcaption><a class="shot" href="shots/pa2-player-light.png" target="_blank"><img src="shots/pa2-player-light.png" alt="Player, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A4</span><span class="name">Player rest</span></figcaption><a class="shot" href="shots/pa2-player-rest-light.png" target="_blank"><img src="shots/pa2-player-rest-light.png" alt="Player rest, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A5</span><span class="name">Programs</span></figcaption><a class="shot" href="shots/pa2-programs-light.png" target="_blank"><img src="shots/pa2-programs-light.png" alt="Programs, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A6</span><span class="name">Programs enrolled</span></figcaption><a class="shot" href="shots/pa2-programs-enrolled-light.png" target="_blank"><img src="shots/pa2-programs-enrolled-light.png" alt="Programs enrolled, polish round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A1d</span><span class="name">Today</span></figcaption><a class="shot" href="shots/pa2-today-dark.png" target="_blank"><img src="shots/pa2-today-dark.png" alt="Today, polish round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A2d</span><span class="name">Plan</span></figcaption><a class="shot" href="shots/pa2-plan-dark.png" target="_blank"><img src="shots/pa2-plan-dark.png" alt="Plan, polish round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A3d</span><span class="name">Player</span></figcaption><a class="shot" href="shots/pa2-player-dark.png" target="_blank"><img src="shots/pa2-player-dark.png" alt="Player, polish round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A4d</span><span class="name">Player rest</span></figcaption><a class="shot" href="shots/pa2-player-rest-dark.png" target="_blank"><img src="shots/pa2-player-rest-dark.png" alt="Player rest, polish round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A5d</span><span class="name">Programs</span></figcaption><a class="shot" href="shots/pa2-programs-dark.png" target="_blank"><img src="shots/pa2-programs-dark.png" alt="Programs, polish round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">A6d</span><span class="name">Programs enrolled</span></figcaption><a class="shot" href="shots/pa2-programs-enrolled-dark.png" target="_blank"><img src="shots/pa2-programs-enrolled-dark.png" alt="Programs enrolled, polish round 2, dark" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="polish-d1">
+  <h2>Polish, desktop, round 1 (1280)</h2>
+  <p class="sub">P1 to P10, light. Foundation round: the page grew to 1216 px at 1280 (columns 696/496 and 496/696), primitives for the mobile pairs landed. Designer score 3/5 because no screen uses the new primitives yet; screens follow once the mobile pairs pass.</p>
+  <div class="grid wide">
+    <figure><figcaption><span class="badge">P1</span><span class="name">Today</span></figcaption><a class="shot" href="shots/pd1-today.png" target="_blank"><img src="shots/pd1-today.png" alt="Today, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P2</span><span class="name">Library</span></figcaption><a class="shot" href="shots/pd1-library.png" target="_blank"><img src="shots/pd1-library.png" alt="Library, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P3</span><span class="name">Library detail</span></figcaption><a class="shot" href="shots/pd1-library-detail.png" target="_blank"><img src="shots/pd1-library-detail.png" alt="Library detail, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P4</span><span class="name">Programs</span></figcaption><a class="shot" href="shots/pd1-programs.png" target="_blank"><img src="shots/pd1-programs.png" alt="Programs, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P5</span><span class="name">Player</span></figcaption><a class="shot" href="shots/pd1-player.png" target="_blank"><img src="shots/pd1-player.png" alt="Player, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P6</span><span class="name">Plan</span></figcaption><a class="shot" href="shots/pd1-plan.png" target="_blank"><img src="shots/pd1-plan.png" alt="Plan, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P7</span><span class="name">Progress</span></figcaption><a class="shot" href="shots/pd1-progress.png" target="_blank"><img src="shots/pd1-progress.png" alt="Progress, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P8</span><span class="name">Progress detail</span></figcaption><a class="shot" href="shots/pd1-progress-detail.png" target="_blank"><img src="shots/pd1-progress-detail.png" alt="Progress detail, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P9</span><span class="name">Settings</span></figcaption><a class="shot" href="shots/pd1-settings.png" target="_blank"><img src="shots/pd1-settings.png" alt="Settings, desktop polish round 1" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">P10</span><span class="name">Location editor</span></figcaption><a class="shot" href="shots/pd1-location.png" target="_blank"><img src="shots/pd1-location.png" alt="Location editor, desktop polish round 1" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="feed">
+  <h2>Feed (FEED-1…7, QA PASS 22:27)</h2>
+  <p class="sub">F1 to F3 phone light, F1d to F3d phone dark, FW1 to FW3 desktop 1280 light. Feed is the first tab; Progress moved to /progress; detail at /activity/[sessionId]. Captured on the exported build signed in to the seeded worker (16 sessions), commit a8c29a9.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">F1</span><span class="name">Feed<small>light</small></span></figcaption><a class="shot" href="shots/UI-FEED-feed-390-light.png" target="_blank"><img src="shots/UI-FEED-feed-390-light.png" alt="Feed, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">F2</span><span class="name">Activity detail<small>light</small></span></figcaption><a class="shot" href="shots/UI-FEED-activity-390-light.png" target="_blank"><img src="shots/UI-FEED-activity-390-light.png" alt="Activity detail, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">F3</span><span class="name">Progress<small>light</small></span></figcaption><a class="shot" href="shots/UI-FEED-progress-390-light.png" target="_blank"><img src="shots/UI-FEED-progress-390-light.png" alt="Progress, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">F1d</span><span class="name">Feed<small>dark</small></span></figcaption><a class="shot" href="shots/UI-FEED-feed-390-dark.png" target="_blank"><img src="shots/UI-FEED-feed-390-dark.png" alt="Feed, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">F2d</span><span class="name">Activity detail<small>dark</small></span></figcaption><a class="shot" href="shots/UI-FEED-activity-390-dark.png" target="_blank"><img src="shots/UI-FEED-activity-390-dark.png" alt="Activity detail, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">F3d</span><span class="name">Progress<small>dark</small></span></figcaption><a class="shot" href="shots/UI-FEED-progress-390-dark.png" target="_blank"><img src="shots/UI-FEED-progress-390-dark.png" alt="Progress, dark" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide" style="margin-top: 16px">
+    <figure><figcaption><span class="badge">FW1</span><span class="name">Feed<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-FEED-feed-1280-light.png" target="_blank"><img src="shots/UI-FEED-feed-1280-light.png" alt="Feed at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">FW2</span><span class="name">Activity detail<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-FEED-activity-1280-light.png" target="_blank"><img src="shots/UI-FEED-activity-1280-light.png" alt="Activity detail at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">FW3</span><span class="name">Progress<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-FEED-progress-1280-light.png" target="_blank"><img src="shots/UI-FEED-progress-1280-light.png" alt="Progress at desktop width, light" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="signin">
+  <h2>Sign-in with the final 力 mark (LOGO-2)</h2>
+  <p class="sub">L1 to L4 phone, LM1 and LM2 the mark alone, LW1 and LW2 desktop 1280. Mark: dark uses mark.png, light uses the mark-paper tile.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">L1</span><span class="name">Sign-in<small>390, light</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-390-light.png" target="_blank"><img src="shots/UI-SIGNIN-390-light.png" alt="Sign-in at phone width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">L2</span><span class="name">Sign-in<small>390, dark</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-390-dark.png" target="_blank"><img src="shots/UI-SIGNIN-390-dark.png" alt="Sign-in at phone width, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">LM1</span><span class="name">Mark<small>mark: dark uses mark.png, light uses the mark-paper tile (light)</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-mark-390-light.png" target="_blank"><img src="shots/UI-SIGNIN-mark-390-light.png" alt="Sign-in mark, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">LM2</span><span class="name">Mark<small>mark: dark uses mark.png, light uses the mark-paper tile (dark)</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-mark-390-dark.png" target="_blank"><img src="shots/UI-SIGNIN-mark-390-dark.png" alt="Sign-in mark, dark" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide" style="margin-top: 16px">
+    <figure><figcaption><span class="badge">LW1</span><span class="name">Sign-in<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-1280-light.png" target="_blank"><img src="shots/UI-SIGNIN-1280-light.png" alt="Sign-in at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">LW2</span><span class="name">Sign-in<small>1280, dark</small></span></figcaption><a class="shot" href="shots/UI-SIGNIN-1280-dark.png" target="_blank"><img src="shots/UI-SIGNIN-1280-dark.png" alt="Sign-in at desktop width, dark" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="mobile-b-r2">
+  <h2>Mobile-B round 2 PASS (Library, Library detail, Progress, Progress detail, Settings, Location)</h2>
+  <p class="sub">M1 to M11 phone light, M1d to M11d phone dark, MW1 desktop 1280 light. Designer PASS 22:31, all six screens 4/5; commit f5c7b3d.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">M1</span><span class="name">Library<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-390-light.png" alt="Library, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M2</span><span class="name">Library filtered<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-filtered-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-filtered-390-light.png" alt="Library filtered, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M3</span><span class="name">Library filter sheet<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-sheet-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-sheet-390-light.png" alt="Library filter sheet, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M4</span><span class="name">Library detail<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-detail-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-detail-390-light.png" alt="Library detail, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M5</span><span class="name">Library detail<small>no history, light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-detail-nohistory-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-detail-nohistory-390-light.png" alt="Library detail without history, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M6</span><span class="name">Progress detail<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-390-light.png" alt="Progress detail, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M7</span><span class="name">Progress detail<small>sessions, light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-sessions-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-sessions-390-light.png" alt="Progress detail sessions, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M8</span><span class="name">Progress detail<small>tooltip on first point, light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-tooltip-first-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-tooltip-first-390-light.png" alt="Progress detail tooltip on the first point, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M9</span><span class="name">Progress detail<small>tooltip on last point, light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-tooltip-last-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-tooltip-last-390-light.png" alt="Progress detail tooltip on the last point, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M10</span><span class="name">Settings<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-settings-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-settings-390-light.png" alt="Settings, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M11</span><span class="name">Location editor<small>light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-location-390-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-location-390-light.png" alt="Location editor, mobile-B round 2, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M1d</span><span class="name">Library<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-390-dark.png" alt="Library, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M2d</span><span class="name">Library filtered<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-filtered-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-filtered-390-dark.png" alt="Library filtered, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M3d</span><span class="name">Library filter sheet<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-sheet-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-sheet-390-dark.png" alt="Library filter sheet, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M4d</span><span class="name">Library detail<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-detail-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-detail-390-dark.png" alt="Library detail, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M5d</span><span class="name">Library detail<small>no history, dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-library-detail-nohistory-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-library-detail-nohistory-390-dark.png" alt="Library detail without history, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M6d</span><span class="name">Progress detail<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-390-dark.png" alt="Progress detail, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M7d</span><span class="name">Progress detail<small>sessions, dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-sessions-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-sessions-390-dark.png" alt="Progress detail sessions, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M8d</span><span class="name">Progress detail<small>tooltip on first point, dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-tooltip-first-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-tooltip-first-390-dark.png" alt="Progress detail tooltip on the first point, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M9d</span><span class="name">Progress detail<small>tooltip on last point, dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-tooltip-last-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-tooltip-last-390-dark.png" alt="Progress detail tooltip on the last point, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M10d</span><span class="name">Settings<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-settings-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-settings-390-dark.png" alt="Settings, mobile-B round 2, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">M11d</span><span class="name">Location editor<small>dark</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-location-390-dark.png" target="_blank"><img src="shots/UI-PmobileB-r2-location-390-dark.png" alt="Location editor, mobile-B round 2, dark" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide" style="margin-top: 16px">
+    <figure><figcaption><span class="badge">MW1</span><span class="name">Progress detail<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-PmobileB-r2-progress-detail-1280-light.png" target="_blank"><img src="shots/UI-PmobileB-r2-progress-detail-1280-light.png" alt="Progress detail at desktop width, mobile-B round 2, light" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="wordmark">
+  <h2>Lettered wordmark candidates (LOGO-3)</h2>
+  <p class="sub">W1 TANREN alone, amber hook on the T. W2 lockup, mark left. W3 condensed, hook on the final N. W4 lockup with 鍛錬. W5 stacked. W6 ligature (the T is the first stroke of 力). Each on paper (top) and dark (below); then W2 and W5 on the sign-in grounds.</p>
+  <div class="grid wide">
+    <figure><figcaption><span class="badge">W1</span><span class="badge">W2</span><span class="badge">W3</span><span class="badge">W4</span><span class="badge">W5</span><span class="badge">W6</span><span class="name">Wordmarks<small>paper and dark rows, 1536x1024 transparent, medium</small></span></figcaption><a class="shot" href="shots/LOGO-3-wordmark-sheet.png" target="_blank"><img src="shots/LOGO-3-wordmark-sheet.png" alt="Wordmarks" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">mock</span><span class="name">Sign-in mock<small>W2 and W5, light and dark, 2x</small></span></figcaption><a class="shot" href="shots/LOGO-3-wordmark-signin-mock.png" target="_blank"><img src="shots/LOGO-3-wordmark-signin-mock.png" alt="Sign-in mock" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="integrations">
+  <h2>Settings → Integrations (Strava, console mode)</h2>
+  <p class="sub">S1 to S3 and S4 below. Console provider locally; production shows the 'goes live after the owner registers the app' banner until the Strava keys exist. Commit 0cedd92.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">S1</span><span class="name">Strava card<small>connected, light</small></span></figcaption><a class="shot" href="shots/UI-SV-integrations-390-light.png" target="_blank"><img src="shots/UI-SV-integrations-390-light.png" alt="Integrations, Strava card connected, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">S2</span><span class="name">Strava card<small>connected, dark</small></span></figcaption><a class="shot" href="shots/UI-SV-integrations-390-dark.png" target="_blank"><img src="shots/UI-SV-integrations-390-dark.png" alt="Integrations, Strava card connected, dark" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">S4</span><span class="name">Export list<small>Failed + Blocked + Retry, light</small></span></figcaption><a class="shot" href="shots/UI-SV-integrations-list-390-light.png" target="_blank"><img src="shots/UI-SV-integrations-list-390-light.png" alt="Integrations export list with Failed, Blocked and Retry, light" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide" style="margin-top: 16px">
+    <figure><figcaption><span class="badge">S3</span><span class="name">Integrations<small>desktop 1280, light</small></span></figcaption><a class="shot" href="shots/UI-SV-integrations-1280-light.png" target="_blank"><img src="shots/UI-SV-integrations-1280-light.png" alt="Integrations at desktop width, light" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="prog3">
+  <h2>Program player: rep-count items (ADR-0020)</h2>
+  <p class="sub">P1 phone, P2 desktop 1280. 15 of 24 Core 30 moves count reps: numeral + Done instead of the countdown ring. Commit 37f95c7.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">R1</span><span class="name">Player, reps item<small>390, light</small></span></figcaption><a class="shot" href="shots/UI-PROG3-player-reps-390-light.png" target="_blank"><img src="shots/UI-PROG3-player-reps-390-light.png" alt="Program player with a rep-count item, light" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide" style="margin-top: 16px">
+    <figure><figcaption><span class="badge">R2</span><span class="name">Player, reps item<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-PROG3-player-reps-1280-light.png" target="_blank"><img src="shots/UI-PROG3-player-reps-1280-light.png" alt="Program player with a rep-count item at desktop width, light" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<section id="landing">
+  <h2>Landing, signed out</h2>
+  <p class="sub">LA1 to LA4. Signed-out web root; five generated illustrations; commit b38f567.</p>
+  <div class="grid">
+    <figure><figcaption><span class="badge">LA1</span><span class="name">Landing<small>390, light</small></span></figcaption><a class="shot" href="shots/UI-LAND-390-light.png" target="_blank"><img src="shots/UI-LAND-390-light.png" alt="Signed-out landing at phone width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">LA2</span><span class="name">Landing<small>390, dark</small></span></figcaption><a class="shot" href="shots/UI-LAND-390-dark.png" target="_blank"><img src="shots/UI-LAND-390-dark.png" alt="Signed-out landing at phone width, dark" loading="lazy"></a></figure>
+  </div>
+  <div class="grid wide">
+    <figure><figcaption><span class="badge">LA3</span><span class="name">Landing<small>1280, light</small></span></figcaption><a class="shot" href="shots/UI-LAND-1280-light.png" target="_blank"><img src="shots/UI-LAND-1280-light.png" alt="Signed-out landing at desktop width, light" loading="lazy"></a></figure>
+    <figure><figcaption><span class="badge">LA4</span><span class="name">Landing<small>1280, dark</small></span></figcaption><a class="shot" href="shots/UI-LAND-1280-dark.png" target="_blank"><img src="shots/UI-LAND-1280-dark.png" alt="Signed-out landing at desktop width, dark" loading="lazy"></a></figure>
+  </div>
+</section>
+
+<footer>Captured from the local web build (Expo SDK 58) with agent-browser: phone and first desktop groups at commit 19eb956, the two-column desktop group at 838a2f0, polish rounds as labelled. The screens are the real app, not mockups.</footer>
