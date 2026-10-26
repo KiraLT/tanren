@@ -13,11 +13,11 @@ Design: `docs/design/feed.md` (normative) · ADR-0017 (accepted, Lead delegation
 | FEED-1 | Shared `Activity` schema + `buildActivity` + PR math moved from the app (design §1) | engineer / sonnet | — | `packages/shared/src/activity.ts`, `activity.test.ts`, `index.ts` (one export line) | 20 min | todo |
 | FEED-2 | `FeedRepo` + `useFeed`/`useActivity`; `progressMath.ts` re-exports from shared; delete `HistoryRepo.sessions`/`SessionSummary`/`buildSessionSummary` and their tests; `runtime.ts` layer line (design §2) | engineer / sonnet | FEED-1 | `apps/mobile/src/services/{FeedRepo.ts,FeedRepo.test.ts,progressMath.ts,progressMath.test.ts,HistoryRepo.ts,HistoryRepo.test.ts,HistoryRepo.edge.test.ts,runtime.ts}`, `apps/mobile/src/hooks/{useFeed.ts,useHistory.ts}` | 20 min | todo |
 | FEED-3 | Feed screen: `ActivityCard`, `feedGroups` (+test), `(tabs)/feed.tsx` with week sections, Load more, AppBar trailing icons, states (design §3, §6) | engineer / sonnet | FEED-1 (types); FEED-2 hooks by name ("own files green + foreign reds listed" until FEED-2 lands) | `apps/mobile/src/components/feed/{ActivityCard.tsx,feedGroups.ts,feedGroups.test.ts,ActivityStats.tsx}`, `apps/mobile/app/(tabs)/feed.tsx` | 20 min | todo |
-| FEED-4 | Activity detail: `ActivityDetail` (stacked) + route `app/activity/[sessionId].tsx` (design §4) | engineer / sonnet | FEED-1; FEED-2 by name as FEED-3 | `apps/mobile/src/components/feed/ActivityDetail.tsx`, `apps/mobile/app/activity/[sessionId].tsx`, `apps/mobile/app/_layout.tsx` (stack entry only, if the Stack lists screens — VERIFY) | 20 min | todo |
+| FEED-4 | Activity detail: `ActivityDetail` (stacked) + route `app/activity/[sessionId].tsx` (design §4) | engineer / sonnet | FEED-1; FEED-2 by name as FEED-3 | `apps/mobile/src/components/feed/ActivityDetail.tsx`, `apps/mobile/app/activity/[sessionId].tsx` (the root `app/_layout.tsx` lists no `Stack.Screen`, checked 21:22: no entry needed) | 20 min | todo |
 | FEED-5 | Navigation: `APP_NAV` = feed, today, plan, programs, library; `(tabs)/progress.tsx` → `app/progress/index.tsx` with the Sessions segment and `SessionRow` removed, Settings gear removed (now on Feed); `apps/mobile/CLAUDE.md` lines (design §6) | engineer / sonnet | FEED-2 (the deleted `useSessionSummaries`) | `apps/mobile/src/ui/{appNav.ts,appNav.test.ts}`, `apps/mobile/app/(tabs)/progress.tsx` (delete), `apps/mobile/app/progress/index.tsx` (new), `apps/mobile/src/components/progress/ProgressRows.tsx`, `apps/mobile/CLAUDE.md` | 20 min | todo |
 | FEED-6 | Desktop pass: Feed `aside 5/7` with selected detail, `ActivityDetail layout="split"`, detail route `wide` + `Columns 7/5` (design §5) | engineer / sonnet | FEED-3, FEED-4, FEED-5 | `apps/mobile/app/(tabs)/feed.tsx`, `apps/mobile/src/components/feed/ActivityDetail.tsx`, `apps/mobile/app/activity/[sessionId].tsx` | 20 min | todo |
 | FEED-R | Review: schema reuse per §1, SQL vs HistoryRepo, PR parity (moved math byte-equal), nav/route coverage, Forge tokens only, functional rules | reviewer / opus | FEED-6 | read-only | 20 min | todo |
-| FEED-X | QA (`ui-check`, session `feed-x`): seeded data → Feed shows week headers and cards; card → detail → exercise row → Progress detail; In-progress card → Today; offline reload keeps the feed; `ui-measure.js` at 390 (no button < 44, text sizes ⊂ ramp), `ui-columns.js` at 1280 (main 464 / side 648 for Feed; 1072 wide for detail); screenshots `UI-F-feed-390-{light,dark}.png`, `UI-F-activity-390-light.png`, `UI-F-feed-1280.png`, `UI-F-activity-1280.png` to the review gallery | qa / sonnet | FEED-R clean | none (writes this Log only) | 20 min | todo |
+| FEED-X | QA (`ui-check`, session `feed-x`): seeded data → Feed shows week headers and cards; card → detail → exercise row → Progress detail; In-progress card → Today; offline reload keeps the feed; `ui-measure.js` at 390 (no button < 44, text sizes ⊂ ramp), `ui-columns.js` at 1280 (main 464 / side 648 for Feed; 1072 wide for detail); the measured items under "Owner-visible measurements" below; screenshots `UI-F-feed-390-{light,dark}.png`, `UI-F-activity-390-light.png`, `UI-F-feed-1280.png`, `UI-F-activity-1280.png` to the review gallery. Data state: exported build signed in to the seeded worker (dev-server empty store only for the Empty state capture). Scheme: light for all captures, plus dark for `UI-F-feed-390-dark.png` | qa / sonnet | FEED-R clean | none (writes this Log only) | 20 min | todo |
 
 Parallel groups: {FEED-1} → {FEED-2, FEED-3, FEED-4} (≤ 3 parallel) → {FEED-5} → {FEED-6} → FEED-R → FEED-X.
 `progressMath.ts` owner: FEED-2 only. `feed.tsx`/`ActivityDetail.tsx`: FEED-3/FEED-4 until they report, then FEED-6.
@@ -38,13 +38,19 @@ Parallel groups: {FEED-1} → {FEED-2, FEED-3, FEED-4} (≤ 3 parallel) → {FEE
 - `Card` has `onPress`, `selected`, `accessibilityLabel`, `padding` (Card.tsx:16–24); `ListRow` has `leading`, `subtitle`, `trailing`, `chevron`, `onPress` (ListRow.tsx:85–106); `AppBar` has `leading`, `trailing` (AppBar.tsx:30–32).
 - Icon `flame` exists (iconPaths.ts:47); `Page` has `aside`, `split`, `wide` (Page.tsx:12–16); `Columns` has `split` (ColumnsView.tsx:14).
 
-## VERIFY (engineer closes against installed code; report the answer)
-- `Card` default padding value (design §3 assumes 16).
-- `MuscleMap.size`: height or width of the two-panel frame (design §3/§4 assume it bounds the height at 56/176).
-- `AppBar` trailing slot fits two 44 px `IconButton`s + 8 gap at 390 beside the "Feed" title.
-- Whether `app/_layout.tsx` enumerates Stack screens (then `activity/[sessionId]` and `progress/index` need entries).
+## File-name case check (architect.md Output 2a, run 21:22)
+New names per target dir, lower-cased against `ls`: `packages/shared/src/activity.ts`, `services/FeedRepo.ts`, `hooks/useFeed.ts`, `components/feed/` (dir), `app/activity/` (dir), `app/progress/index.tsx`, `(tabs)/feed.tsx` — no duplicate in any dir. (`app/settings` + `app/settings.tsx` is a pre-existing Expo Router route/layout pair, not a collision.) Engineers re-run `ls <dir> | tr '[:upper:]' '[:lower:]' | sort | uniq -d` before adding any file not listed here.
+
+## VERIFY (engineer closes against installed code; report the answer — none of these is owner-visible)
+- `CARD_PADDING` value (Card.tsx:34); if ≠ 16, `ActivityCard` passes `padding={space.lg}`.
 - `useHistoryRead` store-event subscription (copy it into `useFeed.ts`).
-- `weekStartOf`'s week start day (label "Week of <date>" must use that date).
+- `weekStartOf`'s week start day (progressMath.ts:76): FEED-3's `feedGroups.test.ts` pins "Week of <date>" to that function's output for a fixed date.
+
+## Owner-visible measurements (FEED-X records the numbers in the Log; a miss is a blocking finding)
+- `MuscleMap` on a card: rect height 56 and on the detail 176 at 390 (design assumes `size` bounds the height).
+- Feed AppBar at 390: both trailing buttons ≥ 44 × 44 and the "Feed" title rect width ≥ 60 (not squeezed by the trailing slot).
+- Card text column at 390: `title` rect width ≤ 258 and the card's inner width 326 (= padding 16).
+- Tab bar at 390: five items, each label rect ≥ 12 px and no label wrapped (height ≤ 16).
 
 ## Done-criteria
 ### FEED-1
@@ -58,7 +64,8 @@ Parallel groups: {FEED-1} → {FEED-2, FEED-3, FEED-4} (≤ 3 parallel) → {FEE
 ### FEED-5
 - [ ] Tab bar at 390: 5 items in order Feed, Today, Plan, Programs, Library; `/progress` renders the exercise list with its aside at 1280; no Sessions segment; `appNav.test.ts` updated; `pnpm check` green.
 ### FEED-6
-- [ ] `ui-columns.js` at 1280 on `/feed`: main 464, side 648, `main.left` 72; on `/activity/<id>`: one `role=main` 1072 wide with `columns-main` ≈ 611 and `columns-side` ≈ 437; at 900 Feed main 364.
+- [ ] `ui-columns.js` at 1280 on `/feed` (Ready state, ≥ 1 activity): main 464, side 648, `main.left` 72; on `/activity/<id>` (Ready): one `role=main` 1072 wide with `columns-main` ≈ 611 and `columns-side` ≈ 437; at 900 Feed main 364.
+- [ ] States stay single-column at 1280 (no `role=complementary`, main ≤ 600): `/feed` Loading, Failed and Empty (dev-server empty store); `/activity/<unknown-id>` not-found. `/progress` (stack route) Ready keeps its `5/7` aside as before the move.
 ### FEED-R / FEED-X
 - [ ] Review reports no blocking finding; QA recipe above passes with the numbers in the Log and the five screenshots published to the gallery.
 

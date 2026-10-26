@@ -106,8 +106,8 @@ SQL (same style as HistoryRepo.ts:220–305, `LocalStore.all`, `decodeRecords(Se
    FROM "workout_set" s WHERE s."sessionId" = ws."id" AND s."deletedAt" IS NULL) ORDER BY
    ws."startedAt" DESC, ws."id" DESC LIMIT ?`.
 2. History for PR flags: HistoryRepo's `liveSets` with the `exerciseId IN (SELECT "exerciseId" FROM
-   "workout_set" WHERE "deletedAt" IS NULL AND "sessionId" IN (…))` filter (HistoryRepo.ts:286–292),
-   then `markPrs` per exercise (HistoryRepo `markByExercise`, :117–122); keep only the page's sets.
+   "workout_set" WHERE "deletedAt" IS NULL AND "sessionId" IN (…))` filter (HistoryRepo.ts:222 `liveSets`,
+   :294 the subselect), then `markPrs` per exercise (HistoryRepo `markByExercise`, :110); keep only the page's sets.
 3. `exercise` rows by id (deleted ones included: a deleted exercise still names old sets), `planned_session`
    live rows by id → titles, `program_day_completion` live rows `WHERE "sessionId" IN (…)` → program.
 4. `DateTime.now` → `buildActivity` per session; `Option.toArray`.
@@ -116,11 +116,11 @@ SQL (same style as HistoryRepo.ts:220–305, `LocalStore.all`, `decodeRecords(Se
 state type `HistoryState<…>` re-exported; both refresh on `StoreEvents` like Progress does
 (VERIFY: how `useHistoryRead` subscribes; copy it).
 
-## 3. Phone composition at 390 (gutter 16 → content 358; Card padding 16 → inner 326; VERIFY `Card` default padding = `space.lg`)
+## 3. Phone composition at 390 (gutter 16 → content 358; Card padding 16 → inner 326; `Card` default is `CARD_PADDING` (Card.tsx:34) — if it is not 16, pass `padding={space.lg}`; FEED-X measures the text column at 258)
 
 Screen `app/(tabs)/feed.tsx`: `AppBar title="Feed"`, `trailing` = two `IconButton`s `chart`
 (→ `/progress`, label "Progress") and `settings` (→ `/settings`, label "Settings"), 44 + 8 + 44 =
-96 px ≤ the trailing slot (VERIFY: AppBar trailing slot width ≥ 96). Body: `FlatList` of sections.
+96 px in the trailing slot (FEED-X measures both buttons ≥ 44 and the title ≥ 60 wide at 390). Body: `FlatList` of sections.
 
 Week header row (`src/components/feed/feedGroups.ts`): `title2` "This week" / "Last week" / "Week of
 13 Oct" (`weekStartOf`, progressMath.ts:76; week start = that function's, do not assume Monday)
@@ -129,7 +129,7 @@ left, `caption` muted "3 workouts · 12,400 kg" right; 358 wide, height 36, `mar
 `ActivityCard` (`src/components/feed/ActivityCard.tsx`, `Card onPress`, `accessibilityLabel` = §6):
 | row | slots (left → right) | arithmetic at inner 326 |
 | --- | --- | --- |
-| head | text column: `headline` title (1 line, ellipsis) + `caption` muted "Sat 26 Oct · 18:40" | map slot `MuscleMap size=56 view="both"` right | 326 − 56 − 12 = 258 text ✓ (VERIFY `size` is the height; if width, use 56 too) |
+| head | text column: `headline` title (1 line, ellipsis) + `caption` muted "Sat 26 Oct · 18:40" | map slot `MuscleMap size=56 view="both"` right | 326 − 56 − 12 = 258 text ✓ (`size` taken as the frame height; FEED-X measures the map rect at 56 here and 176 on the detail) |
 | stats | 3 tiles flex 1: `numeral`-styled `title2` value + `label` muted caption: "48 min" / "4,230 kg" / "18 sets" ; second caption line "Duration" / "Volume" / "6 exercises" | (326 − 2·12) / 3 = 100.67 ≥ 96 ("4,230 kg" at 22 px ≈ 84) ✓ |
 | strip | up to 4 `MuscleMapImage size=48` (catalogId, primary, secondary from the exercise's catalog entry; exercises without catalogId draw `MuscleMap size=48`) + 1 overflow disc "+2" (48, `surfaceRaised`, `caption`) | 5 · 48 + 4 · 8 = 272 ≤ 326 ✓ |
 | pills | `StatusPill` "PR ×2" `tone="accent" icon="flame"` · `StatusPill` "Core-30 · Day 12" `tone="neutral" icon="grid"` · `StatusPill` "In progress" `tone="accent" icon="zap"` ; row only when ≥ 1 pill; wrap | 2 pills ≤ 140 each: 140 + 8 + 140 = 288 ≤ 326 ✓ |
