@@ -19,6 +19,10 @@ export type PlanWeekId = typeof PlanWeekId.Type
 export const PlannedSessionId = Uuid.pipe(Schema.brand("PlannedSessionId"))
 export type PlannedSessionId = typeof PlannedSessionId.Type
 
+/** An outbound activity export (not a synced table; ADR-0018). */
+export const ActivityExportId = Uuid.pipe(Schema.brand("ActivityExportId"))
+export type ActivityExportId = typeof ActivityExportId.Type
+
 export const PlannedSetId = Uuid.pipe(Schema.brand("PlannedSetId"))
 export type PlannedSetId = typeof PlannedSetId.Type
 

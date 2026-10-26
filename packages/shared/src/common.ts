@@ -111,6 +111,8 @@ export const EntityName = Schema.Literals([
   "programDayCompletion",
   /** A profile location (not a table): `search_exercises availableAt` with an unknown id. */
   "location",
+  /** An outbound activity export (not a synced table): `POST /integrations/strava/exports/retry`. */
+  "activityExport",
 ])
 export type EntityName = typeof EntityName.Type
 

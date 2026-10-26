@@ -9,4 +9,7 @@ export const envVars: EnvVars = {
   EMAIL_MODE: "console",
   EMAIL_FROM: "Tanren <dev@tanren.local>",
   MCP_RESOURCE_URL: "http://localhost:8787/mcp",
+  STRAVA_MODE: "console",
+  STRAVA_CLIENT_ID: "local-strava-client",
+  INTEGRATION_TOKEN_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 }

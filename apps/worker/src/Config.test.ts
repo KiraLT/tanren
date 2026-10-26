@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Redacted } from "effect"
-import { ConfigError, WorkerConfig } from "./Config"
+import { ConfigError, FAKE_INTEGRATION_TOKEN_KEY, WorkerConfig } from "./Config"
 import type { EnvVars } from "./Env"
 
 const localEnv: EnvVars = {
@@ -12,9 +12,15 @@ const localEnv: EnvVars = {
   EMAIL_FROM: "Tanren <dev@tanren.local>",
   DEV_MCP_TOKEN: "local-dev-only-mcp-token",
   MCP_RESOURCE_URL: "http://localhost:8787/mcp",
+  STRAVA_MODE: "console",
+  STRAVA_CLIENT_ID: "local-strava-client",
+  INTEGRATION_TOKEN_KEY: FAKE_INTEGRATION_TOKEN_KEY,
 }
 
-/** A valid production env: provider email, https resource URL, no dev token. */
+const REAL_KEY = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=" // 32 x 0x01, test only
+const STRAVA_SECRET = "test-only-strava-secret"
+
+/** A valid production env: provider email + Strava, https resource URL, no dev token, real key. */
 const productionEnv = (() => {
   const { DEV_MCP_TOKEN: _omitted, ...withoutToken } = localEnv
   return {
@@ -24,6 +30,10 @@ const productionEnv = (() => {
     EMAIL_FROM: "Tanren <login@tanren.me>",
     RESEND_API_KEY: "re_test_only_not_a_key",
     MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
+    STRAVA_MODE: "provider",
+    STRAVA_CLIENT_ID: "<owner: strava client id>", // the wrangler.jsonc placeholder must load
+    STRAVA_CLIENT_SECRET: STRAVA_SECRET,
+    INTEGRATION_TOKEN_KEY: REAL_KEY,
   }
 })()
 
@@ -60,15 +70,7 @@ describe("WorkerConfig.layerFromEnv", () => {
 
   it.effect("accepts a production env with a provider and no dev token", () =>
     Effect.gen(function* () {
-      const { DEV_MCP_TOKEN: _omitted, ...withoutToken } = localEnv
-      const config = yield* load({
-        ...withoutToken,
-        ENVIRONMENT: "production",
-        EMAIL_MODE: "provider",
-        EMAIL_FROM: "Tanren <login@tanren.me>",
-        RESEND_API_KEY: RESEND_KEY,
-        MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
-      })
+      const config = yield* load(productionEnv)
       expect(config.environment).toBe("production")
       expect(config.emailMode).toBe("provider")
       expect(config.emailFrom).toBe("Tanren <login@tanren.me>")
@@ -236,6 +238,120 @@ describe("NATIVE_RETURN_PREFIXES", () => {
       const raw = " exps://u.expo.dev/AbC-123/, ,tanren://"
       const config = yield* load({ ...productionEnv, NATIVE_RETURN_PREFIXES: raw })
       expect(config.nativeReturnPrefixes).toEqual(["exps://u.expo.dev/AbC-123/", "tanren://"])
+    }),
+  )
+})
+
+describe("Strava and integration token config", () => {
+  const withoutVar = (env: Record<string, unknown>, name: string) =>
+    Object.fromEntries(Object.entries(env).filter(([key]) => key !== name))
+
+  it.effect("local defaults load: console mode, no secret, the fake key", () =>
+    Effect.gen(function* () {
+      const config = yield* load(localEnv)
+      expect(config.stravaMode).toBe("console")
+      expect(config.stravaClientId).toBe("local-strava-client")
+      expect(Option.isNone(config.stravaClientSecret)).toBe(true)
+      expect(Redacted.value(config.integrationTokenKey)).toBe(FAKE_INTEGRATION_TOKEN_KEY)
+    }),
+  )
+
+  it.effect("provider with a secret loads it redacted", () =>
+    Effect.gen(function* () {
+      const config = yield* load(productionEnv)
+      expect(config.stravaMode).toBe("provider")
+      expect(Option.map(config.stravaClientSecret, Redacted.value)).toEqual(
+        Option.some(STRAVA_SECRET),
+      )
+      expect(String(config.stravaClientSecret)).not.toContain(STRAVA_SECRET)
+      expect(String(config.integrationTokenKey)).not.toContain(REAL_KEY)
+    }),
+  )
+
+  it.effect("STRAVA_CONSOLE_FAIL is None by default and Some(inactive) in console mode", () =>
+    Effect.gen(function* () {
+      expect((yield* load(localEnv)).stravaConsoleFail).toEqual(Option.none())
+      const config = yield* load({ ...localEnv, STRAVA_CONSOLE_FAIL: "inactive" })
+      expect(config.stravaConsoleFail).toEqual(Option.some("inactive"))
+    }),
+  )
+
+  it.effect("refuses STRAVA_CONSOLE_FAIL with STRAVA_MODE provider", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(load({ ...productionEnv, STRAVA_CONSOLE_FAIL: "inactive" }))
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("STRAVA_CONSOLE_FAIL")
+      expect(error.message).toContain('STRAVA_MODE is "console"')
+    }),
+  )
+
+  it.effect("refuses an unknown STRAVA_CONSOLE_FAIL value", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(load({ ...localEnv, STRAVA_CONSOLE_FAIL: "revoked" }))
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain('STRAVA_CONSOLE_FAIL "revoked"')
+    }),
+  )
+
+  it.effect("fails in provider mode without STRAVA_CLIENT_SECRET", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(load(withoutVar(productionEnv, "STRAVA_CLIENT_SECRET")))
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("STRAVA_CLIENT_SECRET")
+    }),
+  )
+
+  it.effect("fails outside local with STRAVA_MODE console", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(load({ ...productionEnv, STRAVA_MODE: "console" }))
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain('STRAVA_MODE "console"')
+    }),
+  )
+
+  it.effect("refuses the fake key outside local", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, INTEGRATION_TOKEN_KEY: FAKE_INTEGRATION_TOKEN_KEY }),
+      )
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("INTEGRATION_TOKEN_KEY")
+      expect(error.message).toContain("fake")
+    }),
+  )
+
+  it.effect("refuses a key that is not base64 for exactly 32 bytes", () =>
+    Effect.gen(function* () {
+      const errors = yield* Effect.forEach(
+        [
+          "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", // 23 bytes
+          "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", // 55 bytes
+          "not base64 at all!!",
+        ],
+        (INTEGRATION_TOKEN_KEY) => Effect.flip(load({ ...productionEnv, INTEGRATION_TOKEN_KEY })),
+      )
+      expect(errors.every((error) => error.message.includes("32 bytes"))).toBe(true)
+    }),
+  )
+
+  it.effect("refuses a wrong-length key locally too", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(load({ ...localEnv, INTEGRATION_TOKEN_KEY: "AAAA" }))
+      expect(error.message).toContain("32 bytes")
+    }),
+  )
+
+  it.effect("fails when a Strava var or the key is missing", () =>
+    Effect.gen(function* () {
+      const errors = yield* Effect.forEach(
+        ["STRAVA_MODE", "STRAVA_CLIENT_ID", "INTEGRATION_TOKEN_KEY"],
+        (name) => Effect.flip(load(withoutVar(localEnv, name))),
+      )
+      expect(
+        errors.map(
+          (error) => error.message.includes("STRAVA") || error.message.includes("INTEGRATION"),
+        ),
+      ).toEqual([true, true, true])
     }),
   )
 })

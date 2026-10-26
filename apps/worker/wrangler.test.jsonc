@@ -14,7 +14,10 @@
     "BETTER_AUTH_SECRET": "local-dev-only-not-a-secret-0000000000000000",
     "DEV_MCP_TOKEN": "local-dev-only-mcp-token",
     "MCP_RESOURCE_URL": "http://localhost:8787/mcp",
-    "NATIVE_RETURN_PREFIXES": "exp://localhost:,exp://127.0.0.1:,exp://192.168.1.5:"
+    "NATIVE_RETURN_PREFIXES": "exp://localhost:,exp://127.0.0.1:,exp://192.168.1.5:",
+    "STRAVA_MODE": "console",
+    "STRAVA_CLIENT_ID": "local-strava-client",
+    "INTEGRATION_TOKEN_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
   },
   "d1_databases": [
     {

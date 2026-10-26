@@ -22,6 +22,10 @@ const providerEnv: EnvVars = {
   EMAIL_FROM: "Tanren <login@tanren.me>",
   RESEND_API_KEY: API_KEY,
   MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp",
+  STRAVA_MODE: "provider",
+  STRAVA_CLIENT_ID: "test-strava-client",
+  STRAVA_CLIENT_SECRET: "test-only-strava-secret",
+  INTEGRATION_TOKEN_KEY: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", // 32 x 0x01, test only
 }
 const magicLink = {
   email: "lukas@example.com",

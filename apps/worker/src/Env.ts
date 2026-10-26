@@ -29,6 +29,22 @@ export interface Env {
    * `exps://u.expo.dev/<projectId>/` (owner value, docs/design/deploy.md). `tanren://` only if listed.
    */
   readonly NATIVE_RETURN_PREFIXES?: string
+  /** `console` (local only: logs instead of calling Strava) or `provider`. */
+  readonly STRAVA_MODE: string
+  /** Public Strava app id (var). */
+  readonly STRAVA_CLIENT_ID: string
+  /**
+   * Local simulation only: `inactive` makes the console `createActivity` fail like a Strava app whose
+   * subscription lapsed. Refused unless `STRAVA_MODE` is `console`; pass it with `--var`, never in config.
+   */
+  readonly STRAVA_CONSOLE_FAIL?: string
+  /** Secret, required when `STRAVA_MODE` is `provider` (`wrangler secret put STRAVA_CLIENT_SECRET --env production`). */
+  readonly STRAVA_CLIENT_SECRET?: string
+  /**
+   * Secret: base64 of 32 random bytes (`openssl rand -base64 32`), the AES-256-GCM key that seals
+   * integration tokens. A clearly fake key is a local var; outside `local` it is always a secret.
+   */
+  readonly INTEGRATION_TOKEN_KEY: string
   /** Injected per request by `OAuthProvider`; absent in the module-scope `env`. */
   readonly OAUTH_PROVIDER?: OAuthHelpers
 }

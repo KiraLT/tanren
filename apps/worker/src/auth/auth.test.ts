@@ -26,7 +26,19 @@ const envVars = (environment: "local" | "preview"): EnvVars => ({
   EMAIL_MODE: environment === "local" ? "console" : "provider",
   EMAIL_FROM: "Tanren <dev@tanren.local>",
   MCP_RESOURCE_URL: "https://mcp.tanren.me/mcp", // https works in every environment
-  ...(environment === "local" ? {} : { RESEND_API_KEY: "re_test_only_not_a_key" }),
+  ...(environment === "local"
+    ? {
+        STRAVA_MODE: "console",
+        STRAVA_CLIENT_ID: "local-strava-client",
+        INTEGRATION_TOKEN_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      }
+    : {
+        RESEND_API_KEY: "re_test_only_not_a_key",
+        STRAVA_MODE: "provider",
+        STRAVA_CLIENT_ID: "test-strava-client",
+        STRAVA_CLIENT_SECRET: "test-only-strava-secret",
+        INTEGRATION_TOKEN_KEY: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+      }),
 })
 
 /** Fresh auth stack (memory DB, captured email) with the auth routes served as a Web handler. */
