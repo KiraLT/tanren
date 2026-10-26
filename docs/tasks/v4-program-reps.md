@@ -83,3 +83,5 @@ Session `prog-x` per the task table row. Load `ui-check`. Capture light and dark
 
 ## Log
 - 22:13→22:21 · PROG-0 · architect/fable · ADR-0020, design §9, this sheet.
+- 22:26 · PROG-2 done → in-review (WIP commit 9d09fcd); PROG-3 still gated on the desktop pair releasing PlayerView.tsx
+- 22:29 · PROG-1 done → in-review (WIP e3a5350). Recovery days ≈ 4 min (3 × 40 s counted items + 75 s hold + rests) ratified by the Lead; raise counts later if the owner wants longer.
