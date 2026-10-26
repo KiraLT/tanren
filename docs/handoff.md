@@ -346,3 +346,34 @@ Log in `docs/tasks/step-2.md`.
   tasks per screen (disjoint files), one cross-screen UI-R, UI-X with `ui-measure.js`. Otherwise the
   desktop-layout gap (Today/Settings narrow columns at 1280) is the next design task.
 - Briefs drafted this session live in the scratchpad `briefs/` (UI-common, UI-2a…4b, UI-R, UI-X, IMG-5c).
+
+## State at 21:11 2026-10-26 (HEAD `d3e0975`) — PRODUCTION LIVE; desktop columns in; polish pairs starting
+- **Production (owner lifted "agents never deploy" for the Lead, 20:5x: "I gave you full access to cloudflare
+  project" / "you can do deploy.md instructions yourself").** Cloudflare account Tanren `326ec3d6…`, zone
+  tanren.me `50927fc2…` (active, Cloudflare NS). Done by the Lead via the Cloudflare MCP `execute` tool and
+  wrangler: Resend DNS (DKIM TXT `resend._domainkey`, CNAME `rsend`/`send` → forge.rmta.net, `_dmarc` TXT, all
+  quoted/DNS-only); D1 `tanren` `0cdfa785-fd69-4971-adf8-14a4acb89a01` + KV `OAUTH_KV` `f7ea7f89…` (owner
+  created, ids in `env.production`, commit `8bc32f2`); secrets `BETTER_AUTH_SECRET` (generated) and
+  `RESEND_API_KEY` (owner pasted it in chat → rotate later); migrations 0000–0003 applied `--remote`;
+  Worker `tanren` v `53708cc3` on api.tanren.me + mcp.tanren.me (health 200, MCP 401 challenge, OAuth AS + PRM
+  metadata ok); web `tanren-web` v `68f01204` on tanren.me (export with `EXPO_PUBLIC_API_URL=https://api.tanren.me`,
+  633 assets; CORS from https://tanren.me ok). The Mac's resolver cached the preflight NXDOMAIN: check with
+  `curl --resolve <host>:443:104.21.69.164`. Open owner steps: sign in on tanren.me (first user; magic link via
+  Resend — Resend domain must show "verified"), Claude app connector (deploy.md §5), `eas init` →
+  `NATIVE_RETURN_PREFIXES` project id → redeploy (native sign-in answers 400 until then), EAS Update.
+- **Expo:** back on SDK 58 (58.0.19 patch set, `19eb956`); the owner's Expo Go moved to 58. A 57 pin was
+  discarded (diff in the scratchpad `sdk57.patch`, volatile).
+- **Muscle maps:** 291/291 (`3ca39ca`, `ee02262`): `--reference` edits mode, `gpt-image-1.5` default on edits.
+- **Review gallery (durable):** https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ — 27 shots `UI-X3-*` in
+  git-ignored `docs/design/screens/`; republish in place after visual changes (memory `tanren-review-gallery`).
+- **Desktop columns (UI-D, `docs/design/ui-desktop.md`):** D0–D6 + review fixes committed (`a64bf61`…`d3e0975`);
+  UI-DX measuring the pre-fix export (10 JSON baselines from D0 in the scratchpad; Today/Plan need
+  `$S/UI-D0-fakedate.js` + `TZ=Pacific/Kiritimati`); a short DX2 re-measure of Location/Progress states +
+  Library at 900 is due after DX reports; then the `UI-DX-*-1280.png` go to the gallery as a 4th group.
+- **Owner verdict 21:09 (plan Amendment 7):** likes it, "not finished", too much white space, desktop must
+  fill the page, mobile needs small professional polish; engineer + designer pairs after designer research.
+  UI-P0 (fable designer) running → `docs/design/ui-polish.md` + "UI-P" block in v3-design.md; then three
+  `team-lead` pairs (mobile-A, mobile-B, desktop; engineer sonnet + designer fable, ≤ 3 rounds, screenshots
+  to the gallery each round).
+- Live at 21:11: UI-DX (qa), UI-P0 (architect). Next: DX accept → DX2 → gallery; P0 accept → pairs;
+  `/retro` for the day (incidents: scratchpad purge, Expo Go SDK lag, wrangler config auto-write, zsh `$A`).
