@@ -3,7 +3,7 @@ import { Match, Option } from "effect"
 import type { ProfileState } from "../hooks/useProfile"
 
 export const SETUP_TITLE = "Set up your equipment"
-export const SETUP_BODY = "Tell Tanren what your gym has."
+export const SETUP_BODY = "Tell Tanren what your gym has"
 
 /**
  * Today shows the setup card until the profile names at least one location (none yet → shown).

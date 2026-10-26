@@ -345,6 +345,21 @@ export const upNext = (day: ProgramDay, state: PlayerState): Option.Option<Progr
     (phase) => Arr.get(day.items, (phase.itemIndex + 1) % day.items.length),
   )
 
+/**
+ * While working (or paused mid-work): the item that follows this one, wrapping to the first item
+ * for the next round; `None` on the last item of the last round, while resting, idle or done.
+ */
+export const nextAfterWork = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> =>
+  Option.flatMap(
+    Option.filter(activePhase(state), (phase) => phase._tag === "Working"),
+    (phase) =>
+      phase.itemIndex + 1 < day.items.length
+        ? Arr.get(day.items, phase.itemIndex + 1)
+        : phase.round + 1 < day.rounds
+          ? Arr.get(day.items, 0)
+          : Option.none<ProgramItem>(),
+  )
+
 export interface PlayerProgress {
   /** 1-based. */
   readonly round: number

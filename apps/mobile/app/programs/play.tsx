@@ -41,6 +41,7 @@ function Player({
   // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
   useEffect(() => send("start"), [send])
   const position = progress(session.day, player)
+  const playing = completion._tag === "None" && player._tag !== "Idle"
   const header = (
     <AppBar
       title={session.day.title}
@@ -62,7 +63,8 @@ function Player({
     />
   )
   return (
-    <Page header={header} scroll>
+    // While playing, `PlayerView` owns the scrolling (it fills the viewport on phone).
+    <Page header={header} scroll={!playing}>
       {isRunning(player) ? <KeepAwake /> : null}
       {Match.value(completion).pipe(
         Match.tag("None", () =>

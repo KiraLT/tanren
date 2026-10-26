@@ -1,10 +1,21 @@
 import type { ProgramDay, ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
-import { View } from "react-native"
+import { ScrollView, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { CompletionState } from "../../hooks/usePlayer"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
-import { Banner, Button, Card, IconButton, sizes, space, Text, TimerRing } from "../../ui"
-import { clock, exerciseName, itemAmount } from "../cues"
+import {
+  Banner,
+  Button,
+  Card,
+  IconButton,
+  sizes,
+  space,
+  Text,
+  TimerRing,
+  useBreakpoint,
+} from "../../ui"
+import { clock, exerciseName, itemAmount, nextCaption } from "../cues"
 import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
 
 /** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
@@ -44,6 +55,8 @@ interface PlayerViewProps {
  * big ring, the transport row and `Finish workout`.
  */
 export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
+  const phone = useBreakpoint() === "phone"
+  const insets = useSafeAreaInsets()
   const item = currentItem(day, state)
   const inner = state._tag === "Paused" ? state.inner : state
   const resting = inner._tag === "Resting"
@@ -57,129 +70,208 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
   const total = phaseTotalMs(state)
   const fraction = Option.match(remainingMs, { onNone: () => 0, onSome: (ms) => ms / total })
 
-  return (
-    <View style={{ gap: space.xl }}>
-      {resting ? (
-        <View accessible accessibilityRole="header" style={{ gap: space.md }}>
-          <Text variant="caption" tone="success">
-            {phaseLabel(paused, resting)}
-          </Text>
-          <Text variant="title">Rest</Text>
-          {Option.match(next, {
-            onNone: () => null,
-            onSome: (upcoming) => (
-              <Card padding={space.md}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-                  <ExerciseIllustration
-                    catalogId={upcoming.catalogId}
-                    size={sizes.illustrationSm}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text variant="caption" tone="muted">
-                      Next
-                    </Text>
-                    <Text variant="headline">{exerciseName(upcoming.catalogId)}</Text>
-                    <Text variant="subhead" tone="muted">
-                      {itemAmount(upcoming)}
-                    </Text>
-                  </View>
-                </View>
-              </Card>
-            ),
-          })}
-        </View>
-      ) : (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-          <ExerciseIllustration
-            catalogId={Option.map(item, (i) => i.catalogId)}
-            size={WORK_ILLUSTRATION}
-          />
-          <View accessible accessibilityRole="header" style={{ flex: 1, gap: space.xs }}>
-            <Text variant="caption" tone={paused ? "muted" : "accent"}>
-              {phaseLabel(paused, resting)}
-            </Text>
-            <Text variant="title" numberOfLines={3}>
-              {name}
-            </Text>
-            {Option.match(item, {
-              onNone: () => null,
-              onSome: (i) => (
-                <Text variant="subhead" tone="muted">
-                  {itemAmount(i)}
+  const headerBlock = resting ? (
+    <View accessible accessibilityRole="header" style={{ gap: space.md }}>
+      <Text variant="caption" tone="success">
+        {phaseLabel(paused, resting)}
+      </Text>
+      <Text variant="title">Rest</Text>
+      {Option.match(next, {
+        onNone: () => null,
+        onSome: (upcoming) => (
+          <Card padding={space.md}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <ExerciseIllustration catalogId={upcoming.catalogId} size={sizes.illustrationSm} />
+              <View style={{ flex: 1 }}>
+                <Text variant="caption" tone="muted">
+                  Next
                 </Text>
-              ),
-            })}
-          </View>
-        </View>
-      )}
-
-      <View style={{ alignItems: "center" }}>
-        {Option.match(seconds, {
-          onNone: () => (
-            <Button
-              label="Done"
-              accessibilityLabel={`Done with ${name}`}
-              icon="check"
-              variant="primary"
-              size="lg"
-              onPress={() => send("next")}
-              style={{ alignSelf: "stretch" }}
-            />
-          ),
-          onSome: (s) => (
-            <TimerRing
-              progress={fraction}
-              tone={resting ? "success" : "accent"}
-              accessibilityLabel={`${s} seconds left`}
-            >
-              <Text variant="numeral" accessibilityLabel={`Countdown ${s}`}>
-                {clock(s)}
-              </Text>
-            </TimerRing>
+                <Text variant="headline">{exerciseName(upcoming.catalogId)}</Text>
+                <Text variant="subhead" tone="muted">
+                  {itemAmount(upcoming)}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        ),
+      })}
+    </View>
+  ) : (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+      <ExerciseIllustration
+        catalogId={Option.map(item, (i) => i.catalogId)}
+        size={WORK_ILLUSTRATION}
+      />
+      <View accessible accessibilityRole="header" style={{ flex: 1, gap: space.xs }}>
+        <Text variant="caption" tone={paused ? "muted" : "accent"}>
+          {phaseLabel(paused, resting)}
+        </Text>
+        <Text variant="title" numberOfLines={3}>
+          {name}
+        </Text>
+        {Option.match(item, {
+          onNone: () => null,
+          onSome: (i) => (
+            <Text variant="subhead" tone="muted">
+              {itemAmount(i)}
+            </Text>
           ),
         })}
       </View>
+    </View>
+  )
 
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: space.xl }}>
-        <IconButton
-          icon="chevronLeft"
-          size="lg"
-          accessibilityLabel="Previous"
-          onPress={() => send("previous")}
-        />
-        <IconButton
-          icon={paused ? "play" : "pause"}
-          size="lg"
-          variant="filled"
-          accessibilityLabel={paused ? "Resume" : "Pause"}
-          onPress={() => send(paused ? "resume" : "pause")}
-        />
-        <IconButton
-          icon="chevronRight"
-          size="lg"
-          accessibilityLabel="Next"
-          onPress={() => send("next")}
-        />
-      </View>
-      <View style={{ gap: space.sm }}>
-        {resting ? (
+  const ringBlock = (
+    <View style={{ alignItems: "center" }}>
+      {Option.match(seconds, {
+        onNone: () => (
           <Button
-            label="Skip rest"
-            accessibilityLabel="Skip rest"
-            variant="text"
+            label="Done"
+            accessibilityLabel={`Done with ${name}`}
+            icon="check"
+            variant="primary"
             size="lg"
             onPress={() => send("next")}
+            style={{ alignSelf: "stretch" }}
           />
-        ) : null}
-        <Button
-          label="Finish workout"
-          accessibilityLabel="Finish workout"
-          variant="secondary"
-          size="lg"
-          onPress={() => send("finish")}
-        />
-      </View>
+        ),
+        onSome: (s) => (
+          <TimerRing
+            progress={fraction}
+            tone={resting ? "success" : "accent"}
+            accessibilityLabel={`${s} seconds left`}
+          >
+            <Text variant="numeral" accessibilityLabel={`Countdown ${s}`}>
+              {clock(s)}
+            </Text>
+          </TimerRing>
+        ),
+      })}
     </View>
+  )
+
+  /** Phone: pause 64 on `surfaceRaised`, previous/next 48, gap 32 (ui-polish §3 Player 2). */
+  const controlsBlock = phone ? (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: space.xxl,
+      }}
+    >
+      <IconButton
+        icon="chevronLeft"
+        accessibilityLabel="Previous"
+        onPress={() => send("previous")}
+        style={{ width: sizes.control, height: sizes.control }}
+      />
+      <IconButton
+        icon={paused ? "play" : "pause"}
+        size="lg"
+        variant="filled"
+        accessibilityLabel={paused ? "Resume" : "Pause"}
+        onPress={() => send(paused ? "resume" : "pause")}
+        style={{ width: sizes.stepperButton, height: sizes.stepperButton }}
+      />
+      <IconButton
+        icon="chevronRight"
+        accessibilityLabel="Next"
+        onPress={() => send("next")}
+        style={{ width: sizes.control, height: sizes.control }}
+      />
+    </View>
+  ) : (
+    <View style={{ flexDirection: "row", justifyContent: "center", gap: space.xl }}>
+      <IconButton
+        icon="chevronLeft"
+        size="lg"
+        accessibilityLabel="Previous"
+        onPress={() => send("previous")}
+      />
+      <IconButton
+        icon={paused ? "play" : "pause"}
+        size="lg"
+        variant="filled"
+        accessibilityLabel={paused ? "Resume" : "Pause"}
+        onPress={() => send(paused ? "resume" : "pause")}
+      />
+      <IconButton
+        icon="chevronRight"
+        size="lg"
+        accessibilityLabel="Next"
+        onPress={() => send("next")}
+      />
+    </View>
+  )
+
+  /** "Next · Crunch 25 s" under the transport row: phone work screen only (rest has its Next card). */
+  const nextLine = Option.match(phone && !resting ? nextCaption(day, state) : Option.none(), {
+    onNone: () => null,
+    onSome: (text) => (
+      <Text variant="caption" tone="muted" style={{ textAlign: "center", minHeight: sizes.iconSm }}>
+        {text}
+      </Text>
+    ),
+  })
+
+  const finishBlock = (
+    <View style={{ gap: space.sm }}>
+      {resting ? (
+        <Button
+          label="Skip rest"
+          accessibilityLabel="Skip rest"
+          variant="text"
+          size="lg"
+          onPress={() => send("next")}
+        />
+      ) : null}
+      <Button
+        label="Finish workout"
+        accessibilityLabel="Finish workout"
+        variant="secondary"
+        size="lg"
+        onPress={() => send("finish")}
+      />
+    </View>
+  )
+
+  if (phone) {
+    // Header at the top, ring centred in the remaining height, controls + Finish above the home
+    // indicator (ui-polish §3 Player 1). The ScrollView grows to the viewport and still scrolls
+    // when large text pushes the content past it.
+    return (
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "space-between",
+          gap: space.xl,
+          paddingTop: space.lg,
+          paddingBottom: space.lg + insets.bottom,
+        }}
+      >
+        {headerBlock}
+        <View style={{ flexGrow: 1, justifyContent: "center" }}>{ringBlock}</View>
+        <View style={{ gap: space.xl }}>
+          <View style={{ gap: space.md }}>
+            {controlsBlock}
+            {nextLine}
+          </View>
+          {finishBlock}
+        </View>
+      </ScrollView>
+    )
+  }
+  return (
+    <ScrollView
+      contentContainerStyle={{ gap: space.xl, paddingVertical: space.lg }}
+      contentInsetAdjustmentBehavior="automatic"
+    >
+      {headerBlock}
+      {ringBlock}
+      {controlsBlock}
+      {finishBlock}
+    </ScrollView>
   )
 }
 

@@ -40,12 +40,13 @@ interface SetEntryProps {
 }
 
 /**
- * Prefilled weight and reps with borderless steppers (one hairline between them) and the one
+ * Prefilled weight and reps with borderless steppers (a hairline between them, a 24 gap on phone) and the one
  * bold element on the screen, "Log set". The parent keys it by the number of logged sets, so
  * after a log the entry remounts with the next set's prefill.
  */
 function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
   const { colors } = useTheme()
+  const phone = useBreakpoint() === "phone"
   const [weightKg, setWeightKg] = useState(item.prefill.weightKg)
   const [reps, setReps] = useState(item.prefill.reps)
   const setNumber = item.loggedSets.length + 1
@@ -61,14 +62,14 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
   }
   return (
     <View style={{ gap: space.lg }}>
-      <View>
+      <View style={phone ? { gap: space.xl } : undefined}>
         <Stepper
           label="Weight"
           valueText={formatKg(weightKg)}
           unit="kg"
           onDecrement={() => setWeightKg(stepWeight(weightKg, -1))}
           onIncrement={() => setWeightKg(stepWeight(weightKg, 1))}
-          style={{ paddingBottom: space.sm }}
+          style={phone ? undefined : { paddingBottom: space.sm }}
         />
         <Stepper
           label="Reps"
@@ -76,11 +77,15 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
           unit="reps"
           onDecrement={() => setReps(stepReps(reps, -1))}
           onIncrement={() => setReps(stepReps(reps, 1))}
-          style={{
-            paddingTop: space.sm,
-            borderTopWidth: stroke.hairline,
-            borderTopColor: colors.border,
-          }}
+          style={
+            phone
+              ? undefined
+              : {
+                  paddingTop: space.sm,
+                  borderTopWidth: stroke.hairline,
+                  borderTopColor: colors.border,
+                }
+          }
         />
       </View>
       <Button

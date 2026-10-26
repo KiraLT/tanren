@@ -8,6 +8,7 @@ import { Array as Arr, Match, Option, String as Str } from "effect"
 import {
   currentItem,
   idle,
+  nextAfterWork,
   type PlayerConfig,
   type PlayerEvent,
   type PlayerState,
@@ -124,6 +125,16 @@ export const itemAmount = (item: ProgramItem): string =>
       timed: ({ seconds }) => `${seconds} s`,
       reps: ({ reps }) => `${reps} reps`,
     }),
+  )
+
+/**
+ * The work screen's preview line under the transport row: "Next · Crunch 25 s". `None` when no
+ * exercise follows (last item of the last round) or the player is not on a work phase.
+ */
+export const nextCaption = (day: ProgramDay, state: PlayerState): Option.Option<string> =>
+  Option.map(
+    nextAfterWork(day, state),
+    (item) => `Next · ${exerciseName(item.catalogId)} ${itemAmount(item)}`,
   )
 
 /** What a phase change sounds/feels like. */

@@ -1,6 +1,6 @@
 import type { PlannedSet, WorkoutSet } from "@tanren/shared"
 import { Option } from "effect"
-import { type DiscState, ListGroup, ListRow, Text } from "../ui"
+import { type DiscState, ListGroup, ListRow, Text, useBreakpoint } from "../ui"
 import { buildSetRows, formatPlannedSet } from "./setRows"
 import { formatKg } from "./stepMath"
 
@@ -20,6 +20,7 @@ const formatLogged = (set: WorkoutSet): string =>
  * the rest outlined), "Set N" as the title and what was done, or the target, on the right.
  */
 export function SetList({ plannedSets, loggedSets }: SetListProps) {
+  const phone = useBreakpoint() === "phone"
   const rows = buildSetRows(plannedSets, loggedSets)
   const nextPosition = loggedSets.length + 1
   return (
@@ -37,11 +38,16 @@ export function SetList({ plannedSets, loggedSets }: SetListProps) {
             key={row.position}
             title={`Set ${row.position}`}
             disc={{ state, index: row.position }}
+            selected={phone && state === "now"}
             accessibilityLabel={`Set ${row.position}, planned ${plannedText}${
               done ? `, logged ${loggedText}` : ""
             }`}
             trailing={
-              <Text variant="subhead" tone="muted">
+              <Text
+                variant={phone ? "body" : "subhead"}
+                tone="muted"
+                style={phone ? { fontVariant: ["tabular-nums"] } : undefined}
+              >
                 {done ? loggedText : plannedText}
               </Text>
             }

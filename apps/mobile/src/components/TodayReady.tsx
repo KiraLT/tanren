@@ -196,7 +196,7 @@ export function TodayReady({ title, accessory, exercises }: TodayReadyProps) {
     >
       <View style={{ flex: 1 }}>
         {setup ? (
-          <View style={{ marginHorizontal: gutter[breakpoint], marginTop: space.md }}>
+          <View style={{ marginHorizontal: gutter[breakpoint], marginTop: space.lg }}>
             <TodaySetupCard />
           </View>
         ) : null}

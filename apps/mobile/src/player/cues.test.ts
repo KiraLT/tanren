@@ -8,6 +8,7 @@ import {
   cueFor,
   exerciseName,
   initialRun,
+  nextCaption,
   type PlayerRun,
   parseSpeed,
   reduceRun,
@@ -225,6 +226,65 @@ describe("alertFor", () => {
       ["pause", 2000],
     ])
     expect(alertFor(config, paused.player)).toEqual(Option.none())
+  })
+})
+
+describe("nextCaption", () => {
+  const caption = (events: ReadonlyArray<readonly [PlayerEventTag, number]>) =>
+    nextCaption(day, run(events).player)
+  it("names the following item and its amount on a work screen", () => {
+    expect(caption([["start", T0]])).toEqual(Option.some("Next · Zz Other Move 20 s"))
+  })
+  it("stays on the work screen while paused", () => {
+    expect(
+      caption([
+        ["start", T0],
+        ["pause", 5000],
+      ]),
+    ).toEqual(Option.some("Next · Zz Other Move 20 s"))
+  })
+  it("wraps to the first item for the next round", () => {
+    expect(
+      caption([
+        ["start", T0],
+        ["tick", 45_000],
+      ]),
+    ).toEqual(Option.some("Next · Zz Test Move 30 s"))
+  })
+  it("is none on the last item of the last round, while resting, idle and done", () => {
+    expect(
+      caption([
+        ["start", T0],
+        ["tick", 170_000],
+      ]),
+    ).toEqual(Option.none())
+    expect(
+      caption([
+        ["start", T0],
+        ["tick", 32_000],
+      ]),
+    ).toEqual(Option.none())
+    expect(caption([])).toEqual(Option.none())
+    expect(
+      caption([
+        ["start", T0],
+        ["tick", 300_000],
+      ]),
+    ).toEqual(Option.none())
+  })
+  it("spells a reps item as reps", () => {
+    const repsDay = Schema.decodeUnknownSync(ProgramDay)({
+      dayNumber: 1,
+      title: "Day 1",
+      rounds: 1,
+      restBetweenRoundsSeconds: 0,
+      items: [
+        { kind: "timed", catalogId: "zz-a", seconds: 10, restSeconds: 5 },
+        { kind: "reps", catalogId: "zz-b", reps: 12, restSeconds: 5 },
+      ],
+    })
+    const started = reduceRun({ day: repsDay, speed: 1 })(initialRun(0), playerEvent("start", T0))
+    expect(nextCaption(repsDay, started.player)).toEqual(Option.some("Next · Zz B 12 reps"))
   })
 })
 
