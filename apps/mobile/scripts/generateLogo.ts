@@ -1,12 +1,12 @@
 /**
  * `node --env-file-if-exists=.env.images scripts/generateLogo.ts [--out <dir>] [--transparent] [--only A1,C2]`
- * (LOGO-1; `pnpm logo:generate`): nine app-icon candidates (three directions x three variants) from
- * OpenAI `P.IMAGE_MODEL` (`POST /v1/images/generations`, plain fetch, 1024x1024 png, medium) written to
- * `<out>/<id>.png` (default `assets/brand/candidates`, git-ignored). A refused model (400 mentioning
- * "model") falls back once to `gpt-image-1.5`. Existing files are skipped, so a re-run retries only failures.
- * Cost: about $0.04 per medium image, nine = about $0.4 (the run is capped at the nine ids).
- * `--sheet` writes the two contact sheets (`docs/design/screens/LOGO-1-sheet.png` and
- * `LOGO-1-sheet-small.png`, 60 and 29 px renders on paper and graphite) with sharp; needs no key.
+ * (LOGO-1b; `pnpm logo:generate`): eight strictly minimal app-icon candidates (M1 to M8) from
+ * OpenAI `gpt-image-1.5` (`POST /v1/images/generations`, plain fetch, 1024x1024 png, medium; `gpt-image-1`
+ * is refused for this account) written to `<out>/<id>.png` (default `assets/brand/candidates`,
+ * git-ignored). Existing files are skipped, so a re-run retries only failures.
+ * Cost: about $0.04 per medium image, eight = about $0.35 (the run is capped at the eight ids).
+ * `--sheet` writes the two contact sheets (`docs/design/screens/LOGO-1b-sheet.png` and
+ * `LOGO-1b-sheet-small.png`, 60 and 29 px renders on paper and graphite) with sharp; needs no key.
  *
  * The key comes from `node --env-file-if-exists=.env.images`; this script never prints it, and API
  * error text goes through `redactSecrets`.
@@ -30,51 +30,53 @@ const outDir = resolve(
 const sheetDir = join(here, "..", "..", "..", "docs", "design", "screens")
 
 const BASE =
-  "flat vector app-icon mark, single bold shape, no text, no letters, no gradients except one amber glow, centred, generous margin"
+  "ultra-minimal flat vector app icon, geometric, a single solid colour on a solid background plus at most one small accent, NO gradient, NO glow, NO bevel, NO texture, NO outline, NO shadow, NO text, at most two shapes, generous margin, centred, crisp edges, 2D"
 const GRAPHITE = "solid graphite background (#16181D)"
 const PAPER = "solid warm paper background (#F6F4EF)"
+const OFF_WHITE = "off-white (#F6F4EF)"
+const AMBER = "amber (#F59E0B)"
+
+/** The round's contact-sheet prefix and image ids (LOGO-1b: strictly minimal, ids M1 to M8). */
+const SHEET_PREFIX = "LOGO-1b"
 
 type Candidate = { readonly id: string; readonly prompt: string }
 const CANDIDATES: ReadonlyArray<Candidate> = [
   {
-    id: "A1",
-    prompt: `${BASE}, ${GRAPHITE}. The Japanese kanji 鍛 abstracted into two or three bold monoline strokes that also read as a barbell bar and plates; amber (#F59E0B) strokes on graphite.`,
+    id: "M1",
+    prompt: `${BASE}. ${GRAPHITE}. A barbell reduced to three rectangles: one long thin horizontal bar and two tall plates, all one ${OFF_WHITE} colour.`,
   },
   {
-    id: "A2",
-    prompt: `${BASE}, ${GRAPHITE}. A barbell seen side-on built from three thick amber (#F59E0B) monoline strokes, the strokes echoing the structure of the kanji 鍛 (forging) without drawing it literally; heavy rounded line caps.`,
+    id: "M2",
+    prompt: `${BASE}. ${PAPER}. A barbell reduced to three rectangles: one long thin horizontal bar and two tall plates, all in graphite (#16181D).`,
   },
   {
-    id: "A3",
-    prompt: `${BASE}, ${PAPER}. The Japanese kanji 鍛 abstracted into two or three bold monoline strokes that also read as a barbell bar and plates; deep burnt-orange (#C2410C) strokes on paper.`,
+    id: "M3",
+    prompt: `${BASE}. ${GRAPHITE}. A single thick horizontal bar in ${OFF_WHITE} with a small ${AMBER} square sitting on its centre.`,
   },
   {
-    id: "B1",
-    prompt: `${BASE}, ${GRAPHITE}. A minimal geometric anvil silhouette, heavy, stable, slightly rounded corners, in light steel grey, with a single amber (#F59E0B) spark / ember above it.`,
+    id: "M4",
+    prompt: `${BASE}. ${GRAPHITE}. An anvil reduced to a single flat trapezoid in ${OFF_WHITE}, nothing else.`,
   },
   {
-    id: "B2",
-    prompt: `${BASE}, ${GRAPHITE}. A chunky blocky anvil icon built from two or three flat shapes, off-white (#F6F4EF) body, one small teardrop amber (#F59E0B) ember floating above the horn with a soft amber glow.`,
+    id: "M5",
+    prompt: `${BASE}. ${GRAPHITE}. An anvil reduced to a single flat trapezoid in ${OFF_WHITE} with one small ${AMBER} dot floating above the trapezoid.`,
   },
   {
-    id: "B3",
-    prompt: `${BASE}, ${PAPER}. A minimal geometric anvil silhouette in dark graphite (#16181D), heavy, stable, slightly rounded corners, with a single burnt-orange (#C2410C) spark above it.`,
+    id: "M6",
+    prompt: `${BASE}. ${GRAPHITE}. The letter T as two plain rectangles in ${OFF_WHITE}, no serif, no detail.`,
   },
   {
-    id: "C1",
-    prompt: `${BASE}, ${GRAPHITE}. The capital letter T drawn as a forged steel bar, brutalist, very thick, with an amber (#F59E0B) heat gradient glowing at the crossbar; the one glow is the gradient, flat steel grey elsewhere.`,
+    id: "M7",
+    prompt: `${BASE}. ${PAPER}. The letter T as two plain rectangles: graphite (#16181D) stem and the crossbar in burnt orange (#C2410C), no serif, no detail.`,
   },
   {
-    id: "C2",
-    prompt: `${BASE}, ${GRAPHITE}. A bold block letter T made of a thick hammered iron bar, squared brutalist proportions, the crossbar heated to glowing amber (#F59E0B) fading into dark steel at the stem.`,
-  },
-  {
-    id: "C3",
-    prompt: `${BASE}, ${PAPER}. The capital letter T as a forged steel bar, brutalist, thick, dark graphite (#16181D) stem with an amber-to-burnt-orange (#C2410C) heat gradient at the crossbar.`,
+    id: "M8",
+    prompt: `${BASE}. ${GRAPHITE}. Two thick parallel diagonal bars (like a forged chevron / two strokes) in ${OFF_WHITE}, slightly rounded ends.`,
   },
 ]
 
-const FALLBACK_MODEL = "gpt-image-1.5"
+/** LOGO-1b: gpt-image-1 is refused on /v1/images/generations for this account, so no first attempt. */
+const MODEL = "gpt-image-1.5"
 
 /** Internal: one image request failed; reported per candidate. */
 class LogoFailed extends Data.TaggedError("LogoFailed")<{
@@ -164,18 +166,9 @@ const runGenerate = async () => {
         onNone: () => "no error message",
         onSome: (e) => P.redactSecrets(e.error.message),
       })
-    const first = yield* request(P.IMAGE_MODEL)
-    const firstBody = yield* readBody(first)
-    const modelRefused = !first.ok && first.status === 400 && /model/i.test(message(firstBody))
-    const [response, body, model] = modelRefused
-      ? yield* Effect.gen(function* () {
-          yield* Console.log(
-            `  ${entry.id}: ${P.IMAGE_MODEL} refused, falling back to ${FALLBACK_MODEL}`,
-          )
-          const second = yield* request(FALLBACK_MODEL)
-          return [second, yield* readBody(second), FALLBACK_MODEL] as const
-        })
-      : ([first, firstBody, P.IMAGE_MODEL] as const)
+    const response = yield* request(MODEL)
+    const body = yield* readBody(response)
+    const model = MODEL
     if (!response.ok) {
       return yield* new LogoFailed({
         name: entry.id,
@@ -211,7 +204,7 @@ const runGenerate = async () => {
 
   const program = Effect.gen(function* () {
     yield* Console.log(
-      `logo:generate ${P.IMAGE_MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
+      `logo:generate ${MODEL} ${P.IMAGE_SIZE} ${P.IMAGE_QUALITY} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
     )
     const attempt = (entry: Candidate) =>
       generate(entry).pipe(
@@ -276,7 +269,7 @@ const runSheet = async () => {
       ]
     }),
   )
-  const big = join(sheetDir, "LOGO-1-sheet.png")
+  const big = join(sheetDir, `${SHEET_PREFIX}-sheet.png`)
   await sharp({
     create: {
       width: gap + cols * (tile + gap),
@@ -314,7 +307,7 @@ const runSheet = async () => {
       ]
     }),
   )
-  const small = join(sheetDir, "LOGO-1-sheet-small.png")
+  const small = join(sheetDir, `${SHEET_PREFIX}-sheet-small.png`)
   await sharp({
     create: {
       width: gap + cols * (cellW + gap),
