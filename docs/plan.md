@@ -164,4 +164,13 @@ Recorded 2026-10-19, from the owner's kickoff message:
    and spark, forged "T" bar with amber heat), a contact sheet for the
    owner's pick, then the final set — iOS icon 1024, adaptive icon,
    favicon, splash icon, transparent mark for the sign-in wordmark — wired
-   into `app.json`.
+   into `app.json`. Owner on the first nine: "They are all too complex,
+   keep more minimalistic" → a second, strictly minimal round.
+11. **Core 30 rep targets** (2026-10-26 22:14, owner, verbatim): "I checked
+   Core 30 program. For some reason it has only do exervice for x seconds.
+   But in reality only some like cardio, plank should have timing. Most of
+   them should be do X (count) if y exercise". Lead reading: program items
+   get a mode — timed (seconds) for holds and cardio, reps (count) for
+   everything else — and the player shows a rep target with a Done tap
+   instead of a countdown for rep items; rest stays timed (ADR-0020,
+   `docs/design/v2-programs.md` amendment, `docs/tasks/v4-program-reps.md`).
