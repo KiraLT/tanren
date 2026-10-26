@@ -148,3 +148,13 @@ Recorded 2026-10-19, from the owner's kickoff message:
    map — as a first-class screen in the tab bar, designed in the Forge
    system by a fable architect (ADR-0017, `docs/design/feed.md`,
    `docs/tasks/v4-feed.md`), with the web two-column treatment.
+9. **Strava integration** (2026-10-26 21:22, owner, verbatim): "Build Strava
+   integration (setting should have integrations page, later on we may add
+   more integrations)." Earlier the same evening: "Also can you add apple
+   health integrations? or its easier to add strava?" → Lead: Strava first
+   (web API, works in Expo Go and on web), Apple Health with the native dev
+   build. Lead reading: Settings → Integrations page (list of providers,
+   Strava first, Apple Health later), Strava OAuth through api.tanren.me,
+   each completed session pushed as a Weight Training activity by the
+   Worker with a retry queue, disconnect + status visible (ADR-0018,
+   `docs/design/integrations.md`, `docs/tasks/v4-strava.md`).
