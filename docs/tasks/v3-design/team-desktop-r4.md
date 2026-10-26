@@ -103,3 +103,7 @@ Commits at start: PROG-3 `37f95c7` (PlayerView reps branch, byte-identical rule)
 
 Team gate at hand-back 23:47: pnpm -F @tanren/mobile check green (934 tests).
 - 23:48 · r4 accepted and committed a83eb16 by the Lead. r5 charter = 'Left for r5' above + ui-polish.md §Player 5 wording (xl = 64, lg = 56) + REV-POLISH findings when they land.
+
+## queued (REV-POLISH 2026-10-26 23:49, for r5)
+- mobile-A: delete planFormat.formatVolume (import progress/progressFormat), move its tests; Plan week summary: relabel 'Planned sets / Planned volume' (Lead decision) then feed logged sets via exerciseStats.loggedVolumeKg; ring stroke tokens (stroke.ring / stroke.ringSm) via src/ui; SECTION_LABEL_HEIGHT constant in ProgramHome
+- mobile-B: ToggleChip variant=outline replaces LocationChip (fontWeight literal); RecentSession → ExerciseHistory['recent'] (react.md); Sparkline tooltip strip: hover shots on first/last marker, keep the strip below the header if it hides the trailing value; TOOLTIP_PAD_X/LABEL_ROW/LABEL_WIDTH from tokens; subtitleMaxChars narrow-width test; designer asks: clamp at separator, clock glyph on Last-done, dark/light 2–4 px drift VERIFY
