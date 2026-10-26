@@ -43,8 +43,10 @@ const settled = (row: ExportRow, outcome: ExportOutcome): ExportRow => {
         lastError: Option.some(o.reason),
         nextAttemptAt: o.nextAttemptAt,
       }),
+      // Like D1: `Blocked` resets attempts, so rounds against an inactive app never count.
       Blocked: (o): ExportRow => ({
         ...base,
+        attempts: 0,
         status: "blocked",
         lastError: Option.some(o.reason),
         nextAttemptAt: o.nextAttemptAt,

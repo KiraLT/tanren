@@ -111,7 +111,6 @@ const failureOf = (response: HttpClientResponse.HttpClientResponse) => {
     return Effect.fail(plain)
   }
   return response.text.pipe(
-    Effect.timeout(STRAVA_REQUEST_TIMEOUT),
     Effect.orElseSucceed(() => ""),
     Effect.flatMap((body) =>
       status === 403 || INACTIVE_BODY.test(body)
@@ -176,11 +175,22 @@ const makeHttp = Effect.gen(function* () {
       HttpClientRequest.acceptJson,
     )
 
+  /**
+   * ONE timeout around a whole Strava call, request and body read together: past
+   * `STRAVA_REQUEST_TIMEOUT` it is `transport`. The export runs each attempt uninterruptibly, so a
+   * hung call must end itself.
+   */
+  const bounded = <A>(call: Effect.Effect<A, StravaRequestFailed>) =>
+    call.pipe(
+      Effect.timeoutOrElse({
+        duration: STRAVA_REQUEST_TIMEOUT,
+        orElse: () => Effect.fail(failed("transport", Option.none())),
+      }),
+    )
+
   /** Runs a request; a non-2xx status becomes `StravaRequestFailed`, a lost connection `transport`. */
   const send = (request: HttpClientRequest.HttpClientRequest) =>
     client.execute(request).pipe(
-      // Bounded: the export runs each attempt uninterruptibly, so a hung request must end itself.
-      Effect.timeout(STRAVA_REQUEST_TIMEOUT),
       Effect.mapError(() => failed("transport", Option.none())),
       Effect.flatMap((response) =>
         response.status >= 200 && response.status < 300
@@ -195,7 +205,6 @@ const makeHttp = Effect.gen(function* () {
     response: HttpClientResponse.HttpClientResponse,
   ) =>
     response.json.pipe(
-      Effect.timeout(STRAVA_REQUEST_TIMEOUT),
       Effect.mapError(() => failed("provider_error", Option.some(response.status))),
       Effect.flatMap((body) =>
         Schema.decodeUnknownEffect(schema)(body).pipe(
@@ -242,7 +251,7 @@ const makeHttp = Effect.gen(function* () {
       scope: body.scope ?? "",
       athlete: { id: String(body.athlete.id), displayName: displayNameOf(body.athlete) },
     } satisfies TokenGrant
-  })
+  }, bounded)
 
   const refresh = Effect.fn("StravaApi.refresh")(function* (
     refreshToken: Redacted.Redacted<string>,
@@ -253,7 +262,7 @@ const makeHttp = Effect.gen(function* () {
     const body = yield* decodeJson(TokenResponse, response)
     const { accessToken, refreshToken: rotated, expiresAt } = yield* toGrant(body, response.status)
     return { accessToken, refreshToken: rotated, expiresAt } satisfies RefreshedTokens
-  })
+  }, bounded)
 
   const createActivity = Effect.fn("StravaApi.createActivity")(function* (
     accessToken: Redacted.Redacted<string>,
@@ -274,7 +283,7 @@ const makeHttp = Effect.gen(function* () {
     )
     const body = yield* decodeJson(ActivityResponse, response)
     return { id: String(body.id) }
-  })
+  }, bounded)
 
   const revoke = Effect.fn("StravaApi.revoke")(function* (accessToken: Redacted.Redacted<string>) {
     yield* send(
@@ -283,7 +292,7 @@ const makeHttp = Effect.gen(function* () {
         HttpClientRequest.bodyUrlParams({ token: Redacted.value(accessToken) }),
       ),
     )
-  })
+  }, bounded)
 
   return { exchangeCode, refresh, createActivity, revoke } satisfies StravaApiShape
 })

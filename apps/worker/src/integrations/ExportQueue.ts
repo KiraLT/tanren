@@ -180,13 +180,22 @@ const make = Effect.gen(function* () {
    * The tokens of row version `version` (`updated_at`), or a newer version another drain stored
    * since `seen`; none → `TokenRejected { seen }` (revoke exactly that version).
    */
+  /**
+   * Opens one sealed token of row version `row.updatedAt`. Tokens that no longer open (rotated
+   * key, tampering) reject exactly that version, so the guarded revoke hits the row it read.
+   */
+  const openOf = (row: IntegrationRow, sealed: IntegrationRow["accessToken"]) =>
+    seal
+      .open(sealed)
+      .pipe(Effect.mapError((_: TokenSealError) => new TokenRejected({ seen: row.updatedAt })))
+
   const storedIfRotated = Effect.fn("ExportQueue.storedIfRotated")(function* (
     integration: IntegrationRow,
     seen: Timestamp,
   ) {
     const current = yield* integrations.get(integration.userId, integration.provider)
     if (isActive(current) && !DateTime.Equivalence(current.value.updatedAt, seen)) {
-      const token = yield* seal.open(current.value.accessToken)
+      const token = yield* openOf(current.value, current.value.accessToken)
       return { token, version: current.value.updatedAt } satisfies VersionedToken
     }
     return yield* new TokenRejected({ seen })
@@ -201,7 +210,7 @@ const make = Effect.gen(function* () {
     integration: IntegrationRow,
     now: Timestamp,
   ) {
-    const refreshToken = yield* seal.open(integration.refreshToken)
+    const refreshToken = yield* openOf(integration, integration.refreshToken)
     const rotated = yield* strava.refresh(refreshToken).pipe(
       Effect.map(Option.some),
       Effect.catchIf(
@@ -229,7 +238,7 @@ const make = Effect.gen(function* () {
     DateTime.isLessThan(integration.expiresAt, DateTime.add(now, REFRESH_MARGIN))
       ? refreshTokens(integration, now)
       : Effect.map(
-          seal.open(integration.accessToken),
+          openOf(integration, integration.accessToken),
           (token): VersionedToken => ({ token, version: integration.updatedAt }),
         )
 
@@ -249,7 +258,10 @@ const make = Effect.gen(function* () {
     }
     const next: VersionedToken = DateTime.Equivalence(current.value.updatedAt, used.version)
       ? yield* refreshTokens(current.value, now)
-      : { token: yield* seal.open(current.value.accessToken), version: current.value.updatedAt }
+      : {
+          token: yield* openOf(current.value, current.value.accessToken),
+          version: current.value.updatedAt,
+        }
     return yield* strava.createActivity(next.token, activity).pipe(
       Effect.catchIf(
         (error) => error.reason === "unauthorized",
@@ -315,9 +327,8 @@ const make = Effect.gen(function* () {
           error.reason === "unauthorized"
             ? revoke(integration.value.updatedAt)
             : Effect.succeed(failureOutcome(error.reason, attemptsCompleted, now)),
+        // Also tokens that no longer open (`openOf`): the version they came from is revoked.
         TokenRejected: (error) => revoke(error.seen),
-        // Tokens that no longer open (rotated key, tampering): the user must reconnect.
-        TokenSealError: (_: TokenSealError) => revoke(integration.value.updatedAt),
       }),
     )
     yield* settle(outcome)

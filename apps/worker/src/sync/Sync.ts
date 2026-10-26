@@ -15,7 +15,8 @@ import { SyncStore } from "./SyncStore"
 export const ENQUEUE_BUDGET = "2 seconds"
 /**
  * The push's drain budget (design §6): 5 s, plus at most the one attempt already in flight, which
- * runs uninterruptibly to its end (each Strava call ≤ `STRAVA_REQUEST_TIMEOUT`). The cron drain
+ * runs uninterruptibly to its end (each Strava call, request and body, ≤ `STRAVA_REQUEST_TIMEOUT`
+ * = 10 s). Worst case about 2 + 5 + 40 s (the 401 path makes up to 4 Strava calls). The cron drain
  * picks up whatever is left.
  */
 export const EXPORT_BUDGET = "5 seconds"

@@ -476,7 +476,7 @@ export const ownerSession = (checks: ReadonlyArray<Check>): ReadonlyArray<Sessio
   { command: "curl -i https://api.tanren.me/health   # 200; then the /mcp 401 check", done: false },
   { command: EXPORT_CMD, done: allOk(checks, "export") },
   {
-    command: "pnpm -F @tanren/worker exec wrangler deploy -c wrangler.web.jsonc --env production",
+    command: "cd apps/worker && pnpm exec wrangler deploy -c wrangler.web.jsonc --env production",
     done: false,
   },
   {

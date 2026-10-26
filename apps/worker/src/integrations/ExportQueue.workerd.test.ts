@@ -617,3 +617,37 @@ describe("drain attempts survive the push budget and token races (REV-1)", () =>
     }),
   )
 })
+
+describe("unreadable tokens of a newer row version (REV-3)", () => {
+  it.effect("revokes the newer version whose tokens no longer open, not a stale one", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(
+        (_, n) => (n === 0 ? Option.some("unauthorized") : Option.none()),
+        { createDelay: "1 second" },
+      )
+      yield* Effect.gen(function* () {
+        yield* setClock(NOW)
+        const seeded = yield* seed(34)
+        yield* enqueue(seeded)
+        const repo = yield* IntegrationRepo
+        const before = Option.getOrThrow(yield* repo.get(seeded.userId, "strava"))
+        const fiber = yield* Effect.forkChild(drain(seeded.userId))
+        yield* Deferred.await(strava.inCreate)
+        // Another writer stores a newer version whose tokens this key cannot open.
+        yield* repo.setTokens(before.id, {
+          access: DbSealedToken.make("v1.AAAAAAAAAAAAAAAA.AAAA"),
+          refresh: DbSealedToken.make("v1.AAAAAAAAAAAAAAAA.AAAA"),
+          expiresAt: DateTime.add(NOW, { hours: 6 }),
+          updatedAt: DateTime.add(NOW, { seconds: 1 }),
+        })
+        yield* TestClock.adjust("1 second")
+        yield* Fiber.join(fiber)
+        expect(Option.getOrThrow(yield* repo.get(seeded.userId, "strava")).status).toBe("revoked")
+        expect(yield* onlyRow(seeded.userId)).toMatchObject({
+          status: "failed",
+          lastError: Option.some("unauthorized"),
+        })
+      }).pipe(Effect.provide(queueWith(strava.layer)))
+    }),
+  )
+})

@@ -66,6 +66,7 @@ type Reply =
   | { readonly _tag: "Status"; readonly status: number; readonly body: string }
   | { readonly _tag: "Transport" }
   | { readonly _tag: "Hang" }
+  | { readonly _tag: "HangBody" }
 
 const ok = (body: unknown): Reply => ({ _tag: "Status", status: 200, body: JSON.stringify(body) })
 const status = (code: number): Reply => ({ _tag: "Status", status: code, body: "" })
@@ -87,21 +88,29 @@ const stubbed = (reply: Reply) =>
         Effect.andThen(
           reply._tag === "Hang"
             ? Effect.never
-            : reply._tag === "Transport"
-              ? Effect.fail(
-                  new HttpClientError.HttpClientError({
-                    reason: new HttpClientError.TransportError({
-                      request,
-                      description: "connection reset",
-                    }),
-                  }),
-                )
-              : Effect.succeed(
+            : reply._tag === "HangBody"
+              ? // 200 headers at once, then a body stream that never ends.
+                Effect.succeed(
                   HttpClientResponse.fromWeb(
                     request,
-                    new Response(reply.body, { status: reply.status }),
+                    new Response(new ReadableStream({ start: () => undefined }), { status: 200 }),
                   ),
-                ),
+                )
+              : reply._tag === "Transport"
+                ? Effect.fail(
+                    new HttpClientError.HttpClientError({
+                      reason: new HttpClientError.TransportError({
+                        request,
+                        description: "connection reset",
+                      }),
+                    }),
+                  )
+                : Effect.succeed(
+                    HttpClientResponse.fromWeb(
+                      request,
+                      new Response(reply.body, { status: reply.status }),
+                    ),
+                  ),
         ),
       ),
     )
@@ -336,6 +345,21 @@ describe("StravaApi.layerHttp", () => {
   it.effect("ends a request that hangs past 10 s as transport", () =>
     Effect.gen(function* () {
       const { run } = yield* stubbed({ _tag: "Hang" })
+      const fiber = yield* Effect.forkChild(
+        Effect.flip(run((api) => api.createActivity(ACCESS, activity))),
+      )
+      yield* TestClock.adjust(STRAVA_REQUEST_TIMEOUT)
+      const error = yield* Fiber.join(fiber)
+      expect({ reason: error.reason, status: error.status }).toEqual({
+        reason: "transport",
+        status: Option.none(),
+      })
+    }),
+  )
+
+  it.effect("ends a call whose body read hangs as transport within the same 10 s", () =>
+    Effect.gen(function* () {
+      const { run } = yield* stubbed({ _tag: "HangBody" })
       const fiber = yield* Effect.forkChild(
         Effect.flip(run((api) => api.createActivity(ACCESS, activity))),
       )
