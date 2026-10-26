@@ -88,7 +88,9 @@ export function Page({
             {body}
           </View>
         ) : (
-          body
+          <View role="main" style={{ flex: 1 }}>
+            {body}
+          </View>
         )}
       </View>
     </SafeAreaView>

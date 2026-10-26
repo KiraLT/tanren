@@ -229,8 +229,23 @@ interface ExerciseDetailProps {
   readonly layout?: DetailLayout
 }
 
+/** True when the history loaded and the exercise exists: the only state that gets the wide page. */
+export const isDetailReady = (state: HistoryState<Option.Option<ExerciseHistory>>): boolean =>
+  state._tag === "Ready" && Option.isSome(state.value)
+
+/** The detail for an already-read history state (the route reads it to size its page). */
+export function ExerciseDetailView({
+  state,
+  layout = "stacked",
+}: {
+  readonly state: HistoryState<Option.Option<ExerciseHistory>>
+  readonly layout?: DetailLayout
+}) {
+  return renderState(layout)(state)
+}
+
 /** One exercise's progress: best set, 8-week volume bars, e1RM trend, recent sessions. */
 export function ExerciseDetail({ exerciseId, layout = "stacked" }: ExerciseDetailProps) {
   const { state } = useExerciseHistory(exerciseId)
-  return renderState(layout)(state)
+  return <ExerciseDetailView state={state} layout={layout} />
 }

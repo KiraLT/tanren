@@ -63,7 +63,7 @@ function Meta({ icon, label }: { readonly icon: IconName; readonly label: string
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
       <Icon name={icon} size={sizes.iconSm} color={colors.accent} />
-      <Text variant="subhead" tone="muted">
+      <Text variant="subhead" tone="muted" style={{ flexShrink: 1 }}>
         {label}
       </Text>
     </View>

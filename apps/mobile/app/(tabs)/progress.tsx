@@ -152,7 +152,7 @@ export default function ProgressScreen() {
           }
         />
       }
-      aside={aside}
+      aside={exercises._tag === "Ready" && exercises.value.length > 0 ? aside : undefined}
       split="5/7"
     >
       <SegmentedControl

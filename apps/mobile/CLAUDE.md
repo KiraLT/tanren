@@ -107,13 +107,27 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   false in an export (no dev prefills).
 - Breakpoints (`breakpointFor` / `useBreakpoint`, width from `useWindowDimensions`): phone < 600,
   tablet 600–899, desktop >= 900. Phone: one full-width column, bottom tabs. Tablet: one column
-  centred at `contentMaxWidth` 560, gutter 24, bottom tabs. Desktop (`layoutModeFor` = two-column):
-  `Page` renders `aside` (max 480, gap 24) only then, the tab bar is hidden (`tabBarStyle display
-  none`) and `AppBar` renders the nav (`APP_NAV`: Today, Plan, Programs, Library, Progress; active
-  from `usePathname()`) itself, so every screen with an `AppBar` gets it. Today aside = current
-  exercise's SetList + RestTimerBar ring (neutral arc; read-only, no Log set button); Plan aside
-  = the selected session's card (tap selects; default today's, else next upcoming, else first).
-  Ready states render their own `Page`.
+  centred at `contentMaxWidth` 600, gutter 24, bottom tabs. 390 and 768 trees are unchanged by the
+  desktop work. Desktop: the tab bar is hidden (`tabBarStyle display none`) and `AppBar` renders the
+  nav (`APP_NAV`: Today, Plan, Programs, Library, Progress; active from `usePathname()`) itself, so
+  every screen with an `AppBar` gets it.
+  Desktop columns (docs/design/ui-desktop.md §2–§3): `columnsFor(width, split)` (`src/ui/columns.ts`,
+  the one place with the maths) centres a `pageMaxWidth` 1136 page (gap 24, gutter 32) and splits it
+  `"7/5"` (default, focus left) · `"5/7"` (master-detail) · `"6/6"`; main is rounded to the 4-pt
+  grid. Pinned: at 1280 (page 1136) 7/5 = 648/464, 5/7 = 464/648, 6/6 = 556/556; at 900 (page 900)
+  7/5 = 512/364, 5/7 = 364/512, 6/6 = 436/440. `Page` takes `aside` + `split` (two columns, main
+  `role="main"`, aside `role="complementary"`) or `wide` (a 1136 page with no aside, whose children
+  lay themselves out with `Columns`); `Columns` / `useColumns` live in `src/ui/ColumnsView.tsx`
+  (below desktop `Columns` stacks). Without `aside` or `wide` the page is the single 600 column.
+  Master-detail 5/7: Library (list + `CatalogDetail`, `inline` hero only when the aside's inner width
+  fits 584, i.e. at 1280 not 900) and Progress (exercise list + `ExerciseDetail`, aside only when the
+  list is Ready). Today aside = Session list (`sessionRows`: one `ListRow` per exercise with state
+  disc and n/m sets) + the current exercise's SetList + RestTimerBar ring (neutral arc; read-only,
+  no Log set button); Plan aside = the selected session's card (tap selects; default today's, else
+  next upcoming, else first). Settings is `wide` with `Columns 6/6`, the location editor `wide`
+  with `Columns 5/7`, `/progress/[exerciseId]` `wide` with a split detail. Loading, empty, not-found
+  and failed states never pass `wide` or `aside`: they stay one 600 column. Ready states render
+  their own `Page`.
 - Theme and design: colours only from `useTheme().colors` / `useStyles` (`src/ui/colors.ts` is the one
   place with hex; light and dark follow the device or `useThemePreference`). Web hover/focus come
   from `usePressableInteraction` (`onHoverIn/Out` state, `:focus-visible` gated `outline*` ring in

@@ -104,6 +104,7 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
                   key={row.index}
                   title={row.title}
                   titleVariant="body"
+                  accessibilityLabel={`${row.title}, ${row.trailing}${row.state === "now" ? ", current" : ""}`}
                   disc={{ state: row.state, index: row.number }}
                   trailing={
                     <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
