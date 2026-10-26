@@ -1,7 +1,19 @@
 import type { Location } from "@tanren/shared"
 import { Option } from "effect"
-import { ScrollView, TextInput, View } from "react-native"
-import { Button, radius, sizes, space, Text, ToggleChip, type, useTheme } from "../ui"
+import { type ReactNode, useState } from "react"
+import { Pressable, ScrollView, TextInput, View } from "react-native"
+import {
+  Button,
+  radius,
+  rhythm,
+  sizes,
+  space,
+  Text,
+  ToggleChip,
+  type,
+  useBreakpoint,
+  useTheme,
+} from "../ui"
 import {
   atLocationLabel,
   EQUIPMENT_OPTIONS,
@@ -14,30 +26,55 @@ import {
   resultCount,
   segmentValue,
 } from "./catalogFormat"
-import { hasFilter, type SearchAction, type SearchState } from "./searchState"
+import { FilterSheet } from "./FilterSheet"
+import {
+  activeFilterCount,
+  filterChipLabel,
+  hasFilter,
+  type SearchAction,
+  type SearchState,
+} from "./searchState"
+
+/** Invisible extra tap area around a 32 px chip (the Pressable is 44 tall already). */
+const CHIP_SLOP = 6
+/** Height of the "291 exercises" row under the chips. */
+const COUNT_ROW_HEIGHT = 32
 
 interface FacetChipsProps {
   readonly accessibilityLabel: string
   readonly options: ReadonlyArray<FacetOption>
   readonly value: string
   readonly onChange: (value: string) => void
+  /** Chips that lead the row before the facet's own (the "At <location>" toggle). */
+  readonly leading?: ReactNode
+  /** Phone: chips 8 apart with extra tap area; desktop keeps the original 4 / none. */
+  readonly compact?: boolean
 }
 
 /** One horizontally scrolling row of single-select chips for a facet ("All" first). */
-function FacetChips({ accessibilityLabel, options, value, onChange }: FacetChipsProps) {
+function FacetChips({
+  accessibilityLabel,
+  options,
+  value,
+  onChange,
+  leading = null,
+  compact = false,
+}: FacetChipsProps) {
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityLabel={accessibilityLabel}
-      contentContainerStyle={{ gap: space.xs }}
+      contentContainerStyle={{ gap: compact ? rhythm.chipGap : space.xs }}
     >
+      {leading}
       {options.map((option) => (
         <ToggleChip
           key={option.value}
           label={option.label}
           selected={option.value === value}
           onPress={() => onChange(option.value)}
+          {...(compact ? { hitSlop: CHIP_SLOP } : {})}
         />
       ))}
     </ScrollView>
@@ -52,11 +89,118 @@ export interface CatalogFilterBarProps {
   readonly location: Option.Option<Location>
 }
 
+interface SearchFieldProps {
+  readonly state: SearchState
+  readonly dispatch: (action: SearchAction) => void
+}
+
+function SearchField({ state, dispatch }: SearchFieldProps) {
+  const { colors } = useTheme()
+  return (
+    <TextInput
+      value={state.input}
+      onChangeText={(text) => dispatch({ _tag: "Typed", text })}
+      placeholder="Search exercises"
+      placeholderTextColor={colors.textMuted}
+      accessibilityLabel="Search exercises"
+      autoCapitalize="none"
+      autoCorrect={false}
+      returnKeyType="search"
+      clearButtonMode="while-editing"
+      style={[
+        type.body,
+        {
+          flex: 1,
+          minHeight: sizes.control,
+          paddingHorizontal: space.lg,
+          borderRadius: radius.md,
+          borderCurve: "continuous",
+          backgroundColor: colors.surface,
+          color: colors.text,
+        },
+      ]}
+    />
+  )
+}
+
+/** Phone and tablet: search + Filters chip, one muscle row, the count row (At-location chip right). Equipment and kind live in the sheet. */
+function CollapsedFilterBar({ state, dispatch, count, location }: CatalogFilterBarProps) {
+  const [open, setOpen] = useState(false)
+  const filters = activeFilterCount(state)
+  return (
+    <View style={{ gap: rhythm.chipGap, paddingTop: space.sm }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: rhythm.chipGap }}>
+        <SearchField state={state} dispatch={dispatch} />
+        <ToggleChip
+          icon="filter"
+          label={filterChipLabel(filters)}
+          selected={filters > 0}
+          hitSlop={CHIP_SLOP}
+          onPress={() => setOpen(true)}
+        />
+      </View>
+      <FacetChips
+        compact
+        accessibilityLabel="Muscle"
+        options={MUSCLE_OPTIONS}
+        value={segmentValue(state.muscle)}
+        onChange={(value) => dispatch({ _tag: "Muscle", value: muscleFromValue(value) })}
+      />
+      <View
+        style={{
+          height: COUNT_ROW_HEIGHT,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Text variant="subhead" tone="muted" tabular accessibilityLiveRegion="polite">
+          {resultCount(count)}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          {hasFilter(state) ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear filters"
+              hitSlop={space.md}
+              onPress={() => dispatch({ _tag: "Cleared" })}
+            >
+              <Text variant="subhead" tone="accent">
+                Clear filters
+              </Text>
+            </Pressable>
+          ) : null}
+          {Option.match(location, {
+            onNone: () => null,
+            onSome: (active) => (
+              <ToggleChip
+                // the 44 px tap row overflows the 32 px count row; the pill itself stays 32
+                style={{ marginVertical: -(sizes.tap - COUNT_ROW_HEIGHT) / 2 }}
+                icon="mapPin"
+                label={atLocationLabel(active)}
+                selected={state.atLocation}
+                hitSlop={CHIP_SLOP}
+                onPress={() => dispatch({ _tag: "AtLocation", value: !state.atLocation })}
+              />
+            ),
+          })}
+        </View>
+      </View>
+      <FilterSheet
+        visible={open}
+        state={state}
+        dispatch={dispatch}
+        onClose={() => setOpen(false)}
+      />
+    </View>
+  )
+}
+
 /**
- * The "At <location>" chip (only with an active location), search field, one scrolling chip row
- * per facet (muscle, equipment, kind), then the count.
+ * Desktop (unchanged): the "At <location>" chip, search field, one scrolling chip row per facet
+ * (muscle, equipment, kind), then the count.
  */
-export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFilterBarProps) {
+function ExpandedFilterBar({ state, dispatch, count, location }: CatalogFilterBarProps) {
   const { colors } = useTheme()
   return (
     <View style={{ gap: space.sm, paddingVertical: space.md }}>
@@ -125,5 +269,14 @@ export function CatalogFilterBar({ state, dispatch, count, location }: CatalogFi
         ) : null}
       </View>
     </View>
+  )
+}
+
+/** Library filter block: collapsed below desktop (Filters sheet), the full chip stack at desktop. */
+export function CatalogFilterBar(props: CatalogFilterBarProps) {
+  return useBreakpoint() === "desktop" ? (
+    <ExpandedFilterBar {...props} />
+  ) : (
+    <CollapsedFilterBar {...props} />
   )
 }

@@ -14,6 +14,11 @@ export interface MuscleMapImageProps {
   /** Fallback highlights, used when the id has no generated map. */
   readonly primary: ReadonlyArray<MuscleGroup>
   readonly secondary: ReadonlyArray<MuscleGroup>
+  /**
+   * Dark `surfaceRaised` backdrop behind a generated map (default true). A caller that already
+   * draws its own `surfaceRaised` tile passes `false`, so no second box shows inside it.
+   */
+  readonly backdrop?: boolean
 }
 
 /**
@@ -21,11 +26,17 @@ export interface MuscleMapImageProps {
  * or for no id / an id without a file the SVG `MuscleMap` (front view) with the same muscles.
  * Dark gets a `surfaceRaised` backdrop like `ExerciseIllustration` so the slate figures read.
  */
-export function MuscleMapImage({ catalogId, size, primary, secondary }: MuscleMapImageProps) {
+export function MuscleMapImage({
+  catalogId,
+  size,
+  primary,
+  secondary,
+  backdrop: wantsBackdrop = true,
+}: MuscleMapImageProps) {
   const { colors, scheme } = useTheme()
   const id = Option.isOption(catalogId) ? catalogId : Option.some(catalogId)
   const image = Option.flatMap(id, (value) => muscleMapImageFor(MUSCLE_MAP_IMAGES, value))
-  const backdrop = scheme === "dark" && Option.isSome(image)
+  const backdrop = wantsBackdrop && scheme === "dark" && Option.isSome(image)
   return (
     <View
       accessibilityRole="image"

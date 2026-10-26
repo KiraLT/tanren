@@ -5,7 +5,8 @@ import { AccountSection } from "../src/components/settings/AccountSection"
 import { AppearanceSection } from "../src/components/settings/AppearanceSection"
 import { DataSection } from "../src/components/settings/DataSection"
 import { EquipmentSection } from "../src/components/settings/EquipmentSection"
-import { AppBar, Columns, IconButton, Page, space } from "../src/ui"
+import { IntegrationsSection } from "../src/components/settings/IntegrationsSection"
+import { AppBar, Columns, IconButton, Page, rhythm } from "../src/ui"
 
 /** Root-Stack route reached from the Progress header: Account, Appearance, Units, Data, About. */
 export default function SettingsScreen() {
@@ -26,13 +27,14 @@ export default function SettingsScreen() {
       <Columns
         split="6/6"
         main={
-          <View style={{ gap: space.xl }}>
+          <View style={{ gap: rhythm.groupToLabel }}>
             <AccountSection />
+            <IntegrationsSection />
             <EquipmentSection />
           </View>
         }
         side={
-          <View style={{ gap: space.xl }}>
+          <View style={{ gap: rhythm.groupToLabel }}>
             <AppearanceSection />
             <DataSection />
             <AboutSection />

@@ -7,7 +7,10 @@ import {
   hoverBand,
   roundedTopBarPath,
   sparklineShape,
+  TOOLTIP_MAX_WIDTH,
+  tooltipCaption,
   tooltipLeft,
+  tooltipWidth,
 } from "./chartGeometry"
 
 const size = { width: 200, height: 100 }
@@ -144,5 +147,27 @@ describe("columnCenters and hoverBand", () => {
     expect((last?.x ?? 0) + (last?.width ?? 0)).toBe(300)
     const total = bands.reduce((sum, band) => sum + band.width, 0)
     expect(total).toBe(300)
+  })
+})
+
+describe("tooltipCaption and tooltipWidth", () => {
+  it("joins value and label on one line and shortens 'Week of'", () => {
+    expect(tooltipCaption("4,110 kg", "Week of 5 Oct")).toBe("4,110 kg · wk of 5 Oct")
+    expect(tooltipCaption("1,175 kg", "This week")).toBe("1,175 kg · This week")
+  })
+
+  it("keeps a short pill natural and caps a long one at 180", () => {
+    expect(tooltipWidth(120, 300)).toBe(120)
+    expect(tooltipWidth(240, 300)).toBe(TOOLTIP_MAX_WIDTH)
+  })
+
+  it("never exceeds a chart narrower than the pill, and left-clamps there", () => {
+    const width = tooltipWidth(160, 100)
+    expect(width).toBe(100)
+    expect(tooltipLeft(90, width, 100)).toBe(0)
+  })
+
+  it("clamps the right edge with the capped width", () => {
+    expect(tooltipLeft(340, tooltipWidth(240, 358), 358)).toBe(178)
   })
 })

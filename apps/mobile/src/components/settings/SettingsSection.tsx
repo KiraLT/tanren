@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { View } from "react-native"
-import { ListGroup, space, Text } from "../../ui"
+import { ListGroup, rhythm, Text } from "../../ui"
 
 export interface SettingsSectionProps {
   readonly title: string
@@ -13,7 +13,7 @@ export interface SettingsSectionProps {
  */
 export function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
-    <View style={{ gap: space.sm }}>
+    <View style={{ gap: rhythm.labelToGroup }}>
       <Text variant="headline" accessibilityRole="header">
         {title}
       </Text>

@@ -16,6 +16,7 @@ import {
   Columns,
   ListGroup,
   ListRow,
+  rhythm,
   StatusPill,
   sizes,
   space,
@@ -27,8 +28,11 @@ import {
 } from "../../ui"
 import { MAX_LOCATION_NAME } from "./locationsState"
 import { SettingsSection } from "./SettingsSection"
-import { equipmentGlyph } from "./settingsCopy"
+import { equipmentGlyph, itemsSelectedLabel } from "./settingsCopy"
 import { useLocations } from "./useLocations"
+
+/** Invisible extra tap area around a 32 px chip (the Pressable is 44 tall already). */
+const CHIP_SLOP = 6
 
 export interface LocationEditorProps {
   readonly location: Location
@@ -76,6 +80,9 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
           }}
         />
       </Card>
+      <Text variant="caption" tone="muted" tabular>
+        {itemsSelectedLabel(location.equipment.length)}
+      </Text>
     </View>
   )
   const setActive = active ? (
@@ -104,7 +111,7 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
         style={{
           flexDirection: "row",
           flexWrap: "wrap",
-          columnGap: space.sm,
+          columnGap: rhythm.chipGap,
           paddingHorizontal: space.lg,
           paddingVertical: space.sm,
         }}
@@ -114,6 +121,7 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
             key={equipment}
             label={facetLabel(equipment)}
             selected={location.equipment.includes(equipment)}
+            hitSlop={CHIP_SLOP}
             onPress={() => toggle(equipment)}
             {...Option.match(equipmentGlyph(equipment), {
               onNone: () => ({}),

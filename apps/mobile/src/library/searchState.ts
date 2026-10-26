@@ -90,3 +90,11 @@ export const hasFilter = (state: SearchState): boolean =>
   Option.isSome(state.muscle) ||
   Option.isSome(state.equipment) ||
   Option.isSome(state.kind)
+
+/** Facets that live in the Filters sheet (equipment, kind) and are currently set. */
+export const activeFilterCount = (state: SearchState): number =>
+  (Option.isSome(state.equipment) ? 1 : 0) + (Option.isSome(state.kind) ? 1 : 0)
+
+/** The Filters chip text: "Filters", or "Filters · 2" while sheet facets narrow the list. */
+export const filterChipLabel = (count: number): string =>
+  count > 0 ? `Filters · ${count}` : "Filters"

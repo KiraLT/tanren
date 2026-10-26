@@ -5,6 +5,7 @@ import {
   APPEARANCE_OPTIONS,
   aboutTitle,
   equipmentGlyph,
+  itemsSelectedLabel,
   presetItemsLabel,
   signOutFailureBody,
   signOutFailureTitle,
@@ -64,5 +65,13 @@ describe("equipmentGlyph", () => {
 
   it("takes only catalog equipment literals", () => {
     expectTypeOf(equipmentGlyph).parameter(0).toEqualTypeOf<CatalogEquipment>()
+  })
+})
+
+describe("itemsSelectedLabel", () => {
+  it("says none, one and many selected", () => {
+    expect(itemsSelectedLabel(0)).toBe("No items selected")
+    expect(itemsSelectedLabel(1)).toBe("1 item selected")
+    expect(itemsSelectedLabel(5)).toBe("5 items selected")
   })
 })

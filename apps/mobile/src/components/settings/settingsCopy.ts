@@ -34,6 +34,10 @@ export const APPEARANCE_OPTIONS: ReadonlyArray<{
 export const presetItemsLabel = (count: number): string =>
   count === 0 ? "Bodyweight only" : `${count} ${count === 1 ? "item" : "items"}`
 
+/** Caption under the location name: "No items selected", "1 item selected", "5 items selected". */
+export const itemsSelectedLabel = (count: number): string =>
+  count === 0 ? "No items selected" : `${count} ${count === 1 ? "item" : "items"} selected`
+
 /** The leading glyph of an equipment chip, where the icon set has one. */
 export const equipmentGlyph = (equipment: CatalogEquipment): Option.Option<IconName> =>
   Option.fromNullishOr(EQUIPMENT_GLYPHS[equipment])

@@ -2,7 +2,7 @@ import { Match } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { type AccountState, type SignOutState, useAccount } from "../../hooks/useAccount"
-import { Banner, ListRow, space } from "../../ui"
+import { Banner, ListRow, sizes, space } from "../../ui"
 import { SettingsSection } from "./SettingsSection"
 import {
   KEPT_DATA_NOTE,
@@ -23,6 +23,7 @@ function SignOut({ state, onPress }: SignOutProps) {
     <View>
       <ListRow
         tone="danger"
+        leading={<View style={{ width: sizes.iconSm }} />}
         title={signingOut ? "Signing out…" : "Sign out"}
         subtitle={KEPT_DATA_NOTE}
         accessibilityLabel="Sign out"

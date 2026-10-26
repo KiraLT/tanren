@@ -16,6 +16,7 @@ import {
   space,
   Text,
   useBreakpoint,
+  useTheme,
 } from "../../ui"
 import { illustrationIdFor } from "../todayHeader"
 import {
@@ -45,13 +46,19 @@ interface DetailProps {
   readonly history: ExerciseHistory
 }
 
+/** Phone hero row (ui-polish Progress detail 1): map tile 160 wide + Best-set tile, both 176 high. */
+const TILE_HEIGHT = 176
+const MAP_TILE_WIDTH = 160
+/** Tile numeral 56/60 (the `numeral` ramp step is 72: too wide for a 150 px inner tile). */
+const TILE_NUMERAL = { fontSize: 56, lineHeight: 60 } as const
+
 /**
  * The screen's one bold element: the best set's weight as the `numeral` with its unit line under it
  * (`label`). The best set strictly beats every earlier set, so it is always a personal record.
  */
-function BestSetCard({ history }: DetailProps) {
+function BestSetCard({ history, tile = false }: DetailProps & { readonly tile?: boolean }) {
   return (
-    <Card>
+    <Card style={tile ? { flex: 1, height: TILE_HEIGHT, justifyContent: "center" } : undefined}>
       {Option.match(history.best, {
         onNone: () => <Text tone="muted">No sets logged yet.</Text>,
         onSome: (best) => {
@@ -76,7 +83,11 @@ function BestSetCard({ history }: DetailProps) {
                 </Text>
                 <StatusPill label="PR" tone="accent" />
               </View>
-              <Text variant="numeral" glow style={{ paddingVertical: space.xs }}>
+              <Text
+                variant="numeral"
+                glow
+                style={tile ? TILE_NUMERAL : { paddingVertical: space.xs }}
+              >
                 {parts.value}
               </Text>
               <Text variant="label" tone="muted">
@@ -141,6 +152,7 @@ interface DetailReadyProps extends DetailProps {
 
 function DetailReady({ history, layout }: DetailReadyProps) {
   const desktop = useBreakpoint() === "desktop"
+  const { colors, scheme } = useTheme()
   const header = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
       <ExerciseIllustration
@@ -192,6 +204,38 @@ function DetailReady({ history, layout }: DetailReadyProps) {
           </View>
         }
       />
+    )
+  }
+  if (!desktop) {
+    return (
+      <View style={{ gap: space.lg }}>
+        {header}
+        <View style={{ flexDirection: "row", gap: space.lg }}>
+          <Card
+            padding={space.sm}
+            style={{
+              // dark: the tile itself is the `surfaceRaised` backdrop the slate figures need
+              ...(scheme === "dark" ? { backgroundColor: colors.surfaceRaised } : {}),
+              width: MAP_TILE_WIDTH,
+              height: TILE_HEIGHT,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <MuscleMapImage
+              catalogId={illustrationIdFor(history.exercise)}
+              primary={history.exercise.muscleGroups}
+              secondary={[]}
+              backdrop={false}
+              size={MAP_TILE_WIDTH - 2 * space.sm}
+            />
+          </Card>
+          <BestSetCard history={history} tile />
+        </View>
+        {weekBars}
+        {e1RmCard}
+        <RecentSessions history={history} />
+      </View>
     )
   }
   return (

@@ -79,6 +79,17 @@ export const columnCenters = (count: number, width: number, pad: number): Readon
     count <= 1 ? width / 2 : pad + (index * (width - 2 * pad)) / (count - 1),
   )
 
+/** Widest tooltip pill (ui-polish Progress detail 2): longer captions truncate. */
+export const TOOLTIP_MAX_WIDTH = 180
+
+/** "4,110 kg · wk of 5 Oct": the one-line tooltip caption ("Week of" shortened to "wk of"). */
+export const tooltipCaption = (value: string, label: string): string =>
+  `${value} · ${label.replace(/^Week of /, "wk of ")}`
+
+/** Pill width: the measured natural width, never above `TOOLTIP_MAX_WIDTH` or the chart. */
+export const tooltipWidth = (natural: number, chartWidth: number): number =>
+  Math.max(0, Math.min(natural, TOOLTIP_MAX_WIDTH, chartWidth))
+
 /** Left edge of a tooltip centred on `center`, kept inside `[0, chartWidth]`. */
 export const tooltipLeft = (center: number, tooltipWidth: number, chartWidth: number): number =>
   Math.max(0, Math.min(center - tooltipWidth / 2, chartWidth - tooltipWidth))

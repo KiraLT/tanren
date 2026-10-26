@@ -2,7 +2,7 @@ import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { Pressable, View } from "react-native"
 import { radius, space, stroke, Text, useTheme } from "../../ui"
-import { tooltipLeft } from "./chartGeometry"
+import { TOOLTIP_MAX_WIDTH, tooltipCaption, tooltipLeft, tooltipWidth } from "./chartGeometry"
 
 /** Height (px) of the strip above the plot where the tooltip floats, so it never covers a mark. */
 export const TOOLTIP_STRIP = 32
@@ -39,29 +39,27 @@ function Tooltip({ mark, chartWidth }: TooltipProps) {
   return (
     <View
       pointerEvents="none"
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      onLayout={(event) => setWidth(tooltipWidth(event.nativeEvent.layout.width, chartWidth))}
       style={{
         position: "absolute",
         top: 0,
         // measured at left 0 (the full natural width), then pinned there and moved under the mark
         left: width > 0 ? tooltipLeft(mark.center, width, chartWidth) : 0,
         ...(width > 0 ? { width } : {}),
+        maxWidth: Math.min(TOOLTIP_MAX_WIDTH, chartWidth),
         opacity: width > 0 ? 1 : 0,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.sm,
+        justifyContent: "center",
         paddingHorizontal: space.sm,
         height: TOOLTIP_STRIP - space.xs,
-        borderRadius: radius.sm,
+        borderRadius: radius.full,
         borderCurve: "continuous",
         backgroundColor: colors.surfaceRaised,
         borderWidth: stroke.hairline,
         borderColor: colors.border,
       }}
     >
-      <Text variant="caption">{mark.value}</Text>
-      <Text variant="caption" tone="muted">
-        {mark.label}
+      <Text variant="caption" tabular numberOfLines={1}>
+        {tooltipCaption(mark.value, mark.label)}
       </Text>
     </View>
   )

@@ -2,6 +2,8 @@ import { describe, expect, it } from "@effect/vitest"
 import { type Location, LocationId, searchCatalog } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import {
+  activeFilterCount,
+  filterChipLabel,
   hasFilter,
   initialSearch,
   isSettling,
@@ -83,5 +85,33 @@ describe("reduceSearch", () => {
         (entry) => entry.primaryMuscles.includes("core") || entry.secondaryMuscles.includes("core"),
       ),
     ).toBe(true)
+  })
+})
+
+describe("activeFilterCount and filterChipLabel", () => {
+  it("counts zero when only the muscle facet or the query is set", () => {
+    const state = run(
+      { _tag: "Muscle", value: Option.some("core") },
+      { _tag: "Typed", text: "squat" },
+    )
+    expect(activeFilterCount(state)).toBe(0)
+    expect(filterChipLabel(0)).toBe("Filters")
+  })
+
+  it("counts one for the equipment or the kind facet", () => {
+    const equipment = run({ _tag: "Equipment", value: Option.some("barbell") })
+    expect(activeFilterCount(equipment)).toBe(1)
+    expect(activeFilterCount(run({ _tag: "Kind", value: Option.some("timed") }))).toBe(1)
+    expect(filterChipLabel(1)).toBe("Filters · 1")
+  })
+
+  it("counts both sheet facets and resets on Cleared", () => {
+    const state = run(
+      { _tag: "Equipment", value: Option.some("barbell") },
+      { _tag: "Kind", value: Option.some("timed") },
+    )
+    expect(activeFilterCount(state)).toBe(2)
+    expect(filterChipLabel(2)).toBe("Filters · 2")
+    expect(activeFilterCount(reduceSearch(state, { _tag: "Cleared" }))).toBe(0)
   })
 })
