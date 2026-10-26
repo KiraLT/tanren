@@ -23,7 +23,9 @@ app/          ROUTE INVENTORY — every route, kept complete by whoever adds one
   root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`),
   progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
   settings/integrations/{index,[provider]}.tsx
-  Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1).
+  Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1); the
+  signed-out web landing (`src/components/landing/Landing.tsx`, rendered by `_layout.tsx` on every
+  gated route instead of the `/sign-in` redirect, ADR-0021, `docs/design/landing.md`).
 src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
               tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
@@ -116,11 +118,15 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   nav (`APP_NAV`: Feed, Today, Plan, Programs, Library; active from `usePathname()`) itself, so
   every screen with an `AppBar` gets it.
   Desktop columns (docs/design/ui-desktop.md §2–§3): `columnsFor(width, split)` (`src/ui/columns.ts`,
-  the one place with the maths) centres a `pageMaxWidth` 1136 page (gap 24, gutter 32) and splits it
-  `"7/5"` (default, focus left) · `"5/7"` (master-detail) · `"6/6"`; main is rounded to the 4-pt
-  grid. Pinned: at 1280 (page 1136) 7/5 = 648/464, 5/7 = 464/648, 6/6 = 556/556; at 900 (page 900)
-  7/5 = 512/364, 5/7 = 364/512, 6/6 = 436/440. `Page` takes `aside` + `split` (two columns, main
-  `role="main"`, aside `role="complementary"`) or `wide` (a 1136 page with no aside, whose children
+  the one place with the maths) centres a page of `min(window − 64, pageMaxWidth 1360)` (gap 24, gutter 32; frame identical on every
+  route, probe `page-frame` / `app-bar` in `docs/design/ui-columns.js`) and splits it `"7/5"` (default,
+  focus left) · `"5/7"` (master-detail) · `"6/6"`; main is rounded to the 4-pt grid, columns never
+  below `MIN_COLUMN` 364; below a 1024 window every split is 6/6 (`effectiveSplit`). Pinned: at 1280
+  (page 1216) 7/5 = 696/496, 5/7 = 496/696, 6/6 = 596/596; at 900 (page 836) any split 404/408; at
+  1440 page 1360. Narrow pages (no aside/`wide`) keep header + AppBar on the page width and centre a
+  600 body (`pageWidths`). The aside needs no sticky: only main scrolls. `Page sectionGap` (default
+  16). `Page` takes `aside` + `split` (two columns, main
+  `role="main"`, aside `role="complementary"`) or `wide` (a page with no aside, whose children
   lay themselves out with `Columns`); `Columns` / `useColumns` live in `src/ui/ColumnsView.tsx`
   (below desktop `Columns` stacks). Without `aside` or `wide` the page is the single 600 column.
   Master-detail 5/7: Library (list + `CatalogDetail`, `inline` hero only when the aside's inner width
