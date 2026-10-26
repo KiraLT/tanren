@@ -57,6 +57,7 @@ Vertical: `Page scroll sectionGap={space.xl}` (24) between sections; inside the 
 (12); the CTA block `gap: space.sm` (8). Height: 16 + hero (48+12+16+12+76+12+80+12+56+8+18+12+358 = 720)
 + 24 + cards (4·136 + 3·16 = 592) + 24 + CTA (38+8+56+8+18 = 128) + 24 + footer 24 + 16 = **1568**.
 PASS band for `docH` at 390: 1450–1700 (fonts and wrap tolerance).
+As built (LAND-1/3): `meaning` sits as a centred caption under the footer row (footer 24 → 24 + 4 + 36, two lines at 390).
 
 ### 3.2 Desktop, 1280 (`Page scroll wide`: page 1216, inner 1216 − 2·`gutter.desktop` 32 = 1152)
 ```
@@ -155,7 +156,7 @@ Probes (`docs/design/ui-measure.js`, `docs/design/ui-columns.js`), run per schem
 | measure | PASS |
 | --- | --- |
 | `small` (buttons < 44 tall) | `[]` |
-| `docH` | 390: 1450–1700 · 1280: 1080–1300 |
+| `docH` (= the `Page scroll` ScrollView content height, max `scrollHeight` of scrollable divs; document `scrollHeight` is only the viewport) | 390: 1450–1700 · 1280: 1080–1300 |
 | `[data-testid=page-frame]` width | 390: 390 · 1280: 1216 (left 32 ± 1) |
 | `ui-columns.js` `cols` at 1280 | two rects, widths 564 ± 2, equal `top` |
 | `[role=navigation]` | absent on every gated route |

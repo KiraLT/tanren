@@ -51,13 +51,19 @@ export interface LandingFeatureProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
+/**
+ * Phone/tablet card illustration (LAND-3): at `illustrationMd` 104 the figures read at ~60 %; 120
+ * leaves a 198 text column at 390 (358 − 2·16 padding − 120 − 8 gap). No ramp step exists for it.
+ */
+const PHONE_IMAGE = 120
+
 /** One feature card: illustration on the left, icon + title and the muted body on the right. */
 export function LandingFeature({ feature, image, wide, style }: LandingFeatureProps) {
   const { colors } = useTheme()
-  const imageSize = wide ? sizes.illustrationLg : sizes.illustrationMd
+  const imageSize = wide ? sizes.illustrationLg : PHONE_IMAGE
   return (
     <Card style={style}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: wide ? space.lg : space.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: wide ? space.lg : space.sm }}>
         <LandingImageSlot source={image} onCard style={{ width: imageSize, height: imageSize }} />
         <View style={{ flex: 1, gap: space.xs }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>

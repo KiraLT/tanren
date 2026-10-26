@@ -91,7 +91,16 @@ export function Landing() {
     <View testID="landing" style={{ flex: 1 }}>
       <Page scroll wide sectionGap={space.xl}>
         {desktop ? (
-          <Columns split="6/6" main={heroText} side={heroImage} />
+          <Columns
+            split="6/6"
+            main={
+              // Centre the copy on the 480 figure instead of leaving the column's lower half empty.
+              <View style={{ flex: 1, justifyContent: "center", minHeight: HERO_MAX }}>
+                {heroText}
+              </View>
+            }
+            side={heroImage}
+          />
         ) : (
           <View style={{ gap: space.md }}>
             {heroText}
