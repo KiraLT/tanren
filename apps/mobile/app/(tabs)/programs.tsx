@@ -55,7 +55,7 @@ export default function ProgramsScreen() {
             onSome: (today) => (
               <>
                 <DayCard program={program} day={today} onStart={play} />
-                {wide ? null : <DayItems day={today} />}
+                <DayItems day={today} />
               </>
             ),
           })}

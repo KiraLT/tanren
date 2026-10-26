@@ -362,6 +362,8 @@ it.effect("reports NotFound for an unknown id", () =>
 - `layer(L)("name", (it) => …)` shares one layer and its state; no `.live`.
 - Typed failures: `Effect.flip` (error becomes the value) or `Effect.result(eff)` +
   `Result.isFailure`. Type-level: `expectTypeOf`.
+- `Arr.makeBy(0, f)` and `Arr.replicate(a, 0)` return a `NonEmptyArray` with one element in Effect 4
+  (`effect/dist/Array.d.ts`); for fixtures that may be empty use `Arr.take(…, n)` or a range filter (UI-D2, 2026-10-26).
 - Read-then-write races: the node sqlite driver is synchronous, so two forked fibers never
   interleave between a read and a save and a concurrency test passes with no lock at all. Wrap the
   store so reads yield first (`all: (s) => Effect.andThen(Effect.yieldNow, inner.all(s))`, see

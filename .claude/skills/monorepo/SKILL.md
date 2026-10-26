@@ -91,6 +91,8 @@ links resolve.
   `src/env.d.ts` next to `src/Env.ts` is silently dropped by tsc (no error, the ambient merge just
   vanishes; hardening H1). Ambient files take a name no module uses (`src/cloudflareEnv.d.ts`).
   Proof: `pnpm exec tsc -p tsconfig.json --listFilesOnly | grep -i <file>.d.ts` prints the file.
+- The same collision hits a component `Foo.tsx` beside a pure `foo.ts` (tsc TS1261, UI-D1): name the pair
+  differently (`FooView.tsx` or `fooLayout.ts`).
 - `lib` is unset, so TS loads `es2022.full` (ES2022 + DOM). The worker narrows it when Workers
   types arrive. ES2023 array methods (`toSorted`, `toReversed`, `findLast`) are not typed: use
   `Arr.sort` / `Arr.reverse` from `effect`.

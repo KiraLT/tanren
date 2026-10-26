@@ -16,7 +16,7 @@ Scope: how every screen uses the width at tablet (600–899) and desktop (≥ 90
 6. **Type scale**: unchanged at every breakpoint. The ramp (`tokens.ts` `type`) is the ramp; desktop gets width, not bigger type.
 7. **Must NOT change**: every measurement at 390 (UI-X2 proofs) and at 768; the 390 order of elements on every screen; the inner paddings (32) of the columns; the AppBar; the asides' content order where not named below.
 
-## 2. The layout module: `src/ui/columns.ts` + `src/ui/Columns.tsx` (exports added to `src/ui/index.ts`)
+## 2. The layout module: `src/ui/columns.ts` + `src/ui/ColumnsView.tsx` (not `Columns.tsx`: on case-insensitive APFS it collides with `columns.ts`, tsc TS1261; exports added to `src/ui/index.ts`)
 
 ```ts
 // columns.ts (pure, tested)
@@ -37,11 +37,13 @@ export const columnsFor = (width: number, split: ColumnSplit = "7/5"): ColumnWid
 //   phone:   { page: width, main: width, side: 0, gap: 0 }
 //   tablet:  { page: min(width, 600), main: page, side: 0, gap: 0 }
 //   desktop: page = min(width, sizes.pageMaxWidth); gap = space.xl;
-//            main = Math.round(((page − gap) · MAIN_SHARE[split]) / 4) · 4; side = page − gap − main
+//            main = Math.ceil(((page − gap) · MAIN_SHARE[split]) / 4 − 0.5) · 4; side = page − gap − main
+//            (rounding rule as built in UI-D1: ceil(x − 0.5) on the 4-px grid, so ties round DOWN; that is
+//            what makes 6/6 at 900 = 436 / 440 as pinned, where Math.round would give 440 / 436)
 // Tests pin: (1280,"7/5") → 648/464; (1280,"5/7") → 464/648; (1280,"6/6") → 556/556; (900,"7/5") → 512/364;
 //            (390) → page 390 main 390; (768) → page 600 main 600; (1920) → page 1136.
 
-// Columns.tsx
+// ColumnsView.tsx
 export const useColumns = (split?: ColumnSplit): ColumnWidths   // useWindowDimensions().width → columnsFor
 export interface ColumnsProps {
   readonly main: ReactNode
@@ -95,7 +97,7 @@ Loading / Empty / Failed states keep today's single 600 column (decision 5). The
 
 ## 5. Behaviour assumptions (VERIFY in the engineer's run; none verified by running code, node_modules was being reinstalled)
 
-- `VERIFY:` RN `role="main"` is in the installed `Role` union (seen in `react-native@0.86.3` `ViewAccessibility.d.ts` line 382) and RNW renders it as the `role` attribute like `complementary` does today.
+- `VERIFY:` RN `role="main"` is in the installed `Role` union (seen in `react-native@0.88` `types_generated/Libraries/Components/View/ViewAccessibility.d.ts`) and RNW renders it as the `role` attribute like `complementary` does today.
 - `VERIFY:` RNW renders `testID` as `data-testid` (expected; else `Columns` uses `role="region"` + `accessibilityLabel` "Main column" / "Side column" and `ui-columns.js` reads `[aria-label]`).
 - `VERIFY:` `flex: 7` / `flex: 5` siblings in a `flexDirection: "row"` View give 7:5 widths on RNW (flex basis 0); if a child's content forces a wider basis, set `flexBasis: 0` explicitly.
 - `VERIFY:` `ExercisePager` paging stays exact when `width` changes from 600 to 648 (`scrollTo({ x: target * width })`, `pageIndex(offset, width, count)` both read the same `width`); resizing across 899/900 re-snaps on the next `goTo`.
