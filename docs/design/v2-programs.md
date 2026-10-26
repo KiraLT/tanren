@@ -193,3 +193,65 @@ per-second updates (Apple: 8 h, 4 KB payload, throttled). Not in Expo Go.
 Programs beyond Core 30; programs with `reps` items in the UI (model supports, player shows "Done"
 button instead of a countdown — implement, but no data uses it); Android; remote (push) Live
 Activity updates; a programs MCP tool.
+
+## 9. Amendment 2026-10-26 — rep targets (plan Amendment 11, ADR-0020)
+
+§3 "every item `kind: "timed"`" and §8 "no data uses reps" are superseded. Normative for
+`docs/tasks/v4-program-reps.md`; §1–§7 stay as written except where this section says otherwise.
+
+**Rule** (ADR-0020 §2): the catalog `kind` decides the item mode. Timed: `plank`, `side-plank`,
+`hollow-hold`, `superman-hold`, `leg-raise-hold`, `bear-crawl-hold`, `mountain-climber`, `high-knees`,
+`flutter-kick`. Reps (flip `data/core.ts` to `kind: "reps"`): `dead-bug`, `crunch`, `reverse-crunch`,
+`lying-leg-raise`, `v-up`, `bicycle-crunch`, `russian-twist`, `heel-touch`, `plank-hip-dip`,
+`plank-shoulder-tap`, `glute-bridge`, `bird-dog`, `scissor-kick`, `sit-up`, `toe-touch-crunch`.
+
+**Counts** `REPS_BY_WORK_SECONDS` (core30.ts): 25 → 12, 30 → 16, 35 → 18, 40 → 20, 45 → 22, 75 → 20.
+`SECONDS_PER_REP = 2` (Program.ts). Rest and round-rest seconds unchanged from the §3 table.
+
+**Core 30 re-classified** (templates cycle by `(dayNumber − 1) mod 3`; T = timed `seconds` = phase
+work s, R = reps = count for the phase; `restSeconds` as §3):
+
+| template | items (mode) |
+| --- | --- |
+| A (days 1,4,10,13,16,19,22,25) | dead-bug R · crunch R · reverse-crunch R · lying-leg-raise R · v-up R · hollow-hold T · plank T |
+| B (days 2,5,8,11,17,20,23,26,29) | bicycle-crunch R · russian-twist R · side-plank T · heel-touch R · plank-hip-dip R · mountain-climber T · plank-shoulder-tap R |
+| C (days 3,6,9,12,15,18,24,27,30) | superman-hold T · glute-bridge R · bird-dog R · flutter-kick T · scissor-kick R · leg-raise-hold T · bear-crawl-hold T |
+| Recovery (7,14,21,28, 1 round) | bird-dog R 20 · dead-bug R 20 · glute-bridge R 20 · superman-hold T 75 |
+
+| phase (days) | T seconds | R count | rest | round rest | ≈ min A / B / C |
+| --- | --- | --- | --- | --- | --- |
+| Foundation 1–6 | 25 | 12 | 15 | 60 | 15.0 / 15.0 / 15.1 |
+| Build 8–13 | 30 | 16 | 15 | 45 | 17.0 / 17.0 / 16.8 |
+| Endure 15–20 | 35 | 18 | 10 | 45 | 17.0 / 17.0 / 16.9 |
+| Forge 22–27 | 40 | 20 | 5 | 45 | 17.0 / 17.0 / 17.0 |
+| Peak 29–30 | 45 | 22 | 5 | 15 | — / 17.5 / 17.6 |
+
+Minutes use `dayDurationSeconds` with reps at 2 s each (A Foundation: 5·24 + 2·25 = 170 work + 90 rest
+= 260 × 3 + 2·60 = 900 s). Every training day stays inside 12–18 min; day 30 (17.6, template C: 4·45 + 3·44 = 312 work) ≥ day 1 (15.0).
+Test (`core30.test.ts`) replaces "only timed": every item's `kind` equals its catalog entry's `kind`;
+every reps count ∈ {12, 16, 18, 20, 22}, all even; the count of an item equals
+`REPS_BY_WORK_SECONDS[phase work s]`.
+
+**Player work screen, reps item** (replaces the ring block of §4 for `endsAtMs: None`; phone 390,
+content 358):
+
+```
+ [illus 120] Work                      ← header row unchanged (eyebrow / title / "12 reps" subhead)
+             Dead Bug
+             12 reps
+ ┌──────────────── 358 ────────────────┐
+ │               12                    │  clock 64/68, accessibilityLabel "12 reps"
+ │              reps                   │  caption muted 20, gap 4 → 92
+ │         (gap 24)                    │
+ │ [✓  Done                       ]    │  Button size="xl" 64, variant primary, stretch 358
+ └─────────────────────────────────────┘  block minHeight 220 (= phone ring), content 180 centred
+  ‹ 48   ⏸ 64   › 48 · Next · Crunch 12 reps   ← transport row + caption unchanged
+```
+Heights: 68 + 4 + 20 + 24 + 64 = 180 ≤ 220, so the ring block and the reps block are the same
+height and the transport row does not move between items. `onPress` → `send("next")`;
+`disabled={paused}`; the timed branch and the desktop branch are untouched. Paused reps item: numeral
+stays, eyebrow "Paused" as today. Rest after Done: unchanged (ring, countdown, 3-2-1).
+
+**Unchanged by this amendment**: machine (`endsAtMs: None` path exists), `alertFor` (None on a reps
+work phase; rest alert text already carries "N reps"), `ProgramRepo.loggedCount`, progress rows,
+`DayItems` / day list (`itemAmount` already prints "12 reps"), Live Activity port (§7).
