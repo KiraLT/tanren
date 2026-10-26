@@ -30,48 +30,57 @@ const outDir = resolve(
 const sheetDir = join(here, "..", "..", "..", "docs", "design", "screens")
 
 const BASE =
-  "ultra-minimal flat vector app icon, geometric, a single solid colour on a solid background plus at most one small accent, NO gradient, NO glow, NO bevel, NO texture, NO outline, NO shadow, NO text, at most two shapes, generous margin, centred, crisp edges, 2D"
-const GRAPHITE = "solid graphite background (#16181D)"
-const PAPER = "solid warm paper background (#F6F4EF)"
+  "ultra-minimal flat vector app icon, two or three bold strokes at most, flat solid colour, NO gradient, NO glow, NO texture, NO outline, NO shadow, NO text other than the described strokes, generous margin, centred, crisp edges, 2D, brush-calligraphy proportions but perfectly flat fills"
+const GRAPHITE = "graphite background (#16181D)"
+const PAPER = "paper background (#F6F4EF)"
 const OFF_WHITE = "off-white (#F6F4EF)"
 const AMBER = "amber (#F59E0B)"
+const INK = "graphite (#16181D)"
+const BURNT = "burnt-orange (#C2410C)"
 
-/** The round's contact-sheet prefix and image ids (LOGO-1b: strictly minimal, ids M1 to M8). */
-const SHEET_PREFIX = "LOGO-1b"
+/**
+ * The round's contact-sheet prefix and image ids (LOGO-1c: M8's two-stroke idea crossed with minimal
+ * Japanese strokes, ids J1 to J8). Reference, the LOGO-1b winner M8 (BASE was the LOGO-1b text):
+ * "ultra-minimal flat vector app icon, geometric, a single solid colour on a solid background plus at most
+ * one small accent, NO gradient, NO glow, NO bevel, NO texture, NO outline, NO shadow, NO text, at most two
+ * shapes, generous margin, centred, crisp edges, 2D. solid graphite background (#16181D). Two thick
+ * parallel diagonal bars (like a forged chevron / two strokes) in off-white (#F6F4EF), slightly rounded ends."
+ */
+const SHEET_PREFIX = "LOGO-1c"
 
 type Candidate = { readonly id: string; readonly prompt: string }
 const CANDIDATES: ReadonlyArray<Candidate> = [
   {
-    id: "M1",
-    prompt: `${BASE}. ${GRAPHITE}. A barbell reduced to three rectangles: one long thin horizontal bar and two tall plates, all one ${OFF_WHITE} colour.`,
+    id: "J1",
+    prompt: `${BASE}. ${GRAPHITE}. Two parallel diagonal brush strokes rising left-to-right, slightly tapered ends like sumi-e, ${OFF_WHITE} on graphite.`,
   },
   {
-    id: "M2",
-    prompt: `${BASE}. ${PAPER}. A barbell reduced to three rectangles: one long thin horizontal bar and two tall plates, all in graphite (#16181D).`,
+    id: "J2",
+    prompt: `${BASE}. ${GRAPHITE}. The Japanese kanji 力 (strength) drawn as two bold flat brush strokes, ${OFF_WHITE} on graphite, generous margin.`,
   },
   {
-    id: "M3",
-    prompt: `${BASE}. ${GRAPHITE}. A single thick horizontal bar in ${OFF_WHITE} with a small ${AMBER} square sitting on its centre.`,
+    id: "J3",
+    prompt: `${BASE}. ${GRAPHITE}. The kanji 力 as two strokes, the first stroke ${OFF_WHITE} and the second (the hooked sweeping stroke) ${AMBER}.`,
   },
   {
-    id: "M4",
-    prompt: `${BASE}. ${GRAPHITE}. An anvil reduced to a single flat trapezoid in ${OFF_WHITE}, nothing else.`,
+    id: "J4",
+    prompt: `${BASE}. ${GRAPHITE}. The katakana タ (ta) reduced to its two or three strokes as flat brush shapes, ${OFF_WHITE} on graphite.`,
   },
   {
-    id: "M5",
-    prompt: `${BASE}. ${GRAPHITE}. An anvil reduced to a single flat trapezoid in ${OFF_WHITE} with one small ${AMBER} dot floating above the trapezoid.`,
+    id: "J5",
+    prompt: `${BASE}. ${GRAPHITE}. Two parallel diagonal strokes in ${OFF_WHITE} with one short ${AMBER} dash crossing the lower stroke, like a brush accent.`,
   },
   {
-    id: "M6",
-    prompt: `${BASE}. ${GRAPHITE}. The letter T as two plain rectangles in ${OFF_WHITE}, no serif, no detail.`,
+    id: "J6",
+    prompt: `${BASE}. ${GRAPHITE}. An abstract three-stroke mark suggesting the kanji 鍛 (forge): one vertical stroke, one long diagonal, one short horizontal, ${OFF_WHITE} on graphite, not a legible character.`,
   },
   {
-    id: "M7",
-    prompt: `${BASE}. ${PAPER}. The letter T as two plain rectangles: graphite (#16181D) stem and the crossbar in burnt orange (#C2410C), no serif, no detail.`,
+    id: "J7",
+    prompt: `${BASE}. ${PAPER}. Two ${INK} diagonal brush strokes with a small ${BURNT} circle (hanko seal dot) at the lower right.`,
   },
   {
-    id: "M8",
-    prompt: `${BASE}. ${GRAPHITE}. Two thick parallel diagonal bars (like a forged chevron / two strokes) in ${OFF_WHITE}, slightly rounded ends.`,
+    id: "J8",
+    prompt: `${BASE}. ${PAPER}. The kanji 力 in ${INK} brush strokes with the stroke ends tapered, no accent.`,
   },
 ]
 
