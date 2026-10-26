@@ -23,6 +23,7 @@
     "images:generate": "pnpm -F @tanren/mobile images:generate",
     "images:shrink": "pnpm -F @tanren/mobile images:shrink",
     "images:map": "pnpm -F @tanren/mobile images:map",
+    "logo:generate": "pnpm -F @tanren/mobile logo:generate",
     "muscle:generate": "pnpm -F @tanren/mobile muscle:generate",
     "muscle:index": "pnpm -F @tanren/mobile muscle:index",
     "format": "biome format --write .",

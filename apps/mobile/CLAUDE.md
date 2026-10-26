@@ -151,6 +151,13 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   sent as `Authorization: Bearer` (`withSession`). Web keeps the cookie flow above. Phone recipe:
   `docs/design/local-dev.md` §6a (`pnpm dev:phone`). Live Activities still need a dev build, not
   Expo Go.
+- Sign-in gate (ADR-0019): `app/_layout.tsx` calls `useAuthGate(usePathname())` (web and native). `gateFor`
+  (`src/services/authGate.ts`, pure) says `"sign-in"` only with no account (`gateAccount`: resolved user,
+  dev override, else stored owner) AND `localSetCount` = 0 AND a route outside `/sign-in`, `/auth/*`.
+  The layout renders nothing while loading, keeps the `Stack` mounted but invisible while gated and
+  `<Redirect href="/sign-in" />`s. An expired session or an offline start is not a gate; sign-out keeps
+  local sets, so it does not lock the user out. Proof: `ab network route "<api>/**" --abort` then a direct
+  load (the dev server is unreachable under `set offline on`, so that only proves client navigation).
 - API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
   else `http://localhost:8787`.
 
@@ -215,12 +222,23 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   secondary highlights from the catalog taxonomy). `MuscleMap view`: `"both"` (default, square, front +
   back) or `"front"` / `"back"` (cropped to one figure, about 0.38 × `size` wide); `scripts/muscleMapSheet.ts` writes its git-ignored
   preview. The old hand-built SVG pipeline (scenes, rig, `illustrations:check`) is retired.
+- Logo candidates (LOGO-1): `pnpm logo:generate [--only A1,C2] [--transparent] [--out <dir>]`
+  (`scripts/generateLogo.ts`, same key loading as the other generators) writes nine 1024² png icon candidates
+  (A forged kanji stroke, B anvil and spark, C forged T; three variants each) into the git-ignored
+  `assets/brand/candidates/`; `pnpm -F @tanren/mobile logo:sheet` (no key) builds
+  `docs/design/screens/LOGO-1-sheet.png` (3x3, labelled) and `LOGO-1-sheet-small.png` (60 and 29 px renders on
+  paper and graphite). `gpt-image-1` is refused on `/v1/images/generations` for this account (probed 2026-10-26),
+  so every call falls back once to `gpt-image-1.5` (a refused call is not billed, but counts as an API call); the
+  request sends `background: "opaque"` because `auto` returned alpha for 2 of 9 icons.
 
 ## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
 
 - Routes: `/progress` (root Stack, reached from the Feed AppBar chart button; exercise list, desktop aside);
   `/progress/[exerciseId]` (root Stack detail; a direct load with no data goes back to `/progress`);
-  `/settings` (root Stack, reached from the gear `IconButton` "Settings" in the Feed AppBar, not a tab).
+  `/settings` (root Stack, reached from the gear `IconButton` "Settings" in the Feed AppBar, not a tab);
+  `/settings/integrations` + `/settings/integrations/[provider]` (v4 Strava, docs/design/integrations.md §8:
+  `Integrations` service, `useIntegrations` hooks, `src/components/integrations/`, copy in
+  `components/settings/integrationsCopy.ts`; the service layer is provided per call, not in `runtime.ts`).
 - `HistoryRepo` (`src/services/HistoryRepo.ts`): local store only, live rows only, 8 Monday-based weeks;
   a PR is a set that strictly beats every earlier set.
 - `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`). `useHistory` (`src/hooks`): the Progress screens' hook over `HistoryRepo` (exercises + one exercise's history; session lists are `FeedRepo`'s).
