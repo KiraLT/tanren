@@ -14,13 +14,18 @@ function ExerciseProgressPage({
   readonly back: () => void
 }) {
   const { state } = useExerciseHistory(exerciseId)
+  // The exercise's name once loaded; "Progress" while loading, failed or unknown.
+  const title =
+    state._tag === "Ready"
+      ? Option.match(state.value, { onNone: () => "Progress", onSome: (h) => h.exercise.name })
+      : "Progress"
   return (
     <Page
       scroll
       wide={isDetailReady(state)}
       header={
         <AppBar
-          title="Progress"
+          title={title}
           leading={<IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={back} />}
         />
       }

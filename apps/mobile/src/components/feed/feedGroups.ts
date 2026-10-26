@@ -105,20 +105,26 @@ export type ExerciseMapSource =
     }
   | { readonly _tag: "Custom"; readonly primary: ReadonlyArray<MuscleGroup> }
 
-/** A catalog link: its image and the entry's muscles; none: the row's `muscleGroups` as primary. */
-export const exerciseMapSource = (exercise: ActivityExercise): ExerciseMapSource =>
-  Option.match(exercise.catalogId, {
-    onNone: () => ({ _tag: "Custom", primary: exercise.muscleGroups }),
-    onSome: (catalogId) => {
-      const entry = findCatalogExercise(catalogId)
-      return {
-        _tag: "Catalog",
-        catalogId,
-        primary: Option.match(entry, { onNone: () => [], onSome: (e) => e.primaryMuscles }),
-        secondary: Option.match(entry, { onNone: () => [], onSome: (e) => e.secondaryMuscles }),
-      }
-    },
+/**
+ * A catalog link the catalog knows: its image and the entry's muscles. No link, or an id the
+ * catalog lacks (as `buildActivity` treats it): the row's `muscleGroups` as primary.
+ */
+export const exerciseMapSource = (exercise: ActivityExercise): ExerciseMapSource => {
+  const custom: ExerciseMapSource = { _tag: "Custom", primary: exercise.muscleGroups }
+  return Option.match(exercise.catalogId, {
+    onNone: () => custom,
+    onSome: (catalogId) =>
+      Option.match(findCatalogExercise(catalogId), {
+        onNone: () => custom,
+        onSome: (entry): ExerciseMapSource => ({
+          _tag: "Catalog",
+          catalogId,
+          primary: entry.primaryMuscles,
+          secondary: entry.secondaryMuscles,
+        }),
+      }),
   })
+}
 
 /** The spoken label of a card (design §6). */
 export const activityLabel = (activity: Activity): string => {

@@ -295,8 +295,9 @@ describe("Activity schema", () => {
       wset(BENCH.id, 80, 8, at(1)),
       wset(BENCH.id, 85, 8, at(5), true),
       wset(PULLUP.id, 0, 6, at(9)),
+      wset(CUSTOM.id, 60, 8, at(12)),
     ],
-    exercises: exercises(BENCH, PULLUP),
+    exercises: exercises(BENCH, PULLUP, CUSTOM),
     plannedTitle: Option.some(Label.make("Push day")),
     session: session(Option.some(at(40))),
   })

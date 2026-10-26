@@ -211,3 +211,14 @@ describe("exerciseMapSource", () => {
     })
   })
 })
+
+describe("exerciseMapSource, stale catalog link", () => {
+  it("a catalogId the catalog lacks draws the row's muscle groups, like the hero map", () => {
+    const stale = Schema.decodeUnknownSync(ActivityExercise)({
+      ...exercise(1),
+      catalogId: "no-such-catalog-entry",
+      muscleGroups: ["calves"],
+    })
+    expect(exerciseMapSource(stale)).toEqual({ _tag: "Custom", primary: ["calves"] })
+  })
+})
