@@ -151,7 +151,7 @@ export interface TodayRepoShape {
    * live set started that long ago is soft-deleted only if it was never pushed (`_dirty` = 1).
    * `updatedAt` bumped, dirty, one batch; no write (and no `StoreEvents` bump) when nothing is
    * stale. Returns how many sessions it changed. Called only by `SyncEngine` (after a complete
-   * pull, and at `background` start), never from a Today read.
+   * pull only), never at startup or from a Today read.
    */
   readonly finishStaleSessions: (now: DateTime.Utc) => Effect.Effect<number, StoreError>
 }

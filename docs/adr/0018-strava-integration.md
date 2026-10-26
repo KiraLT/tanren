@@ -97,8 +97,9 @@ sessions exported). Today sessions are finished by an explicit "Finish workout" 
 (`TodayRepo.finishSession`: `finishedAt` = now, `updatedAt` bumped, pushed as an LWW update of the
 existing row); the next set opens a new session. The export predicate is unchanged (`finishedAt`
 Some on an accepted session change, §4). Auto-finish (AUTO-FIN, same evening; moved by REV-AF):
-after every complete sync pull and once when the sync loop starts (never from a Today read, which
-can land between pull pages), an open session whose last live set is more than 3 h old is finished
+only after a complete sync pull (never at startup, where an un-pulled device could give an
+already-finished session an earlier `finishedAt`, and never from a Today read, which can land
+between pull pages), an open session whose last live set is more than 3 h old is finished
 at that set's `loggedAt` (so it exports with its real duration), and one with no live set is
 soft-deleted only if it was never pushed. A session whose `finishedAt` is more than
 `EXPORT_BACKFILL_HOURS` (48) before the push that completes it is not queued for Strava (no

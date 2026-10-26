@@ -39,9 +39,10 @@ import { SyncTransport, type TransportError } from "./SyncTransport"
 import { TodayRepo } from "./TodayRepo"
 
 /**
- * AUTO-FIN (ADR-0018, REV-AF): closes stale open sessions. Runs only where no pull page can be
- * half-applied: right after `pullLoop` has landed every page, and once when `background` starts
- * (under the sync lock, before its first round). `TodayRepo` is read from the caller's context
+ * AUTO-FIN (ADR-0018, REV-AF): closes stale open sessions, only right after `pullLoop` has landed
+ * every page in `syncOnce` (never at startup: before its first pull a device may hold a session
+ * another device already finished, and would give it an earlier `finishedAt`; offline nothing
+ * closes until a pull succeeds). `TodayRepo` is read from the caller's context
  * (`serviceOption`): the app runtime has it; engine-only tests do not, and then this is a no-op.
  * A failure is logged and never fails the sync.
  */
@@ -346,11 +347,7 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
         syncOnceExclusive,
         rekeyLocalUser,
         requestSync: Queue.offer(wake, undefined).pipe(Effect.asVoid),
-        // Startup close under the lock: no pull can be running, so none is half-applied.
-        background: (report) =>
-          lock
-            .withPermits(1)(closeStaleSessions)
-            .pipe(Effect.andThen(Effect.forever(round(report)))),
+        background: (report) => Effect.forever(round(report)),
       })
     }),
   )
