@@ -62,3 +62,10 @@ export const setLine = (exercise: ActivityExercise): string => {
       : [low === high ? `RPE ${rpeText(low)}` : `RPE ${rpeText(low)}–${rpeText(high)}`]
   return [...sets, ...rpe].join(" · ")
 }
+
+/** Four tiles of `title2` ("4,230 kg") plus card padding need about 104 px each: 4 x 104 + 3 x 12 gaps. */
+const FOUR_TILES_MIN_WIDTH = 480
+
+/** Tiles per row for a column of this inner width: 4 when they fit, else a 2 x 2 grid. */
+export const tilesPerRow = (innerWidth: number): 2 | 4 =>
+  innerWidth >= FOUR_TILES_MIN_WIDTH ? 4 : 2

@@ -157,7 +157,8 @@ const FREE_TITLE = "Workout"
 const millisBetween = (from: DateTime.Utc, to: DateTime.Utc): number =>
   DateTime.toEpochMillis(to) - DateTime.toEpochMillis(from)
 
-const wholeSeconds = (millis: number): number => Math.floor(millis / 1000)
+/** Whole seconds, never negative (clock skew can put `finishedAt` before `startedAt`). */
+const wholeSeconds = (millis: number): number => Math.max(0, Math.floor(millis / 1000))
 
 const muscleOrder: Order.Order<MuscleGroup> = Order.mapInput(Order.Number, (muscle: MuscleGroup) =>
   MuscleGroup.literals.indexOf(muscle),

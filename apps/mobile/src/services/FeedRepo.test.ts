@@ -3,7 +3,7 @@ import { SessionId, SyncChange } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
-import { FEED_PAGE, FeedRepo } from "./FeedRepo"
+import { clampLimit, FEED_PAGE, FeedRepo, MAX_FEED_LIMIT } from "./FeedRepo"
 import { LocalStore } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
@@ -174,6 +174,21 @@ const seeded = Effect.gen(function* () {
 
 const feed = (limit: number) => FeedRepo.use((repo) => repo.activities(limit))
 
+describe("clampLimit", () => {
+  it("floors, clamps below at 0 and above at MAX_FEED_LIMIT", () => {
+    const cases: ReadonlyArray<readonly [number, number]> = [
+      [0, 0],
+      [-3, 0],
+      [20, 20],
+      [MAX_FEED_LIMIT, MAX_FEED_LIMIT],
+      [MAX_FEED_LIMIT + 1, MAX_FEED_LIMIT],
+      [1e9, MAX_FEED_LIMIT],
+      [2.7, 2],
+    ]
+    expect(cases.map(([input]) => clampLimit(input))).toEqual(cases.map(([, expected]) => expected))
+  })
+})
+
 describe("FeedRepo.activities", () => {
   it.effect("is empty on an empty store", () =>
     Effect.gen(function* () {
@@ -196,6 +211,19 @@ describe("FeedRepo.activities", () => {
       expect((yield* feed(2)).map((a) => a.sessionId)).toEqual([S_OPEN, S_PROGRAM])
       expect(yield* feed(0)).toEqual([])
       expect(yield* feed(-3)).toEqual([])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("a limit far above MAX_FEED_LIMIT still returns a small store whole", () =>
+    Effect.gen(function* () {
+      yield* seeded
+      expect((yield* feed(10_000)).map((a) => a.sessionId)).toEqual([
+        S_OPEN,
+        S_PROGRAM,
+        S_C,
+        S_B,
+        S_A,
+      ])
     }).pipe(Effect.provide(TestLayer)),
   )
 

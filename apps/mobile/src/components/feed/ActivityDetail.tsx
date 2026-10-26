@@ -79,64 +79,103 @@ function ExerciseEntry({ exercise }: { readonly exercise: ActivityExercise }) {
   )
 }
 
+interface ActivityPieceProps {
+  readonly activity: Activity
+}
+
+/** Title and date line, with the pills row under it unless the caller places the pills itself. */
+export function ActivityHead({
+  activity,
+  withPills = true,
+}: ActivityPieceProps & { readonly withPills?: boolean }) {
+  return (
+    <View style={{ gap: space.sm }}>
+      <View>
+        <Text variant="display" accessibilityRole="header">
+          {activity.title}
+        </Text>
+        <Text variant="caption" tone="muted">
+          {dateLine(activity)}
+        </Text>
+      </View>
+      {withPills ? <Pills activity={activity} /> : null}
+    </View>
+  )
+}
+
+/** The hero muscle map (front and back), one labelled image. */
+export function ActivityMuscles({ activity }: ActivityPieceProps) {
+  return (
+    <View
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={musclesLabel(activity.muscles.primary, activity.muscles.secondary)}
+      style={{ alignItems: "center" }}
+    >
+      <MuscleMap
+        primary={activity.muscles.primary}
+        secondary={activity.muscles.secondary}
+        size={HERO_MAP_SIZE}
+        view="both"
+      />
+    </View>
+  )
+}
+
+/** Duration, Volume, Sets and PRs tiles, `perRow` to a row (2 x 2 stacked, 4 x 1 wide). */
+export function ActivityTiles({
+  activity,
+  perRow,
+}: ActivityPieceProps & { readonly perRow: 2 | 4 }) {
+  const rows = Arr.chunksOf(detailTiles(activity), perRow)
+  return (
+    <View style={{ gap: space.md }}>
+      {Arr.map(rows, (row) => (
+        <View key={row[0].caption} style={{ flexDirection: "row", gap: space.md }}>
+          {Arr.map(row, (tile) => (
+            <Card key={tile.caption} style={{ flex: 1, flexBasis: 0, minWidth: 0 }}>
+              <Text variant="title2" tabular numberOfLines={1}>
+                {tile.value}
+              </Text>
+              <Text variant="label" tone="muted" numberOfLines={1}>
+                {tile.caption}
+              </Text>
+            </Card>
+          ))}
+        </View>
+      ))}
+    </View>
+  )
+}
+
+/** The "Exercises" group: one row per exercise with its set line. */
+export function ActivityExercises({ activity }: ActivityPieceProps) {
+  return (
+    <View style={{ gap: space.sm }}>
+      <Text variant="headline" accessibilityRole="header">
+        Exercises
+      </Text>
+      <ListGroup inset="thumb">
+        {Arr.map(activity.exercises, (exercise) => (
+          <ExerciseEntry key={exercise.exerciseId} exercise={exercise} />
+        ))}
+      </ListGroup>
+    </View>
+  )
+}
+
 /**
- * One workout in full (docs/design/feed.md §4): head, muscle map, 2 x 2 stat tiles and the
- * exercises with their set lines. `layout="split"` is wired by FEED-6; both render stacked for now.
+ * One workout in full (docs/design/feed.md §4). `stacked`: head, muscle map, 2 x 2 stat tiles and
+ * the exercises. `split` (the Feed aside, a 632 px column): the same pieces with the four tiles in
+ * one row.
  */
-export function ActivityDetail({ activity }: ActivityDetailProps) {
-  const rows = Arr.chunksOf(detailTiles(activity), 2)
+export function ActivityDetail({ activity, layout }: ActivityDetailProps) {
   return (
     <View style={{ gap: space.lg }}>
-      <View style={{ gap: space.sm }}>
-        <View>
-          <Text variant="display" accessibilityRole="header">
-            {activity.title}
-          </Text>
-          <Text variant="caption" tone="muted">
-            {dateLine(activity)}
-          </Text>
-        </View>
-        <Pills activity={activity} />
-      </View>
-      <View
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={musclesLabel(activity.muscles.primary, activity.muscles.secondary)}
-        style={{ alignItems: "center" }}
-      >
-        <MuscleMap
-          primary={activity.muscles.primary}
-          secondary={activity.muscles.secondary}
-          size={HERO_MAP_SIZE}
-          view="both"
-        />
-      </View>
-      <View style={{ gap: space.md }}>
-        {Arr.map(rows, (row) => (
-          <View key={row[0].caption} style={{ flexDirection: "row", gap: space.md }}>
-            {Arr.map(row, (tile) => (
-              <Card key={tile.caption} style={{ flex: 1, flexBasis: 0, minWidth: 0 }}>
-                <Text variant="title2" tabular numberOfLines={1}>
-                  {tile.value}
-                </Text>
-                <Text variant="label" tone="muted" numberOfLines={1}>
-                  {tile.caption}
-                </Text>
-              </Card>
-            ))}
-          </View>
-        ))}
-      </View>
-      <View style={{ gap: space.sm }}>
-        <Text variant="headline" accessibilityRole="header">
-          Exercises
-        </Text>
-        <ListGroup inset="thumb">
-          {Arr.map(activity.exercises, (exercise) => (
-            <ExerciseEntry key={exercise.exerciseId} exercise={exercise} />
-          ))}
-        </ListGroup>
-      </View>
+      <ActivityHead activity={activity} />
+      <ActivityMuscles activity={activity} />
+      <ActivityTiles activity={activity} perRow={layout === "split" ? 4 : 2} />
+      <ActivityExercises activity={activity} />
     </View>
   )
 }

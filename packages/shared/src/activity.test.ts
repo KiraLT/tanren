@@ -154,6 +154,16 @@ describe("buildActivity", () => {
     expect(built({ sets: [wset(BENCH.id, 80, 8, at(1))] }).durationSeconds).toEqual(Option.none())
   })
 
+  it("durationSeconds is zero when finishedAt is before startedAt (clock skew)", () => {
+    const before = DateTime.makeUnsafe(Date.UTC(2026, 9, 19, 7, 59, 0))
+    // The Session schema rejects this order, so build it unchecked (what a skewed row would be).
+    const skewed = new Session(
+      { ...session(), finishedAt: Option.some(before) },
+      { disableChecks: true },
+    )
+    expect(built({ session: skewed }).durationSeconds).toEqual(Option.some(0))
+  })
+
   it("durationSeconds floors to whole seconds", () => {
     const finished = DateTime.makeUnsafe(Date.UTC(2026, 9, 19, 8, 0, 59, 999))
     expect(built({ session: session(Option.some(finished)) }).durationSeconds).toEqual(

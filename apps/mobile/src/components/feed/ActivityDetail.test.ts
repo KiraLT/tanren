@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Activity, ActivityExercise } from "@tanren/shared"
 import { Schema } from "effect"
-import { dateLine, detailTiles, exerciseSubtitle, musclesLabel, setLine } from "./detailText"
+import {
+  dateLine,
+  detailTiles,
+  exerciseSubtitle,
+  musclesLabel,
+  setLine,
+  tilesPerRow,
+} from "./detailText"
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 
@@ -175,5 +182,17 @@ describe("dateLine", () => {
   it("adds the end time (start + duration) when it is known", () => {
     const line = dateLine(activityOf({ durationSeconds: 2880 }))
     expect(line).toMatch(/^Mon 26 Oct · \d{2}:\d{2} – \d{2}:\d{2}$/)
+  })
+})
+
+describe("tilesPerRow", () => {
+  it("puts the four tiles in one row in the 632 px desktop column and the 480 px minimum", () => {
+    expect(tilesPerRow(632)).toBe(4)
+    expect(tilesPerRow(480)).toBe(4)
+  })
+
+  it("falls back to a 2 x 2 grid in the 344 px column of a 900 px window", () => {
+    expect(tilesPerRow(344)).toBe(2)
+    expect(tilesPerRow(479)).toBe(2)
   })
 })

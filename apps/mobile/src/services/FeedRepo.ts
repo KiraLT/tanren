@@ -30,6 +30,13 @@ export interface FeedRepoShape {
 
 export const FEED_PAGE = 20
 
+/** Upper bound on `activities(limit)`: IN-list size and per-write cost. */
+export const MAX_FEED_LIMIT = 500
+
+/** A whole number in `[0, MAX_FEED_LIMIT]`. */
+export const clampLimit = (limit: number): number =>
+  Math.min(MAX_FEED_LIMIT, Math.max(0, Math.floor(limit)))
+
 type MarkedSet = WorkoutSet & { readonly isPr: boolean }
 
 interface ProgramLink {
@@ -91,7 +98,8 @@ export class FeedRepo extends Context.Service<FeedRepo, FeedRepoShape>()("@tanre
              WHERE "deletedAt" IS NULL AND "sessionId" IN (${placeholders(ids)}))`,
             ...ids,
           )
-          const marked = markByExercise(history).filter((set) => ids.includes(set.sessionId))
+          const pageIds = new Set<string>(ids)
+          const marked = markByExercise(history).filter((set) => pageIds.has(set.sessionId))
           const bySession = Arr.groupBy(marked, (set): string => set.sessionId)
 
           // Deleted exercises are read too: they still name their old sets.
@@ -155,7 +163,7 @@ export class FeedRepo extends Context.Service<FeedRepo, FeedRepoShape>()("@tanre
           .all(
             q(
               `${FEED_SESSION} ORDER BY ws."startedAt" DESC, ws."id" DESC LIMIT ?`,
-              Math.max(0, Math.floor(limit)),
+              clampLimit(limit),
             ),
           )
           .pipe(Effect.flatMap(decodeRecords(SessionRow)), Effect.flatMap(assemble))

@@ -2,9 +2,29 @@ import { SessionId } from "@tanren/shared"
 import { Match, Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { View } from "react-native"
-import { ActivityDetail } from "../../src/components/feed/ActivityDetail"
+import { Pills } from "../../src/components/feed/ActivityCard"
+import {
+  ActivityDetail,
+  ActivityExercises,
+  ActivityHead,
+  ActivityMuscles,
+  ActivityTiles,
+} from "../../src/components/feed/ActivityDetail"
+import { tilesPerRow } from "../../src/components/feed/detailText"
 import { useActivity } from "../../src/hooks/useFeed"
-import { AppBar, EmptyState, IconButton, Page, radius, Skeleton, space } from "../../src/ui"
+import {
+  AppBar,
+  Columns,
+  EmptyState,
+  gutter,
+  IconButton,
+  Page,
+  radius,
+  Skeleton,
+  space,
+  useBreakpoint,
+  useColumns,
+} from "../../src/ui"
 
 const NOT_FOUND = (
   <EmptyState
@@ -32,15 +52,22 @@ function ActivityPage({
   readonly back: () => void
 }) {
   const { state } = useActivity(sessionId)
+  const desktop = useBreakpoint() === "desktop"
+  // Main column's inner width, a safe under-estimate of `Columns`' own (632 at 1280, 340 at 900:
+  // below 1024 the split is 6/6 and four tiles would truncate, so they go 2 x 2).
+  const mainInner = useColumns("7/5").main - 2 * gutter.desktop
   const title = Match.value(state).pipe(
     Match.tag("Ready", ({ value }) =>
       Option.match(value, { onNone: () => "Activity", onSome: (a) => a.title }),
     ),
     Match.orElse(() => "Activity"),
   )
+  // Only a Ready activity is wide; Loading, Failed and not-found stay one 600 column.
+  const ready = state._tag === "Ready" && Option.isSome(state.value)
   return (
     <Page
       scroll
+      wide={ready}
       header={
         <AppBar
           title={title}
@@ -57,7 +84,29 @@ function ActivityPage({
           Ready: ({ value }) =>
             Option.match(value, {
               onNone: () => NOT_FOUND,
-              onSome: (activity) => <ActivityDetail activity={activity} layout="stacked" />,
+              onSome: (activity) =>
+                desktop ? (
+                  <Columns
+                    split="7/5"
+                    main={
+                      <View style={{ gap: space.lg }}>
+                        <ActivityHead activity={activity} withPills={false} />
+                        <ActivityTiles activity={activity} perRow={tilesPerRow(mainInner)} />
+                        <ActivityExercises activity={activity} />
+                      </View>
+                    }
+                    side={
+                      <View style={{ gap: space.lg }}>
+                        <ActivityMuscles activity={activity} />
+                        <View style={{ alignItems: "center" }}>
+                          <Pills activity={activity} />
+                        </View>
+                      </View>
+                    }
+                  />
+                ) : (
+                  <ActivityDetail activity={activity} layout="stacked" />
+                ),
             }),
         }),
       )}

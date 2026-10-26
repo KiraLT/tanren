@@ -95,7 +95,7 @@ export default function ProgressScreen() {
   })
 
   const exerciseList = (items: ReadonlyArray<ExerciseSummary>) => (
-    <ListGroup>
+    <ListGroup inset="thumb">
       {Arr.map(items, (summary) => (
         <ExerciseRow
           key={summary.exercise.id}

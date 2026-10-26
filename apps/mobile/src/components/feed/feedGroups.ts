@@ -55,6 +55,7 @@ const WEEKDAY_BY_INDEX: ReadonlyArray<Weekday> = ["sun", "mon", "tue", "wed", "t
 
 /** "26 Oct" in the zone of `at` (same text as `formatLoggedDate`, zone-explicit). */
 export const formatDate = (at: DateTime.Zoned): string =>
+  // `formatIsoDate` output always parses as a `LocalDate`.
   formatDayDate(LocalDate.make(DateTime.formatIsoDate(at)))
 
 /** "Sat 26 Oct · 18:40". */
@@ -113,7 +114,8 @@ const labelFor = (key: string, thisWeek: string): string =>
     ? "This week"
     : key === shiftDate(thisWeek, -7)
       ? "Last week"
-      : `Week of ${formatDayDate(LocalDate.make(key))}`
+      : // `key` is `weekStartOf` output (a `formatIsoDate`), which always parses.
+        `Week of ${formatDayDate(LocalDate.make(key))}`
 
 const summaryFor = (items: ReadonlyArray<Activity>): string => {
   const volume = Arr.reduce(items, 0, (total, item) => total + item.volumeKg)

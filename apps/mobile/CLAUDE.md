@@ -32,7 +32,7 @@ src/
               Forge (docs/design/ui-direction-final.md): `controls.ts` pure style tables (+ test), `iconPaths.ts`
               glyph table, ListGroup (+ `useGrouped`), ToggleChip, ProgressRing, SegmentBar, SetDots; fonts Barlow
               Condensed 700/800 (`assets/fonts/`, `useFonts` in `app/_layout.tsx`)
-  services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, StoreEvents,
+  services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, FeedRepo, StoreEvents,
               CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
               HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
               pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf),
@@ -47,7 +47,7 @@ src/
   illustrations/ imagePrompt (pure half of the generator), images.ts (generated map), muscleMap/
   components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
               PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
-              planWeekFixture (tests only); built on `src/ui`
+              planWeekFixture (tests only), feed/; built on `src/ui`
 scripts/     generateIllustrations, shrinkImages, imageMap, contactSheet, muscleMapSheet, resolveTs
 assets/illustrations/  <catalogId>.webp (512x512) + style.md
 public/_headers (COOP/COEP, copied into dist/ by `expo export`)
@@ -257,7 +257,7 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   `components/settings/integrationsCopy.ts`; the service layer is provided per call, not in `runtime.ts`).
 - `HistoryRepo` (`src/services/HistoryRepo.ts`): local store only, live rows only, 8 Monday-based weeks;
   a PR is a set that strictly beats every earlier set.
-- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`). `useHistory` (`src/hooks`): the Progress screens' hook over `HistoryRepo` (exercises + one exercise's history; session lists are `FeedRepo`'s).
+- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`) (PR math re-exported from `@tanren/shared`). `useHistory` (`src/hooks`): the Progress screens' hook over `HistoryRepo` (exercises + one exercise's history; session lists are `FeedRepo`'s).
 - `chartGeometry` (`src/components/progress/`): pure geometry for the hand-rolled `react-native-svg`
   charts (`WeekBars`, `Sparkline`); no chart library.
 - `Account` (`src/services/Account.ts`): `session`, `signOut`, `forgetOwner`.
@@ -289,9 +289,15 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   falls back to `/feed`; the old Sessions segment is gone).
 - Data: `Activity` / `buildActivity` live in `@tanren/shared` (`activity.ts`); `FeedRepo`
   (`src/services/FeedRepo.ts`: `activities(limit)`, `activity(id)`, PR marking per exercise) over
-  `useFeed` (`src/components/feed/useFeed.ts`, built on `useStoreRead` from `useHistory`).
-- UI: `src/components/feed/` (`feedGroups`, `ActivityCard`, `ActivityDetail`, `detailText`).
+  `useFeed` / `useActivity` (`src/hooks/useFeed.ts`, built on `useStoreRead` from `useHistory`).
+- UI: `src/components/feed/` (`feedGroups`, `ActivityCard`, `ActivityDetail` + its pieces
+  `ActivityHead/Muscles/Tiles/Exercises`, `detailText`, `feedSelection`).
   `HistoryRepo` serves only Progress (`exercises`, `exercise`).
+- Desktop: Feed is `Page aside split="5/7"` (card press selects, `effectiveActivity` = pick or newest;
+  an in-progress card still opens `/today`); the aside is only built when the feed is Ready with
+  items, so Loading/Empty/Failed stay one 600 column. `ActivityDetail layout="split"` shows four tiles
+  in a row when the column is >= 480 inner (`tilesPerRow`), else 2x2 (below 1024 every split is 6/6).
+  `/activity/[sessionId]` is `Page wide` + `Columns 7/5` from the same pieces at desktop.
 
 ## Status
 
