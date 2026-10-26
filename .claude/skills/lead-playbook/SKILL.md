@@ -186,7 +186,8 @@ When the owner rejects a design ("does not look designed"), a fable architect re
 clearly different directions of the same two screens as HTML mockups at 390 and one contact
 sheet (UI-B, 5 min). The sheet carries **one merge candidate** and the question is "a letter,
 or merge X + Y?": the Forge pick was a merge and cost a second mockup round (UI-C, 11.7 of the
-37 min from pick to proof). Architect boxes for mockup tasks: 15 min, not 25–30. The merged
+37 min from pick to proof). Architect boxes: 15 min for one deliverable plus 5 per further deliverable (ADR, design doc,
+sheet with briefs — LAND-0 had four and ran 25 on a 15 box), not 25–30 for a single mockup. The merged
 spec carries width arithmetic per row at 390 and every prop the mockup rows need, so no
 primitive-gap task (UI-1d) follows.
 
@@ -225,7 +226,9 @@ a fixable contract: switch to company mode (`docs/dev-system.md` §11).
    plan. 2. One engineer does the foundation (contracts in `packages/shared`,
    deps installed, stubs compile). 3. Spawn one `team-lead` per team
    (`opus`; `fable` for the hardest contract) in a single message, each with
-   its charter. 4. Read team reports, not diffs. 5. One integration engineer
+   its charter. 4. Read team reports, not diffs (at a sonnet team-lead's first interim, check
+its sheet Log has a line per dispatch; empty → send it back for the Log before
+anything else — desktop r3 ended with an empty Log). 5. One integration engineer
    wires the teams together and runs the full gate; cross-team `reviewer`;
    `qa`. 6. Bookkeeping and handoff as usual. You may run one stream
    yourself only when it is the foundation/critical-path stream with ≤ ~6
@@ -251,7 +254,10 @@ Time box: <sum of the task boxes on the longest dependency chain + 15 min
 A port's memory/test implementation (e.g. repos/Repositories.ts) is owned by
   whoever changes the port, even when listed under Read-only.
 Ports: web <W> / API <A> and a scratch `dist` dir for this team (ui-check
-  "Isolated stack"); never the owner's :8787/:8790.
+  "Isolated stack"); never the owner's :8787/:8790. The step sheet header
+  carries a per-session port table (one band per live stream, e.g. 8861–62
+  desktop, 8871–72 feed); a band is reused only after `ps -ef | grep "port
+  <band>"` is empty (desktop r3 and LOGO-2 collided on 8861).
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
   a missing one is a foundation gap, not a team-local file>
@@ -336,8 +342,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
 - [ ] tests: for every exported Schema — decode-ok, decode-fail with the path asserted, and a round-trip (`.claude/rules/tests.md`); plus <behaviour-specific cases>
 - [ ] runtime smoke shown in the report when the task touches an entry point, auth or an import path (worker: `wrangler dev --port <n>` + `curl`; mobile/web: `ui-check`); Node tests alone do not count
 - [ ] (bundled assets or generated files) size budget as a number + the command that measures it
-      (`du -sh apps/mobile/assets/illustrations` <= 3 MB; `wc -c` for one file) — IMG-2 read
-      "a few MB" and shipped 11 MB
+      (`du -ch apps/mobile/assets/illustrations/*.webp | tail -1` <= 3 MB — a glob of the shipped
+      files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
+      `wc -c` for one file) — IMG-2 read "a few MB" and shipped 11 MB
 - [ ] every proof names the output that would fail it; a check that cannot fail is not a criterion
       (UI-1a: `document.fonts.check('700 20px "Barlow Condensed"')` is true for any undeclared family —
       use `[...document.fonts].map(f => [f.family, f.status])`)

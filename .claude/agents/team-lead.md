@@ -34,6 +34,12 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    user is, auth, headers, ports, seed data) is a question to the Lead
    **before** you brief, not a constant an engineer invents (step 6:
    `LOCAL_USER_ID` made every push `forbidden` until an integration task).
+   The charter's ports are a proposal until probed: before the first brief
+   run `ps -ef | grep "port <W>" | grep -v grep` and `curl -s
+   localhost:<W>/health` for each; if busy, take the next free pair in the
+   same band (8897/8898 → 8899/8900), write it in the sheet header and in
+   the first interim (desktop's charter ports 8861/8862 were a live strava
+   wrangler's, 2026-10-26; the pair's capture and LOGO-2 both collided).
    A path another team holds is released the moment that team's report is
    **committed**: run `git log --oneline -3` and read its sheet instead of
    waiting for the Lead's message (mcp-oauth started T1b at 23:59 on
@@ -162,7 +168,16 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    Every round's interim to the Lead has a fixed shape: `round n ·
    per-screen scores · files changed (paths) · → <other pair> requests ·
    round n+1 items`; mobile-A's round-1 interim had no file list and the
-   Lead grepped the tree before committing. In that file list and in the
+   Lead grepped the tree before committing. A pair's hard timeout is
+   arithmetic: a round starts only when now + engineer box + capture
+   (measured 8–12 min for 14 routes × 2 widths × 2 schemes) + designer box
+   ≤ hard stop − 3 min; otherwise the final report goes out on the last
+   reviewed round. Never start a capture that cannot finish inside the box
+   and never ship code the designer has not seen as "another round":
+   desktop (2026-10-26) ran 93 min on a 90-min box, the stop passed during
+   its r6 capture and r3c landed unreviewed. The sheet Log gets a line at
+   every dispatch and every report (step 2): desktop's Log was empty at its
+   final report and the Lead reconstructed the rounds from commits. In that file list and in the
    team report's `## Files changed`, a file another live stream also edits
    (the charter names it: mobile-B's `app/settings.tsx`, "strava adds ONE
    row") carries `shared with <stream>`, and a file importing one not yet

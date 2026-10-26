@@ -32,6 +32,13 @@ an API.
    table-name literal union. Team mcp's design wrote `name: EntityName`;
    the slip was copied into `mcp.ts`, frozen, and found by the S4-T3
    engineer (one Lead re-route, one design fix mid-run).
+   Every predicate a design states on data ("a session is complete when
+   `finishedAt` is `Some`", ADR-0018 §4) names the code path that produces
+   that state — the write site found by grep (`grep -rn "finishedAt"
+   apps/mobile/src/services`) or the task that adds it; a predicate with no
+   writer is a gap, not a contract: Today sessions never received
+   `finishedAt`, so no session would ever export, and QA found it after
+   REV-3 had approved (SV-Q1 → TODAY-FIN, 2026-10-26).
    An amendment section that changes data lists every assertion the
    existing tests pin on that data (`grep -n "toEqual\|toBe\|minutes\|
    seconds" <test file>`) with its new value, and names the number in an
@@ -56,7 +63,13 @@ an API.
    case-insensitive and `Columns.tsx` next to `columns.ts` is TS1261
    (`ls apps/mobile/src/ui | tr A-Z a-z | sort | uniq -d` must print
    nothing); fix ties in any rounding rule in the spec, not in the
-   engineer's head. (b) A criterion of the form "X states stay Y" names the
+   engineer's head. (e) An image-generation table repeats the colour pin
+   inside every motif sentence, not only in a shared STYLE prefix, and its
+   done-criterion measures it (dominant stroke colour via sharp `stats()`
+   within tolerance of the hex): landing.md pinned `#64748B` once in the
+   prefix and one ILL-1 motif came back near-black until the pin was
+   repeated in the motif line (2026-10-26).
+   (b) A criterion of the form "X states stay Y" names the
    routes and the states (`Loading`, `NotFound`, `Empty`, `Failed` of
    `/progress/[id]`, `/settings/location/[id]`): "states single-column"
    let `wide` reach Loading/NotFound and became the review's one blocker.
@@ -101,7 +114,9 @@ an API.
    briefs carried the error until EQ-2 read the function: plan-web's charter said "`weekStart` is a Monday" while its own
    contract block and ADR-0007 say any weekday; the team-lead had to
    overrule the charter in its sheet. An uncited Assumes line is a question
-   for the Lead, not a fact. Before the task list, grep the master Log and
+   for the Lead, not a fact. Cite `path` + symbol or the grep that finds it,
+   never a bare line number: v4-strava's `TodayRepo.ts:304` / `:192` were
+   stale after the next commit and PROG-3 re-searched the file. Before the task list, grep the master Log and
    `docs/retro/incidents.md` for forward references to this step (`→ step
    N`, `step N:`, `OPEN`) and make each a task or an explicit "Deferred:
    <why>" charter line: the step-7 charter (23:03–23:16) missed the sign-in
@@ -139,7 +154,12 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
 
 ## Time box
 
-Default 15 minutes of work. Never spawn or wait on a spike or spike: mark what
+Default 15 minutes of work for ONE deliverable; add 5 per further deliverable
+(ADR, design note, task sheet with briefs) and write the sum in the report:
+LAND-0 (ADR + design + sheet + 4 briefs) ran 24.7 min on a 15-min box,
+BRAND-0 10 on 30. Run `date` in your first call and before the last file; at
+box − 3 min stop writing prose and hand the remaining briefs as one-line
+stubs the Lead can expand. Never spawn or wait on a spike or spike: mark what
 you could not verify as `VERIFY:` and continue; the engineer verifies against
 installed types. Designs ≤ 300 lines: engineers need exact names, fields,
 constraints and examples, not prose. ASCII mockups count: at most one per

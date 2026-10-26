@@ -42,7 +42,8 @@ ab eval 'fetch("http://localhost:8787/api/auth/get-session",{credentials:"includ
 ab find role button click --name "Log set 1: …"
 ab network requests --filter push             # the push request is the evidence; `--filter sync` for both
 ab eval 'fetch("http://localhost:8787/sync/pull",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({since:null,limit:500})}).then(r=>r.text())'   # the set row is in `changes`
-ab close; kill $(cat $S/<task>-wrangler.pid) $(cat $S/<task>-expo.pid)
+ab close; for f in $S/<task>-wrangler.pid $S/<task>-expo.pid; do P=$(cat $f); [ "${P:-0}" -gt 1 ] && kill "$P"; done
+# guard: a pid file holding `0` or nothing turns this into `kill 0`, which kills your own shell and every job in it (mobile-B capture engineer, 2026-10-26)
 ```
 
 Facts: `localhost:8081` and `localhost:8787` are the same site, so the SameSite=Lax session cookie rides
@@ -110,10 +111,22 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   `git status --short | wc -l` (dirty count). When two streams change layout at once (2026-10-26: the
   desktop pair moved the page width while FEED-5 measured 696), compare only runs on the same commit, or
   name the commits between them and route the diff to their author; it is drift, not a defect.
-  One `Commit:` per capture run: read `rev-parse` before the first shot and again after the last; the
-  Lead commits every few minutes, so when the two differ (LOGO-2's light and dark sign-in shots carried two
-  shas, 2026-10-26) report both with the file where it changed, or re-shoot the earlier files on the later
-  sha — never one sha for a mixed set.
+  One `Commit:` per capture run, taken when the CONTENT is fixed, not when the shot is taken: for an
+  exported build run `git rev-parse --short HEAD` + `git status --short | wc -l` once at export time, write
+  it to `$S/<task>-dist/COMMIT` and copy it into every file name — the dist is immutable, and the Lead's
+  commits during the run (LOGO-2, PROG-3, LAND-1 all saw HEAD move mid-capture, 2026-10-26) change labels,
+  not pixels, so ignore them and never report two shas for one set. For a dev-server run (hot reload) stamp
+  at start and compare `git status --short | md5` before and after: a changed tree (another engineer's edit)
+  is a re-shoot; a changed sha alone is not.
+- Session check per batch (desktop pair r6, 2026-10-26: the capture lost its cookie and shot the sign-in
+  form on every route, and the designer scored it): before each route batch
+  `ab eval 'fetch("http://localhost:$W/api/auth/get-session",{credentials:"include"}).then(r=>r.text())'`
+  must return a user; a PNG showing the sign-in form on a route other than `/sign-in` is a capture failure —
+  re-sign-in and re-shoot, never hand it over. Capture scripts in `$S` start with `#!/bin/zsh` (the desktop
+  harness broke under `sh`).
+- `ui-measure.js` `docH` (`documentElement.scrollHeight`) equals the viewport height on every route whose
+  ScrollView scrolls (RNW pins the body to 100 %), so it proves nothing about page length (LAND-1,
+  2026-10-26). Read the scrolling column's `scrollHeight` (`contentH`) instead; desktop r4 adds the probe.
 - Dev-server data states (team feed / FEED-X, 2026-10-26): after ADR-0019 an empty store redirects to
   `/sign-in`, so a dev-server capture needs either `EXPO_PUBLIC_DEV_USER_ID=<uuid>` at start or a sign-in
   against a local worker (the exported-build recipe above). Done activities without a worker: Programs →
