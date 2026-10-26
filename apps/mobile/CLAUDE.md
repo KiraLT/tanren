@@ -193,7 +193,8 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   `MuscleMap` (front view) with the entry's primary/secondary muscles when the id has no file
   (`MISSING_MUSCLE_MAPS` is empty since IMG-6: 291 of 291; a map text-to-image paints wrongly is redone with
   `muscle:generate --out <dir> --catalog <id> --reference <goodId|auto>`, an `/v1/images/edits` recolour of a
-  good map, and the account needs `MUSCLE_EDIT_MODEL=gpt-image-1.5` there since `gpt-image-1` 400s on edits); used in
+  good map; edits default to `gpt-image-1.5` (override `MUSCLE_EDIT_MODEL`) because `gpt-image-1` is refused on
+  `/v1/images/edits` for this account, probed 2026-10-26); used in
   `CatalogHero` (160 px slot) and the Progress exercise detail (176 px). `ExerciseIllustration`'s fallback tile
   is `surfaceRaised` inside a `ListGroup` (`useGrouped()` from `src/ui`).
 - The body diagram is `src/illustrations/muscleMap/` (front/back silhouettes, 22 regions, primary and

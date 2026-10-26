@@ -63,8 +63,12 @@ class MapFailed extends Data.TaggedError("MapFailed")<{
 /** Committed good maps: the reference-edit inputs (`--reference`). */
 const mapsDir = join(dirname(fileURLToPath(import.meta.url)), "..", M.MUSCLE_MAP_DIR)
 
-/** Edits model; `MUSCLE_EDIT_MODEL` overrides it (the account may not offer `gpt-image-1` there). */
-const EDIT_MODEL = process.env.MUSCLE_EDIT_MODEL ?? P.IMAGE_MODEL
+/**
+ * Edits model. `gpt-image-1` is refused on `/v1/images/edits` for this account (400 "model does not
+ * exist", probed 2026-10-26), `gpt-image-1.5` works; `MUSCLE_EDIT_MODEL` overrides it. Text mode
+ * stays on `P.IMAGE_MODEL`.
+ */
+const EDIT_MODEL = process.env.MUSCLE_EDIT_MODEL ?? "gpt-image-1.5"
 
 /** Reference catalog id for one map: the `--reference` id, or (auto) the best-overlapping good map. */
 const referenceFor = (entry: (typeof maps)[number]): Option.Option<string> =>
