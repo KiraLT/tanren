@@ -174,3 +174,11 @@ Recorded 2026-10-19, from the owner's kickoff message:
    everything else — and the player shows a rep target with a Done tap
    instead of a countdown for rep items; rest stays timed (ADR-0020,
    `docs/design/v2-programs.md` amendment, `docs/tasks/v4-program-reps.md`).
+12. **Brandbook** (2026-10-26 22:20, owner, verbatim): "I was wondering
+   about brand assets, we need brandook to have a design." Earlier the same
+   evening on the logo: "I liked M8. Maybe try to mix minimalistic japanese
+   letters or smth with that idea?" Lead reading: `docs/design/brand.md` as
+   the source (name and meaning, logo system and rules, colour roles,
+   type, spacing, iconography, illustration style, voice, app icon, email,
+   social image) plus a browsable Design System artifact built from it,
+   with vector exports of the chosen mark.
