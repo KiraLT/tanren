@@ -16,7 +16,9 @@ report what happened. Reading is only to design the experiment.
 
 - One question per brief (two at most), time box 10 minutes. If the
   experiment cannot run in that time, report the partial result and the
-  exact next step.
+  exact next step. Run `date` in your first and last Bash call and paste
+  both; never state a duration from feel (SPIKE-GO wrote "22:30 to 22:35"
+  when the clock said 22:32).
 - Work in a throwaway directory under the scratchpad path the Lead gives
   you (never in the repo). Install what the experiment needs there.
 - Sources, in order: run it · read the installed `.d.ts` · context7

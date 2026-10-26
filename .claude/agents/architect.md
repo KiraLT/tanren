@@ -39,6 +39,19 @@ an API.
    need (`chevron`, `tone="danger"`, `titleVariant`, `disabled`): UI-C's
    `ListRow` lacked them, three screen engineers built local workarounds, and
    closing the gap cost UI-1d plus half of UI-F1.
+   Three more checks before a spec is handed over (UI-D, 2026-10-26): (a) new
+   file names differ from their siblings by more than case — macOS APFS is
+   case-insensitive and `Columns.tsx` next to `columns.ts` is TS1261
+   (`ls apps/mobile/src/ui | tr A-Z a-z | sort | uniq -d` must print
+   nothing); fix ties in any rounding rule in the spec, not in the
+   engineer's head. (b) A criterion of the form "X states stay Y" names the
+   routes and the states (`Loading`, `NotFound`, `Empty`, `Failed` of
+   `/progress/[id]`, `/settings/location/[id]`): "states single-column"
+   let `wide` reach Loading/NotFound and became the review's one blocker.
+   (c) A `VERIFY:` whose answer changes what the owner sees (the 900-px
+   inline hero: 584 needed, 464 available) is a measured task in the table
+   with a number, not a note; UI-D's note was never run and the reviewer
+   found the squeeze.
 3. **Task breakdown** for the Lead: an ordered list where each task has an id
    (`S<step>-T<n>`), title, role, suggested model, file set, dependencies,
    interfaces, and done-criteria. Tasks must be independently briefable and

@@ -32,6 +32,15 @@ You verify Tanren changes. Trust nothing in the report; re-establish it.
    `grep -rn "DEFECT" <paths>`, and two formats in one QA pass once hid 2 of
    4 defects from that grep. List every marker in `## Breakage found`.
 5. For UI work, run the `ui-check` skill (agent-browser) and paste the snapshot lines that prove the flow; if agent-browser is not installed, say so instead of claiming the UI works.
+   Screenshots and measurements carry their **data state** and **capture recipe**: dev server with an
+   empty offline store vs the exported build signed in to the seeded local worker, colour scheme
+   (`ab set media light|dark`), viewport, `TZ` and fake-date script. Data-dependent screens (Today,
+   Plan, Library, Progress, Settings) are captured signed in to the seeded worker unless the brief says
+   otherwise; a brief that names no data state gets the seeded one and the report says so (UI-X3 shot
+   Progress/Settings from an empty store → a 10-file re-shoot). A baseline comparison is valid only
+   when both runs share the recipe: UI-DX measured dark against a light baseline and reported a 2-px
+   "drift" that was the light-mode card hairline (UI-DF2, one wasted engineer). Recipe: `ui-check`
+   skill, "Measured baselines".
 6. Re-run `pnpm check` after your changes and paste the output.
 
 Report: `## Gate` (command + result) · `## Criteria` (table: criterion ·

@@ -360,3 +360,14 @@ observe ──► retro ──► change ──► measure
 Metrics tracked per step: wall-clock, total agent time, total tokens, tasks,
 review rounds, gate failures, incidents, critical-path ratio (critical path
 ÷ wall-clock; 1.0 means nothing waited needlessly).
+
+## 13. Production operations (owner lift of 2026-10-26)
+
+The plan's "agents never deploy" held until production existed. On 2026-10-26 the owner lifted it
+for the **Lead only** ("I gave you full access to cloudflare project" / "you can do deploy.md
+instructions yourself"): the Lead runs `docs/design/deploy.md` with the Cloudflare MCP `execute`
+tool and wrangler while the owner is present to approve the `permissions.ask` prompts. Engineer,
+QA, reviewer and team-lead roles keep denying the `execute` tool and never run `wrangler
+deploy|secret|login`, `d1 … --remote`, DNS changes or `eas`. Facts learned that day live in the
+`cloudflare-workers` skill ("Production deploy facts"); the state lives in `docs/handoff.md`.
+Secrets the owner pastes into chat are set once and then rotated by the owner.

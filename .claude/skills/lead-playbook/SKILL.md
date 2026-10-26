@@ -339,10 +339,18 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       (UI-1a: `document.fonts.check('700 20px "Barlow Condensed"')` is true for any undeclared family —
       use `[...document.fonts].map(f => [f.family, f.status])`)
 - [ ] no files outside Scope changed
+- [ ] (capture / measure / screenshot tasks) `Data state: <dev-server empty store | exported build
+      signed in to the seeded worker>` and `Scheme: <light | dark | both>` stated in the brief and
+      repeated in the report; the baseline compared against was captured with the same recipe
+      (UI-X3 shot an empty store, UI-DX compared dark against a light baseline — two re-runs)
 
 ## Report
 Use the engineer report format. Include exact commands + trimmed output.
 ```
+
+The word "optional" is banned in briefs: a check is either in Done-when or
+absent (UI-D2/D3/D5 all skipped an "optional" measurement at minute 2 of a
+20-minute box; D6 ran it and found the probe bug).
 
 A good brief fits on one screen, names files, and has done-criteria a
 machine could check. If you cannot write the Interfaces section, you need
@@ -448,3 +456,28 @@ scratchpad is for in-flight files only: macOS purges `/private/tmp` files
 older than three days, which cost the 2026-10-21 review set during a
 five-day gap (incidents.md 2026-10-26). `SendUserFile` links are not a
 store either; the Artifact URL is what you quote.
+
+## Lead load limit (owner, 2026-10-26: "better split your work if you feel overwhelmed")
+
+The Lead skipped the EM loop for a whole day while running a deploy, three
+design streams and owner chat by hand. Rules that make the loop mechanical:
+- **One Lead loop only:** accept → commit → owner line → EM cadence. Every
+  other concern is a stream with its own `team-lead` (polish pairs, feed,
+  integrations, ops). The Lead never runs more than one hands-on stream
+  (today that was the deploy runbook); a second hands-on stream becomes a
+  team-lead charter before it starts.
+- **EM cadence is enforced by a hook** (`.claude/hooks/em-cadence.sh`,
+  PostToolUse on `git commit` + Stop): at ≥ 4 commits since the last
+  `docs/retro/em-log.md` entry it prints OVERDUE. On OVERDUE, dispatch the
+  engineering-manager (fable, background, the accepted reports since the
+  last pass) before any new dispatch. Name the pass in the next owner
+  update ("EM pass running / applied N edits"). Independently of the hook:
+  after every accepted batch (≥ 3 reports, an incident, or a round-2
+  review) dispatch the EM the same minute; never defer it past the day
+  (EM proposal P1, 2026-10-26).
+- **Timestamps come from `date` in the same shell command** as the log
+  append (`$(date "+%H:%M")`), never typed from memory: the Lead's typed
+  times drifted 5–10 min ahead of the clock five times on 2026-10-26.
+- **Restart recovery:** on "didn't finish before the previous session
+  ended", resume the agent by message with a fresh box; the tree keeps its
+  edits because engineers edit in place.

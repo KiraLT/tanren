@@ -91,6 +91,26 @@ without `--var MCP_RESOURCE_URL:http://localhost:$W/mcp` dev-token MCP calls are
 W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use a tall viewport
 (`set viewport 390 1600`) or `ab screenshot "<selector>" file.png` per element.
 
+## Measured baselines (`docs/design/ui-measure.js`, `docs/design/ui-columns.js`; UI-D0/DX/DF2, 2026-10-26)
+
+- Capture recipe first, in one line of the report and in each JSON's name: data state (dev server =
+  empty offline store; exported build + signed in to the seeded worker = the month of data), `ab set
+  media light` (the default agent-browser scheme is dark; `cardStyle` draws a 1 px hairline in light
+  only, so dark is 2 px wider / 1 px higher: UI-DX vs UI-D0 "drift"), viewport, `TZ`, fake date.
+  Run `ab set media light|dark` explicitly before every measurement or screenshot and put the scheme in
+  the file name (`UI-DX-settings-390-light.json`); compare only against a baseline whose name carries
+  the same scheme and recipe. The `ui-measure.js` header carries the same rule.
+- The seed week is 19–25 Oct: Today/Plan Ready need `TZ=Pacific/Kiritimati` plus an init script that
+  shifts `Date` (`ab open --init-script $S/<task>-fakedate.js`, pattern in UI-D0's Log line; keep the
+  script in `docs/design/`, not the purgeable scratchpad). Programs Ready = enrol offline, never push.
+- `ab eval` returns the probe's JSON as a quoted string: `JSON.parse` it (twice if the probe stringifies).
+- The root Stack keeps the previous screen mounted at 0×0 under a pushed route (Settings under the
+  Location editor): probes take the first *visible* match (`getBoundingClientRect().width > 0`), and
+  measure in-column overflow via `scrollWidth > clientWidth` on the column (RNW ScrollView sets
+  `overflowX: hidden`, so a squeezed row is invisible in a screenshot).
+- Baselines and screenshots the Lead or owner may ask for again go to the git-ignored
+  `docs/design/screens/` (or an Artifact), never only to `$S` (macOS purges it after 3 days).
+
 Rules: controls need `accessibilityLabel`s (that is what makes them targetable);
 report the snapshot lines that prove the behaviour, not a narrative; plain RN-web `Text`
 (muted notices, "Needs: …" lines, even with an `accessibilityLabel`) is missing from `ab snapshot`,

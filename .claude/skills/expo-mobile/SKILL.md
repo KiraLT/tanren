@@ -83,7 +83,15 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 - ui-check: `agent-browser set viewport 1280 800` switches layouts live.
   `snapshot -i` lists only interactive/labelled nodes; use plain `snapshot`
   (grep it) to see non-interactive rows (day rows, set rows, `complementary`).
-- Still open: EAS Update / Expo Go publish flow.
+- Still open: EAS Update publish flow.
+- Expo Go vs SDK (SPIKE-GO, 2026-10-21/26): the App Store Expo Go carries one SDK and lags a new
+  SDK release by weeks ("needs the latest version of Expo Go" = the store build is on the previous
+  SDK). Before the owner is asked to scan a QR, state which SDK his installed Go runs (Go → Settings
+  shows it) and either pin the catalog to that SDK or point him at `https://sign.expo.dev` (installs
+  a specific Go build with a free Apple ID, cert ≈ 7 days, inferred). Pinning to a different major
+  moves ~22 catalog entries (`expo/bundledNativeModules.json`) and the lockfile: a 20-min task, not a
+  "quick pin". After any SDK patch bump run `pnpm -F @tanren/mobile exec expo install --check` and
+  paste it; its only accepted complaint is typescript 7 vs the SDK's ~6 (ADR-0003).
 
 ## Native sign-in in Expo Go (docs/design/native-auth.md; recipe docs/design/local-dev.md §6a)
 

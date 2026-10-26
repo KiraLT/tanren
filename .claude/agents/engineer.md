@@ -115,7 +115,23 @@ Lead had to route it back through the team-lead, one extra turn each way).
    dense tool use on opus), a context limit — name it ("turn cap", never
    "time box"). At the box: stop, run the gate, and report what is done, the
    gate output, and what is left. A partial, honest report beats a late
-   perfect one; the Lead can resume you.
+   perfect one; the Lead can resume you. Every elapsed-time claim in the
+   report ("done in 3 min", "box reached") is the difference of two pasted
+   `date` lines, never an estimate (SPIKE-GO wrote "22:30 to 22:35" when
+   `date` said 22:32).
+12. "Optional" checks are not optional while the box has slack: when you
+   would report with ≥ 50 % of the box unused, run every check the brief
+   marks optional / "if time allows" (the 1280 measurement, a browser
+   smoke, an extra fixture) before reporting. UI-D2/D3/D5 each reported at
+   minute 2 of a 20-min box and skipped the optional 1280 measurement; D6
+   ran it at minute 2 and found the probe bug that would have failed UI-DX.
+   Say in `## Verification` which optional checks ran and which did not.
+13. Shell facts (every Bash call is a fresh zsh): `A="cmd --flag"; $A …`
+   fails because zsh does not word-split `$A` — write a wrapper script
+   (`$S/<task>-ab.sh`) or an array (`A=(cmd --flag); "${A[@]}" …`); never
+   `echo =x` or an unquoted `=word` argument (zsh `=cmd` expansion). Restore
+   a committed file byte-exact with `git show HEAD:<path> > <path>` (SDK-58),
+   never `git checkout` (ask list).
 
 ## Kaizen
 

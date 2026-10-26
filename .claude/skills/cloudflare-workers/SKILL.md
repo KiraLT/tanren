@@ -207,6 +207,26 @@ declares no class: `provider.ts` only calls `new OAuthProvider`.
   `global_fetch_strictly_public`. Claude uses DCR, so off is fine; decide at deploy time.
 - Local recipe and proven curl flow: `docs/design/local-dev.md` §5.
 
+## Production deploy facts (Lead-run 2026-10-26, wrangler 4.151; runbook `docs/design/deploy.md`)
+
+- `wrangler d1 create` / `wrangler kv namespace create` offer to write the new binding into the config
+  (`--update-config`, boolean, "Automatically update your config file"); accepting it rewrote
+  `wrangler.jsonc` with tabs and put the binding at top level under a wrong name. Pass
+  `--no-update-config` (or answer no), copy the printed id into `env.production` by hand, and if it
+  already rewrote: `git show HEAD:apps/worker/wrangler.jsonc > apps/worker/wrangler.jsonc` then edit
+  (DEPLOY-1).
+- Secrets before the first `deploy --env production`: `Config.ts` has a startup guard (`EMAIL_MODE
+  provider needs the RESEND_API_KEY secret`) and the upload is rejected at validation (code 10021)
+  until every required secret exists. `wrangler secret put <NAME> --env production` on a Worker that
+  does not exist yet creates a draft Worker and succeeds, so the order is secrets → migrations
+  (`wrangler d1 migrations apply <db> --remote --env production`) → deploy → curl checks → web export
+  (`EXPO_PUBLIC_API_URL=https://api.tanren.me`) → `wrangler deploy -c wrangler.web.jsonc --env production`.
+- A `curl` against a brand-new custom domain that answered NXDOMAIN once stays NXDOMAIN on that Mac
+  (resolver cache): check with `curl --resolve api.tanren.me:443:<worker IP from dig @1.1.1.1> https://…`.
+  In zsh, `R="--resolve …"; curl $R` does not word-split: write the flag inline or use an array.
+- Cert packs for new custom domains sit in `pending_validation` for minutes while the universal
+  `*.tanren.me` cert already serves; `wrangler deploy` printing the custom domain is not yet "live".
+
 ## Vendor plugin skills
 
 Worker/db engineers load `cloudflare:workers-best-practices`, `cloudflare:wrangler`,
