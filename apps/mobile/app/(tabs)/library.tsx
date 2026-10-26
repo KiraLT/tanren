@@ -34,12 +34,12 @@ export default function LibraryScreen() {
     ),
     onSome: (entry) => (
       <View style={{ flex: 1, paddingHorizontal: gutter.desktop }}>
-        <CatalogDetail key={entry.catalogId} entry={entry} />
+        <CatalogDetail key={entry.catalogId} entry={entry} inline />
       </View>
     ),
   })
   return (
-    <Page header={<AppBar title="Library" />} aside={aside}>
+    <Page header={<AppBar title="Library" />} aside={aside} split="5/7">
       <CatalogList
         entries={results}
         selected={wide ? selected : Option.none()}

@@ -8,10 +8,22 @@ import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
 import { segmentsFilled } from "../player/playerHeader"
 import { useProgramDay } from "../player/useProgramDay"
-import { AppBar, Banner, gutter, Page, SegmentBar, space, Text, useBreakpoint } from "../ui"
+import {
+  AppBar,
+  Banner,
+  gutter,
+  ListGroup,
+  ListRow,
+  Page,
+  SegmentBar,
+  space,
+  Text,
+  useBreakpoint,
+} from "../ui"
 import { clampPage, ExercisePager } from "./ExercisePager"
 import { RestTimerBar } from "./RestTimerBar"
 import { SetList } from "./SetList"
+import { sessionRows } from "./sessionOverview"
 import { TodaySetupCard } from "./TodaySetupCard"
 import { todayEyebrowOf } from "./todayHeader"
 import { needsEquipmentSetup } from "./todaySetup"
@@ -59,12 +71,18 @@ function ExerciseCounter({ index, count, name }: ExerciseCounterProps) {
 }
 
 interface TodayAsideProps {
+  readonly exercises: ReadonlyArray<TodayExercise>
+  readonly index: number
+  readonly onSelect: (index: number) => void
   readonly current: Option.Option<TodayExercise>
   readonly rest: ReactNode
 }
 
-/** Wide layout only: the current exercise's sets and the rest ring. Read-only, no log button. */
-function TodayAside({ current, rest }: TodayAsideProps) {
+/**
+ * Wide layout only: the session's exercises (press opens one in the pager), then the current
+ * exercise's sets and the rest ring. Read-only, no log button.
+ */
+function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsideProps) {
   const breakpoint = useBreakpoint()
   return (
     <View style={{ flex: 1 }}>
@@ -75,6 +93,29 @@ function TodayAside({ current, rest }: TodayAsideProps) {
           gap: space.md,
         }}
       >
+        {exercises.length === 0 ? null : (
+          <View style={{ gap: space.sm }}>
+            <Text variant="subhead" tone="muted">
+              Session
+            </Text>
+            <ListGroup>
+              {Arr.map(sessionRows(exercises, index), (row) => (
+                <ListRow
+                  key={row.index}
+                  title={row.title}
+                  titleVariant="body"
+                  disc={{ state: row.state, index: row.number }}
+                  trailing={
+                    <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
+                      {row.trailing}
+                    </Text>
+                  }
+                  onPress={() => onSelect(row.index)}
+                />
+              ))}
+            </ListGroup>
+          </View>
+        )}
         {Option.match(current, {
           onNone: () => null,
           onSome: (item) => (
@@ -142,7 +183,15 @@ export function TodayReady({ title, accessory, exercises }: TodayReadyProps) {
     <Page
       padded={false}
       header={header}
-      aside={<TodayAside current={current} rest={rest("ring")} />}
+      aside={
+        <TodayAside
+          exercises={exercises}
+          index={index}
+          onSelect={setPage}
+          current={current}
+          rest={rest("ring")}
+        />
+      }
     >
       <View style={{ flex: 1 }}>
         {setup ? (

@@ -153,6 +153,7 @@ export default function ProgressScreen() {
         />
       }
       aside={aside}
+      split="5/7"
     >
       <SegmentedControl
         options={TABS}

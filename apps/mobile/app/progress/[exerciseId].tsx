@@ -13,6 +13,7 @@ export default function ExerciseProgressScreen() {
   return (
     <Page
       scroll
+      wide
       header={
         <AppBar
           title="Progress"
@@ -24,7 +25,7 @@ export default function ExerciseProgressScreen() {
         onNone: () => (
           <EmptyState title="Exercise not found" body="This link does not point to an exercise." />
         ),
-        onSome: (validId) => <ExerciseDetail exerciseId={validId} />,
+        onSome: (validId) => <ExerciseDetail exerciseId={validId} layout="split" />,
       })}
     </Page>
   )

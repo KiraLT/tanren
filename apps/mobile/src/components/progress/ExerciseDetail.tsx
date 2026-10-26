@@ -6,6 +6,7 @@ import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import { MuscleMapImage } from "../../library/MuscleMapImage"
 import {
   Card,
+  Columns,
   EmptyState,
   ListGroup,
   ListRow,
@@ -14,6 +15,7 @@ import {
   sizes,
   space,
   Text,
+  useBreakpoint,
 } from "../../ui"
 import { illustrationIdFor } from "../todayHeader"
 import {
@@ -131,62 +133,104 @@ function RecentSessions({ history }: DetailProps) {
   )
 }
 
-function DetailReady({ history }: DetailProps) {
+export type DetailLayout = "stacked" | "split"
+
+interface DetailReadyProps extends DetailProps {
+  readonly layout: DetailLayout
+}
+
+function DetailReady({ history, layout }: DetailReadyProps) {
+  const desktop = useBreakpoint() === "desktop"
+  const header = (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+      <ExerciseIllustration
+        catalogId={illustrationIdFor(history.exercise)}
+        size={sizes.illustrationMd}
+      />
+      <Text variant="title2" accessibilityRole="header" style={{ flex: 1 }}>
+        {history.exercise.name}
+      </Text>
+    </View>
+  )
+  const muscleMap = (
+    <MuscleMapImage
+      catalogId={illustrationIdFor(history.exercise)}
+      primary={history.exercise.muscleGroups}
+      secondary={[]}
+      size={sizes.illustrationLg}
+    />
+  )
+  const bestSet = <BestSetCard history={history} />
+  const weekBars = (
+    <Card style={{ gap: space.md }}>
+      <Text variant="headline">{weekBarsHeading(weekSeries(history.weeks).unit)}</Text>
+      <WeekBars weeks={history.weeks} />
+    </Card>
+  )
+  const e1RmCard = hasE1RmTrend(history.e1RmTrend) ? (
+    <Card style={{ gap: space.md }}>
+      <Text variant="headline">Estimated 1RM</Text>
+      <Sparkline trend={history.e1RmTrend} />
+    </Card>
+  ) : null
+  if (layout === "split" && desktop) {
+    return (
+      <Columns
+        split="7/5"
+        main={
+          <View style={{ gap: space.lg }}>
+            {header}
+            {bestSet}
+            {weekBars}
+            {e1RmCard}
+          </View>
+        }
+        side={
+          <View style={{ gap: space.lg }}>
+            {muscleMap}
+            <RecentSessions history={history} />
+          </View>
+        }
+      />
+    )
+  }
   return (
     <View style={{ gap: space.lg }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
-        <ExerciseIllustration
-          catalogId={illustrationIdFor(history.exercise)}
-          size={sizes.illustrationMd}
-        />
-        <Text variant="title2" accessibilityRole="header" style={{ flex: 1 }}>
-          {history.exercise.name}
-        </Text>
-      </View>
-      <MuscleMapImage
-        catalogId={illustrationIdFor(history.exercise)}
-        primary={history.exercise.muscleGroups}
-        secondary={[]}
-        size={sizes.illustrationLg}
-      />
-      <BestSetCard history={history} />
-      <Card style={{ gap: space.md }}>
-        <Text variant="headline">{weekBarsHeading(weekSeries(history.weeks).unit)}</Text>
-        <WeekBars weeks={history.weeks} />
-      </Card>
-      {hasE1RmTrend(history.e1RmTrend) ? (
-        <Card style={{ gap: space.md }}>
-          <Text variant="headline">Estimated 1RM</Text>
-          <Sparkline trend={history.e1RmTrend} />
-        </Card>
-      ) : null}
+      {header}
+      {muscleMap}
+      {bestSet}
+      {weekBars}
+      {e1RmCard}
       <RecentSessions history={history} />
     </View>
   )
 }
 
-const renderState = Match.type<HistoryState<Option.Option<ExerciseHistory>>>().pipe(
-  Match.tagsExhaustive({
-    Loading: () => <DetailSkeleton />,
-    Failed: ({ message }) => (
-      <EmptyState icon="warning" title="Could not load this exercise" body={message} />
-    ),
-    Ready: ({ value }) =>
-      Option.match(value, {
-        onNone: () => (
-          <EmptyState title="Exercise not found" body="It is not on this device (any more)." />
-        ),
-        onSome: (history) => <DetailReady history={history} />,
-      }),
-  }),
-)
+const renderState = (layout: DetailLayout) =>
+  Match.type<HistoryState<Option.Option<ExerciseHistory>>>().pipe(
+    Match.tagsExhaustive({
+      Loading: () => <DetailSkeleton />,
+      Failed: ({ message }) => (
+        <EmptyState icon="warning" title="Could not load this exercise" body={message} />
+      ),
+      Ready: ({ value }) =>
+        Option.match(value, {
+          onNone: () => (
+            <EmptyState title="Exercise not found" body="It is not on this device (any more)." />
+          ),
+          onSome: (history) => <DetailReady history={history} layout={layout} />,
+        }),
+    }),
+  )
 
 interface ExerciseDetailProps {
   readonly exerciseId: ExerciseId
+  /** "split" is the two-column desktop composition (direct-load route); default "stacked". */
+  readonly layout?: DetailLayout
 }
 
 /** One exercise's progress: best set, 8-week volume bars, e1RM trend, recent sessions. */
-export function ExerciseDetail({ exerciseId }: ExerciseDetailProps) {
+export function ExerciseDetail({ exerciseId, layout = "stacked" }: ExerciseDetailProps) {
   const { state } = useExerciseHistory(exerciseId)
-  return renderState(state)
+  return renderState(layout)(state)
 }

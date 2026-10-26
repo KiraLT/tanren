@@ -29,11 +29,16 @@ import { MuscleMapImage } from "./MuscleMapImage"
  */
 const MAP_SIZE = 160
 const MAP_SLOT = { width: MAP_SIZE, height: sizes.illustrationLg } as const
+/** The inline (desktop aside) hero narrows the map slot to 144 so the meta column keeps 232 px. */
+const INLINE_MAP_SIZE = 144
+const INLINE_MAP_SLOT = { width: INLINE_MAP_SIZE, height: sizes.illustrationLg } as const
 
 export interface CatalogDetailProps {
   readonly entry: CatalogExercise
   /** `false` when the hero and meta render elsewhere (the desktop aside, `CatalogHero`). */
   readonly hero?: boolean
+  /** Lay the hero images and meta on one row (the Library desktop aside). */
+  readonly inline?: boolean
 }
 
 /** The muted, self-dismissing line after an add ("Added" / "Already in today's session"). */
@@ -69,7 +74,34 @@ function Meta({ icon, label }: { readonly icon: IconName; readonly label: string
  * The 176 px illustration (on the page; a raised backdrop only in dark), the muscle-map slot on the
  * right, then the meta row.
  */
-export function CatalogHero({ entry }: { readonly entry: CatalogExercise }) {
+export function CatalogHero({
+  entry,
+  inline = false,
+}: {
+  readonly entry: CatalogExercise
+  /** Desktop aside: images and the meta column share one row (176 + 16 + 144 + 16 + 232 = 584). */
+  readonly inline?: boolean
+}) {
+  if (inline) {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.lg }}>
+        <ExerciseIllustration catalogId={entry.catalogId} size={sizes.illustrationLg} />
+        <View style={{ ...INLINE_MAP_SLOT, alignItems: "center", justifyContent: "center" }}>
+          <MuscleMapImage
+            catalogId={entry.catalogId}
+            primary={entry.primaryMuscles}
+            secondary={entry.secondaryMuscles}
+            size={INLINE_MAP_SIZE}
+          />
+        </View>
+        <View accessibilityLabel="Details" style={{ flex: 1, gap: space.xs }}>
+          <Meta icon="target" label={entry.primaryMuscles.map(humanize).join(", ")} />
+          <Meta icon="dumbbell" label={equipmentLabel(entry.equipment)} />
+          <Meta icon="repeat" label={humanize(entry.kind)} />
+        </View>
+      </View>
+    )
+  }
   return (
     <View style={{ gap: space.md }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -99,7 +131,7 @@ export function CatalogHero({ entry }: { readonly entry: CatalogExercise }) {
  * Name first, the hero (unless it sits in the desktop aside), numbered-disc steps, availability at
  * the active location, and a sticky "Add to today's session" below the scrolling content.
  */
-export function CatalogDetail({ entry, hero = true }: CatalogDetailProps) {
+export function CatalogDetail({ entry, hero = true, inline = false }: CatalogDetailProps) {
   const { add, pending, outcome, dismiss } = useAddToToday()
   const location = Option.flatMap(useProfile(), activeLocation)
   const needs = needsLine(entry, location)
@@ -112,7 +144,7 @@ export function CatalogDetail({ entry, hero = true }: CatalogDetailProps) {
         <Text variant="title" accessibilityRole="header">
           {entry.name}
         </Text>
-        {hero ? <CatalogHero entry={entry} /> : null}
+        {hero ? <CatalogHero entry={entry} inline={inline} /> : null}
         <ListGroup>
           {entry.instructions.map((line, index) => (
             <ListRow
