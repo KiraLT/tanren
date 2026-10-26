@@ -135,6 +135,18 @@ it under Decisions for the Lead to ratify. Engineers do not write it.
    one review sat behind the last task). Blocking findings go back to the
    same engineer with `SendMessage`. Respect the max review rounds in the
    charter.
+   In a polish pair (engineer + fable designer per round) the cheap check
+   runs before the expensive one: the designer brief goes out only after
+   the shooting engineer's report carries the engineer.md rule 14
+   self-check (every control visible in light and dark, no truncated
+   label at 390, each measure JSON carries a label of its own screen).
+   mobile-A round 1 (2026-10-26) spent a 10-min fable round finding an
+   invisible pause disc in light, six truncated plan names and a Plan JSON
+   that was a copy of the Today JSON — all visible to whoever shot them.
+   Every round's interim to the Lead has a fixed shape: `round n ·
+   per-screen scores · files changed (paths) · → <other pair> requests ·
+   round n+1 items`; mobile-A's round-1 interim had no file list and the
+   Lead grepped the tree before committing.
 7. Spawn `qa` (model `sonnet`) with the done-criteria only if the charter
    asks for QA. Otherwise the reviewer runs the package-level gate (`monorepo`
    skill, "The gate") and quotes it; no separate QA round. `FAIL` → one more

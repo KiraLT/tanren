@@ -87,3 +87,4 @@ Per the table rows and done-criteria; SV-Q1 publishes screenshots to the review 
 
 ## Log
 - 2026-10-26 21:30 architect (STRAVA-0): ADR-0018, `docs/design/integrations.md`, this sheet. VERIFY items are in the design (§3 triggers inheritance, §4 state length and helper signatures, §6 `provider.fetch`, `start_date_local` format, PlannedSession lookup, §8 `router.setParams`, `Linking.createURL` file, Strava button asset rule).
+- 21:50 · Ownership ruling (Lead): apps/worker/scripts/deployPreflight.checks.ts (+ test) is the strava team's (SV-7/SV-8: STRAVA_MODE, client id placeholder, secrets not in vars, cron in env.production).

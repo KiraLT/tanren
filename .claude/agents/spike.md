@@ -26,6 +26,15 @@ report what happened. Reading is only to design the experiment.
   the line you relied on.
 - Version lookups (`npm view`) are the engineer's job, not yours; refuse
   briefs that are only that.
+- A brief about a third-party platform (Strava, Apple, Resend, Cloudflare
+  plan limits) always answers five lines the Lead will be asked next, even
+  when the brief did not list them: what the owner pays and must keep
+  paying (and what happens to the integration when payment stops),
+  eligibility to register, rate and quota limits with the source line,
+  terms that constrain Tanren's use of the data, and the owner's manual
+  steps. STRAVA-S (2026-10-26) settled the API in 3 min; the owner's first
+  question ("can I cancel the subscription afterwards?") needed a second
+  spike.
 - Never modify the repo except `docs/research/YYYY-MM-DD-<slug>.md` (≤ 60
   lines): question · setup (commands) · observation (output, trimmed) ·
   answer · confidence (`observed` / `inferred` / `unknown`) · what it means

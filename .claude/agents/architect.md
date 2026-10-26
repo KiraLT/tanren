@@ -35,7 +35,10 @@ an API.
    A UI spec (mockups + token deltas) carries, for every mockup row, its
    width arithmetic at 390 (gutters, gaps and slots sum <= the content width:
    UI-C's library hero put 176 + 176 into a 343 px row and IMG-5c drew the
-   map at 160), and its primitive section lists every prop the mockups' rows
+   map at 160) and its height from the primitive's own padding + line
+   heights (a two-line `ListRow` is 22 + 20 + 2·8 + 2 = 60; ui-polish §3
+   wrote 56 and the designer round spent a line correcting the spec
+   instead of the screen), and its primitive section lists every prop the mockups' rows
    need (`chevron`, `tone="danger"`, `titleVariant`, `disabled`): UI-C's
    `ListRow` lacked them, three screen engineers built local workarounds, and
    closing the gap cost UI-1d plus half of UI-F1.
@@ -55,7 +58,14 @@ an API.
 3. **Task breakdown** for the Lead: an ordered list where each task has an id
    (`S<step>-T<n>`), title, role, suggested model, file set, dependencies,
    interfaces, and done-criteria. Tasks must be independently briefable and
-   disjoint in files where they run in parallel.
+   disjoint in files where they run in parallel. A done-criterion that
+   needs a route, tab or screen to be reachable is checked against the
+   wiring task: team feed found `(tabs)/feed.tsx` (FEED-3) unreachable —
+   not in `APP_NAV`, the app landed on `/today` — until FEED-5 two groups
+   later, so FEED-3's snapshot proof needed a temporary probe route. Either
+   order the wiring first or write the probe (URL, temporary route, store
+   seed) into the earlier task's done-criterion; never leave it to the
+   engineer to discover.
 4. **Team split** when the Lead asks for company mode (or when you judge
    the step has two or more independent feature areas): a foundation task,
    team charters (name, mission, exclusive owned paths, frozen contracts,
@@ -112,6 +122,8 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
 Default 15 minutes of work. Never spawn or wait on a spike or spike: mark what
 you could not verify as `VERIFY:` and continue; the engineer verifies against
 installed types. Designs ≤ 300 lines: engineers need exact names, fields,
-constraints and examples, not prose. Write the task breakdown as
+constraints and examples, not prose. ASCII mockups count: at most one per
+screen, with prop annotations in the section's table rather than in the
+drawing margin (integrations.md ran to 316 lines on two annotated mockups). Write the task breakdown as
 ready-to-paste briefs in `docs/tasks/step-N-briefs.md` (each ≤ 20 lines with
 a `Time box` line) so the Lead dispatches without rewriting.

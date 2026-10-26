@@ -481,3 +481,14 @@ design streams and owner chat by hand. Rules that make the loop mechanical:
 - **Restart recovery:** on "didn't finish before the previous session
   ended", resume the agent by message with a fresh box; the tree keeps its
   edits because engineers edit in place.
+- **Pair rounds (EM batch 2, 2026-10-26):** commit a round only after the
+  designer's PASS; a non-PASS round gets a `WIP:` commit only in the window
+  between the engineer's report and its resume, with a sheet line.
+  Republish the owner's gallery on PASS rounds (and on the first round of a
+  stream, so the owner sees direction); the capture engineer writes the
+  gallery rows as an HTML fragment next to the PNGs so the publish is one
+  call. A Lead-side ownership ruling (a file-level grant such as
+  `appNav.ts` to the feed team) is logged in BOTH affected task sheets in
+  the same minute, not only in the master Log. When briefing a spike on a
+  third-party platform, forward spike.md's owner-question set verbatim
+  (pay / keep paying, eligibility, limits, terms, owner steps).

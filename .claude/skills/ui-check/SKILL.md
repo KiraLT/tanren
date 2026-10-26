@@ -58,6 +58,11 @@ When another agent may hold 8787/8081 or `apps/mobile/dist`, run your own copy: 
 `ps -ef | grep "port $W" | grep -v grep` is empty and `curl -s localhost:$W/health` fails: orphaned
 wranglers from finished agents do not show up in `lsof` (INT-X3 found two on 8795/8793 that way). Give
 every wrangler its own `--inspector-port` (two on one host collide on the default 9229).
+Two export facts the mobile-A capture engineer re-discovered (2026-10-26): the API base is baked into the
+bundle at export time (`CI=1 EXPO_PUBLIC_API_URL=http://localhost:$W pnpm -F @tanren/mobile export:web
+--output-dir <dir>`; a dist exported for another port never reaches your worker), and `/programs/play` is a
+lazy chunk (`_expo/static/js/web/play-*.js`): opened for the first time with `ab set offline on` it renders
+blank with `AsyncRequireError`, so visit it once online before any offline step.
 
 ```
 cd apps/worker; nohup node_modules/.bin/wrangler dev --port $W --inspector-port $((W+500)) --persist-to $S/<task>-state \

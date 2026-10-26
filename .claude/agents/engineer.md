@@ -132,6 +132,15 @@ Lead had to route it back through the team-lead, one extra turn each way).
    `echo =x` or an unquoted `=word` argument (zsh `=cmd` expansion). Restore
    a committed file byte-exact with `git show HEAD:<path> > <path>` (SDK-58),
    never `git checkout` (ask list).
+14. Screenshots and measure JSON you hand to a reviewer or designer are
+   self-checked first: open every PNG (the Read tool renders images) in
+   both schemes and look for a control that disappears in one scheme
+   (mobile-A r1: pause disc on `surfaceRaised` invisible in light), any
+   ellipsis in a name at 390 (six plan items), and confirm each JSON
+   carries a label unique to its screen (`grep -c "<screen label>"
+   <file>.json` ≥ 1: the pasted Plan JSON was the Today JSON). Fix what
+   is yours before reporting; list the rest as findings. One minute here
+   saves a 10-min fable round.
 
 ## Kaizen
 

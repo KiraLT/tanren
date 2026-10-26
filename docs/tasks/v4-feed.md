@@ -71,3 +71,4 @@ New names per target dir, lower-cased against `ls`: `packages/shared/src/activit
 
 ## Log
 - 2026-10-26 21:25 · FEED-0 (architect, fable) · ADR-0017, `docs/design/feed.md`, this sheet written; no code touched.
+- 21:50 · Ownership ruling (Lead): apps/mobile/src/ui/appNav.ts + appNav.test.ts are the feed team's for FEED-5 (tab swap); the desktop pair does not touch them.
