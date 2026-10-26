@@ -82,3 +82,11 @@ request (Cloudflare docs, read 2026-10-26); Queues' plan availability is unverif
 
 Not decided: Apple Health (ADR-0012 build), webhooks, a Garmin/other provider list (the `Provider`
 literal union grows per ADR).
+
+## Implemented as (2026-10-26)
+- An inactive Strava app (403, or another 4xx whose body matches `/inactive/i`) is `app_inactive`: the export becomes `blocked`, is retried every 12 h by the cron, never `dead`; `ProviderStatus.blockedExports` counts it and the app offers "Strava app inactive — resubscribe on strava.com" + Retry.
+- `claimDue` claims with `UPDATE … WHERE status AND updated_at … RETURNING *` (status alone let two callers reclaim one stale `running` row; `@effect/sql-d1` drops D1 `changes` meta, so RETURNING decides).
+- The activity name is always "Strength training" (`PlanRepo` has no planned-session read-by-id); using `PlannedSession.name` is a follow-up. Details: `docs/design/integrations.md` §6.
+- Push budget: a push waits at most 2 s to queue completed sessions, then at most 5 s to drain one row, plus the one attempt already in flight (uninterruptible); each Strava call is capped at 10 s, so the worst case is about 2 + 5 + 40 s (the 401 path: refresh, create, refresh, create). The cron drain picks up the rest.
+- Residual risk, accepted: the OAuth `state` binds the Tanren user who started the flow, not the browser that finishes it, and has no single-use nonce (a state reused within 10 min can pair with another code). Mitigations: `approval_prompt=force`, Single Player Mode, write-only scope, revocable at strava.com. Remaining token race: drain B can revoke between A's refresh response and A's `setTokens`; follow-up is a `refreshing_until` lease column.
+- Console mode is refused outside `ENVIRONMENT=local` at connect (`ConnectRejected{not-configured}`) and at the callback (400), so a production deploy still in console mode writes nothing; flip `STRAVA_MODE` to `provider` after owner steps O1/O2.

@@ -3,8 +3,8 @@
 The Cloudflare Worker: REST API (`@effect/platform` HttpApi), Better Auth
 (magic link), the batched sync endpoint, static web hosting, and the MCP
 server (stateless `createMcpHandler` from the Cloudflare Agents SDK, ADR-0010, not `McpAgent`). The
-Worker's default export is a `@cloudflare/workers-oauth-provider` `OAuthProvider` (step 5) that guards
-`/mcp` and serves the OAuth endpoints and authorize pages.
+Worker's default export is `{ fetch, scheduled }`: `fetch` is a `@cloudflare/workers-oauth-provider` `OAuthProvider`
+(step 5) that guards `/mcp` and serves the OAuth endpoints and authorize pages; `scheduled` is the export cron.
 
 Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 
@@ -24,27 +24,46 @@ Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 
 ```
 src/
-  index.ts            Worker entry: default export = `makeProvider(config, { app, mcp, authorize })` (the OAuthProvider);
+  index.ts            Worker entry: default export = `{ fetch, scheduled }`: `fetch` calls `makeProvider(config, { app, mcp, authorize })`
+                      (the OAuthProvider, as a method on the instance); `scheduled` = `ctx.waitUntil(runScheduled(env))` (cron export drain);
                       `app` = makeApp(env, { BetterAuth.layer(env.DB), d1Persistence(env.DB) }), `mcp` = makeMcp(…, McpAuth.layerLive)
   app.ts              makeApp: HttpApi layer + auth mode + persistence → { handler }; memoryPersistence / d1Persistence
-  Env.ts, Config.ts   `Env` interface + config/guard
+  Env.ts, Config.ts   `Env` interface + config/guard (incl. `STRAVA_MODE`, `STRAVA_CLIENT_ID`, `STRAVA_CONSOLE_FAIL` vars and the
+                      `STRAVA_CLIENT_SECRET` / `INTEGRATION_TOKEN_KEY` secrets: `console` is allowed in every environment (it only logs;
+                      production runs it until the owner has a Strava app, O2), `provider` needs the secret, the fake local key is
+                      refused outside local)
+  integrations/       Strava export (ADR-0018, docs/design/integrations.md): TokenSeal.ts (AES-256-GCM seal/open of provider tokens, wire
+                      `v1.<iv>.<ct>`) · StravaApi.ts (port: exchangeCode/refresh/createActivity/revoke; `layerHttp`/`layerLive` real,
+                      `layerConsole` logs `[strava:console] …`, `STRAVA_CONSOLE_FAIL=inactive` simulates a lapsed app; 403 or an
+                      inactive-looking 4xx → `app_inactive`) · ExportQueue.ts (enqueueCompleted + drain: claim → token refresh → send →
+                      settle; backoff +1 m/+5 m/+30 m/+2 h, 5th failure `dead`, `blocked` retried every 12 h) · activityText.ts (pure: session →
+                      Strava activity name/start/elapsed/description) · scheduled.ts (`runScheduled`: cron drain, 10 rows per run) ·
+                      connect.ts (`startConnect`: allow-list `returnTo` ≤ 300 chars, signed 10-min `state`, authorize URL with
+                      `approval_prompt=force`; console mode → our own callback with `code=console`; refused outside local) ·
+                      callbackRoutes.ts (plain `HttpRouter` `GET /integrations/strava/callback`: verify state, exchange code, upsert, 303 or
+                      HTML; limiter keyed by `cf-connecting-ip`; 400 "Strava is not connected yet" for console outside local) ·
+                      returnTo.ts (`isAllowedIntegrationReturnTo`, `MAX_RETURN_TO`)
   cloudflareEnv.d.ts  the `Cloudflare.Env` declare-merge (typed `cloudflare:workers` env). Never name a .d.ts after a
                       sibling .ts basename: on case-insensitive macOS `env.d.ts` next to `Env.ts` is silently dropped by tsc
-  api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers
-  repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests)
+  api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers · IntegrationsApi.ts (group:
+                      `GET /integrations`, `POST /integrations/strava/connect`, `DELETE /integrations/strava`, exports list + retry) ·
+                      IntegrationsHandlers.ts (connect limiter keyed `strava-connect:<userId>`)
+  repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests) ·
+                      MemoryIntegrations.ts (in-memory `IntegrationRepo`/`ActivityExportRepo` for Node tests)
   auth/               Sessions port, SessionsLive (Better Auth), BetterAuth (lazy `Effect.cached` instance),
                       Email (MagicLinkEmail, EmailSendFailed, EmailSenderShape), EmailSender (console locally,
                       Resend via `makeResendSender`), magicLinkEmail (pure `{ subject, text, html }`: table layout, inline
                       styles, escaped url, fixed light colours; `resendBody` calls it), authRoutes (store/build/request failure → 503
                       `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
-  sync/               Sync (push = db SyncStore.apply passthrough, pull + serverTime); SyncStoreMemory (Node fake, no LWW)
+  sync/               Sync (push = db SyncStore.apply, then for a completed session `ExportQueue.enqueueCompleted` + `drain(1)` within 5 s,
+                      never failing the push; pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                tools.ts (6 read tools incl. `search_exercises` (`availableAt`: 1 D1 statement) and `get_profile`; with the 3 write tools 9 total; a read-only grant lists 6; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
                       writeTools.ts (`write_plan_week`, `log_session`, `update_profile`) · McpAuth.ts (identity port → `McpPrincipal`) ·
                       server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime)
   oauth/              provider.ts (`makeProvider`: `new OAuthProvider` + `serveWith` routing) · authorize.ts (`/authorize` pages:
                       Better Auth magic-link login → consent) · OAuthApi.ts (port over the provider's `OAuthHelpers`, plus a fake
                       for Node tests) · pages.ts (HTML pages). KV binding `OAUTH_KV`; no Durable Object
-  testing/            workerdSetup.ts (applies migrations 0000+0001 before each workerd test file), env.d.ts (TEST_MIGRATIONS,
+  testing/            workerdSetup.ts (applies every migration in `packages/db/migrations`, read as a whole directory by `vitest.workerd.config.ts`, before each workerd test file), env.d.ts (TEST_MIGRATIONS,
                       test project only), fixtures.ts (shared `envVars` for Node + workerd tests), countingD1.ts (counts D1
                       executions, for statement-budget assertions)
   *.workerd.test.ts   tests that run inside workerd on a migrated D1 (project @tanren/worker-workerd); `index.workerd.test.ts`

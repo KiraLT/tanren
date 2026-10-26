@@ -296,5 +296,34 @@ and with `BETTER_AUTH_URL` set the printed magic link already carries the API po
 LAN) and `dev:web` (`pnpm web:serve`) in parallel through pnpm's regex script selector. For the Expo dev
 server instead of the export: `pnpm dev:api` plus `pnpm -F @tanren/mobile web` (`:8081`).
 
+## §STRAVA_MODE: the Strava export locally (ADR-0018, `docs/design/integrations.md`)
+
+`apps/worker/wrangler.jsonc` top-level vars carry `STRAVA_MODE: "console"`, `STRAVA_CLIENT_ID:
+"local-strava-client"` and a fake `INTEGRATION_TOKEN_KEY` (32 zero bytes, base64), plus the cron
+`triggers.crons: ["*/5 * * * *"]`. No Strava account, no network, no secret: `Config.ts` refuses the
+fake key whenever `ENVIRONMENT` is not `local` (`STRAVA_MODE=console` is allowed everywhere: production runs it
+until the owner has a Strava app, deploy.md §Strava secrets).
+
+- **Connect short-circuits.** In console mode `POST /integrations/strava/connect` does not return a
+  strava.com URL: it returns `${BETTER_AUTH_URL}/integrations/strava/callback?state=<signed state>&code=console&scope=read,activity:write`
+  (`authorizeUrl` in `apps/worker/src/integrations/connect.ts`), so the browser walks the real callback
+  and lands on `/settings/integrations?connected=strava`; the console `StravaApi.exchangeCode` grants a
+  fake athlete "Console Athlete". This works only when `ENVIRONMENT=local`: outside local, connect answers
+  `ConnectRejected{not-configured}` and the callback 400 "Strava is not connected yet".
+- **The export log line.** Finishing a session pushes; `Sync.push` enqueues and drains one row, and the
+  `wrangler dev` terminal prints `[strava:console] create activity Strength training <start_date_local> <elapsed>s`
+  (never a token or code). The row becomes `sent` with `externalActivityId` `console-<first 8 of sessionId>`.
+- **Scheduled drain.** Rows that did not go out in the push (Pending after a failure, Blocked) are picked up
+  by the cron. Start the worker with `--test-scheduled` and call the route:
+  `wrangler dev --test-scheduled` then `curl "localhost:<port>/cdn-cgi/local/scheduled?cron=*/5+*+*+*+*"`
+  (the log shows `[scheduled] export drain attempted=<n>`; at most 10 rows per run).
+- **Simulate a lapsed subscription.** `wrangler dev --var STRAVA_CONSOLE_FAIL:inactive` makes the console
+  `createActivity` fail like an inactive Strava app: the export becomes `blocked` (retried every 12 h, never
+  `dead`), the log shows `[strava] application refused status=403 …`, Settings shows "Strava app inactive —
+  resubscribe on strava.com" and Retry. `Config.ts` accepts only the value `inactive`, and only with `STRAVA_MODE=console`.
+- **Another dev server is running?** Use a spare port and its own state, as in the isolated recipe above:
+  `wrangler dev --test-scheduled --port <api> --inspector-port <i1> --persist-to <dir> --var MCP_RESOURCE_URL:http://localhost:<api>/mcp`
+  with `<dir>` from `mktemp -d`; never `db:reset` while another agent shares the default state.
+
 ## 9a. Implemented (2026-10-20)
 `pnpm db:migrate` / `pnpm db:seed [--seed n] [--end YYYY-MM-DD]` / `pnpm db:reset` (root) run against the local D1 under `apps/worker/.wrangler/state`; the runner is `apps/worker/scripts/seed.ts` via `tsx` (Node type stripping fails on extensionless imports).

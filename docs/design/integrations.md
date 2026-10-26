@@ -11,10 +11,12 @@ Every shared schema below lives in a new `packages/shared/src/integrations.ts` (
 export const Provider = Schema.Literals(["strava"])                       // grows per ADR
 export const ActivityExportId = Uuid.pipe(Schema.brand("ActivityExportId"))   // add to ids.ts
 export const IntegrationState = Schema.Literals(["connected", "revoked", "disconnected"])
-export const ExportStatus = Schema.Literals(["pending", "running", "sent", "failed", "dead"])
+/** `blocked` = the Strava app is inactive (subscription lapsed): retried every 12 h by the cron, never `dead`. */
+export const ExportStatus = Schema.Literals(["pending", "running", "sent", "failed", "dead", "blocked"])
 /** Why the last attempt failed; never the provider's raw text. */
 export const ExportFailureReason = Schema.Literals([
   "unauthorized", "rate_limited", "rejected", "provider_error", "transport", "session_missing",
+  "app_inactive",   // 403, or another 4xx (not 401/429) whose body matches /inactive/i
 ])
 export const ProviderAccount = Schema.Struct({ displayName: Label })      // athlete first + last name
 export const ProviderStatus = Schema.Struct({
@@ -25,6 +27,7 @@ export const ProviderStatus = Schema.Struct({
   lastExportAt: Schema.OptionFromNullOr(Timestamp),   // newest `sent` row's updatedAt
   pendingExports: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
   failedExports: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)), // failed + dead
+  blockedExports: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)), // status blocked only
 })
 export const IntegrationsStatus = Schema.Struct({ providers: Schema.Array(ProviderStatus) })
 export const ActivityExport = Schema.Struct({
@@ -47,9 +50,9 @@ export class ConnectRejected extends Schema.TaggedError<ConnectRejected>()(
 ```
 Wire example (`GET /integrations`):
 `{"providers":[{"provider":"strava","state":"connected","account":{"displayName":"Lukas K."},
-"connectedAt":"2026-10-26T19:00:00.000Z","lastExportAt":"2026-10-26T19:40:12.000Z","pendingExports":0,"failedExports":1}]}`
+"connectedAt":"2026-10-26T19:00:00.000Z","lastExportAt":"2026-10-26T19:40:12.000Z","pendingExports":0,"failedExports":1,"blockedExports":0}]}`
 Signed out of Strava: `{"providers":[{"provider":"strava","state":"disconnected","account":null,
-"connectedAt":null,"lastExportAt":null,"pendingExports":0,"failedExports":0}]}`. The server always
+"connectedAt":null,"lastExportAt":null,"pendingExports":0,"failedExports":0,"blockedExports":0}]}`. The server always
 lists every `Provider` literal; Apple Health is an app-side static row (§8), not a `Provider`.
 
 ## 2. DB (`packages/db/src/schema/integration.ts`, migration `0004_integrations.sql`)
@@ -76,8 +79,8 @@ CREATE UNIQUE INDEX `activity_export_user_provider_session_unique` ON `activity_
 CREATE INDEX `activity_export_due_idx` ON `activity_export` (`status`,`next_attempt_at`);
 ```
 Generated with `pnpm -F @tanren/db generate` (drizzle-kit; snapshot `0004_snapshot.json` + journal).
-Workerd test setup applies migrations by list (`apps/worker/src/testing/workerdSetup.ts`,
-`TEST_MIGRATIONS`): add 0004 there. Repos (`packages/db/src/repositories/Integration.ts`):
+Workerd test setup reads the whole migrations directory into `TEST_MIGRATIONS`, so 0004 needs no
+edit in `apps/worker/src/testing/workerdSetup.ts` (built). Repos (`packages/db/src/repositories/Integration.ts`):
 ```ts
 interface IntegrationRepoShape {
   readonly get: (userId: UserId, provider: Provider) => Effect<Option<IntegrationRow>, PersistenceError>
@@ -89,12 +92,16 @@ interface IntegrationRepoShape {
 interface ActivityExportRepoShape {
   readonly enqueue: (rows: ReadonlyArray<NewExport>) => Effect<void, PersistenceError>   // INSERT OR IGNORE, one batch
   readonly claimDue: (now: Timestamp, opts: { userId: Option<UserId>; max: number }) => Effect<ReadonlyArray<ExportRow>, …>
-      // pending with next_attempt_at <= now, or running with updated_at < now − 10 min; each claimed by
-      // `UPDATE … SET status='running' WHERE id=? AND status=<seen>` and kept only when `changes === 1`
-  readonly settle: (id, outcome: Sent | Failed | Dead | Pending(nextAttemptAt)) => Effect<void, …>
+      // pending or blocked with next_attempt_at <= now, or running with updated_at < now − 10 min; each claimed by
+      // `UPDATE … SET status='running', updated_at=now WHERE id=? AND status=<seen> AND updated_at=<seen> RETURNING *`
+      // and kept only when a row comes back. Built: the guard is status AND updated_at (status-only let two
+      // callers reclaim one stale `running` row, whose status does not change); RETURNING replaces D1 `changes`
+      // counts because `@effect/sql-d1` drops the D1 meta.
+  readonly settle: (id, outcome: Sent | Failed | Dead | Pending(nextAttemptAt) | Blocked(nextAttemptAt)) => Effect<void, …>
+      // every outcome increments `attempts` except `Blocked`, which parks the row as 'blocked' with attempts 0
   readonly list: (userId: UserId, provider: Provider, limit: number) => Effect<ReadonlyArray<ExportRow>, …> // created_at desc
-  readonly resetToPending: (userId: UserId, id: ActivityExportId, now: Timestamp) => Effect<boolean, …>  // false = not found/not failed|dead
-  readonly counts: (userId, provider) => Effect<{ pending: number; failed: number; lastSentAt: Option<Timestamp> }, …> // 1 statement
+  readonly resetToPending: (userId: UserId, id: ActivityExportId, now: Timestamp) => Effect<boolean, …>  // false = not found/not failed|dead|blocked; sets attempts 0
+  readonly counts: (userId, provider) => Effect<{ pending: number; failed: number; blocked: number; lastSentAt: Option<Timestamp> }, …> // 1 statement
 }
 ```
 `IntegrationRow`/`ExportRow` are db-internal `Schema.Struct`s (decode with `transformResultNames`
@@ -127,7 +134,7 @@ wrong key fails. `wrangler.jsonc`: `"triggers": { "crons": ["*/5 * * * *"] }` at
 ```
 app  POST /integrations/strava/connect {returnTo}   (Authentication: cookie on web, bearer on native)
      ← {url: https://www.strava.com/oauth/authorize?client_id&redirect_uri&response_type=code
-              &approval_prompt=auto&scope=activity:write&state=<state>}
+              &approval_prompt=force&scope=activity:write&state=<state>}
 app  opens url: web → window.location.assign(url); native → Linking.openURL(url)
 Strava → GET /integrations/strava/callback?state&code&scope   (or ?error=access_denied&state)
 worker verifies state → exchanges code → upserts integration → 303 to returnTo?connected=strava
@@ -136,11 +143,22 @@ worker verifies state → exchanges code → upserts integration → 303 to retu
 - **`state`** = `base64url(JSON {userId, returnTo, expiresAt})` + `"."` + HMAC-SHA256 over it keyed
   by `INTEGRATION_TOKEN_KEY` (reuse `mac`/`macMatches` from `auth/nativeCode.ts`: export them, do
   not duplicate; VERIFY their exact signatures at nativeCode.ts:72/82). `expiresAt` = now + 10 min.
-  VERIFY: Strava's maximum `state` length (keep it under 600 chars; returnTo ≤ 512).
-- **Cookie-bearing GET that mints a secret**: the callback is the minting GET. It binds the user to
-  `state.userId` (signed by us from an authenticated POST) and ignores cookies and bearer entirely,
-  so a cross-site GET cannot attach an attacker's Strava to a victim (login CSRF), nor a victim's
-  code to an attacker (the state names the victim's own account only if the victim started it).
+  Built: `state` stays under 600 chars because `connect` rejects a `returnTo` longer than 300
+  (`MAX_RETURN_TO` in `returnTo.ts`; the shared schema still allows 512; 300 gives a state ≤ 563).
+- **Cookie-bearing GET that mints a secret**: the callback is the minting GET. It ignores cookies and
+  bearer entirely and trusts only the signed `state`. The state binds the Tanren user who started the
+  flow (an authenticated POST), not the browser that finishes it: whoever opens the link and approves
+  on Strava attaches that Strava account to `state.userId`. Mitigations: the authorize URL always
+  carries `approval_prompt=force`, so Strava's consent screen is shown even to a returning athlete;
+  Single Player Mode (only the owner's Strava account can authorize the app); the scope is write-only
+  (`activity:write`); the user can revoke at strava.com. Accepted residual risks: there is no
+  single-use nonce, so a state reused within its 10 minutes can pair with another code; the
+  owner-phishing variant (the owner opens an attacker's connect link) needs the attacker to hold a
+  Tanren account.
+- **Console mode is refused outside local**: `connect` answers `ConnectRejected{not-configured}` and
+  the callback answers 400 "Strava is not connected yet" whenever `STRAVA_MODE` is `console` and
+  `ENVIRONMENT` is not `local` (`isConsoleOutsideLocal`, `connect.ts`), so a production deploy still in
+  console mode writes no fake integration and no export row.
 - **Redirect target**: `returnTo` allowed iff `new URL(raw).href === raw`, no `search`, no `hash`,
   no credentials, and either `raw === origin + "/settings/integrations"` for an `allowedOrigins`
   entry, or `raw.startsWith(prefix)` for a `nativeReturnPrefixes` entry AND `pathname` ends with
@@ -160,7 +178,8 @@ worker verifies state → exchanges code → upserts integration → 303 to retu
   NOT required — the state is signed by us; skip), then `scope` must contain `activity:write`
   (`?error=scope` otherwise, no exchange), then the code is exchanged once. A replayed state after a
   successful exchange fails at Strava (code single-use); no nonce store in v1.
-- **Rate limiting**: `connect` and `callback` reuse the isolate limiter (`makeLimiter`,
+- **Rate limiting** (built: `connect` is keyed by user id, `strava-connect:<userId>`; the callback
+  by `cf-connecting-ip`, `strava-callback:<ip>`): `connect` and `callback` reuse the isolate limiter (`makeLimiter`,
   `nativeAuthRoutes.ts`, 10/min/IP) → 429 `NativeRateLimited` (VERIFY: export `makeLimiter` or
   move it to `auth/rateLimit.ts`; one-line change, owned by the connect task).
 - Callback errors: bad/expired state → 400 HTML "This link has expired. Start again from Settings";
@@ -185,20 +204,36 @@ Add the two authenticated GETs and the DELETE to `Routes.edge.test.ts` (401 sign
 ## 6. Export pipeline (`integrations/ExportQueue.ts`, `integrations/StravaApi.ts`, `integrations/activityText.ts`)
 
 - `Sync.push` (worker `sync/Sync.ts`) after `store.apply`: `ExportQueue.enqueueCompleted(userId,
-  request.changes, result.accepted)` → `ExportQueue.drain({ userId: Some(userId), max: 1 })` within
-  `Effect.timeout("5 seconds")`; both wrapped so a failure is logged (`Effect.catch` → `logWarning`)
-  and never fails the push. `enqueueCompleted` returns early (0 statements) when
+  request.changes, result.accepted)` → `ExportQueue.drain({ userId: Some(userId), max: 1 })`, the
+  first under `ENQUEUE_BUDGET` (2 s) and the second under `EXPORT_BUDGET` (5 s); a failure is logged
+  (`Effect.catch` → `logWarning`) and never fails the push. Push budget, built: A push waits at most 2 s
+  to queue its completed sessions, then at most 5 s to drain one row, plus the one attempt already in
+  flight, which runs to its end. Each Strava call is capped at 10 s (`STRAVA_REQUEST_TIMEOUT`), so the
+  worst case is about 2 + 5 + 40 s. The 40 s is the 401 path: up to 4 calls (refresh, create, refresh,
+  create). Whatever is left, the cron drain picks up. Each row's attempt is `Effect.uninterruptible`
+  (a cut between `refresh` and `setTokens` would lose the rotated pair). `enqueueCompleted` returns early (0 statements) when
   `IntegrationRepo.get(userId, "strava")` is `None` or `revoked`; otherwise rows =
   `changes.filter(c => c.table === "session" && accepted has c.row.id && c.row.finishedAt !== null
   && c.row.deletedAt === null)` (the change row is the wire `Session`; completion =
   `finishedAt: Some`, `deletedAt: None`, ADR-0018 §4) → `enqueue` with `next_attempt_at = now`.
+  Built cost: a push with no completed session runs 0 export statements; a push that completes a
+  session with no integration costs 2 (`enqueueCompleted`: 1 `IntegrationRepo.get`; `drain`: 1 `claimDue`
+  read that finds nothing).
 - `drain({ userId, max })`: `claimDue` → for each row: load session (`SessionRepo.getSession`), sets
   (`listSets`), exercises (`ExerciseRepo.list`), profile (`ProfileRepo.get`, for `timezone` and
   nothing else); `session_missing` (deleted or absent) → `dead` immediately; ensure a fresh token
   (§7); `StravaApi.createActivity`; `settle(Sent{externalActivityId})`. Statement budget ≤ 8/row.
-- Backoff on `transport | provider_error | rate_limited`: attempts 1..5 → +1 m, +5 m, +30 m, +2 h,
-  +12 h; attempt 5 failing → `dead`. `rejected` (4xx other than 401/429) → `failed` at once (the
-  user can Retry). Pure `nextAttempt(attempts, now)` with a test.
+- Backoff on `transport | provider_error | rate_limited`: failed attempts 1..4 → +1 m, +5 m, +30 m,
+  +2 h; the 5th failure is `dead` (`MAX_ATTEMPTS`). The +12 h tier is used only by `blocked`
+  (`BLOCKED_RETRY`). `rejected` (4xx other than 401/429, not inactive) → `failed` at once (the user can
+  Retry). `app_inactive` (403 always; another 4xx only when its body matches `INACTIVE_BODY = /inactive/i`,
+  so Strava's invalid-client 400 stays `rejected`; Strava's exact status and body are unverified, research
+  "Subscription lapse") → status `blocked`, `next_attempt_at` = now + 12 h, picked up again by `claimDue`
+  and the cron, never `dead`. `settle` increments `attempts` on every outcome except `Blocked`, which
+  resets `attempts` to 0 (blocked rounds never count toward `dead`; a blocked row that later fails for
+  another reason restarts the backoff at the first tier). The app shows "Strava app inactive — resubscribe
+  on strava.com" and Retry (`resetToPending`). Pure `nextAttempt(attempts, now)` and
+  `failureOutcome(reason, attempts, now)` (`ExportQueue.ts`) with tests.
 - `scheduled` handler (`index.ts`): `export default { fetch: (r, e, c) => provider.fetch(r, e, c),
   scheduled: (_ctrl, env, ctx) => ctx.waitUntil(runScheduled(env)) }` where `runScheduled` runs
   `ExportQueue.drain({ userId: None, max: 10 })` on a `ManagedRuntime` built from `d1Persistence`.
@@ -206,7 +241,10 @@ Add the two authenticated GETs and the DELETE to `Routes.edge.test.ts` (401 sign
   `index.workerd.test.ts` boots the default export — keep it green). Local:
   `wrangler dev --test-scheduled` + `curl "localhost:<port>/cdn-cgi/local/scheduled?cron=*/5+*+*+*+*"`
   (Cloudflare docs, 2026-10-26).
-- `StravaApi` port: `exchangeCode(code) → TokenGrant`, `refresh(refreshToken) → TokenGrant`,
+- `StravaApi` port: `exchangeCode(code) → TokenGrant`, `refresh(refreshToken) → RefreshedTokens`
+  (`Pick<TokenGrant, "accessToken" | "refreshToken" | "expiresAt">`: Strava's refresh answers carry no
+  athlete and no scope; the callback's `scope` query parameter is the source of truth for
+  `activity:write`, §4),
   `createActivity(accessToken, NewActivity) → { id: string }`, `revoke(accessToken) → void`;
   `TokenGrant = { accessToken, refreshToken: Redacted; expiresAt: Timestamp; scope: string;
   athlete: { id: string; displayName: Label } }`. Error `StravaRequestFailed { reason:
@@ -215,15 +253,17 @@ Add the two authenticated GETs and the DELETE to `Routes.edge.test.ts` (401 sign
   `layerHttp` (effect/http `HttpClient`, `FetchHttpClient`, form-encoded bodies, `User-Agent:
   tanren/1`), `layerConsole` (logs `[strava:console] create activity <name> <start> <elapsed>s`,
   returns `{ id: "console-" + sessionId.slice(0, 8) }`, exchange returns athlete "Console
-  Athlete"). Endpoints (spike §1–2): `POST https://www.strava.com/oauth/token`, `POST
+  Athlete"; with `STRAVA_CONSOLE_FAIL=inactive` (console only, refused otherwise by `Config.ts`)
+  `createActivity` fails as `app_inactive` to simulate a lapsed subscription). Endpoints (spike §1–2): `POST https://www.strava.com/oauth/token`, `POST
   https://www.strava.com/api/v3/activities`, `POST https://www.strava.com/oauth/revoke` (Basic
   `client_id:client_secret`, body `token`). Never read anything else from Strava (Policy §5.3).
-- `NewActivity` (spike §2): `name` = `PlannedSession.name` when `plannedSessionId` resolves
-  (`PlanRepo`; VERIFY the lookup method name) else `"Strength training"`; `sport_type:
+- `NewActivity` (spike §2): `name` = always `"Strength training"` (`DEFAULT_ACTIVITY_NAME`): `PlanRepo`
+  has no read-by-id for a planned session, so the planned name is a follow-up; `sport_type:
   "WeightTraining"`; `trainer: 1`; `start_date_local` = `startedAt` in the profile `timezone` as
   `YYYY-MM-DDTHH:mm:ss` without offset (`DateTime.makeZoned` + format; VERIFY on the first real
   run that Strava reads it as local — the console log shows the exact string; fallback: send
-  `startedAt` ISO with `Z`); `elapsed_time` = `max(60, seconds(finishedAt − startedAt))`;
+  `startedAt` ISO with `Z`; built: a profile without `timezone` (or an unknown zone) sends the UTC
+  wall-clock, `startDateLocal` in `activityText.ts`); `elapsed_time` = `max(60, seconds(finishedAt − startedAt))`;
   `description` = `describeSession(...)` (pure, tested):
   ```
   Bench Press — 4 × 8 @ 60 kg
@@ -241,10 +281,14 @@ Add the two authenticated GETs and the DELETE to `Routes.edge.test.ts` (401 sign
 
 `freshToken(integration)`: if `expiresAt − now < 1 h` → `StravaApi.refresh(open(refreshToken))` →
 `setTokens` with BOTH rotated tokens sealed in one UPDATE (spike §1: the old refresh token dies at
-once) → use the new access token. `createActivity` → `unauthorized`: re-read the row; if `updatedAt`
-changed since we read it, retry once with its token; else `markRevoked` + settle `failed
-{unauthorized}`; the status endpoint then reports `state: "revoked"` and the app shows Reconnect.
-A re-connect upserts the row back to `active` and the user retries the failed rows.
+once) → use the new access token. A refused refresh (`unauthorized` or `rejected`) re-reads the row and
+uses another drain's rotated token when `updatedAt` changed. `createActivity` → `unauthorized`: re-read
+the row; if `updatedAt` changed since we read it, retry once with its token; else
+`markRevoked(id, seenUpdatedAt, updatedAt)` (guarded on `updated_at`: a row another drain rotated in the
+meantime is not revoked) + settle `failed {unauthorized}`; the status endpoint then reports
+`state: "revoked"` and the app shows Reconnect. A re-connect upserts the row back to `active` and the
+user retries the failed rows. Known remaining race: drain B can still revoke between drain A's refresh
+response and A's `setTokens` commit; follow-up = a `refreshing_until` lease column on `integration`.
 
 ## 8. App — Integrations page (Forge, `ui-direction-final.md`; desktop `ui-desktop.md`)
 
@@ -260,10 +304,10 @@ Integrations (390): AppBar "Integrations" ‹ back · Page scroll wide
 ┌ ListGroup ─────────────────────────────────────┐
 │ [swap] Strava                 Connected  ›     │   StatusPill tone success | "Not connected" neutral | "Reconnect" danger
 │        Last export 26 Oct, 19:40               │   subtitle: "Last export <date>" | "Exports finished sessions" | "<n> failed"
-│ [heart] Apple Health      Needs app build      │   ListRow disabled, trailing StatusPill neutral; no chevron, no onPress
+│ [zap] Apple Health        Needs app build      │   ListRow disabled, trailing StatusPill neutral; no chevron, no onPress (built icon: `zap`)
 └────────────────────────────────────────────────┘
-Row arithmetic: 16 gutter + 358 content + 16; inside the row 16 pad + 24 icon + 12 gap + title
-column (flex) + 8 gap + pill ≤ 120 + 8 gap + 16 chevron + 16 pad = 358 → title column ≥ 358−16−24−12−8−120−8−16−16 = 138.
+Row arithmetic (built): 16 gutter + 358 content + 16; inside the row 16 pad + 20 icon (`ListRow` `iconSm`) + 12 gap
++ title column (flex) + 8 gap + pill ≤ 120 + 8 gap + 16 chevron + 16 pad = 358 → title column ≥ 358−16−20−12−8−120−8−16−16 = 142.
 Banner above the group after a return: `?connected=strava` → Banner success "Strava connected"
 (dismiss); `?error=denied` → "Strava access was declined"; `?error=scope` → "Tanren needs permission
 to create activities. Connect again and keep 'Upload your activities' ticked"; `?error=provider` →
@@ -282,8 +326,9 @@ Strava detail (390): AppBar "Strava" ‹ back
 Section "Recent exports" (ListGroup, newest first, ≤ 20):
 │ [check] 26 Oct · Push day         Sent  ›     │   onPress opens https://www.strava.com/activities/<externalActivityId> ("View on Strava", Linking)
 │ [clock] 25 Oct · Legs             Pending      │   subtitle "Exports within 5 minutes"
-│ [warning] 24 Oct · Pull           Failed  [Retry] │  trailing Button size sm "Retry" → POST retry; tone danger pill
-Row title = session date + planned name from the local store (`HistoryRepo` by `sessionId`; fallback "Session").
+│ [warning] 24 Oct · Pull           Failed  [Retry] │  trailing Button size md "Retry" (Button sizes are md/lg/xl, no `sm`) → POST retry; Blocked, Failed and the list's Reconnect pill all use tone `danger` (StatusPill has no warning tone)
+│ [warning] 23 Oct · Legs           Blocked [Retry] │  blocked row: subtitle "Strava app inactive — resubscribe on strava.com" + Retry
+Row title = session date + session title from `FeedRepo.activity(sessionId)` in the local store (fallback "Session").
 Empty: EmptyState "No exports yet — finish a session and it shows up here".
 Branding (spike §4): the connect control must read "Connect with Strava" and be ≥ 48 px high; the
 activity link text is "View on Strava"; the app name stays "Tanren". VERIFY: Strava's button image
@@ -310,7 +355,11 @@ focus (`useFocusEffect`) so the status is fresh after the browser round trip.
 2. Sign in on web; Settings → Integrations → Strava → Connect with Strava: the console provider
    short-circuits `connect`: the returned `url` is the local callback itself with a fake `code`
    (`console` mode only), so the browser lands on `/settings/integrations?connected=strava`.
-3. Log a set, finish the session (Today "Finish"), wait for the push → worker log shows
+3. Complete a Core 30 program day in the player (`ProgramRepo` sets `finishedAt`; run the web export with
+   `EXPO_PUBLIC_PLAYER_SPEED=60` so a day takes about a minute), wait for the push → worker log shows
    `[strava:console] create activity …`; `GET /integrations` shows `lastExportAt`; detail lists `Sent`.
+   **Known gap:** a Today session never finishes (`TodayRepo.ts` creates sessions with `finishedAt: none`
+   and nothing sets it), so only program days (and MCP `log_session`) export until the Lead decides
+   (escalated).
 4. `curl "localhost:8787/cdn-cgi/local/scheduled?cron=*/5+*+*+*+*"` with a `pending` row → `sent`.
 5. Disconnect → status `disconnected`, exports list empty.

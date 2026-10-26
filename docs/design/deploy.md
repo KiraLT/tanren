@@ -85,6 +85,38 @@ That is the full list for step 5. `OAUTH_KV` needs no secret: the provider deriv
 the tokens themselves [V storage-schema]. Never paste a secret into `wrangler.jsonc` or `.dev.vars`
 that is committed.
 
+## §Strava secrets (owner steps O1–O3, `docs/tasks/v4-strava.md`; ADR-0018)
+
+The Worker refuses to start in production without these: `Config.ts` requires `STRAVA_CLIENT_SECRET` when
+`STRAVA_MODE` is `provider` and a real (non-zero) 32-byte `INTEGRATION_TOKEN_KEY`. `pnpm deploy:preflight`
+checks the vars and lists the two `secret put` commands below.
+
+**Production runs `STRAVA_MODE: "console"` until O2 is done** (no Strava app yet): console mode only logs
+(`[strava:console] …`) and never calls Strava, so `STRAVA_CLIENT_ID` may stay the placeholder and
+`STRAVA_CLIENT_SECRET` is not needed; the real `INTEGRATION_TOKEN_KEY` is still required. The flip after O2:
+set `env.production.vars.STRAVA_MODE` to `"provider"` in `apps/worker/wrangler.jsonc`, replace
+`STRAVA_CLIENT_ID` with the real Client ID, run the `secret put` commands below, then redeploy
+(`pnpm exec wrangler deploy --env production`).
+
+- **O1** Strava subscription (API Policy 3.3) and an API app at strava.com/settings/api, callback domain
+  `api.tanren.me`, Single Player Mode. The subscription must stay active: a lapse makes Strava answer
+  "Inactive" and the app stops working until you resubscribe (research `docs/research/2026-10-26-strava-api.md`,
+  "Subscription lapse"; credentials surviving a lapse is unverified). Tanren parks the exports as `blocked`
+  and retries every 12 h, so nothing is lost.
+- **O2** secrets and the client id (from `apps/worker/`):
+  ```
+  pnpm exec wrangler secret put STRAVA_CLIENT_SECRET --env production    # Client Secret from strava.com/settings/api
+  openssl rand -base64 32                                                 # generates the sealing key; copy the output
+  pnpm exec wrangler secret put INTEGRATION_TOKEN_KEY --env production    # paste it; losing it makes stored Strava tokens unreadable: reconnect
+  ```
+  Then edit `apps/worker/wrangler.jsonc` `env.production.vars`: `STRAVA_CLIENT_ID` = the Client ID (replaces
+  `<owner: strava client id>`); then set `STRAVA_MODE` to `"provider"` (it is `"console"` until now). The secrets are never `vars`; the cron
+  `triggers.crons` in `env.production` is already set. After the flip nothing stale exists: console mode
+  writes no rows in production (connect refuses with `not-configured`, the callback answers 400), so the
+  console-mode deploy before O2 leaves no fake integration or export row to clean up.
+- **O3** First real export on tanren.me (needs O1 + O2 and the deploy in §4): connect in Settings → Integrations →
+  Strava, finish a session, check the activity on strava.com (SV-Q2 measures it).
+
 ## 4. Deploy
 
 ```
@@ -97,9 +129,11 @@ curl -i -X POST https://mcp.tanren.me/mcp -H 'content-type: application/json' -d
 #   → 401 with WWW-Authenticate: Bearer realm="OAuth", resource_metadata="…/.well-known/oauth-protected-resource/mcp"
 curl -s https://api.tanren.me/.well-known/oauth-authorization-server | jq .issuer
 
-# Web (assets Worker), from the repo root
+# Web (assets Worker): export from the repo root, deploy from apps/worker
+# (the wrangler binary is apps/worker/node_modules/.bin/wrangler: the isolated linker has no ../../node_modules/.bin/wrangler)
 EXPO_PUBLIC_API_URL=https://api.tanren.me pnpm -F @tanren/mobile exec expo export --platform web
-pnpm -F @tanren/worker exec wrangler deploy -c wrangler.web.jsonc --env production
+cd apps/worker
+pnpm exec wrangler deploy -c wrangler.web.jsonc --env production
 open https://tanren.me                       # sign in with your email → magic link arrives via Resend
 ```
 First sign-in creates your user; there is no seed in production (the seed is local-only). Do **not**
@@ -138,7 +172,7 @@ export time, so every production update must carry `EXPO_PUBLIC_API_URL`. **VERI
 
 ## 7. Checklist order
 
-DNS/Resend verified → `d1 create` + `kv namespace create` → ids into `env.production` → secrets →
+DNS/Resend verified → `d1 create` + `kv namespace create` → ids into `env.production` → secrets (incl. §Strava secrets) →
 migrations → `wrangler deploy` (API) → web export + deploy → sign in on tanren.me → Claude app
 connector → EAS Update. Each step's check command is above; stop at the first failure and paste its
 output to the Lead (nothing in this runbook is retried by an agent).

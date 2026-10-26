@@ -13,14 +13,15 @@ Charter: build the Integrations page and the Strava export (`docs/tasks/v4-strav
 | SV-2 | db tables, 0004, repos | sonnet | done (committed) |
 | SV-3 | config, TokenSeal, StravaApi | sonnet | done (committed) |
 | SV-1b | `blocked` state (Lead addendum) | sonnet | done (committed) |
-| SV-5 | export pipeline | opus | done; fix round in flight (REV-1) |
-| SV-6 | app Integrations page | opus | done (committed 8b66574); SV-6b copy line + web param clearing in flight |
-| SV-4 | connect/callback/endpoints | opus | done, unreviewed |
+| SV-5 | export pipeline | opus | done (fix r1 + r2 landed) |
+| SV-6 | app Integrations page | opus | done (8b66574; SV-6b/6c landed) |
+| SV-4 | connect/callback/endpoints | opus | done (REV-2 fixes landed) |
 | SV-7 | docs + preflight | sonnet | done |
 | SV-8 | production STRAVA_MODE=console | sonnet | done |
 | REV-1 | review SV-1,1b,2,3,5,6 | opus | done: REQUEST CHANGES (1 blocking, 2 should) |
-| REV-2 | delta review SV-4 + fix round + SV-8 | opus | todo |
-| SV-Q1 | local e2e + screenshots | sonnet | todo |
+| REV-2 | security review SV-4 + SV-8 | opus | done: REQUEST CHANGES, fixed |
+| REV-3 | delta review of fixes | opus | done: APPROVE (3 follow-ups fixed in r2) |
+| SV-Q1 | local e2e + screenshots | qa/sonnet | done: PASS steps 1-6, 8; step 7 not possible locally |
 
 ## Log
 - 21:30→21:32 · SV-1 · engineer/sonnet · a6eec18c8ce1112d6 · 106k · 27 · 1 · done
@@ -33,8 +34,21 @@ Charter: build the Integrations page and the Strava export (`docs/tasks/v4-strav
 - 22:05→22:08 · SV-7 · engineer/sonnet · ae7eaa6ce21702b8a · 111k · 14 · 1 · done
 - 22:05→22:15 · REV-1 · reviewer/opus · a53df69844fb5e11f · 185k · 54 · 1 · REQUEST CHANGES
 - 22:21→22:23 · SV-8 · engineer/sonnet · adea0f99fa4206648 · 118k · 27 · 1 · done
-- 22:23→ · SV-5 fix r1 · a9f39d575905f6472 (resumed) · in flight
-- 22:24→ · SV-6b · ac5674f777dc38b0c (resumed) · in flight
+- 22:23→22:32 · SV-5 fix r1 · a9f39d575905f6472 (resumed) · done
+- 22:23→22:29 · SV-6b · ac5674f777dc38b0c (resumed) · done
+- 22:32→22:40 · SV-4 fix r1 (REV-2) · a655320f2c29c0fb8 (resumed) · done
+- 22:32→22:40 · SV-6c · ac5674f777dc38b0c (resumed) · done
+- 22:52→22:55 · SV-7b · ae7eaa6ce21702b8a (resumed) · done; 23:09 SV-7c done
+- 22:54→23:09 · REV-3 · reviewer/opus · aa837791dd8621e65 · APPROVE
+- 22:54→23:10 · SV-Q1 · qa/sonnet · ab8b46ac84a0b89b6 · PASS (steps 1-6, 8)
+- 23:09→23:12 · SV-5 fix r2 (REV-3) · a9f39d575905f6472 · done
+- 23:12 root pnpm check green: 153 files, 1916 tests
+
+## Follow-ups
+- Refresh lease (`refreshing_until`) to close the last token-rotation race; planned-session name (needs PlanRepo read-by-id); no single-use state nonce (accepted, ADR-0018).
+- `GET /integrations/strava/exports` without `?limit=` answers an untyped empty 400 (app always sends limit).
+- Failed/Blocked StatusPill baseline sits above the title baseline at 390/1280 (cosmetic, src/ui is the desktop pair's).
+- Today sessions never finish (escalated; Lead ruled: TODAY-FIN adds a Finish action).
 
 ## Decisions
 See the team report. Key: claimDue guard includes updated_at; RETURNING not changes; backoff dead on the 5th failure; blocked never dead, +12 h; returnTo ≤ 300; connect limiter keyed by user; production console mode (Lead decision); planned-session name deferred (no PlanRepo read-by-id).
