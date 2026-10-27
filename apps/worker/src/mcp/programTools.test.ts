@@ -139,7 +139,7 @@ describe("write_program", () => {
     }).pipe(Effect.provide(layer)),
   )
 
-  it.effect("warns for a day over 45 min, a repeated id and a timed exercise used as reps", () =>
+  it.effect("warns for a day over 60 min, a repeated id and a timed exercise used as reps", () =>
     Effect.gen(function* () {
       const long = day(
         Arr.makeBy(12, () => reps("crunch", 100)),
@@ -151,7 +151,7 @@ describe("write_program", () => {
       )
       expect(result.warnings.filter((w) => w.startsWith("day 1 runs"))).toHaveLength(1)
       expect(result.warnings.find((w) => w.startsWith("day 1 runs"))).toMatch(
-        /^day 1 runs \d+ min \(> 45\)$/,
+        /^day 1 runs \d+ min \(> 60\)$/,
       )
       expect(result.warnings).toContain("day 1 repeats crunch")
       expect(result.warnings).toContain("plank is a timed exercise used as reps")

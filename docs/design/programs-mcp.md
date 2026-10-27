@@ -123,7 +123,7 @@ SwapExerciseInput = Struct({ enrollmentId: ProgramEnrollmentId, from: CatalogId,
 Semantics (`apps/worker/src/mcp/programTools.ts`): every check before the first write, every row carries the caller's
 `userId`. `write_program`: decode → catalog check (`findCatalogExercise`, first unknown id → `NotFound { entity:
 "catalogExercise", id }` (`EntityName` gains `"catalogExercise"` and `NotFound.id` is a plain `String`, ratified 16:11: catalog ids and built-in program ids are slugs, not UUIDs)) → `bySlug`: none → insert (`source: "mcp"`, `version: 1`, `created: true`); some → replace
-fields, `version + 1`, same id, `created: false`. Warnings (strings, never errors): `"day N runs M min (> 45)"`,
+fields, `version + 1`, same id, `created: false`. Warnings (strings, never errors): `"day N runs M min (> 60)"`,
 `"day N repeats <id>"`, `"<id> is a timed exercise used as reps"` / vice versa (catalog `kind` vs item `kind`;
 `kind: "distance"` entries never warn), `"enrollment <id> is on day K > days (N): the app shows the program as finished"`.
 `update_program`: built-in `programId` → `Forbidden "built-in programs are read-only"`; unknown → `NotFound { entity:
@@ -142,7 +142,7 @@ user's guided programs (replace = same slug; the id and enrollments are kept). A
 (10–600 s) only for holds, isometrics and cardio (plank, wall sit, bike); use `kind: "reps"` (1–100) for everything
 else. Rest 15–30 s between core/bodyweight items, 60–120 s between heavy strength items, 0 for cardio; 45–90 s between
 rounds. Structure weeks as 7 days with 1–2 recovery/rest-style days (fewer items, 1 round); progress week over week by
-adding reps/seconds or a round, not new exercises every day. Keep a day ≤ 45 min (the result reports min/max minutes).
+adding reps/seconds or a round, not new exercises every day. Keep a day ≤ 60 min (the result reports min/max minutes).
 Errors: ValidationError (field path + rule), NotFound catalogExercise (an id you made up), Forbidden (built-in slug)."
 `enroll_program`: "Start the user's enrollment in a program today (or `startedOn`). Several programs may be active at
 once; the app's Today lists each active program's next day. Returns the existing enrollment if one is already

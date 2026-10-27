@@ -68,7 +68,7 @@ Tabs: **Home · Train · Activity · You** (icons `home`, `dumbbell`, `flame`, `
 | destination | route | contains (top → bottom at 390) |
 | --- | --- | --- |
 | Home | `(tabs)/home.tsx` | AppBar "Home" (date as eyebrow) · **Up next** card: planned session or due program day with a primary "Start" pill; if neither, the FREE-D start card ("Start a workout" primary + "Pick a program" secondary) · `HealthModule` (unchanged, states per health-module.md §6) · "This week" strip (sessions done / planned, volume) · latest feed card teaser ("See all" → Activity) |
-| Train | `(tabs)/train.tsx` | AppBar "Train" with trailing primary "Start" (`Button` size md; **arrives with NAV-3**, which builds the shared start flow, see "As built") · `SegmentedControl` Plan · Programs · Library (`?view=plan\|programs\|library`, default `plan` when a plan week exists else `programs`) · the existing `PlanWeek` / `ProgramHome` / `CatalogList` bodies |
+| Train | `(tabs)/train.tsx` | AppBar "Train" with trailing primary "Start" (`StartButton` size `sm`: a 36-px pill inside a 44-px target, so the bar stays 61 px; **arrives with NAV-3**, which builds the shared start flow, see "As built") · `SegmentedControl` Plan · Programs · Library (`?view=plan\|programs\|library`, default `plan` when a plan week exists else `programs`) · the existing `PlanWeek` / `ProgramHome` / `CatalogList` bodies |
 | Activity | `(tabs)/activity.tsx` | unchanged cards; AppBar trailing = none (gear and chart removed) |
 | You | `(tabs)/you.tsx` | AppBar "You" (gear → `/settings`) · profile header card (name, goal label, active location pill) · stat tiles: this week sessions · volume · streak (3 tiles 103 px each, see §7) · `ListGroup` "Insights": Progress → `/progress`, Health → `/health`, Weekly review → `/review` (new, N-S4 data) · `ListGroup` "Setup": Nutrition goals → `/settings/nutrition`, Equipment & locations → `/settings` (location section) , Integrations → `/settings/integrations` · `ListGroup` "About": Privacy, Terms, Sign out |
 
@@ -102,8 +102,8 @@ card; a permanent Record button duplicates it and costs the fifth slot forever. 
 
 ## 3. Desktop (1280) treatment of the merge
 
-`AppBar` renders Home · Train · Activity · You (same `APP_NAV`), plus (NAV-3) `Button variant="primary" size="sm"` "Start" at
-the trailing edge (hidden on `/train`, whose own bar has it — one Start per screen). Content column 600
+`AppBar` renders Home · Train · Activity · You (same `APP_NAV`), plus (NAV-3) `StartButton` size `sm` "Start" at
+the trailing edge (hidden on `/train`, whose own bar has it, and on `/home`, where the Up-next pill is the primary control — one Start per screen). Content column 600
 (`sizes.contentMaxWidth`, `tokens.ts`), aside 480 (`sizes.asideMaxWidth`), gutter 32 (`gutter.desktop`), sum
 600 + 32 + 480 = 1112 ≤ 1216 content width (1280 − 2·32). Per route: Home = column (Up next, week strip, feed
 teaser) / aside (HealthModule, due programs); Train = column (segmented body) / aside (active enrollment card or
@@ -154,7 +154,7 @@ FREE-D's open free session (`TodayRepo.openSession`, plannedSessionId None — V
 | Up next: program day | `today._tag === "Empty"` and `useDueToday().length > 0` | `Ready` → plan rows win; the due list is the second card when both hold |
 | In progress: free | `today._tag === "Empty"` and FREE-D's open free session is `Some` | `Ready` wins; `dueToday` empty or not, the free card is first |
 | Start card (empty) | `today._tag === "Empty"`, `dueToday.length === 0`, no open free session | — |
-| Failed | `today._tag === "Failed"` | shows `EmptyState icon="warning"`; health module still renders if shown |
+| Failed | `today._tag === "Failed"` | shows a danger `Banner` (NAV-3 decision, ratified), not `EmptyState icon="warning"`; health module still renders if shown |
 | Health module | `useHealthModuleShown()` true, independent of the rows above; its own states are health-module.md §6 | — |
 
 ## 7. Width arithmetic (390, gutter 16 → 358 content)

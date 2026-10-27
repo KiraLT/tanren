@@ -84,7 +84,7 @@ const retryOnConflict = <A, R>(attempt: Effect.Effect<A, ToolError, R>) =>
   Effect.retry(attempt, { times: 1, while: isConflict })
 
 /** A day longer than this many minutes earns a warning. */
-const MAX_DAY_MINUTES = 45
+const MAX_DAY_MINUTES = 60
 
 /** A program as the tools see it: a built-in or one of the user's rows. */
 interface Resolved {
@@ -407,7 +407,7 @@ export const writeProgram: Tool<typeof WriteProgramInput, typeof WriteProgramRes
     "(1–100) for everything else, with `sets` (1–10, default 1) straight sets and `restSeconds` " +
     "between them; `rounds` repeats the whole day as a circuit and is 1 for a gym day. Rest " +
     "15–30 s for core items, 60–150 s for heavy lifts, 0 for cardio. Weeks are 7 days with 1–2 " +
-    "recovery days; progress by reps, seconds or sets, not new exercises daily. Keep a day ≤ 45 " +
+    "recovery days; progress by reps, seconds or sets, not new exercises daily. Keep a day ≤ 60 " +
     "min (the result reports min/max minutes). Errors: ValidationError (field path + rule), NotFound " +
     "catalogExercise (an id you made up), Forbidden (built-in slug).",
   input: WriteProgramInput,

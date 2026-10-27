@@ -149,8 +149,9 @@ whether it marks 0-kg PRs and list it in the report as a follow-up question, do 
 
 ### 2.8 As built (PROG-3 and PROG-R, 2026-10-27; this section supersedes §2.2-§2.7 wherever they differ)
 
-- **Prefill method is `ProgramRepo.lastLoads`**, not `prefill`: `.biome/noMutation.grit` line 69 matches any method
-  name containing "fill" (unanchored `r"push|pop|...|fill|..."`). `RunConfig extends PlayerConfig { prefill, ids }`
+- **Prefill method is `ProgramRepo.lastLoads`**, not `prefill`: the `noMutation` grit pattern used to match any method
+  name containing "fill"; PROG-F1 anchored both branches to whole identifiers (`^(?:push|pop|...|fill|...)$`,
+  `.biome/noMutation.grit`), so `prefill` is no longer flagged. The method name `lastLoads` stays for its own clarity. `RunConfig extends PlayerConfig { prefill, ids }`
   lives in `src/player/cues.ts` (`playerMachine.ts` stayed untouched, as §2.2 said).
 - **Swap-aware**: prefill and `isWeighted` read the **run plan ids** per round (`RunConfig.ids`, helper `roundId` in
   `cues.ts`; the day's item only when the plan is not loaded), never `day.items` alone (PROG-R blocking finding: a
@@ -362,14 +363,14 @@ One pure expansion feeds everything: `expandDay(day): ReadonlyArray<Step>` in `P
 `Step = { item, exerciseIndex /*0-based*/, exercises, set /*1-based*/, sets, restSeconds }` — for set `s <
 sets` the rest is `item.restSeconds`; after the last set the existing rule (item rest, or round rest after the
 last item of a round). `playerMachine.ts` indexes `config.steps` instead of `day.items` (`itemIndex` renamed
-`stepIndex`; `grep -rn "itemIndex" apps/mobile/src/player` lists the sites), `progress` returns `{ round,
-rounds, exercise, exercises, set, sets }`; `playerHeader.eyebrowLabel`: "Exercise 2/7 · Set 2/4", prefixed
+`stepIndex`; `grep -rn "itemIndex" apps/mobile/src/player` lists the sites), `progress` returns `PlayerProgress`:
+`{ round, rounds, item, items, set, sets, step, steps }` (`item`/`items` stay the exercise, 1-based; `set`/`sets` the set within it; `step`/`steps` the position in the round); `playerHeader.eyebrowLabel`: "Exercise 2/7 · Set 2/4", prefixed
 "Round r/n · " only when `rounds > 1`. Weights (§2) are entered per step, i.e. per set — each performed step
 logs one `workout_set`, which is what `historyFor` already does per item-round. `plannedItems` and
 `dayDurationSeconds` iterate `expandDay` (`SECONDS_PER_REP` unchanged). `mergeDay`/`reconcilePlan` key on
 step index. Snapshot (§3): `phase.stepIndex`; `restore` discards a snapshot whose `stepIndex >=
 steps.length` (a built-in changed under an open day). Preview `itemLine`: "4 × 8 reps · 120 s rest";
-`DayItems` trailing "4 × 8"; editor `ItemCard` adds a `CompactStepper` "sets" (1–10) for reps items.
+`DayItems` trailing "4 × 8 reps" (the same `prescription()` in `cues.ts` the preview uses); editor `ItemCard` adds a `CompactStepper` "sets" (1–10) for reps items.
 
 ### 7.4 12-week program content (`leanBuild.ts`; no author or trademark, Amendment 22)
 

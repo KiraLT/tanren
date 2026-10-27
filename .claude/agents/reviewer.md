@@ -111,9 +111,10 @@ engineer can act on without asking questions.
   (and no 1280 one when the screen has a `Columns` layout) is a `should`
   finding named "no phone capture", never a silent APPROVE.
 - Run, do not request: when a changed file is covered by a `*.workerd.test.ts`
-  (directly or through imports), run that project yourself (`pnpm -F
-  @tanren/worker exec vitest --project @tanren/worker-workerd <name>`, ≈ 30 s)
-  and quote the count; "workerd project not run" as a `should` (OAUTH-UI,
+  (directly or through imports), run that project yourself (`cd apps/worker &&
+  pnpm exec vitest run -c vitest.workerd.config.ts <name>`, ≈ 30 s; the
+  `--project @tanren/worker-workerd` form fails with "No projects matched",
+  PROG-R3 2026-10-27) and quote the count; "workerd project not run" as a `should` (OAUTH-UI,
   2026-10-27) only costs a fix round for something you could verify.
 - A paginated or cursor-driven job (back-fill, pull, import) is reviewed on
   its multi-run path: find the test that runs it N times over a fixture larger
