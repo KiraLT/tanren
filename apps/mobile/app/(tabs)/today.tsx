@@ -5,6 +5,7 @@ import { TodayPrograms, useDueToday } from "../../src/components/TodayPrograms"
 import { TodayReady } from "../../src/components/TodayReady"
 import { FinishWorkout } from "../../src/components/today/FinishWorkout"
 import { HealthModule, useHealthModuleShown } from "../../src/components/today/HealthModule"
+import { todayEmptyCopy } from "../../src/components/today/todayEmptyCopy"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
@@ -107,18 +108,15 @@ function ReadyBanner() {
  */
 function TodayEmpty() {
   const healthShown = useHealthModuleShown()
+  const programsDue = useDueToday()
+  const copy = todayEmptyCopy(programsDue.length)
   return (
     // With the card: a scrolling page (16 top padding, 24 section gap); without it the plain body,
     // where the empty state fills and centres.
     <Page header={<TodayBar />} scroll={healthShown} sectionGap={space.xl}>
       <HealthModule />
       <TodayPrograms />
-      <EmptyState
-        icon="calendar"
-        title="Nothing planned today"
-        body="Rest up. Your next session shows up here."
-        compact={healthShown}
-      />
+      <EmptyState icon="calendar" title={copy.title} body={copy.body} compact={healthShown} />
     </Page>
   )
 }

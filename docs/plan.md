@@ -373,3 +373,15 @@ Recorded 2026-10-19, from the owner's kickoff message:
    React Native means NativeWind, a second styling language next to the Forge
    tokens; consistency comes from the `src/ui` primitives, the token table and
    the measured design reviews (ADR-0027).
+29. **Start a workout without a plan** (2026-10-27 18:16, owner, verbatim):
+   "Also I dont get what is the point of library. I get error what todays
+   session not started. How to start days session?" Lead reading: the app
+   assumed every session comes from a Claude-written plan or a program day,
+   so a user with no plan hits a dead end ("today's session not started")
+   when adding an exercise from the Library. Today's empty state and the
+   Library's no-session state gain **Start a workout**: an unplanned session
+   for today that takes exercises from the Library, logs sets with the usual
+   steppers prefilled from history, and finishes into the feed like any other
+   session; the Library's purpose (browse by muscle and equipment, see what
+   the active location allows, add or swap) is stated in the app
+   (ADR-0028, `docs/design/free-workout.md`, FREE-D).
