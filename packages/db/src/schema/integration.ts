@@ -20,6 +20,11 @@ export const integration = sqliteTable(
     scope: text("scope").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
+    /**
+     * Token-refresh lease (ms since epoch): the drain that set it is rotating the tokens until then.
+     * `NULL` = free. Server-internal: not part of `IntegrationRow`.
+     */
+    refreshingUntil: integer("refreshing_until"),
   },
   (t) => [uniqueIndex("integration_user_provider_unique").on(t.userId, t.provider)],
 )

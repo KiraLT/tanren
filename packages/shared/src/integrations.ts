@@ -83,8 +83,14 @@ export type ConnectResponse = typeof ConnectResponse.Type
 export const RetryExportRequest = Schema.Struct({ id: ActivityExportId })
 export type RetryExportRequest = typeof RetryExportRequest.Type
 
-/** Query-string fields for `GET /integrations/strava/exports`. */
-export const ExportsQuery = { limit: PageLimit }
+/** The page size `GET /integrations/strava/exports` uses when the query has no `limit`. */
+export const DEFAULT_EXPORTS_LIMIT = 20
+
+/**
+ * Query-string fields for `GET /integrations/strava/exports`. `limit` is optional with no decoding
+ * default (the wire shape stays `{ limit? }`); the handler applies `DEFAULT_EXPORTS_LIMIT`.
+ */
+export const ExportsQuery = { limit: Schema.optionalKey(PageLimit) }
 
 /** The provider has no active integration for this user. */
 export class IntegrationNotConnected extends Schema.TaggedError<IntegrationNotConnected>()(

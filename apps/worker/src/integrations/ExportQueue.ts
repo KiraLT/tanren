@@ -28,7 +28,7 @@ import {
   pipe,
   type Redacted,
 } from "effect"
-import { D1Layer, ExerciseRepo, ProfileRepo, Repositories, SessionRepo } from "../repos"
+import { D1Layer, ExerciseRepo, PlanRepo, ProfileRepo, Repositories, SessionRepo } from "../repos"
 import { activityFor } from "./activityText"
 import { type NewActivity, type RefreshedTokens, StravaApi } from "./StravaApi"
 import { TokenSeal, type TokenSealError } from "./TokenSeal"
@@ -41,6 +41,9 @@ interface VersionedToken {
 
 /** Internal: Strava refused the tokens of row version `seen`; revoke that version only. */
 class TokenRejected extends Data.TaggedError("TokenRejected")<{ readonly seen: Timestamp }> {}
+
+/** Internal: another drain holds the refresh lease and has not stored new tokens yet; retry later. */
+class RefreshDeferred extends Data.TaggedError("RefreshDeferred") {}
 
 // The export pipeline (design §6/§7): a finished session becomes a Strava activity. `Sync.push`
 // enqueues and drains one row within the push; the cron `scheduled` handler drains the rest.
@@ -58,6 +61,11 @@ export const MAX_ATTEMPTS = 5
 export const BLOCKED_RETRY = { hours: 12 } as const
 /** Refresh the access token when it expires within this window (design §7). */
 export const REFRESH_MARGIN = { hours: 1 } as const
+/**
+ * How long a drain holds the token-refresh lease: longer than one bounded refresh
+ * (`STRAVA_REQUEST_TIMEOUT`, 10 s) plus the store, so a crashed holder blocks rotation at most this long.
+ */
+export const REFRESH_LEASE = { seconds: 30 } as const
 
 /** When to retry after `attemptsCompleted` failed attempts; `None` = give up (`dead`). */
 export const nextAttempt = (attemptsCompleted: number, now: Timestamp): Option.Option<Timestamp> =>
@@ -151,6 +159,7 @@ const make = Effect.gen(function* () {
   const sessions = yield* SessionRepo
   const exercises = yield* ExerciseRepo
   const profiles = yield* ProfileRepo
+  const plans = yield* PlanRepo
   const strava = yield* StravaApi
   const seal = yield* TokenSeal
   const ids = yield* IdGenerator
@@ -212,11 +221,54 @@ const make = Effect.gen(function* () {
   })
 
   /**
-   * Rotates both tokens and persists them sealed in ONE update (design §7). Strava refusing the
-   * refresh (401, or 400 for a refresh token another drain already used) defers to that drain's
-   * stored tokens when the row changed, else rejects this version.
+   * Another drain holds the refresh lease (or rotated the row since `integration` was read): use
+   * its stored tokens when the row changed, defer while it is still rotating, reject a revoked row.
+   */
+  const rotatedElsewhere = Effect.fn("ExportQueue.rotatedElsewhere")(function* (
+    integration: IntegrationRow,
+  ) {
+    const current = yield* integrations.get(integration.userId, integration.provider)
+    if (!isActive(current)) {
+      return yield* new TokenRejected({ seen: integration.updatedAt })
+    }
+    if (DateTime.Equivalence(current.value.updatedAt, integration.updatedAt)) {
+      return yield* new RefreshDeferred()
+    }
+    const token = yield* openOf(current.value, current.value.accessToken)
+    return { token, version: current.value.updatedAt } satisfies VersionedToken
+  })
+
+  /**
+   * Rotates both tokens and persists them sealed in ONE update (design §7), under the refresh
+   * lease (`claimRefresh`, `REFRESH_LEASE`): of two concurrent drains only one calls
+   * `strava.refresh`; the other goes through `rotatedElsewhere`. `setTokens` frees the lease; any
+   * other ending frees it with `releaseRefresh`. Strava refusing the refresh (401, or 400 for a
+   * refresh token already used) defers to stored tokens when the row changed, else rejects this
+   * version.
    */
   const refreshTokens = Effect.fn("ExportQueue.refreshTokens")(function* (
+    integration: IntegrationRow,
+    now: Timestamp,
+  ) {
+    const claimed = yield* integrations.claimRefresh(
+      integration.id,
+      integration.updatedAt,
+      now,
+      DateTime.add(now, REFRESH_LEASE),
+    )
+    if (!claimed) {
+      return yield* rotatedElsewhere(integration)
+    }
+    const release = Effect.ignore(integrations.releaseRefresh(integration.id))
+    return yield* rotateClaimed(integration, now).pipe(
+      Effect.tap((stored) => (stored.released ? Effect.void : release)),
+      Effect.map((stored) => stored.token),
+      Effect.onError(() => release),
+    )
+  })
+
+  /** The lease is held: refresh and store; `released` = `setTokens` already freed the lease. */
+  const rotateClaimed = Effect.fn("ExportQueue.rotateClaimed")(function* (
     integration: IntegrationRow,
     now: Timestamp,
   ) {
@@ -229,7 +281,8 @@ const make = Effect.gen(function* () {
       ),
     )
     if (Option.isNone(rotated)) {
-      return yield* storedIfRotated(integration, integration.updatedAt)
+      const token = yield* storedIfRotated(integration, integration.updatedAt)
+      return { token, released: false }
     }
     const access = yield* seal.seal(rotated.value.accessToken)
     const refresh = yield* seal.seal(rotated.value.refreshToken)
@@ -240,7 +293,8 @@ const make = Effect.gen(function* () {
       expiresAt: rotated.value.expiresAt,
       updatedAt: now,
     })
-    return { token: rotated.value.accessToken, version: now } satisfies VersionedToken
+    const token: VersionedToken = { token: rotated.value.accessToken, version: now }
+    return { token, released: true }
   })
 
   /** The stored access token, or a rotated one when it expires within `REFRESH_MARGIN`. */
@@ -314,12 +368,17 @@ const make = Effect.gen(function* () {
     const sets = yield* sessions.listSets(row.userId, row.sessionId)
     const known = yield* exercises.list(row.userId, { includeDeleted: true })
     const profile = yield* profiles.get(row.userId)
+    // One statement more only for a session linked to a plan; a deleted one reads as None.
+    const planned = yield* Effect.transposeOption(
+      Option.map(session.value.plannedSessionId, (id) => plans.getPlannedSession(row.userId, id)),
+    ).pipe(Effect.map(Option.flatten))
     const activity = activityFor({
       session: session.value,
       finishedAt: finishedAt.value,
       sets,
       exercises: known,
       timezone: Option.map(profile, (p) => p.timezone),
+      plannedSessionName: Option.map(planned, (p) => p.name),
     })
     /** Revokes only the row version whose tokens were refused (a newer rotation is kept). */
     const revoke = (seen: Timestamp) =>
@@ -339,6 +398,9 @@ const make = Effect.gen(function* () {
             : Effect.succeed(failureOutcome(error.reason, attemptsCompleted, now)),
         // Also tokens that no longer open (`openOf`): the version they came from is revoked.
         TokenRejected: (error) => revoke(error.seen),
+        // The lease holder is still rotating: a retryable round ("Strava is busy. Retry later").
+        RefreshDeferred: () =>
+          Effect.succeed(failureOutcome("rate_limited", attemptsCompleted, now)),
       }),
     )
     yield* settle(outcome)
@@ -379,7 +441,7 @@ export class ExportQueue extends Context.Service<ExportQueue, ExportQueueShape>(
 ) {
   /**
    * Needs `IntegrationRepo`, `ActivityExportRepo`, `SessionRepo`, `ExerciseRepo`, `ProfileRepo`,
-   * `StravaApi`, `TokenSeal` and `IdGenerator`.
+   * `PlanRepo`, `StravaApi`, `TokenSeal` and `IdGenerator`.
    */
   static readonly layer = Layer.effect(this, make)
   /** No integrations (the Node memory store has no integration tables): does nothing. */

@@ -166,3 +166,76 @@ describe("IntegrationRepo", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 })
+
+describe("IntegrationRepo refresh lease", () => {
+  const lease = (seconds: number) => DateTime.add(T0, { seconds })
+
+  it.effect(
+    "claimRefresh grants a free lease once; a second claim before it expires is refused",
+    () =>
+      Effect.gen(function* () {
+        const repo = yield* IntegrationRepo
+        const stored = row(40, userOf(40))
+        yield* repo.upsert(stored)
+        expect(yield* repo.claimRefresh(stored.id, T0, T0, lease(30))).toBe(true)
+        expect(yield* repo.claimRefresh(stored.id, T0, lease(10), lease(40))).toBe(false)
+      }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("claimRefresh takes over an expired lease", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const stored = row(41, userOf(41))
+      yield* repo.upsert(stored)
+      expect(yield* repo.claimRefresh(stored.id, T0, T0, lease(30))).toBe(true)
+      expect(yield* repo.claimRefresh(stored.id, T0, lease(31), lease(61))).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("claimRefresh of a row version rotated meanwhile is refused", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const stored = row(42, userOf(42))
+      yield* repo.upsert(stored)
+      yield* repo.setTokens(stored.id, {
+        access: SealedToken.make("v1.iv.a2"),
+        refresh: SealedToken.make("v1.iv.r2"),
+        expiresAt: T1,
+        updatedAt: T1,
+      })
+      expect(yield* repo.claimRefresh(stored.id, T0, T1, DateTime.add(T1, { seconds: 30 }))).toBe(
+        false,
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("setTokens and releaseRefresh both free the lease", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const stored = row(43, userOf(43))
+      yield* repo.upsert(stored)
+      expect(yield* repo.claimRefresh(stored.id, T0, T0, lease(30))).toBe(true)
+      yield* repo.releaseRefresh(stored.id)
+      expect(yield* repo.claimRefresh(stored.id, T0, lease(1), lease(31))).toBe(true)
+      yield* repo.setTokens(stored.id, {
+        access: SealedToken.make("v1.iv.a3"),
+        refresh: SealedToken.make("v1.iv.r3"),
+        expiresAt: T1,
+        updatedAt: lease(2),
+      })
+      expect(yield* repo.claimRefresh(stored.id, lease(2), lease(3), lease(33))).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect(
+    "get still decodes the row while a lease is held (the lease is not on IntegrationRow)",
+    () =>
+      Effect.gen(function* () {
+        const repo = yield* IntegrationRepo
+        const stored = row(44, userOf(44))
+        yield* repo.upsert(stored)
+        yield* repo.claimRefresh(stored.id, T0, T0, lease(30))
+        expect(yield* repo.get(stored.userId, "strava")).toEqual(Option.some(stored))
+      }).pipe(Effect.provide(TestLayer)),
+  )
+})

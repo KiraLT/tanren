@@ -1,6 +1,7 @@
 import { ActivityExportRepo, type ExportRow, IntegrationRepo } from "@tanren/db"
 import {
   type ActivityExport,
+  DEFAULT_EXPORTS_LIMIT,
   IntegrationNotConnected,
   type IntegrationsStatus,
   NotFound,
@@ -129,7 +130,7 @@ export const IntegrationsLive = HttpApiBuilder.group(
         internal(
           Effect.gen(function* () {
             const userId = yield* currentUser
-            const rows = yield* exports.list(userId, "strava", query.limit)
+            const rows = yield* exports.list(userId, "strava", query.limit ?? DEFAULT_EXPORTS_LIMIT)
             return Arr.map(rows, toActivityExport)
           }),
         ),

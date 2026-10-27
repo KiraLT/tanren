@@ -5,6 +5,7 @@ import {
   type Plan,
   PlanId,
   type PlannedSession,
+  PlannedSessionId,
   PlannedSessionRow,
   type PlannedSet,
   PlannedSetRow,
@@ -40,6 +41,11 @@ export interface PlanRepoShape {
     userId: UserId,
     planId: PlanId,
   ) => Effect.Effect<ReadonlyArray<PlanWeek>, PersistenceError>
+  /** One live planned session of the user; `None` when it is missing, foreign or soft-deleted. */
+  readonly getPlannedSession: (
+    userId: UserId,
+    id: PlannedSessionId,
+  ) => Effect.Effect<Option.Option<PlannedSession>, PersistenceError>
   /** The user's live active plan, assembled; `None` when there is none. */
   readonly currentPlan: (
     userId: UserId,
@@ -79,6 +85,13 @@ export class PlanRepo extends Context.Service<PlanRepo, PlanRepoShape>()("@tanre
         sql`SELECT * FROM plan_week
           WHERE user_id = ${userId} AND plan_id = ${planId} AND deleted_at IS NULL
           ORDER BY week_start, created_at, id`,
+    })
+    const findPlannedSession = SqlSchema.findOneOption({
+      Request: Schema.Struct({ userId: UserId, id: PlannedSessionId }),
+      Result: PlannedSessionRow,
+      execute: ({ userId, id }) =>
+        sql`SELECT * FROM planned_session
+          WHERE user_id = ${userId} AND id = ${id} AND deleted_at IS NULL`,
     })
     const findActive = SqlSchema.findOneOption({
       Request: Schema.Struct({ userId: UserId }),
@@ -131,6 +144,10 @@ export class PlanRepo extends Context.Service<PlanRepo, PlanRepoShape>()("@tanre
         findPlans({ userId, includeDeleted }).pipe(Effect.mapError(persistenceError("plan.list"))),
       listWeeks: (userId, planId) =>
         findWeeks({ userId, planId }).pipe(Effect.mapError(persistenceError("planWeek.list"))),
+      getPlannedSession: (userId, id) =>
+        findPlannedSession({ userId, id }).pipe(
+          Effect.mapError(persistenceError("plannedSession.get")),
+        ),
       currentPlan: (userId) =>
         currentPlan(userId).pipe(Effect.mapError(persistenceError("plan.current"))),
       putPlans: makePut(sql, "plan", PlanRow, {

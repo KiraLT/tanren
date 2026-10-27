@@ -67,6 +67,8 @@ const harness = (
           get: () => Effect.succeed(Option.none()),
           upsert: (row) => Ref.update(upserts, Arr.append(row)),
           setTokens: () => Effect.die("unused"),
+          claimRefresh: () => Effect.die("unused"),
+          releaseRefresh: () => Effect.die("unused"),
           markRevoked: () => Effect.die("unused"),
           remove: () => Effect.die("unused"),
         }),

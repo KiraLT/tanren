@@ -16,7 +16,14 @@ import { Array as Arr, Context, DateTime, Effect, Layer, Match, Option, Order, R
 interface State {
   readonly integrations: ReadonlyArray<IntegrationRow>
   readonly exports: ReadonlyArray<ExportRow>
+  /** Held refresh leases (the D1 `refreshing_until` column), by integration id. */
+  readonly leases: ReadonlyArray<{ readonly id: string; readonly until: DateTime.Utc }>
 }
+
+const withoutLease = (s: State, id: string): State => ({
+  ...s,
+  leases: Arr.filter(s.leases, (lease) => lease.id !== id),
+})
 
 const newestFirst: Order.Order<ExportRow> = Order.flip(
   Order.combine(
@@ -56,7 +63,7 @@ const settled = (row: ExportRow, outcome: ExportOutcome): ExportRow => {
 }
 
 const make = Effect.gen(function* () {
-  const state = yield* Ref.make<State>({ integrations: [], exports: [] })
+  const state = yield* Ref.make<State>({ integrations: [], exports: [], leases: [] })
   const update = (f: (s: State) => State) => Ref.update(state, f)
   const read = Ref.get(state)
 
@@ -80,9 +87,24 @@ const make = Effect.gen(function* () {
           integrations: [...Arr.filter(s.integrations, (r) => r.id !== next.id), next],
         }
       }),
+    claimRefresh: (id, seenUpdatedAt, now, until) =>
+      Ref.modify(state, (s) => {
+        const sameVersion = s.integrations.some(
+          (r) => r.id === id && DateTime.Equivalence(r.updatedAt, seenUpdatedAt),
+        )
+        const free = !s.leases.some(
+          (lease) => lease.id === id && !DateTime.isLessThan(lease.until, now),
+        )
+        const granted = sameVersion && free
+        return [
+          granted,
+          granted ? { ...s, leases: [...withoutLease(s, id).leases, { id, until }] } : s,
+        ] as const
+      }),
+    releaseRefresh: (id) => update((s) => withoutLease(s, id)),
     setTokens: (id, tokens) =>
       update((s) => ({
-        ...s,
+        ...withoutLease(s, id),
         integrations: Arr.map(s.integrations, (r) =>
           r.id === id
             ? {
@@ -106,6 +128,7 @@ const make = Effect.gen(function* () {
       })),
     remove: (userId, provider) =>
       update((s) => ({
+        ...s,
         integrations: Arr.filter(
           s.integrations,
           (r) => !(r.userId === userId && r.provider === provider),

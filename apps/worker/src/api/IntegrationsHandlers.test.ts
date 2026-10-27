@@ -293,6 +293,18 @@ describe("GET /integrations/strava/exports", () => {
     expect(Arr.map(rows, (r) => r.id)).toEqual([exportId(3), exportId(2)])
   })
 
+  it("answers the default page of 20 when the query has no limit", async () => {
+    const h = harness()
+    await run(Effect.forEach(Arr.range(1, 22), (n) => enqueue(h, n)))
+    const bare = await call(h, "GET", "/integrations/strava/exports")
+    expect(bare.status).toBe(200)
+    const rows = Schema.decodeUnknownSync(Schema.Array(Row))(await bare.json())
+    expect(rows).toHaveLength(20)
+    expect(Arr.head(rows).pipe(Option.map((r) => r.id))).toEqual(Option.some(exportId(22)))
+    const explicit = await call(h, "GET", "/integrations/strava/exports?limit=20")
+    expect(Schema.decodeUnknownSync(Schema.Array(Row))(await explicit.json())).toEqual(rows)
+  })
+
   it("answers 400 for limit 0", async () => {
     expect((await call(harness(), "GET", "/integrations/strava/exports?limit=0")).status).toBe(400)
   })

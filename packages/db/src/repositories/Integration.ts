@@ -1,6 +1,6 @@
 import { D1Client } from "@effect/sql-d1"
 import { Provider, Timestamp, UserId, Uuid } from "@tanren/shared"
-import { Context, Effect, Layer, type Option, Schema } from "effect"
+import { Context, DateTime, Effect, Layer, type Option, Schema } from "effect"
 import { SqlSchema } from "effect/sql"
 import { type PersistenceError, persistenceError } from "../errors"
 
@@ -43,8 +43,25 @@ export interface IntegrationRepoShape {
   ) => Effect.Effect<Option.Option<IntegrationRow>, PersistenceError>
   /** Insert, or on `(user_id, provider)` replace everything but `id` and `created_at`. */
   readonly upsert: (row: IntegrationRow) => Effect.Effect<void, PersistenceError>
-  /** Both rotated tokens and the expiry in ONE update (the old refresh token dies at once). */
+  /**
+   * Both rotated tokens and the expiry in ONE update (the old refresh token dies at once); it also
+   * releases the refresh lease (`refreshing_until = NULL`).
+   */
   readonly setTokens: (id: Uuid, tokens: IntegrationTokens) => Effect.Effect<void, PersistenceError>
+  /**
+   * Claims the token-refresh lease until `until` with one guarded `UPDATE … RETURNING`: it succeeds
+   * (`true`) only when the lease is free or expired (`refreshing_until IS NULL OR < now`) AND the row
+   * is still the version the caller read (`updated_at = seenUpdatedAt`, so a drain holding tokens
+   * another drain already rotated never refreshes them again). Two callers never both get `true`.
+   */
+  readonly claimRefresh: (
+    id: Uuid,
+    seenUpdatedAt: Timestamp,
+    now: Timestamp,
+    until: Timestamp,
+  ) => Effect.Effect<boolean, PersistenceError>
+  /** Frees the refresh lease after a refresh that stored nothing (refused or failed). */
+  readonly releaseRefresh: (id: Uuid) => Effect.Effect<void, PersistenceError>
   /**
    * Revokes only the row version the caller saw (`updated_at = seenUpdatedAt`): a row whose tokens
    * another drain rotated meanwhile is left alone (no-op).
@@ -95,8 +112,26 @@ export class IntegrationRepo extends Context.Service<IntegrationRepo, Integratio
         }),
         execute: (r) =>
           sql`UPDATE integration SET access_token = ${r.access}, refresh_token = ${r.refresh},
-              expires_at = ${r.expiresAt}, updated_at = ${r.updatedAt}
+              expires_at = ${r.expiresAt}, updated_at = ${r.updatedAt}, refreshing_until = NULL
             WHERE id = ${r.id}`,
+      })
+      const claim = SqlSchema.findAll({
+        Request: Schema.Struct({
+          id: Uuid,
+          seenUpdatedAt: Timestamp,
+          nowMs: Schema.Number,
+          untilMs: Schema.Number,
+        }),
+        Result: Schema.Struct({ id: Uuid }),
+        execute: ({ id, seenUpdatedAt, nowMs, untilMs }) =>
+          sql`UPDATE integration SET refreshing_until = ${untilMs}
+            WHERE id = ${id} AND updated_at = ${seenUpdatedAt}
+              AND (refreshing_until IS NULL OR refreshing_until < ${nowMs})
+            RETURNING id`,
+      })
+      const release = SqlSchema.void({
+        Request: Schema.Struct({ id: Uuid }),
+        execute: ({ id }) => sql`UPDATE integration SET refreshing_until = NULL WHERE id = ${id}`,
       })
       const revoke = SqlSchema.void({
         Request: Schema.Struct({ id: Uuid, seenUpdatedAt: Timestamp, updatedAt: Timestamp }),
@@ -114,6 +149,18 @@ export class IntegrationRepo extends Context.Service<IntegrationRepo, Integratio
           updateTokens({ id, ...tokens }).pipe(
             Effect.mapError(persistenceError("integration.setTokens")),
           ),
+        claimRefresh: (id, seenUpdatedAt, now, until) =>
+          claim({
+            id,
+            seenUpdatedAt,
+            nowMs: DateTime.toEpochMillis(now),
+            untilMs: DateTime.toEpochMillis(until),
+          }).pipe(
+            Effect.map((rows) => rows.length > 0),
+            Effect.mapError(persistenceError("integration.claimRefresh")),
+          ),
+        releaseRefresh: (id) =>
+          release({ id }).pipe(Effect.mapError(persistenceError("integration.releaseRefresh"))),
         markRevoked: (id, seenUpdatedAt, updatedAt) =>
           revoke({ id, seenUpdatedAt, updatedAt }).pipe(
             Effect.mapError(persistenceError("integration.markRevoked")),

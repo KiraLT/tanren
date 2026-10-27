@@ -294,6 +294,14 @@ describe("ExportsQuery", () => {
   )
 
   it.effect("round-trips on the wire", () => wireRoundTrips(Query, { limit: 20 }))
+
+  it.effect("decodes a query without limit to zero keys (no decoding default)", () =>
+    Effect.gen(function* () {
+      expect(Object.keys(yield* Schema.decodeUnknownEffect(Query)({}))).toEqual([])
+      yield* wireRoundTrips(Query, {})
+      expect(yield* failingPaths(Query, { limit: "many" })).toEqual([["limit"]])
+    }),
+  )
 })
 
 describe("integration errors", () => {

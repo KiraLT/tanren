@@ -144,6 +144,8 @@ const makeMemory = Effect.gen(function* () {
     putPlanWeeks: put("planWeek"),
     putPlannedSessions: put("plannedSession"),
     putPlannedSets: put("plannedSet"),
+    getPlannedSession: (userId, id) =>
+      find("plannedSession", userId, id).pipe(Effect.map(Option.filter(isLive))),
     currentPlan,
   })
   const session = SessionRepo.of({

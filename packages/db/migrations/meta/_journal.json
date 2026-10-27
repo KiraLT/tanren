@@ -36,6 +36,13 @@
       "when": 1793043277290,
       "tag": "0004_integrations",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793088352786,
+      "tag": "0005_refresh_lease",
+      "breakpoints": true
     }
   ]
 }

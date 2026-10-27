@@ -130,6 +130,7 @@ describe("activityFor", () => {
       sets: [],
       exercises: [],
       timezone: Option.none(),
+      plannedSessionName: Option.none(),
     })
     expect(activity).toMatchObject({
       sessionId: row.id,
@@ -141,5 +142,17 @@ describe("activityFor", () => {
       description: "0 sets · 1 min\nLogged with Tanren",
     })
     expect(elapsedSeconds(T0, DateTime.add(T0, { minutes: 48, seconds: 30 }))).toBe(2910)
+  })
+
+  it("is named after the linked planned session when its name is known", () => {
+    const activity = activityFor({
+      session: session(0x901, T0),
+      finishedAt: DateTime.add(T0, { minutes: 50 }),
+      sets: [],
+      exercises: [],
+      timezone: Option.none(),
+      plannedSessionName: Option.some("Upper A"),
+    })
+    expect(activity.name).toBe("Upper A")
   })
 })

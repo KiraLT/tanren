@@ -112,18 +112,23 @@ export const elapsedSeconds = (startedAt: DateTime.Utc, finishedAt: DateTime.Utc
     Math.floor((DateTime.toEpochMillis(finishedAt) - DateTime.toEpochMillis(startedAt)) / 1000),
   )
 
-/** The Strava activity for a finished session (`finishedAt` is passed in, already checked Some). */
+/**
+ * The Strava activity for a finished session (`finishedAt` is passed in, already checked Some). The
+ * name is the linked planned session's (`plannedSessionName`, resolved by the caller: `None` when
+ * the session is unlinked or the planned session is gone), else `DEFAULT_ACTIVITY_NAME`.
+ */
 export const activityFor = (input: {
   readonly session: Session
   readonly finishedAt: DateTime.Utc
   readonly sets: ReadonlyArray<WorkoutSet>
   readonly exercises: ReadonlyArray<Exercise>
   readonly timezone: Option.Option<string>
+  readonly plannedSessionName: Option.Option<string>
 }): NewActivity => {
   const elapsed = elapsedSeconds(input.session.startedAt, input.finishedAt)
   return {
     sessionId: input.session.id,
-    name: DEFAULT_ACTIVITY_NAME,
+    name: Option.getOrElse(input.plannedSessionName, () => DEFAULT_ACTIVITY_NAME),
     sportType: "WeightTraining",
     trainer: true,
     startDateLocal: startDateLocal(input.session.startedAt, input.timezone),

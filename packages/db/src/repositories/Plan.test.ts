@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { PlanId, UserId } from "@tanren/shared"
+import { PlanId, PlannedSessionId, UserId } from "@tanren/shared"
 import { Effect, Option } from "effect"
 import { SqlClient } from "effect/sql"
 import {
@@ -248,6 +248,40 @@ describe("PlanRepo", () => {
       yield* repo.putPlans(UserId.make(user), [plan({ id: id(92), userId: user })])
       expect(yield* repo.currentPlan(ownerB)).toEqual(Option.none())
       expect(Option.isSome(yield* repo.currentPlan(UserId.make(user)))).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("PlanRepo.getPlannedSession", () => {
+  const sessionIdOf = (n: number) => PlannedSessionId.make(id(n))
+  const seedSessions = Effect.gen(function* () {
+    const repo = yield* PlanRepo
+    yield* repo.putPlans(ownerA, [plan({ id: id(200), status: "archived" })])
+    yield* repo.putPlanWeeks(ownerA, [planWeek({ id: id(201), planId: id(200) })])
+    const live = plannedSession({ id: id(202), planWeekId: id(201), name: "Push day" })
+    yield* repo.putPlannedSessions(ownerA, [live])
+    return live
+  })
+
+  it.effect("returns a live planned session to its owner only", () =>
+    Effect.gen(function* () {
+      const repo = yield* PlanRepo
+      const live = yield* seedSessions
+      expect(yield* repo.getPlannedSession(ownerA, sessionIdOf(202))).toEqual(Option.some(live))
+      expect(yield* repo.getPlannedSession(ownerB, sessionIdOf(202))).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("treats a soft-deleted or unknown planned session as not found", () =>
+    Effect.gen(function* () {
+      const repo = yield* PlanRepo
+      yield* repo.putPlans(ownerA, [plan({ id: id(210), status: "archived" })])
+      yield* repo.putPlanWeeks(ownerA, [planWeek({ id: id(211), planId: id(210) })])
+      yield* repo.putPlannedSessions(ownerA, [
+        plannedSession({ id: id(212), planWeekId: id(211), deletedAt: t2, updatedAt: t2 }),
+      ])
+      expect(yield* repo.getPlannedSession(ownerA, sessionIdOf(212))).toEqual(Option.none())
+      expect(yield* repo.getPlannedSession(ownerA, sessionIdOf(299))).toEqual(Option.none())
     }).pipe(Effect.provide(TestLayer)),
   )
 })

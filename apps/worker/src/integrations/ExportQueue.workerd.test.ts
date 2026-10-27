@@ -11,6 +11,10 @@ import {
   type ExportFailureReason,
   IdGenerator,
   OrderIndex,
+  Plan,
+  PlannedSession,
+  PlannedSessionId,
+  PlanWeek,
   Reps,
   Session,
   SessionId,
@@ -32,14 +36,17 @@ import {
   Option,
   Redacted,
   Ref,
+  Schema,
+  String as Str,
 } from "effect"
 import { TestClock } from "effect/testing"
 import { FAKE_INTEGRATION_TOKEN_KEY } from "../Config"
-import { D1Layer, ExerciseRepo, Repositories, SessionRepo } from "../repos"
-import { at, exercise, session } from "../sync/fixtures"
+import { D1Layer, ExerciseRepo, PlanRepo, Repositories, SessionRepo } from "../repos"
+import { at, exercise, plan, session, week } from "../sync/fixtures"
 import { Sync } from "../sync/Sync"
 import { countingD1 } from "../testing/countingD1"
-import { ExportQueue } from "./ExportQueue"
+import { DEFAULT_ACTIVITY_NAME } from "./activityText"
+import { ExportQueue, REFRESH_LEASE } from "./ExportQueue"
 import { StravaApi, StravaRequestFailed } from "./StravaApi"
 import { TokenSeal } from "./TokenSeal"
 
@@ -76,6 +83,8 @@ const scriptedStrava = (
 ) =>
   Effect.gen(function* () {
     const calls = yield* Ref.make<ReadonlyArray<string>>([])
+    /** The `name` of every created activity, in call order. */
+    const names = yield* Ref.make<ReadonlyArray<string>>([])
     const createCount = yield* Ref.make(0)
     const refreshCount = yield* Ref.make(0)
     const inCreate = yield* Deferred.make<void>()
@@ -114,6 +123,7 @@ const scriptedStrava = (
             yield* Deferred.succeed(inCreate, undefined)
             yield* Effect.sleep(options.createDelay ?? 0)
             yield* record(`create ${Redacted.value(token)} ${activity.sessionId}`)
+            yield* Ref.update(names, (all) => [...all, activity.name])
             return n
           }).pipe(
             Effect.flatMap((n) =>
@@ -127,7 +137,7 @@ const scriptedStrava = (
         revoke: () => Effect.void,
       }),
     )
-    return { calls, layer, inCreate, inRefresh }
+    return { calls, names, layer, inCreate, inRefresh }
   })
 
 const failing = (reason: ExportFailureReason) => scriptedStrava(() => Option.some(reason))
@@ -558,14 +568,11 @@ describe("drain attempts survive the push budget and token races (REV-1)", () =>
   )
 
   it.effect(
-    "a refresh refused after another drain rotated the tokens uses them, never revokes",
+    "a drain that loses the refresh lease to a rotating drain defers, then sends with its tokens",
     () =>
       Effect.gen(function* () {
         const strava = yield* scriptedStrava(() => Option.none(), {
-          refresh: (n) =>
-            n === 0
-              ? { delay: "1 second", fail: Option.none() }
-              : { delay: "2 seconds", fail: Option.some("rejected") },
+          refresh: () => ({ delay: "1 second", fail: Option.none() }),
         })
         yield* Effect.gen(function* () {
           yield* setClock(DateTime.subtract(NOW, { hours: 1 }))
@@ -576,19 +583,30 @@ describe("drain attempts survive the push budget and token races (REV-1)", () =>
           yield* setClock(NOW)
           const a = yield* Effect.forkChild(drain(first.userId))
           yield* Deferred.await(strava.inRefresh[0])
-          const b = yield* Effect.forkChild(drain(first.userId))
-          yield* Deferred.await(strava.inRefresh[1])
+          // `a` holds the lease and is still inside `strava.refresh`: `b` defers without refreshing.
+          expect(yield* drain(first.userId)).toBe(1)
           yield* TestClock.adjust("1 second")
           expect(yield* Fiber.join(a)).toBe(1)
-          yield* TestClock.adjust("5 seconds")
-          expect(yield* Fiber.join(b)).toBe(1)
+          const statuses = Arr.map(yield* rowsOf(first.userId), (row) => row.status)
+          expect(Arr.sort(statuses, Str.Order)).toEqual(["pending", "sent"])
+          const deferred = Option.getOrThrow(
+            Arr.findFirst(yield* rowsOf(first.userId), (row) => row.status === "pending"),
+          )
+          expect(deferred).toMatchObject({ attempts: 1, lastError: Option.some("rate_limited") })
+          expect(deferred.nextAttemptAt).toEqual(DateTime.add(NOW, { minutes: 1 }))
+          yield* setClock(deferred.nextAttemptAt)
+          yield* drain(first.userId)
           const stored = Option.getOrThrow(
             yield* (yield* IntegrationRepo).get(first.userId, "strava"),
           )
           expect(stored.status).toBe("active")
-          const rows = yield* rowsOf(first.userId)
-          expect(Arr.map(rows, (row) => row.status)).toEqual(["sent", "sent"])
-          const creates = Arr.filter(yield* Ref.get(strava.calls), (c) => c.startsWith("create"))
+          expect(Arr.map(yield* rowsOf(first.userId), (row) => row.status)).toEqual([
+            "sent",
+            "sent",
+          ])
+          const calls = yield* Ref.get(strava.calls)
+          expect(Arr.filter(calls, (c) => c.startsWith("refresh"))).toEqual(["refresh refresh-1"])
+          const creates = Arr.filter(calls, (c) => c.startsWith("create"))
           expect(Arr.map(creates, (c) => c.split(" ")[1])).toEqual(["access-2", "access-2"])
         }).pipe(Effect.provide(queueWith(strava.layer)))
       }),
@@ -650,6 +668,193 @@ describe("unreadable tokens of a newer row version (REV-3)", () => {
           status: "failed",
           lastError: Option.some("unauthorized"),
         })
+      }).pipe(Effect.provide(queueWith(strava.layer)))
+    }),
+  )
+})
+
+/**
+ * The queue on an `IntegrationRepo` whose second `claimRefresh` waits for `gate` (and completes
+ * `atGate` when it gets there), so a test can let another drain rotate the tokens in between.
+ */
+const queueWithGatedClaim = (
+  strava: Layer.Layer<StravaApi>,
+  atGate: Deferred.Deferred<void>,
+  gate: Deferred.Deferred<void>,
+) =>
+  ExportQueue.layer.pipe(
+    Layer.provide(
+      Layer.effect(
+        IntegrationRepo,
+        Effect.gen(function* () {
+          const real = yield* IntegrationRepo
+          const claims = yield* Ref.make(0)
+          return IntegrationRepo.of({
+            ...real,
+            claimRefresh: (id, seen, now, until) =>
+              Effect.gen(function* () {
+                const n = yield* Ref.getAndUpdate(claims, (c) => c + 1)
+                if (n === 1) {
+                  yield* Deferred.succeed(atGate, undefined)
+                  yield* Deferred.await(gate)
+                }
+                return yield* real.claimRefresh(id, seen, now, until)
+              }),
+          })
+        }),
+      ),
+    ),
+    Layer.provideMerge(Layer.mergeAll(Db, Seal, strava, IdGenerator.layer)),
+  )
+
+describe("refresh lease (SF-1)", () => {
+  it.effect("a drain that read the old row after another rotated it uses the new tokens", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(() => Option.none(), {
+        refresh: () => ({ delay: "1 second", fail: Option.none() }),
+      })
+      const atGate = yield* Deferred.make<void>()
+      const gate = yield* Deferred.make<void>()
+      yield* Effect.gen(function* () {
+        yield* setClock(DateTime.subtract(NOW, { hours: 1 }))
+        const first = yield* seed(40, "active", { minutes: 90 })
+        const second = yield* secondSession(first)
+        yield* enqueue(first)
+        yield* enqueue(second)
+        yield* setClock(NOW)
+        const a = yield* Effect.forkChild(drain(first.userId))
+        yield* Deferred.await(strava.inRefresh[0])
+        // `b` read the expiring row and waits right before its claim.
+        const b = yield* Effect.forkChild(drain(first.userId))
+        yield* Deferred.await(atGate)
+        yield* TestClock.adjust("1 second")
+        expect(yield* Fiber.join(a)).toBe(1)
+        yield* Deferred.succeed(gate, undefined)
+        expect(yield* Fiber.join(b)).toBe(1)
+        expect(Arr.map(yield* rowsOf(first.userId), (row) => row.status)).toEqual(["sent", "sent"])
+        const calls = yield* Ref.get(strava.calls)
+        expect(Arr.filter(calls, (c) => c.startsWith("refresh"))).toEqual(["refresh refresh-1"])
+        const creates = Arr.filter(calls, (c) => c.startsWith("create"))
+        expect(Arr.map(creates, (c) => c.split(" ")[1])).toEqual(["access-2", "access-2"])
+      }).pipe(Effect.provide(queueWithGatedClaim(strava.layer, atGate, gate)))
+    }),
+  )
+
+  it.effect("a failed refresh frees the lease at once (no 30 s wait for the next drain)", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(() => Option.none(), {
+        refresh: () => ({ delay: 0, fail: Option.some("transport") }),
+      })
+      yield* Effect.gen(function* () {
+        yield* setClock(NOW)
+        const seeded = yield* seed(41, "active", { minutes: 30 })
+        yield* enqueue(seeded)
+        yield* drain(seeded.userId)
+        expect(yield* onlyRow(seeded.userId)).toMatchObject({
+          status: "pending",
+          lastError: Option.some("transport"),
+        })
+        const repo = yield* IntegrationRepo
+        const row = Option.getOrThrow(yield* repo.get(seeded.userId, "strava"))
+        // Still inside the lease the drain took at NOW: only a released lease is claimable.
+        const soon = DateTime.add(NOW, { seconds: 1 })
+        expect(
+          yield* repo.claimRefresh(row.id, row.updatedAt, soon, DateTime.add(soon, REFRESH_LEASE)),
+        ).toBe(true)
+      }).pipe(Effect.provide(queueWith(strava.layer)))
+    }),
+  )
+
+  it.effect("a successful refresh stores the tokens and frees the lease in the same update", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(() => Option.none())
+      yield* Effect.gen(function* () {
+        yield* setClock(NOW)
+        const seeded = yield* seed(46, "active", { minutes: 30 })
+        yield* enqueue(seeded)
+        yield* drain(seeded.userId)
+        const repo = yield* IntegrationRepo
+        const row = Option.getOrThrow(yield* repo.get(seeded.userId, "strava"))
+        const soon = DateTime.add(NOW, { seconds: 1 })
+        expect(
+          yield* repo.claimRefresh(row.id, row.updatedAt, soon, DateTime.add(soon, REFRESH_LEASE)),
+        ).toBe(true)
+      }).pipe(Effect.provide(queueWith(strava.layer)))
+    }),
+  )
+})
+
+describe("activity name from the planned session (SF-1)", () => {
+  /** A planned session named `name` of user `n` (archived plan, so no active-plan clash). */
+  const plannedOf = (n: number, userId: UserId, name: string, deleted: boolean) =>
+    Effect.gen(function* () {
+      const plans = yield* PlanRepo
+      const [planN, weekN, sessionN] = [0xf000 + n * 4, 0xf001 + n * 4, 0xf002 + n * 4]
+      const sessionId = hex(sessionN)
+      yield* plans.putPlans(userId, [Plan.make({ ...plan(planN, "archived"), userId })])
+      yield* plans.putPlanWeeks(userId, [PlanWeek.make({ ...week(weekN, planN), userId })])
+      const now = DateTime.formatIso(yield* DateTime.now)
+      yield* plans.putPlannedSessions(userId, [
+        Schema.decodeUnknownSync(PlannedSession)({
+          id: sessionId,
+          userId,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: deleted ? now : null,
+          planWeekId: hex(weekN),
+          order: 0,
+          name,
+          scheduledDate: null,
+          notes: null,
+        }),
+      ])
+      return PlannedSessionId.make(sessionId)
+    })
+  /** The seeded session re-stored linked to `plannedSessionId`. */
+  const linked = (seeded: Seeded, plannedSessionId: PlannedSessionId) =>
+    Effect.gen(function* () {
+      const row = Session.make({
+        ...seeded.session,
+        plannedSessionId: Option.some(plannedSessionId),
+      })
+      yield* (yield* SessionRepo).putSessions(seeded.userId, [row])
+      return { ...seeded, session: row, change: { table: "session", row } } satisfies Seeded
+    })
+
+  it.effect("names the activity after the linked planned session", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(() => Option.none())
+      yield* Effect.gen(function* () {
+        yield* setClock(NOW)
+        const seeded = yield* seed(42)
+        const plannedId = yield* plannedOf(42, seeded.userId, "Upper A", false)
+        yield* enqueue(yield* linked(seeded, plannedId))
+        yield* drain(seeded.userId)
+        expect(yield* Ref.get(strava.names)).toEqual(["Upper A"])
+      }).pipe(Effect.provide(queueWith(strava.layer)))
+    }),
+  )
+
+  it.effect("falls back to the default name for a deleted or unknown planned session", () =>
+    Effect.gen(function* () {
+      const strava = yield* scriptedStrava(() => Option.none())
+      yield* Effect.gen(function* () {
+        yield* setClock(NOW)
+        const deleted = yield* seed(43)
+        const deletedId = yield* plannedOf(43, deleted.userId, "Gone day", true)
+        yield* enqueue(yield* linked(deleted, deletedId))
+        yield* drain(deleted.userId)
+        const unknown = yield* seed(44)
+        yield* enqueue(yield* linked(unknown, PlannedSessionId.make(hex(0xfeee))))
+        yield* drain(unknown.userId)
+        const unlinked = yield* seed(45)
+        yield* enqueue(unlinked)
+        yield* drain(unlinked.userId)
+        expect(yield* Ref.get(strava.names)).toEqual([
+          DEFAULT_ACTIVITY_NAME,
+          DEFAULT_ACTIVITY_NAME,
+          DEFAULT_ACTIVITY_NAME,
+        ])
       }).pipe(Effect.provide(queueWith(strava.layer)))
     }),
   )
