@@ -213,7 +213,7 @@ Commit gate: `scripts/deploy.sh` deploys a clean worktree of HEAD, so before com
 agents edit the tree, `scripts/index-check.sh` typechecks exactly the staged content (a copy of the
 git index with the real `node_modules` linked in, about 2 s) and exits non-zero on a red index.
 
-Signing: commits are made unsigned (`commit.gpgsign=false` locally); `scripts/sign-push.sh` is the owner's one command per push. It SSH-signs every commit not yet on `origin/main` in a detached worktree (same trees and messages, real index and files untouched, `update-ref` with an old-value guard moves `main`) and then runs `git push origin main`, so 1Password is confirmed once, at push.
+Signing: commits are made unsigned (`commit.gpgsign=false` locally); `scripts/sign-push.sh` is the owner's one command per push. It SSH-signs every commit not yet on `origin/main` in a detached worktree (same trees and messages, real index and files untouched, `update-ref` with an old-value guard moves `main`) and then runs `git push origin main`, so 1Password is asked once per push run (its SSH agent may cache one approval across the fetch, the signing and the push).
 
 ## 5. Claude app custom connector (after §4 is green)
 
