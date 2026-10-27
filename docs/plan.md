@@ -297,3 +297,25 @@ Recorded 2026-10-19, from the owner's kickoff message:
    app's Programs tab and player run both kinds unchanged, and in-app
    authoring is deferred (ADR-0026, `docs/design/programs-mcp.md`,
    `docs/tasks/v6b-programs.md`; built after the nutrition foundation).
+22. **Programs: defaults, UI + MCP authoring, status, exercise swap, a 12-week
+   default** (2026-10-27 14:36, owner, verbatim): "For programs provide default
+   programs. But allow creating and modifying programs via UI and MCP. Also
+   programs should have status- you can have multiple active programs at the
+   moment. / Also when start the program exercise add a button to switch the
+   exercise to similar one. Its very usefull of you are exercising and e.g.
+   some equipment is taken, so you want to do similar exercise with free
+   equipment or you just dont like current exercise. This should work even
+   for default programs. / I really liked "lee labrada 12 week lean body"
+   program. I think idea of it is 2 days work, 1 cardio. And push, pull,
+   legs? Create it as default, just dont mention lee labrada." Lead reading
+   (supersedes Amendment 21's "authoring deferred"): built-in defaults stay
+   (Core 30 plus a new 12-week lean-body program — push / pull / legs
+   rotation with a cardio day after every two training days, no trademark
+   or author name anywhere); programs are created and edited both in the
+   app and through MCP; every program enrollment carries a status (active,
+   paused, completed, abandoned) and several can be active at once; the
+   player gets a "Swap exercise" action that offers similar exercises (same
+   primary muscle group, equipment available at the active location, same
+   timed/reps mode) and the swap is remembered per enrollment, so it works
+   for default programs without editing them (ADR-0026 amended,
+   `docs/design/programs-mcp.md`, `docs/tasks/v6b-programs.md`).
