@@ -1,5 +1,5 @@
 import { Array as Arr, Option } from "effect"
-import { useRef } from "react"
+import { type ReactNode, useRef } from "react"
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -21,6 +21,8 @@ interface ExercisePagerProps {
   readonly onIndexChange: (index: number) => void
   /** Passed to each page; false when the wide layout's aside shows the sets. Default true. */
   readonly showSets?: boolean
+  /** Rendered inline under the set list of the current page only (the Finish workout slot). */
+  readonly footer?: ReactNode
 }
 
 /** Clamps a page index to the existing pages (the exercise list can shrink after a reload). */
@@ -44,6 +46,7 @@ export function ExercisePager({
   index: rawIndex,
   onIndexChange,
   showSets = true,
+  footer,
 }: ExercisePagerProps) {
   const scrollRef = useRef<ScrollViewInstance>(null)
   const { breakpoint, main: width } = useColumns()
@@ -105,7 +108,7 @@ export function ExercisePager({
         onScroll={onScroll}
         style={{ flex: 1 }}
       >
-        {exercises.map((item) => (
+        {exercises.map((item, position) => (
           <ExercisePage
             key={item.exercise.id}
             item={item}
@@ -114,6 +117,7 @@ export function ExercisePager({
             logSet={logSet}
             onLogged={onLogged}
             showSets={showSets}
+            {...(position === index && footer !== undefined ? { footer } : {})}
           />
         ))}
       </ScrollView>

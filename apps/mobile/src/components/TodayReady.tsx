@@ -223,8 +223,10 @@ export function TodayReady({ title, accessory, exercises, footer }: TodayReadyPr
           index={page}
           onIndexChange={setPage}
           showSets={!wide}
+          {...(wide || footer === undefined ? {} : { footer })}
         />
-        {footer}
+        {/* Wide: the sets live in the aside, so the footer keeps its slot under the pager (r4 PASS). */}
+        {wide ? footer : null}
         {Option.match(error, {
           onNone: () => null,
           onSome: (message) => (

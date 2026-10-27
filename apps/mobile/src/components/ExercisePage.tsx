@@ -1,5 +1,5 @@
 import { Array as Arr, Option } from "effect"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { formatClock } from "../hooks/restClock"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
@@ -34,6 +34,8 @@ interface ExercisePageProps {
   readonly onLogged: (restSeconds: number) => void
   /** Show the set list on the page; false in the wide layout, where the aside shows it. */
   readonly showSets?: boolean
+  /** Last item of the scrolling content, under the set list (the Finish workout slot). */
+  readonly footer?: ReactNode
 }
 
 interface SetEntryProps {
@@ -203,6 +205,7 @@ export function ExercisePage({
   logSet,
   onLogged,
   showSets = true,
+  footer,
 }: ExercisePageProps) {
   const breakpoint = useBreakpoint()
   return (
@@ -224,6 +227,11 @@ export function ExercisePage({
         onLogged={onLogged}
       />
       {showSets ? <SetList plannedSets={item.plannedSets} loggedSets={item.loggedSets} /> : null}
+      {footer === undefined ? null : (
+        // The footer sets its own horizontal margin (it also sits outside scroll views):
+        // cancel this content's gutter so it is not inset twice.
+        <View style={{ marginHorizontal: -gutter[breakpoint] }}>{footer}</View>
+      )}
     </ScrollView>
   )
 }

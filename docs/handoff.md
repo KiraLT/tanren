@@ -26,13 +26,21 @@ traced SVG mark, desktop polish round 4 (in flight at the time of writing — se
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
 ## Live at hand-off (resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
-- Desktop polish r4 team-lead (charter `docs/tasks/v3-design/team-desktop-r4.md`): told to stop after one
-  capture + designer review, report by 23:55. On report: commit (WIP if not PASS), insert its
-  `UI-Pdesktop-r4-rows.html` fragment into the gallery source, publish v11, log scores.
 - AUTO-FIN done and reviewed (close only after a complete pull under the sync lock; soft-delete only
   never-pushed empty sessions; 48 h Strava backfill guard). Not yet deployed. Known limit: an offline device
   that never completes a pull never auto-closes.
-<!-- DESKTOP_R4_RESULT --> 
+- Desktop r4 landed and PASSED the designer (commit a83eb16: Today/Programs/Plan/Player/Library/Progress/
+  Settings all 4 at 1280/900; reviewer should-fixes applied, not re-reviewed). Gallery v11 = section
+  `desktop-r4`, badges K1–K62. "Left for r5" list + REV-POLISH queued rows are in
+  `docs/tasks/v3-design/team-desktop-r4.md`. Not deployed yet (next deploy).
+- FIN-LAYOUT done (gate 934): the Finish workout button is inline after the set list on phones (footer
+  passed through `ExercisePager` → `ExercisePage`, current page only); desktop slot unchanged. **UNCOMMITTED on
+  disk** together with this handoff edit: 1Password refused to sign at 23:5x ("agent returned an error").
+  First thing next session (after the owner unlocks 1Password): `git add -A apps/mobile/src/components
+  docs/handoff.md docs/tasks && git commit` ("Today: Finish workout inline after the set list (FIN-LAYOUT);
+  handoff"), then DEPLOY-4 (`scratchpad/deploy.sh` in the background; recreate from the recipe below if the
+  scratchpad was purged) and verify the `today-*.js` chunk carries the change.
+- Streams are QUIET as of 23:57 (all agents reported; nothing live). The owner may restart Claude Code. 
 ## Experiment for the next step (retro 2026-10-26-v4-evening)
 Wave dispatch + background deploy. Metrics that decide it: zero Lead acceptance edges > 5 min; team-lead
 streams ≥ 1.3 children-active ÷ wall; desktop r5 PASS ≤ 45 min wall. Research spike open: do background
