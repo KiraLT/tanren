@@ -41,7 +41,11 @@ paths:
   steady state with every item imported once — a Garmin back-fill stalled
   forever past 100 activities and three review passes plus two QA runs
   missed it because every fixture fitted one run (GM-F1, 2026-10-27).
-- Deterministic: no `Date.now()`, no random without a seeded `Random`.
+- Deterministic: no `Date.now()`, no random without a seeded `Random`. A
+  test that waits for a forked consumer (a `StoreEvents` stream, a
+  `runForEach` fiber) synchronises on a `Deferred` the consumer completes
+  (or polls a `Ref` the consumer writes), never on `Effect.yieldNow`
+  ordering — yield order is a scheduler detail (R-F, 2026-10-27).
 - One assertion idea per test; failures must read as a sentence.
 - Keep fixtures tiny and next to the test; build them with the schema's
   constructor (`new X({...})`, `X.make({...})`, `SessionId.make("…")`) or

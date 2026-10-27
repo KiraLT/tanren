@@ -19,6 +19,11 @@ paths:
   does not end the stream for the component's lifetime (WT-R: `useStep`
   died on the first failure, 2026-10-27; `useImportedActivity` is the
   pattern). `Effect.sync(setVersion)` per event needs no catch.
+- Authenticated reads: every API call that needs a session (sync rounds,
+  `useGarminConnected`, any new hook on a mounted screen) runs through
+  `whenSignedIn` (`src/services/CurrentUser.ts`), so a signed-out device
+  makes no authenticated request; the gate's `get-session` probe is the only
+  call out (NAV-F2, 2026-10-27). The reviewer greps for the wrapper.
 - State: local `useState`/`useReducer` for UI state; persisted data lives in
   the local store service, never in component state.
 - Offline first: every Today-screen interaction must succeed with no

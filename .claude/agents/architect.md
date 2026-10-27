@@ -245,6 +245,18 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   the exporting file or the task adds the export. WT-1 could not use
   `roundId` (unexported in `cues.ts`, not in its list) and fell back to
   `item.catalogId` (2026-10-27).
+- Pixel arithmetic names the border side: a computed position (aside first
+  card left = 752 + 32 = 784) states whether the hairline sits inside or
+  outside the box it measures from. `Page`'s aside draws its 1 px rule as
+  `borderLeft` INSIDE the aside box, so content left = hairline x + 1 +
+  gutter = 785; DESK-0 measured 785 against a design that said 784 and the
+  spec was corrected after the fact (2026-10-27).
+- An "after X" dependency names the shared file and symbol (`DESK-2 after
+  DESK-1: you.tsx, the summary prop`); a bare "after X" reads as soft
+  ordering and gets parallelised. Better: a symbol two sibling tasks need
+  lands in the foundation task (DESK-0), so the siblings are disjoint and
+  run in parallel instead of serially on one engineer (DESK-1 → DESK-2 cost
+  one 12-min box of wall-clock, 2026-10-27).
 - Stubbed foundations have an owner: when a foundation task stubs a seed,
   fixture or handler (`foodEntry: Effect.void`, no `daily_health` rows), the
   sheet names the task that fills it before the first capture that needs

@@ -508,6 +508,8 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       repeated in the report; the baseline compared against was captured with the same recipe
       (UI-X3 shot an empty store, UI-DX compared dark against a light baseline — two re-runs; the
       owner's first live-site complaints were routes outside the "10 screens" set)
+- [ ] (any task that adds or changes a package `CLAUDE.md` line) the line passes
+      `scripts/claude-md-check.sh` (every backticked identifier exists in the tree; CMD-CHECK)
 
 ## Report
 Use the engineer report format. Include exact commands + trimmed output.
@@ -586,6 +588,10 @@ commit a04b551 swept NAV-2's staged `feed.tsx → activity.tsx` with the old
 content into HEAD (COMMIT-SWEEP, EM batch 19, 2026-10-27). This
 replaces the mtime arithmetic above as the gate (two leaks on 2026-10-27);
 the mtime check stays as the way to find which hunks to drop.
+Stage by an explicit path list, never by an exclusion filter over the status output: an
+exclusion regex for the EM-22 process batch let two NAV-F2 code files through (20:50). The
+ABORT guard (`grep -E '^apps/|^packages/|^scripts/'` over the cached file list, on a docs/process
+batch) is the LAST check before the commit, never the stager.
 
 Overlapping a follow-on into UNREVIEWED files (batch 20: PROG-5 in PROG-3's files before the
 PROG-3 commit; NAV-1/NAV-3 on `appNav.ts`, `activity.tsx`, `progress/index.tsx`; NAV-4/NAV-F1 on
@@ -767,6 +773,13 @@ scratchpad is for in-flight files only: macOS purges `/private/tmp` files
 older than three days, which cost the 2026-10-21 review set during a
 five-day gap (incidents.md 2026-10-26). `SendUserFile` links are not a
 store either; the Artifact URL is what you quote.
+
+**Deploy cadence.** The owner is asked to reopen the home-screen app at most
+once per hour: hold a follow-up deploy until the next accepted fix lands,
+unless the owner is waiting for that specific fix (DEPLOY-23 20:39 and
+DEPLOY-24 20:57 asked twice in 18 min; DEPLOY-24 was then held for NAV-F2,
+2026-10-27). A follow-up deploy needs QA-light only — bundle strings +
+network list, 1.5 min (QA-23) — not a full QA pass.
 
 **Commit before the owner leaves.** When the owner says they are finishing or
 leaving, commit the checkpoint in that same turn, while the signing agent is

@@ -123,6 +123,9 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
 
 ## Measured baselines (`docs/design/ui-measure.js`, `docs/design/ui-columns.js`; UI-D0/DX/DF2, 2026-10-26)
 
+- Aside arithmetic: `Page` draws the aside's 1 px hairline as `borderLeft` inside the aside box, so
+  the first aside card's left = hairline x + 1 + gutter (1280: 752 + 1 + 32 = 785), and every aside
+  top equals the column top only because `Page` owns the aside frame (DESK-0, 2026-10-27).
 - Capture recipe first, in one line of the report and in each JSON's name: data state (dev server =
   empty offline store; exported build + signed in to the seeded worker = the month of data), `ab set
   media light` (the default agent-browser scheme is dark; `cardStyle` draws a 1 px hairline in light

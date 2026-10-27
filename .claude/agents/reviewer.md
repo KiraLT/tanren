@@ -53,6 +53,12 @@ engineer can act on without asking questions.
   apps/mobile/src/hooks apps/mobile/src/player`) — the brief's file list is
   not the scope. PROG-R6 found `useDueToday` stale outside PROG-4's list by
   following the data to its consumers (2026-10-27).
+- Authenticated reads from mounted screens: a new API read that needs a
+  session (a hook on Home, Activity, Settings; a sync round) is wrapped in
+  `whenSignedIn` from `apps/mobile/src/services/CurrentUser.ts`; grep the
+  diff's hooks for `HttpClient`/`fetch`/`api.` without it. A signed-out
+  device makes exactly one request (`get-session`); QA-22 found authenticated
+  calls from a signed-out device and NAV-F2 guarded them (2026-10-27).
 - Failure-path claims: every comment, ADR or design sentence in the diff that
   says what happens on failure (`Failed → allow`, "second tab fails after
   10 s") is matched to a test or a repro in the Verification; none is

@@ -144,12 +144,18 @@ links resolve.
 ## The gate
 
 ```
-pnpm check      =  pnpm check:plugins  &&  biome ci --error-on-warnings .  &&  pnpm typecheck  &&  vitest run
+pnpm check      =  pnpm check:plugins  &&  pnpm check:claude-md  &&  biome ci --error-on-warnings .  &&  pnpm typecheck  &&  vitest run
 pnpm typecheck  =  pnpm typecheck:root  &&  pnpm -r typecheck
 ```
 
 It must be green before any task is reported done. Run it from the repo root and paste the
 trimmed output into the engineer report.
+`pnpm check:claude-md` (`scripts/claude-md-check.sh`, ≈ 2 s, one grep pass over tracked files +
+`comm`) fails when a backticked identifier in any `CLAUDE.md` exists nowhere in the tree; run it
+after editing a `CLAUDE.md` line, and when the token is real in the doc but absent from the tree
+(a placeholder, an upstream type, a path outside the repo) add it to `scripts/claude-md-check.allow`
+with a comment line saying why — a long allowlist means the regex is wrong. First catch: `rawArgs`
+in `apps/worker/CLAUDE.md` after the handler took `args` (CMD-CHECK, 2026-10-27).
 `pnpm -r typecheck` stops at the first failing package and kills the others: a line
 `apps/worker typecheck: Failed … with signal SIGKILL` after `apps/mobile typecheck: … exit code 1`
 plus `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL` means only mobile failed; the worker was aborted, not

@@ -130,6 +130,9 @@ scale out to several teams; see §11.
 `pnpm check` is the single gate and must pass before a task is reported done.
 It runs, in order:
 
+0. `pnpm check:plugins` (the Biome GritQL plugin self-test) and `pnpm check:claude-md`
+   (`scripts/claude-md-check.sh`, 2 s: every backticked identifier in a `CLAUDE.md` exists in the
+   tree; prose placeholders live in `scripts/claude-md-check.allow` with a reason each)
 1. `biome ci .` — formatting, lint, and the functional rules (no `let`, no
    mutation, no `class` outside adapters, no `throw`). Biome is the only
    linter; built-in rules cover part of this and Biome GritQL plugins cover

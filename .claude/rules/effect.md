@@ -27,7 +27,10 @@ When this file and the installed `.d.ts` disagree, the `.d.ts` wins; report it.
   (a schema, so it serialises). `Data.TaggedError` only for purely internal
   errors. Fail with `Effect.fail(new NotFound({ id }))`, never `throw`.
   Recover with `Effect.catchTag` / `Effect.catchTags`; `Effect.catch` (not
-  `catchAll`) for everything. `Effect.die` only for true defects.
+  `catchAll`) for everything. `Effect.die` only for true defects. When the
+  effect fails with one known tag (`StoreError`), recover with
+  `Effect.catchTag("StoreError", …)`, not `Effect.catch`: the blanket catch
+  silently swallows every error type a later edit adds (R-F nit, 2026-10-27).
 - Schema: every shape is a `Schema` in `@tanren/shared`. Derive types with
   `typeof X["Type"]` / `typeof X["Encoded"]`. Decode at boundaries with
   `Schema.decodeUnknownEffect(X)`; the failure is `Schema.SchemaError`
