@@ -33,6 +33,68 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
+## Live at hand-off (2026-10-27 14:14; agent ids in the scratchpad `live-agents.txt` and the step-2 Log)
+**Production = `25a0b64` (DEPLOY-9 13:52):** stateless auth (ADR-0022, migration 0006, no KV), legal pages, account-delete
+endpoint, Garmin shared schemas. HEAD is ahead of production by: STLS-F3/F4 (write-path user-row checks, REST + MCP),
+LEGAL-2b (Settings → Data → Delete account), GAL-4, EM batches 9–10, v6 nutrition plan docs. Owner reconnected the Claude
+connector (O1 done 13:59); O2 (delete the old KV namespace) is still open and owner-only.
+**Owner rules in force:** every ask to the owner is its own bold line; NEVER mention the Resend key rotation or the Garmin
+personal-key regeneration again (owner 13:52: he does both himself); the owner wants to reload VS Code — tell him
+"safe to reload" only at a checkpoint where no agent is live and everything is committed.
+
+**Resume checklist (in order):**
+1. **Garmin team-lead** (opus, charter `docs/tasks/v5-garmin/team-garmin.md`, GO 13:48, hard stop ≈ 15:39): W1 done 14:01
+   (GM-2/3/5), W2 running (GM-4 ∥ GM-6a ∥ GM-6b ∥ REV-1), then W3 (GM-7, GM-6S capture, GM-R), GM-D, GM-Q1, GM-Q2 (TEST key
+   only from `scratchpad/secrets/garmin.token` into a shell var). Commit point = ONE team commit after REV-1 + GM-R APPROVE
+   — the TL lists every file; add `packages/db/src/repositories/AccountErasure{,.test}.ts` (LEGAL-2b's two Garmin-table
+   lines, uncommitted on purpose). Then DEPLOY-10 with `MIGRATE=1` (migration 0007), verify `/integrations` lists garmin,
+   then **GO for v6 N-F0** (nutrition foundation; brief in `docs/tasks/v6-nutrition.md` §N-F0 — it edits the sync files
+   the Garmin team owns, so never before that commit).
+2. **OAUTH-UI** (fable engineer, dispatched 13:59, 20 min): Forge restyle of the consent / unknown-app / error pages
+   (`apps/worker/src/oauth/pages.ts`) and `mcp.tanren.me/` (`McpLanding.ts`), self-hosted fonts or system stack, legal
+   footer, shots `UI-OAUTH-*` (badges OA). On report: fable designer verdict → reviewed commit → worker-only deploy
+   (`scratchpad/deploy.sh`, no migration) → gallery section `oauth` + `legal2` (AD1–AD5 rows exist in
+   `docs/design/screens/UI-LEGAL2-rows.html`) → publish v14 (same URL; `node docs/design/gallery.mjs` for the map,
+   `--write` for the manifest).
+3. **Security review** (two fable reviewers, dispatched 14:08, 20 min): A = auth/OAuth/MCP, B = REST/sync/integrations/
+   deletion/mobile. Route Critical/High findings to engineers at once (security briefs: pin the properties, see the
+   playbook rulings paragraph); tell the owner the verdict in plain words.
+4. **v6 nutrition** (ADR-0025, `docs/design/nutrition.md`, `docs/tasks/v6-nutrition.md` + `v6-nutrition/team-*.md`):
+   company mode N-F0 → nutri-server ∥ nutri-today ∥ nutri-food → INT-N → INT-R ∥ N-QA; ports 9031–9033; migration 0008.
+5. **EM** after each accepted batch (batch 11 due after OAUTH-UI + security + Garmin W2).
+6. Later: LEGAL-Q (legal e2e after the Garmin deploy), the queued polish nits (`docs/tasks/v4-polish-briefs.md`), Apple
+   Health (native build), `eas update:configure`, STLS-F2 (single-use consent handle) if wanted.
+
+## Where we are (2026-10-27 10:05)
+**Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
+mcp.tanren.me (MCP). Production = commit `25a0b64`, deployed 13:52 (DEPLOY-9: stateless auth ADR-0022 + migration 0006, legal pages, account-delete endpoint, Garmin schemas) from a clean worktree
+whose root gate was green (159 files, 2002 tests); D1 at migration 0005 (applied by DEPLOY-5); the `*/5`
+Strava-drain cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: Plan week
+"Logged N sets · volume" line (PLAN-LOG), W1 wordmark + the T mark as app/PWA icons (plan Amendment 15), OG
+image + metas, polish round 5, Forge design, designed magic-link email,
+sign-in gate (ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated
+illustrations), Feed tab + activity detail + `/progress` (ADR-0017), guided programs with rep-count items
+(ADR-0020: 15 of 24 Core 30 moves count reps), **Finish workout** on Today (inline after the set list on
+phones since FIN-LAYOUT) plus auto-finish of stale sessions after a complete pull, Settings → Integrations
+with Strava in **console mode** (ADR-0018; real export waits for the owner's Strava app keys), final 力
+app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandbook artifact v3.
+
+## Verified today (evidence in docs/tasks/step-2.md Log)
+- Root `pnpm check` green at every deploy; DEPLOY-4 worktree run 156 files / 1948 tests (09:49).
+- Live chunk check 09:55 (DEPLOY-4): root `_layout-d3f87cf8….js` carries the landing (`assets/landing` ×5,
+  all five webps HTTP 200, "Sign in with a magic link"); `today-2b4c0ecf….js` carries "Finish workout" and
+  the FIN-LAYOUT footer margin; `plan-570b4dd8….js` carries "Up next"; `__common-….js` carries the r4
+  ListRow props and `finishStaleSessions`; `/health` → `{"ok":true}`. Route chunk names are listed inside
+  the `entry-*.js` script that index.html names (not `index-*.js`); two `_layout-*` chunks exist and the
+  landing is in the larger one.
+- Designer verdicts: mobile-A r3 PASS, mobile-B r2 PASS, landing LAND-R PASS, desktop r4 PASS (all seven
+  screens 4 at 1280/900). Code reviews: REV-PL (PROG-1/2, LOGO-2, FEED-7), PROG-R (PROG-3), REV-TF (Finish
+  workout), REV-3 (Strava), REV-AF r2 (auto-finish), REV-POLISH (mobile pairs) all APPROVE; fixes landed,
+  REV-POLISH should-fixes queued into polish round 5.
+- Gallery https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ v11 (14 sections, `desktop-r4` K1–K62; source tracked at
+  `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
+  Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
+
 ## Live at hand-off (2026-10-27 14:50, written for a context compaction; agent ids in the scratchpad `live-agents.txt`)
 **Resume checklist (in order):**
 1. **STLS team-lead** (opus, charter `docs/tasks/v5-auth/team-stateless.md`, sheet `docs/tasks/v5-auth.md`, hard stop ≈ 14:37
