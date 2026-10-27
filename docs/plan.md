@@ -439,3 +439,17 @@ Recorded 2026-10-19, from the owner's kickoff message:
    an unfinished program day is persisted on the device and offered as
    "Continue day N" with its progress intact (`docs/design/programs-player-v2.md`,
    `docs/tasks/programs-player-briefs.md`, PROG-D2).
+34. **Weight entry: type it, steps per exercise** (2026-10-27 20:00, owner,
+   verbatim): "Also I need ability to select weight better. Like enter it
+   manually when clicking? Or on middle clicking clock native drop-down opens?
+   Plus minus is good for adjustments. Also isn't is strange to +2.5 kg? I
+   think default increase decrease should be based on the exercise?" Lead
+   reading: the value in every weight and reps stepper (Today's exercise page,
+   the program player) is tappable and opens direct entry — the numeric
+   keyboard on iPhone, a number input on web; the architect weighs a native
+   picker of plausible loads as the alternative — while ± stays for
+   adjustments; the ± step is derived from the exercise's equipment in the
+   catalog (barbell and Smith 2.5 kg, dumbbell 2 kg, weight-stack machines and
+   cables 5 kg, plate-loaded machines 5 kg, kettlebell 4 kg, bodyweight and
+   timed items 1 rep / 5 s) and remembered per exercise when the user changes
+   it (`docs/design/weight-entry.md`, WT-D → WT-1).
