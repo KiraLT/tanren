@@ -465,8 +465,12 @@ cause (22:32–22:51, every agent idle together) is known.
 (8) **Path-list commits while another stream is live** (EM batch 12, P2):
 before `git add <99 paths>`, check that no listed file changed after the live
 stream's dispatch — `stat -f %m` (or `find <paths> -newer <marker>`) against
-the dispatch time; exclude or hunk-stage the newer files (Garmin 99-file
-commit vs live N-F0, 2026-10-27: all shared files pre-dated N-F0, committed clean).
+the dispatch time; exclude or hunk-stage the newer files. The check and the
+`git add` run in ONE shell command: the Garmin 99-file commit checked at
+14:46:36 and added at 14:47:50; N-F0 edited `common.ts` at 14:47:00 in
+between, HEAD got a half-edit and DEPLOY-12's gate went red (2026-10-27).
+Repair without touching the tree: `git show HEAD:<f> | <fix> > $S/f; git
+update-index --cacheinfo 100644,$(git hash-object -w $S/f),<f>; git commit`.
 
 ## Big diffs: fan the review out
 
