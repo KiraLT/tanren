@@ -397,3 +397,17 @@ Recorded 2026-10-19, from the owner's kickoff message:
    or hub rows, never new tabs) and a route-migration plan; the owner picks
    from a contact sheet (`docs/research/2026-10-27-navigation-ia.md`,
    `docs/design/navigation-v2.md`, NAV-D).
+31. **Program player: preview on press, weights per set, resume** (2026-10-27
+   18:41, owner, verbatim): "More feedback: when I click on active program
+   name I expect go to preview. / There is no ability to track weights for
+   exervices? At least when you go to exercise mode. Stats should track
+   weigths, not reps in statistics / If you start program, do smth, go back -
+   it should say continue day 1 and progress should not be lost." Lead
+   reading: the Today program row's name opens the current day's preview
+   (Start stays the primary action); reps items of weighted exercises get
+   weight × reps entry in the player with the Forge steppers, prefilled from
+   history, and log real weights, so Progress charts weight / e1RM for
+   weighted exercises and reps or seconds only for bodyweight and timed ones;
+   an unfinished program day is persisted on the device and offered as
+   "Continue day N" with its progress intact (`docs/design/programs-player-v2.md`,
+   `docs/tasks/programs-player-briefs.md`, PROG-D2).
