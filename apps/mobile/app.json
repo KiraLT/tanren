@@ -6,6 +6,12 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/71f6f700-4c89-4627-8a93-b2fdd82974a5"
+    },
     "icon": "./assets/brand/icon.png",
     "splash": {
       "image": "./assets/brand/splash-icon.png",

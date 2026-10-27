@@ -93,7 +93,15 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
 - ui-check: `agent-browser set viewport 1280 800` switches layouts live.
   `snapshot -i` lists only interactive/labelled nodes; use plain `snapshot`
   (grep it) to see non-interactive rows (day rows, set rows, `complementary`).
-- Still open: EAS Update publish flow.
+- EAS Update publish flow (EAS-1, 2026-10-27; runbook `docs/design/deploy.md` §6): `expo-updates` in the
+  catalog, `app.json` `runtimeVersion { policy: "sdkVersion" }` (= `exposdk:58.0.0`, what Expo Go requests;
+  re-check after an SDK bump) + `updates.url`, `apps/mobile/eas.json` channels for builds only. Publish (Lead,
+  after the owner's `npx --yes eas-cli@25.3.0 login`; agents never run EAS), from `apps/mobile`:
+  `EXPO_PUBLIC_API_URL=https://api.tanren.me npx --yes eas-cli@25.3.0 update --branch production
+  --environment production --platform ios --message "<msg>" --non-interactive`. Expo Go link:
+  `exp://u.expo.dev/<projectId>?runtime-version=exposdk%3A58.0.0&channel-name=production`. Native return URL
+  in a published update is `exp://u.expo.dev/<projectId>/--/auth/callback` (scheme `exp`, never `exps`).
+  Rehearse without EAS: `EXPO_PUBLIC_API_URL=… expo export --platform ios --output-dir <scratch>`.
 - Expo Go vs SDK (SPIKE-GO, 2026-10-21/26): the App Store Expo Go carries one SDK and lags a new
   SDK release by weeks ("needs the latest version of Expo Go" = the store build is on the previous
   SDK). Before the owner is asked to scan a QR, state which SDK his installed Go runs (Go → Settings

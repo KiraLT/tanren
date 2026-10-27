@@ -128,7 +128,7 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
   `/auth/native/complete`, `/api/native/session` are rate-limited in isolate memory (10/min/route/IP,
   429 `NativeRateLimited`). That is weak (one counter per isolate); the production upgrade is the Workers
   rate-limiting binding (`ratelimits` in `wrangler.jsonc`, `env.<BINDING>.limit({ key })`) or a Cloudflare
-  WAF rate-limiting rule (owner). `NATIVE_RETURN_PREFIXES` pins the URL prefixes (`exps://u.expo.dev/<projectId>/`, not a host:
+  WAF rate-limiting rule (owner). `NATIVE_RETURN_PREFIXES` pins the URL prefixes (`exp://` + `exps://u.expo.dev/<projectId>/`, not a host:
   all EAS projects share `u.expo.dev`) a code may be sent to.
 - Dev server: use a spare port when 8787 is busy (`wrangler dev --port`). Never kill processes you did not start.
 

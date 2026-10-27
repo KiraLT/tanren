@@ -344,7 +344,7 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
 ## Commands
 
 `pnpm -F @tanren/mobile web` · `dev` (Expo Go) · `test` · `typecheck` · UI acceptance via the `ui-check` skill (agent-browser).
-Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm web:export` → `apps/mobile/dist/` (git-ignored) · `pnpm web:serve` (= `wrangler dev -c wrangler.web.jsonc --port 8790`) · `pnpm -F @tanren/worker exec wrangler deploy --dry-run -c wrangler.web.jsonc`. Stopping a wrangler started via pnpm: kill its children too (`pkill -P <pid>`).
+Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm -F @tanren/mobile export:web` → `apps/mobile/dist/` (git-ignored; the script also writes `dist/sw.js`, the precache service worker, from `src/pwa/*` via `scripts/serviceWorker.ts`) · `pnpm web:serve` (= `wrangler dev -c wrangler.web.jsonc --port 8790`) · `pnpm -F @tanren/worker exec wrangler deploy --dry-run -c wrangler.web.jsonc`. Start wrangler through the bare binary with a pid file (`node_modules/.bin/wrangler dev … & echo $! > $S/<task>-web.pid`) and stop it by pid (`P=$(cat $S/<task>-web.pid); [ "${P:-0}" -gt 1 ] && kill "$P"`); never `pkill` (engineer rule 9).
 Load `expo:expo-overview` before Expo work; our rules win on conflict.
 Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`); a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it.
 
@@ -442,8 +442,12 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   `public/icons/{icon-192, icon-512, maskable-512, apple-touch-180}.png` (exported from the final mark, see
   Illustrations; the old `icon.svg` and `apple-touch-icon.png` are gone). `public/index.html` comes from `expo customize` (works under the isolated linker)
   and carries a `biome-ignore lint/a11y/useValidLang` comment for the `%LANG_ISO_CODE%` placeholder: re-add
-  it after any re-customize. `src/pwa/manifest.test.ts` keeps the manifest and `index.html` colours equal to the brand graphite. There is no
-  service worker (an offline shell would be a Workbox step).
+  it after any re-customize. `src/pwa/manifest.test.ts` keeps the manifest and `index.html` colours equal to the brand graphite.
+  Service worker (PWA-1, hand-written, no Workbox): template `src/pwa/sw.template.js`, written into `dist/sw.js` by
+  `node --import ./scripts/resolveTs.ts scripts/serviceWorker.ts [dist]` AFTER `expo export` (list from
+  `src/pwa/precache.ts`, generated from `dist/`; version = sha256 of the precached files); shell `/` network-first
+  (4 s) with cached fallback, `/_expo/` + `/assets/` cache-first, illustrations/muscle maps cached on first view,
+  no skipWaiting (a new export activates on the next launch); `_headers` sends `/sw.js` `no-cache`.
 - Verified 2026-10-21 (X5): `Page.getInstallabilityErrors` returns `[]` with no service worker (CDP via
   `agent-browser get cdp-url`); Workers static assets serve `manifest.json` as `application/json`;
   `crossOriginIsolated` stays true.

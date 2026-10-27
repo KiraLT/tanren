@@ -21,7 +21,6 @@ import {
 const production = (overrides: {
   readonly vars?: Record<string, string>
   readonly d1?: string
-  readonly kv?: string
   readonly routes?: ReadonlyArray<{ pattern: string; custom_domain: boolean }>
   /** `undefined` = the default cron; `"absent"` = no `triggers` block at all. */
   readonly crons?: ReadonlyArray<string> | "absent"
@@ -51,9 +50,6 @@ const production = (overrides: {
         d1_databases: [
           { binding: "DB", database_id: overrides.d1 ?? "3f2c1a9e-1111-4222-8333-444455556666" },
         ],
-        kv_namespaces: [
-          { binding: "OAUTH_KV", id: overrides.kv ?? "abcdef0123456789abcdef0123456789" },
-        ],
       },
     },
   })
@@ -73,13 +69,12 @@ describe("checkProduction", () => {
     expect(failing(checkProduction(parseWrangler(production({}))))).toEqual([])
   })
 
-  it("fails on the zero D1 placeholder and the owner KV placeholder", () => {
+  it("fails on the zero D1 placeholder and never asks for a KV binding (ADR-0022)", () => {
     const checks = checkProduction(
-      parseWrangler(
-        production({ d1: "00000000-0000-4000-8000-000000000000", kv: "<owner: wrangler kv>" }),
-      ),
+      parseWrangler(production({ d1: "00000000-0000-4000-8000-000000000000" })),
     )
-    expect(failing(checks)).toEqual(["prod.d1", "prod.kv"])
+    expect(failing(checks)).toEqual(["prod.d1"])
+    expect(checks.some((c) => c.id.includes("kv") || c.label.includes("KV"))).toBe(false)
     const d1 = checks.find((c) => c.id === "prod.d1")
     expect(Option.getOrElse(d1?.next ?? Option.none(), () => "")).toContain("wrangler d1 create")
   })
@@ -126,9 +121,25 @@ describe("checkProduction native sign-in and tightened vars", () => {
   })
 
   it("fails NATIVE_RETURN_PREFIXES for the wrong scheme, a host-only value or localhost", () => {
-    const bad = ["exp://localhost:", "tanren://", "exps://u.expo.dev/", "exps://other.example/abc/"]
+    const bad = [
+      "exp://localhost:",
+      "tanren://",
+      "exps://u.expo.dev/",
+      "exp://u.expo.dev/",
+      "exps://other.example/abc/",
+      "exp://evil.dev/3f2c1a9e-1111-4222-8333-444455556666/",
+      "exp://u.expo.dev/3f2c1a9e-1111-4222-8333-444455556666/,exp://u.expo.dev/",
+    ]
     expect(bad.map((value) => failingFor({ NATIVE_RETURN_PREFIXES: value }))).toEqual(
       bad.map(() => ["prod.var.NATIVE_RETURN_PREFIXES"]),
+    )
+  })
+
+  it("passes NATIVE_RETURN_PREFIXES with the project path under exp:// (published update) and exps://", () => {
+    const id = "3f2c1a9e-1111-4222-8333-444455556666"
+    const good = [`exp://u.expo.dev/${id}/`, `exp://u.expo.dev/${id}/,exps://u.expo.dev/${id}/`]
+    expect(good.map((value) => failingFor({ NATIVE_RETURN_PREFIXES: value }))).toEqual(
+      good.map(() => []),
     )
   })
 
@@ -160,13 +171,11 @@ describe("checkProduction native sign-in and tightened vars", () => {
     ])
   })
 
-  it("fails the local KV id and the placeholder D1 id with the create commands as next", () => {
-    const checks = checkProduction(
-      parseWrangler(production({ kv: "local-oauth-kv", d1: "<owner: wrangler d1 create>" })),
-    )
-    expect(failing(checks)).toEqual(["prod.d1", "prod.kv"])
-    const kv = checks.find((c) => c.id === "prod.kv")
-    expect(Option.getOrElse(kv?.next ?? Option.none(), () => "")).toContain("kv namespace create")
+  it("fails the placeholder D1 id with the create command as next", () => {
+    const checks = checkProduction(parseWrangler(production({ d1: "<owner: wrangler d1 create>" })))
+    expect(failing(checks)).toEqual(["prod.d1"])
+    const d1 = checks.find((c) => c.id === "prod.d1")
+    expect(Option.getOrElse(d1?.next ?? Option.none(), () => "")).toContain("wrangler d1 create")
   })
 })
 

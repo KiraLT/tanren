@@ -112,8 +112,9 @@ so `app.ts` and `index.ts` stay untouched (the OAuth provider passes every path 
 **`returnTo` allowlist:** the `RETURN_TO` shape (`exp(s)://<host>[:port][/…]/--/auth/callback` or
 `tanren://auth/callback`) AND `returnTo.startsWith(prefix)` for a prefix in `WorkerConfig.nativeReturnPrefixes`
 (var `NATIVE_RETURN_PREFIXES`, comma list; unset = `exp://localhost:,exp://127.0.0.1:` locally, none elsewhere;
-`dev:phone` adds `exp://<LAN IP>:` via `--var`; production = `exps://u.expo.dev/<projectId>/`, owner value in
-deploy.md §2). A host alone is not enough: every EAS project shares `u.expo.dev` (NA-REV delta). `tanren://`
+`dev:phone` adds `exp://<LAN IP>:` via `--var`; production = `exp://u.expo.dev/<projectId>/` and
+`exps://u.expo.dev/<projectId>/`, owner value in deploy.md §2: Expo Go returns over `exp://` for a published
+update, EAS-2). A host alone is not enough: every EAS project shares `u.expo.dev` (NA-REV delta). `tanren://`
 is allowed only when listed.
 
 **Rate limit:** all three routes, 10 per minute per route per `cf-connecting-ip`, in isolate memory →

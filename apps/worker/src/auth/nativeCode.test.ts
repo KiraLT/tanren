@@ -54,6 +54,7 @@ describe("signCode / verifyCode", () => {
 describe("isAllowedReturnTo (pinned prefixes)", () => {
   const allowed = isAllowedReturnTo([
     "exp://192.168.1.5:",
+    "exp://u.expo.dev/tanren-project-id/",
     "exps://u.expo.dev/tanren-project-id/",
     "exp://localhost:",
     "tanren://",
@@ -61,6 +62,7 @@ describe("isAllowedReturnTo (pinned prefixes)", () => {
 
   it.each([
     "exp://192.168.1.5:8081/--/auth/callback",
+    "exp://u.expo.dev/tanren-project-id/--/auth/callback", // published EAS Update in Expo Go (EAS-1)
     "exps://u.expo.dev/tanren-project-id/--/auth/callback",
     "exp://localhost:8081/--/auth/callback",
     "tanren://auth/callback",
@@ -71,6 +73,8 @@ describe("isAllowedReturnTo (pinned prefixes)", () => {
 
   it.each([
     "exps://u.expo.dev/other-project/--/auth/callback", // another EAS project on the shared host
+    "exp://u.expo.dev/other-project/--/auth/callback",
+    "exp://u.expo.dev/tanren-project-id/--/auth/callback?runtime-version=exposdk%3A58.0.0", // query
     "exps://u.expo.dev/tanren-project-id/../evil/--/auth/callback", // dot segment escapes the prefix
     "exps://u.expo.dev/tanren-project-id/%2e%2e/evil/--/auth/callback",
     "exp://localhost:evil.com/--/auth/callback", // non-numeric port

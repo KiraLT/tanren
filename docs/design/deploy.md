@@ -16,8 +16,8 @@ everything below with the next command for each failure; it never deploys, logs 
 
 Owner values it checks in `apps/worker/wrangler.jsonc` `env.production` (any `<owner: …>` placeholder or
 local value is a ✗): D1 `database_id` (the real id from §1.3; no KV binding any more, ADR-0022); `vars.NATIVE_RETURN_PREFIXES`
-= `exps://u.expo.dev/<projectId>/` (every comma-separated entry starts with `exps://u.expo.dev/` and has the
-project path, §2); `vars.MCP_RESOURCE_URL` = `https://mcp.tanren.me/mcp`; `vars.EMAIL_MODE` = `provider`;
+= `exp://u.expo.dev/<projectId>/,exps://u.expo.dev/<projectId>/` (every comma-separated entry starts with
+`exp://u.expo.dev/` or `exps://u.expo.dev/` and has the project path, §2); `vars.MCP_RESOURCE_URL` = `https://mcp.tanren.me/mcp`; `vars.EMAIL_MODE` = `provider`;
 `vars.EMAIL_FROM` on `tanren.me`; `vars.ALLOWED_ORIGINS` = `https://tanren.me` and nothing else. It also lists
 both secrets (§3), requires `wrangler.web.jsonc` to serve `../mobile/dist` on route `tanren.me`, and greps
 `apps/mobile/dist` for `api.tanren.me` so a bundle exported without `EXPO_PUBLIC_API_URL` is a ✗ whose fix is
@@ -66,9 +66,10 @@ both secrets (§3), requires `wrangler.web.jsonc` to serve `../mobile/dist` on r
 Owner value: `"NATIVE_RETURN_PREFIXES"` (in `apps/worker/wrangler.jsonc` `env.production.vars`, preset to
 the placeholder `exps://u.expo.dev/<owner: eas projectId>/`) lists the URL prefixes a native sign-in code may
 be sent to. After `eas init` (§6), replace the placeholder with your project id from `apps/mobile/app.json`
-`extra.eas.projectId`: `exps://u.expo.dev/<projectId>/`. The project path is required: every EAS project
-shares the host `u.expo.dev`, so a host-only value would let another project's Expo Go URL receive your
-code. Check it against the `exps://` link the EAS dashboard shows for the update. Leave `tanren://` out until
+`extra.eas.projectId`: `exp://u.expo.dev/<projectId>/,exps://u.expo.dev/<projectId>/` (Expo Go's
+`Linking.createURL` builds `exp://` for a published update and `exps://` only for an HTTPS dev server, EAS-2).
+The project path is required: every EAS project shares the host `u.expo.dev`, so a host-only value would let
+another project's Expo Go URL receive your code. Check it against the link the EAS dashboard shows for the update. Leave `tanren://` out until
 universal links exist (native-auth.md §4). A wrong value makes iPhone sign-in answer 400
 `NativeBeginRejected{return-to}`.
 No `DEV_MCP_TOKEN`, no `BETTER_AUTH_SECRET` in vars (secrets below; `Config.ts` refuses a dev token
@@ -227,17 +228,31 @@ and follow the same browser flow. Local development keeps the dev bearer token (
 
 ## 6. EAS Update for Expo Go (iPhone)
 
-Prerequisites once: `pnpm -F @tanren/mobile exec eas login`, `eas init` (links the project id into
-`app.json`), `eas update:configure` (adds `expo-updates` config, `runtimeVersion` policy). Then:
+In the repo (EAS-1, 2026-10-27): `expo-updates` 58.0.18 (catalog), `app.json` `runtimeVersion:
+{ policy: "sdkVersion" }` (resolves to `exposdk:58.0.0`, the runtime Expo Go SDK 58 itself requests;
+`appVersion` would give `0.1.0`, which Expo Go's channel URL never asks for) and `updates.url =
+https://u.expo.dev/71f6f700-4c89-4627-8a93-b2fdd82974a5`; `apps/mobile/eas.json` maps build profiles
+`preview` / `production` to channels of the same name (only builds read it; Expo Go has no channel).
+`extra.eas.projectId` and `owner: tanren` were already set, so neither `eas init` nor
+`eas update:configure` is needed. `eas-cli` is not a repo dependency; run a pinned `npx`. Once:
+`npx --yes eas-cli@25.3.0 login` (owner). Then, from `apps/mobile`:
 ```
-cd apps/mobile
-EXPO_PUBLIC_API_URL=https://api.tanren.me pnpm exec eas update --branch production --message "step 7"
+EXPO_PUBLIC_API_URL=https://api.tanren.me npx --yes eas-cli@25.3.0 update --branch production \
+  --environment production --platform ios --message "<what changed>" --non-interactive
 ```
-Open the update's QR / `exp://` link from the EAS dashboard in Expo Go (Expo Go loads EAS Updates for
-the matching SDK 58 runtime; ADR-0009 notes a physical iPhone under the isolated linker is
-unverified → the first `eas update` is also that verification). The app's API base URL is inlined at
-export time, so every production update must carry `EXPO_PUBLIC_API_URL`. **VERIFY** the exact
-`eas update` flags against `expo:eas-update` when you run it; agents do not run EAS.
+`--environment` is required from SDK 55 (CLI reference); the shell's `EXPO_PUBLIC_API_URL` is what the
+export inlines unless an EAS `production` environment variable of the same name overrides it, so never
+create a different one there. Without it the app falls back to `<hostUri>:8787` and every call fails.
+The command prints the update group id and an EAS dashboard link; the dashboard's update page shows the
+Expo Go QR. The same link by hand (public formatter `https://qr.expo.dev/eas-update?...&format=url`):
+`exp://u.expo.dev/71f6f700-4c89-4627-8a93-b2fdd82974a5?runtime-version=exposdk%3A58.0.0&channel-name=production`
+(latest on the `production` branch via its channel) or `exp://u.expo.dev/<projectId>/group/<groupId>` (one
+update). Scan it with the iPhone Camera or paste it in Safari; Expo Go must be the SDK 58 build and
+signed in (Expo Go 57+ on iOS requires login). Native sign-in from an update: `Linking.createURL` in Expo
+Go always uses scheme `exp` for a published update (expo-linking 58.0.14 `resolveScheme`; `exps` only for
+an HTTPS dev server), so the return URL is `exp://u.expo.dev/<projectId>/--/auth/callback` and
+`NATIVE_RETURN_PREFIXES` (§2) must list `exp://u.expo.dev/<projectId>/`. ADR-0009's physical iPhone
+under the isolated linker is verified by this first update.
 
 ## 7. Checklist order
 

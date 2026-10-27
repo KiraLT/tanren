@@ -57,9 +57,6 @@ const ProductionEnv = Schema.Struct({
   d1_databases: Schema.optionalKey(
     Schema.Array(Schema.Struct({ binding: Schema.String, database_id: Schema.String })),
   ),
-  kv_namespaces: Schema.optionalKey(
-    Schema.Array(Schema.Struct({ binding: Schema.String, id: Schema.String })),
-  ),
 })
 
 /** Only the parts of a wrangler config the preflight reads. */
@@ -79,10 +76,13 @@ export const MCP_RESOURCE_URL = "https://mcp.tanren.me/mcp"
 const EDIT = "edit apps/worker/wrangler.jsonc env.production (docs/design/deploy.md §2)"
 
 const isPlaceholder = (value: string): boolean =>
-  value.trim() === "" || value.startsWith("<") || value === ZERO_D1_ID || value === "local-oauth-kv"
+  value.trim() === "" || value.startsWith("<") || value === ZERO_D1_ID
 
-/** Native sign-in codes may go only to this Expo Go origin (docs/design/deploy.md §2). */
-export const NATIVE_PREFIX_ROOT = "exps://u.expo.dev/"
+/**
+ * Native sign-in codes may go only to Expo Go loading an EAS Update (docs/design/deploy.md §2):
+ * expo-linking builds `exp://` for a published update and `exps://` for an HTTPS dev server.
+ */
+export const NATIVE_PREFIX_ROOTS = ["exp://u.expo.dev/", "exps://u.expo.dev/"] as const
 export const PROD_ORIGIN = "https://tanren.me"
 export const MAIL_DOMAIN = "tanren.me"
 
@@ -92,7 +92,7 @@ const csv = (value: string): ReadonlyArray<string> =>
     (part) => part !== "",
   )
 
-/** `exps://u.expo.dev/<projectId>/`: the project path is required and no placeholder is left. */
+/** `exp(s)://u.expo.dev/<projectId>/`: the project path is required and no placeholder is left. */
 export const isNativePrefixes = (value: string): boolean => {
   const entries = csv(value)
   return (
@@ -100,8 +100,7 @@ export const isNativePrefixes = (value: string): boolean => {
     Arr.every(
       entries,
       (entry) =>
-        entry.startsWith(NATIVE_PREFIX_ROOT) &&
-        entry.length > NATIVE_PREFIX_ROOT.length &&
+        NATIVE_PREFIX_ROOTS.some((root) => entry.startsWith(root) && entry.length > root.length) &&
         !entry.includes("<owner:") &&
         !entry.includes("<") &&
         !entry.includes(">"),
@@ -189,7 +188,6 @@ export const checkProduction = (config: Option.Option<WranglerConfig>): Readonly
   const block = production.value
   const vars = block.vars ?? {}
   const d1 = Arr.findFirst(block.d1_databases ?? [], (d) => d.binding === "DB")
-  const kv = Arr.findFirst(block.kv_namespaces ?? [], (k) => k.binding === "OAUTH_KV")
   return [
     ok("prod.block", "wrangler.jsonc env.production block", "present"),
     varCheck(vars, "ENVIRONMENT", (v) => v === "production", '"production"'),
@@ -221,7 +219,7 @@ export const checkProduction = (config: Option.Option<WranglerConfig>): Readonly
       vars,
       "NATIVE_RETURN_PREFIXES",
       isNativePrefixes,
-      `"${NATIVE_PREFIX_ROOT}<projectId>/" with the id from eas init (apps/mobile/app.json extra.eas.projectId)`,
+      `"${NATIVE_PREFIX_ROOTS.map((root) => `${root}<projectId>/`).join(",")}" with the id from eas init (apps/mobile/app.json extra.eas.projectId)`,
     ),
     // Strava export (docs/design/deploy.md §Strava secrets): Config.ts accepts "console" | "provider".
     // Production runs "console" (only logs, never calls Strava) until the owner has a Strava app
@@ -253,18 +251,6 @@ export const checkProduction = (config: Option.Option<WranglerConfig>): Readonly
               "cd apps/worker && pnpm exec wrangler d1 create tanren   # then paste database_id",
             )
           : ok("prod.d1", "D1 database_id", d.database_id),
-    }),
-    Option.match(kv, {
-      onNone: () => fail("prod.kv", "KV binding OAUTH_KV", "missing", EDIT),
-      onSome: (k) =>
-        isPlaceholder(k.id)
-          ? fail(
-              "prod.kv",
-              "KV OAUTH_KV id",
-              `placeholder "${k.id}"`,
-              "cd apps/worker && pnpm exec wrangler kv namespace create OAUTH_KV   # then paste id",
-            )
-          : ok("prod.kv", "KV OAUTH_KV id", k.id),
     }),
     ...Arr.map(["api.tanren.me", "mcp.tanren.me"], (host) =>
       hasCustomDomain(block, host)
@@ -455,13 +441,12 @@ export const ownerSession = (checks: ReadonlyArray<Check>): ReadonlyArray<Sessio
   { command: "Resend: verify tanren.me, create the API key (dashboard)", done: false },
   { command: "cd apps/worker && pnpm exec wrangler login", done: allOk(checks, "whoami") },
   {
-    command:
-      "pnpm exec wrangler d1 create tanren && pnpm exec wrangler kv namespace create OAUTH_KV",
-    done: allOk(checks, "prod.d1") && allOk(checks, "prod.kv"),
+    command: "pnpm exec wrangler d1 create tanren",
+    done: allOk(checks, "prod.d1"),
   },
   {
     command:
-      "paste both ids, the EAS project id (NATIVE_RETURN_PREFIXES) and the Strava client id (STRAVA_CLIENT_ID) into wrangler.jsonc env.production",
+      "paste the D1 database id, the EAS project id (NATIVE_RETURN_PREFIXES) and the Strava client id (STRAVA_CLIENT_ID) into wrangler.jsonc env.production",
     done: allOk(checks, "prod"),
   },
   {

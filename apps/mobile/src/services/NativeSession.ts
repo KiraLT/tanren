@@ -472,9 +472,18 @@ const expoPkce: PkceSource = {
     }).pipe(Effect.map((buffer) => new Uint8Array(buffer))),
 }
 
+/**
+ * The created URL without `?query` / `#fragment`. Expo Go's `createURL` appends the query its
+ * `hostUri` carries (`?channel-name=production&runtime-version=…` when the update was opened by a
+ * channel link), and the Worker's `RETURN_TO` allows none (native-auth.md §2.3): sent as is,
+ * `/api/native/begin` answers 400 `return-to`.
+ */
+export const bareReturnTo = (url: string): string => url.split(/[?#]/, 1)[0] ?? url
+
 /** `exp://<host>/--/auth/callback` in Expo Go, `tanren://auth/callback` in a build. */
 const expoReturnTo: Effect.Effect<string, NativeSignInFailed> = Effect.tryPromise({
-  try: () => import("expo-linking").then((linking) => linking.createURL("auth/callback")),
+  try: () =>
+    import("expo-linking").then((linking) => bareReturnTo(linking.createURL("auth/callback"))),
   catch: storage,
 })
 

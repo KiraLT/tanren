@@ -53,6 +53,15 @@
         // Storage blocked (private mode): the media query decides.
       }
     </script>
+    <!-- PWA-1: offline home-screen launch. dist/sw.js exists only after scripts/serviceWorker.ts ran on
+         the export; a dev server has none, so a failed registration is ignored. -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+        });
+      }
+    </script>
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

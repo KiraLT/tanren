@@ -4,6 +4,7 @@ import { FetchHttpClient, HttpClientRequest } from "effect/http"
 import { TestClock } from "effect/testing"
 import {
   ACCESS_KEY,
+  bareReturnTo,
   base64Url,
   callbackFailure,
   EXPIRES_KEY,
@@ -86,6 +87,24 @@ describe("base64Url", () => {
     expect(base64Url(RFC_BYTES)).toBe(RFC_VERIFIER)
     expect(base64Url(Uint8Array.from([251, 255]))).toBe("-_8")
     expect(base64Url(new Uint8Array(0))).toBe("")
+  })
+})
+
+describe("bareReturnTo", () => {
+  const EAS = "exp://u.expo.dev/3f2c1a9e-1111-4222-8333-444455556666/--/auth/callback"
+
+  it("strips the channel query Expo Go appends to the created URL", () => {
+    expect(bareReturnTo(`${EAS}?channel-name=x&runtime-version=y`)).toBe(EAS)
+  })
+
+  it("strips a fragment too", () => {
+    expect(bareReturnTo(`${EAS}#frag`)).toBe(EAS)
+  })
+
+  it("leaves a URL without a query unchanged", () => {
+    expect(bareReturnTo(EAS)).toBe(EAS)
+    expect(bareReturnTo(RETURN_TO)).toBe(RETURN_TO)
+    expect(bareReturnTo("tanren://auth/callback")).toBe("tanren://auth/callback")
   })
 })
 
