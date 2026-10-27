@@ -1,7 +1,8 @@
-# Handoff — 2026-10-27 21:29
+# Handoff — 2026-10-27 21:31
 
 ## Where we are
-Production = 4005455 (DEPLOY-25 21:27; QA-24 light running — bundle strings, signed-out network list, SW). Before
+Production = 4005455 (DEPLOY-25 21:27, QA-24 PASS 21:31: routes, API, new bundle `entry-41de6edc…` with the Home
+chunk carrying the DESK-1 strings, signed-out visit = one `get-session`, SW). Before
 it: DEPLOY-24 8d202af 20:57 (QA-23 PASS), DEPLOY-23 2fa8713 20:39 (QA-22 PASS), DEPLOY-22 fd7902d 19:59. HEAD =
 4005455. Since 20:14, 30 commits, none reworked: PROG-2 resume + PROG-2b tests · NAV-1b You card + Start failure
 line · PROG-4 dynamic schedule + NAV-3e "Continue day N" · WT-1/WT-2 weight entry (tap to type, step by
