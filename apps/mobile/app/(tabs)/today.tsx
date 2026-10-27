@@ -1,17 +1,31 @@
 import { Array as Arr, Match } from "effect"
 import { useRouter } from "expo-router"
+import { useState } from "react"
 import { View } from "react-native"
 import { TodayPrograms, useDueToday } from "../../src/components/TodayPrograms"
 import { TodayReady } from "../../src/components/TodayReady"
 import { FinishWorkout } from "../../src/components/today/FinishWorkout"
+import { FreeFooter } from "../../src/components/today/FreeFooter"
+import {
+  ADD_EXERCISE_LABEL,
+  CANCEL_FAILED_TITLE,
+  CANCEL_WORKOUT_LABEL,
+  FREE_WORKOUT_TITLE,
+  START_FAILED_TITLE,
+  START_WORKOUT_LABEL,
+  WORKOUT_STARTED_BODY,
+  WORKOUT_STARTED_TITLE,
+} from "../../src/components/today/freeWorkoutCopy"
 import { HealthModule, useHealthModuleShown } from "../../src/components/today/HealthModule"
 import { todayEmptyCopy } from "../../src/components/today/todayEmptyCopy"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
-import { type TodayState, useToday } from "../../src/hooks/useToday"
+import { type TodayState, useFreeWorkoutActions, useToday } from "../../src/hooks/useToday"
 import {
   AppBar,
+  Banner,
+  Button,
   EmptyState,
   gutter,
   IconButton,
@@ -109,14 +123,78 @@ function ReadyBanner() {
 function TodayEmpty() {
   const healthShown = useHealthModuleShown()
   const programsDue = useDueToday()
+  const { start } = useFreeWorkoutActions()
+  const [failed, setFailed] = useState(false)
   const copy = todayEmptyCopy(programsDue.length)
+  const onStart = () => {
+    setFailed(false)
+    start().then((ok) => setFailed(!ok))
+  }
   return (
     // With the card: a scrolling page (16 top padding, 24 section gap); without it the plain body,
     // where the empty state fills and centres.
     <Page header={<TodayBar />} scroll={healthShown} sectionGap={space.xl}>
       <HealthModule />
       <TodayPrograms />
-      <EmptyState icon="calendar" title={copy.title} body={copy.body} compact={healthShown} />
+      {failed ? (
+        <Banner tone="danger" title={START_FAILED_TITLE} onDismiss={() => setFailed(false)} />
+      ) : null}
+      <EmptyState
+        icon="calendar"
+        title={copy.title}
+        body={copy.body}
+        compact={healthShown}
+        action={{ label: START_WORKOUT_LABEL, onPress: onStart, variant: "primary" }}
+      />
+    </Page>
+  )
+}
+
+/**
+ * A free workout with no exercise yet (free-workout.md §4): the Empty layout with "Workout started",
+ * a primary "Add exercise" to the Library and a secondary "Cancel workout" (no confirm: nothing is
+ * lost, the row only holds intent). Today reloads through `StoreEvents` after either write.
+ */
+function TodayFreeEmpty() {
+  const healthShown = useHealthModuleShown()
+  const router = useRouter()
+  const { cancel } = useFreeWorkoutActions()
+  const [failed, setFailed] = useState(false)
+  const onCancel = () => {
+    setFailed(false)
+    cancel().then((ok) => setFailed(!ok))
+  }
+  return (
+    <Page header={<TodayBar />} scroll={healthShown} sectionGap={space.xl}>
+      <HealthModule />
+      <TodayPrograms />
+      {failed ? (
+        <Banner tone="danger" title={CANCEL_FAILED_TITLE} onDismiss={() => setFailed(false)} />
+      ) : null}
+      {/* Without the card the pair centres in the body, like `TodayEmpty`'s filling empty state. */}
+      <View
+        style={
+          healthShown ? { gap: space.sm } : { flex: 1, justifyContent: "center", gap: space.sm }
+        }
+      >
+        <EmptyState
+          icon="dumbbell"
+          title={WORKOUT_STARTED_TITLE}
+          body={WORKOUT_STARTED_BODY}
+          compact
+          action={{
+            label: ADD_EXERCISE_LABEL,
+            onPress: () => router.navigate("/library"),
+            variant: "primary",
+          }}
+        />
+        <Button
+          label={CANCEL_WORKOUT_LABEL}
+          variant="secondary"
+          onPress={onCancel}
+          style={{ alignSelf: "center" }}
+        />
+      </View>
     </Page>
   )
 }
@@ -145,6 +223,19 @@ const renderState = Match.type<TodayState>().pipe(
         asideTop={<HealthModule />}
       />
     ),
+    Free: ({ exercises, session }) =>
+      Arr.isReadonlyArrayNonEmpty(exercises) ? (
+        <TodayReady
+          title={FREE_WORKOUT_TITLE}
+          accessory={<SignInEntry />}
+          exercises={exercises}
+          footer={<FreeFooter session={session} />}
+          banner={<ReadyBanner />}
+          asideTop={<HealthModule />}
+        />
+      ) : (
+        <TodayFreeEmpty />
+      ),
   }),
 )
 

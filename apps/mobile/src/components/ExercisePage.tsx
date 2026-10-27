@@ -190,7 +190,7 @@ function ExerciseHead({ item }: { readonly item: TodayExercise }) {
           )}
         </View>
         <Text variant="subhead" tone="muted">
-          {lastSetText(item.loggedSets, item.prefill)}
+          {lastSetText(item.loggedSets, item.prefill, item.plannedSets.length)}
         </Text>
       </View>
     </View>

@@ -27,6 +27,7 @@ const FailingLayer = FeedRepo.layer.pipe(
       LocalStore.of({
         all: () => Effect.fail(new StoreError({ cause: "boom" })),
         write: () => Effect.fail(new StoreError({ cause: "boom" })),
+        exec: () => Effect.fail(new StoreError({ cause: "boom" })),
       }),
     ),
   ),

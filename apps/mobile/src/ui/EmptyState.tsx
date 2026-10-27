@@ -9,6 +9,8 @@ import { sizes, space } from "./tokens"
 export interface EmptyStateAction {
   readonly label: string
   readonly onPress: () => void
+  /** Default `"secondary"` (md). `"primary"` is the screen's main action: primary fill, size lg. */
+  readonly variant?: "primary" | "secondary"
 }
 
 export interface EmptyStateProps {
@@ -80,7 +82,12 @@ export function EmptyState({
         {body}
       </Text>
       {action === undefined ? null : (
-        <Button label={action.label} onPress={action.onPress} variant="secondary" />
+        <Button
+          label={action.label}
+          onPress={action.onPress}
+          variant={action.variant ?? "secondary"}
+          size={action.variant === "primary" ? "lg" : "md"}
+        />
       )}
     </View>
   )

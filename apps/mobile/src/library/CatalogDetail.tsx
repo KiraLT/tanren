@@ -18,7 +18,7 @@ import {
   Text,
   useTheme,
 } from "../ui"
-import { type AddOutcome, NO_SESSION_TITLE, noticeCopy } from "./addToToday"
+import { ADD_LABEL, type AddOutcome, noticeCopy } from "./addToToday"
 import { equipmentLabel, humanize, lastDoneText, needsLine } from "./catalogFormat"
 import { ExerciseIllustration } from "./ExerciseIllustration"
 import { MuscleMapImage } from "./MuscleMapImage"
@@ -43,7 +43,7 @@ export interface CatalogDetailProps {
   readonly inline?: boolean
 }
 
-/** The muted, self-dismissing line after an add ("Added" / "Already in today's session"). */
+/** The muted, self-dismissing line after an add ("Added" / "Already in today's workout"). */
 function Notice({ outcome }: { readonly outcome: AddOutcome }) {
   return Option.match(noticeCopy(outcome), {
     onNone: () => null,
@@ -177,7 +177,7 @@ function LastDone({ entry }: { readonly entry: CatalogExercise }) {
 
 /**
  * Name first, the hero (unless it sits in the desktop aside), numbered-disc steps, availability at
- * the active location, and a sticky "Add to today's session" below the scrolling content.
+ * the active location, and a sticky "Add to today's workout" below the scrolling content.
  */
 export function CatalogDetail({ entry, hero = true, inline = false }: CatalogDetailProps) {
   const { add, pending, outcome, dismiss } = useAddToToday()
@@ -240,20 +240,13 @@ export function CatalogDetail({ entry, hero = true, inline = false }: CatalogDet
             Match.valueTags(shown, {
               Added: () => <Notice outcome={shown} />,
               AlreadyPlanned: () => <Notice outcome={shown} />,
-              NoSession: () => (
-                <Banner
-                  title={NO_SESSION_TITLE}
-                  body="Plan a session for today, then add exercises to it."
-                  onDismiss={dismiss}
-                />
-              ),
               Failed: ({ message }) => (
                 <Banner tone="danger" title="Could not add it" body={message} onDismiss={dismiss} />
               ),
             }),
         })}
         <Button
-          label="Add to today's session"
+          label={ADD_LABEL}
           variant="primary"
           size="lg"
           icon="plus"

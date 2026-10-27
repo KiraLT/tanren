@@ -227,12 +227,11 @@ describe("migrations v5", () => {
 })
 
 describe("migrations v6", () => {
-  it.effect("creates program with its dirty index; the store is at version 6", () =>
+  it.effect("creates program with its dirty index; the store is at the latest version", () =>
     Effect.gen(function* () {
       const driver = yield* SqlDriver
       yield* migrate(driver)
-      expect(MIGRATIONS.length).toBe(6)
-      expect(yield* userVersion(driver)).toBe(6)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       expect(yield* columnsOf("program")).toEqual([
         "id",
         "userId",
@@ -270,7 +269,7 @@ describe("migrations v6", () => {
         },
       ])
       yield* migrate(driver)
-      expect(yield* userVersion(driver)).toBe(6)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       expect(
         yield* driver.all({ sql: `SELECT "id", "swaps" FROM "program_enrollment"`, params: [] }),
       ).toEqual([{ id: "pe1", swaps: "[]" }])
@@ -327,6 +326,36 @@ describe("migrations", () => {
       expect(failed._tag).toBe("StoreError")
       const rows = yield* driver.all({ sql: `SELECT * FROM "sync_state"`, params: [] })
       expect(rows).toEqual([])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
+describe("migrations v7", () => {
+  it.effect("upgrades a v6 store in place: free_workout exists, empty, rows kept", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* driver.batch([
+        ...MIGRATIONS.slice(0, 6)
+          .flat()
+          .map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 6", params: [] },
+        {
+          sql: `INSERT INTO "exercise" ("id", "userId", "name", "aliases", "muscleGroups", "createdAt", "updatedAt")
+            VALUES ('e1', 'u1', 'Squat', '[]', '[]', 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
+      const columns = yield* driver.all({ sql: `PRAGMA table_info("free_workout")`, params: [] })
+      expect(columns.map((row) => [row.name, row.pk, row.notnull])).toEqual([
+        ["localDate", 1, 1],
+        ["exerciseIds", 0, 1],
+      ])
+      expect(yield* driver.all({ sql: `SELECT * FROM "free_workout"`, params: [] })).toEqual([])
+      expect(yield* driver.all({ sql: `SELECT "name" FROM "exercise"`, params: [] })).toEqual([
+        { name: "Squat" },
+      ])
     }).pipe(Effect.provide(nodeSqlDriverLayer)),
   )
 })

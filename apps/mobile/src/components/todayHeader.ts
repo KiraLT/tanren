@@ -49,12 +49,21 @@ export const illustrationIdFor = (
     Option.map(Arr.findFirst(entries, sameName(exercise.name)), (entry) => entry.catalogId),
   )
 
-/** "Last set 100 kg × 5" after a logged set, else the prefilled target. */
+export const NO_TARGET_TEXT = "No target · log your first set"
+
+/**
+ * "Last set 100 kg × 5" after a logged set, else the prefilled target; an exercise with no planned
+ * sets (a free workout, ADR-0028) has no target, so before its first set it reads `NO_TARGET_TEXT`.
+ */
 export const lastSetText = (
   loggedSets: ReadonlyArray<{ readonly weightKg: number; readonly reps: number }>,
   prefill: { readonly weightKg: number; readonly reps: number },
+  plannedCount: number,
 ): string =>
   Option.match(Arr.last(loggedSets), {
-    onNone: () => `Target ${formatKg(prefill.weightKg)} kg × ${prefill.reps}`,
+    onNone: () =>
+      plannedCount === 0
+        ? NO_TARGET_TEXT
+        : `Target ${formatKg(prefill.weightKg)} kg × ${prefill.reps}`,
     onSome: (set) => `Last set ${formatKg(set.weightKg)} kg × ${set.reps}`,
   })

@@ -61,6 +61,11 @@ const plannedSets = LocalStore.use((store) =>
     .pipe(Effect.flatMap(decodeRecords(PlannedSetRow))),
 )
 
+/** Every `free_workout` row, raw (device-local table, no codec). */
+const freeWorkoutRows = LocalStore.use((store) =>
+  store.all({ sql: `SELECT * FROM "free_workout" ORDER BY "localDate"`, params: [] }),
+)
+
 const addExercise = (id: ExerciseId) => TodayRepo.use((repo) => repo.addExercise(id))
 const version = StoreEvents.use((events) => events.version)
 
@@ -69,7 +74,10 @@ const todaySessionId = TodayRepo.use((repo) => repo.today).pipe(
   Effect.flatMap(
     Option.match({
       onNone: () => Effect.die("expected a planned session today"),
-      onSome: (today) => Effect.succeed(today.plannedSession.id),
+      onSome: (today) =>
+        today._tag === "Planned"
+          ? Effect.succeed(today.plannedSession.id)
+          : Effect.die("expected a planned session today, got a free workout"),
     }),
   ),
 )
@@ -173,15 +181,34 @@ describe("TodayRepo.addExercise", () => {
     ),
   )
 
-  it.effect("answers noSession and writes nothing when no session is planned today", () =>
+  it.effect("creates today's free workout and answers added when no session is planned", () =>
     run(
       Effect.gen(function* () {
         yield* seededWithCurls
         yield* TestClock.adjust("1 day")
         const before = yield* version
-        expect(yield* addExercise(CURLS)).toBe("noSession")
-        expect(yield* version).toBe(before)
+        expect(yield* addExercise(CURLS)).toBe("added")
+        expect(yield* version).toBe(before + 1)
+        expect(yield* freeWorkoutRows).toEqual([
+          { localDate: "2026-10-21", exerciseIds: JSON.stringify([CURLS]) },
+        ])
         expect((yield* plannedSets).filter((set) => set.exerciseId === CURLS)).toHaveLength(0)
+      }),
+    ),
+  )
+
+  it.effect("answers alreadyPlanned and does not write when today's free workout has it", () =>
+    run(
+      Effect.gen(function* () {
+        yield* seededWithCurls
+        yield* TestClock.adjust("1 day")
+        yield* addExercise(CURLS)
+        const afterFirst = yield* version
+        expect(yield* addExercise(CURLS)).toBe("alreadyPlanned")
+        expect(yield* version).toBe(afterFirst)
+        expect(yield* freeWorkoutRows).toEqual([
+          { localDate: "2026-10-21", exerciseIds: JSON.stringify([CURLS]) },
+        ])
       }),
     ),
   )

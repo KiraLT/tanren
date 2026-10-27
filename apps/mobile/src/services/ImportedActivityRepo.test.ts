@@ -23,6 +23,7 @@ const FailingLayer = ImportedActivityRepo.layer.pipe(
       LocalStore.of({
         all: () => Effect.fail(new StoreError({ cause: "boom" })),
         write: () => Effect.fail(new StoreError({ cause: "boom" })),
+        exec: () => Effect.fail(new StoreError({ cause: "boom" })),
       }),
     ),
   ),

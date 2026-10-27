@@ -109,6 +109,12 @@ export interface LocalStoreShape {
     changes: ReadonlyArray<SyncChange>,
     options: { readonly dirty: boolean },
   ) => Effect.Effect<void, StoreError>
+  /**
+   * Raw writes to a device-local table (`free_workout`: no sync columns, never pushed) in one
+   * transaction, then bumps `StoreEvents`. Synced entities go through `write`.
+   * Never use it for a synced table: it skips the codecs, `_dirty` and `updatedAt`, so the row never pushes.
+   */
+  readonly exec: (statements: ReadonlyArray<SqlStatement>) => Effect.Effect<void, StoreError>
 }
 
 /** The local offline store. Building the layer applies pending migrations. Needs `StoreEvents`. */
@@ -132,6 +138,7 @@ export class LocalStore extends Context.Service<LocalStore, LocalStoreShape>()(
             ),
             Effect.andThen(events.bump),
           ),
+        exec: (statements) => driver.batch(statements).pipe(Effect.andThen(events.bump)),
       })
     }),
   )

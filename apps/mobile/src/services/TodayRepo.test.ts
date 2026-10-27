@@ -44,10 +44,13 @@ const run = <A, E>(
   >,
 ) => TestClock.setTime(NOW).pipe(Effect.andThen(body), Effect.provide(TestLayer))
 
+const isPlanned = (today: Today): today is Extract<Today, { readonly _tag: "Planned" }> =>
+  today._tag === "Planned"
+
 const seededToday = Effect.gen(function* () {
   yield* seedIfEmpty
   const today = yield* (yield* TodayRepo).today
-  return yield* Option.match(today, {
+  return yield* Option.match(Option.filter(today, isPlanned), {
     onNone: () => Effect.die("expected a planned session today"),
     onSome: Effect.succeed,
   })
@@ -270,6 +273,200 @@ describe("TodayRepo", () => {
           ),
         ).toEqual([0, 1])
         expect(yield* count(`SELECT COUNT(*) AS "n" FROM "workout_session"`)).toBe(1)
+      }),
+    ),
+  )
+})
+
+/** The seeded plan's exercise ids in plan order: squat, bench, row, press (seeded at NOW). */
+const seededExerciseIds = seededToday.pipe(
+  Effect.map((today) => today.exercises.map(({ exercise }) => exercise.id)),
+)
+
+const nth = (ids: ReadonlyArray<ExerciseId>, n: number) =>
+  Option.match(Arr.get(ids, n), {
+    onNone: () => Effect.die(`expected exercise ${n}`),
+    onSome: Effect.succeed,
+  })
+
+/** Today's free workout, or a defect when Today is anything else. */
+const freeToday = TodayRepo.use((repo) => repo.today).pipe(
+  Effect.flatMap((today) =>
+    Option.match(today, {
+      onNone: () => Effect.die("expected a free workout, got none"),
+      onSome: (found) =>
+        found._tag === "Free" ? Effect.succeed(found) : Effect.die("expected a free workout"),
+    }),
+  ),
+)
+
+const freeRowCount = count(`SELECT COUNT(*) AS "n" FROM "free_workout"`)
+
+describe("TodayRepo free workout (ADR-0028)", () => {
+  it.effect("start shows an empty free workout on a day with no plan; cancel empties Today", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* TodayRepo
+        yield* repo.startFreeWorkout
+        const free = yield* freeToday
+        expect(free.exercises).toEqual([])
+        expect(Option.isNone(free.session)).toBe(true)
+        yield* repo.cancelFreeWorkout
+        expect(Option.isNone(yield* repo.today)).toBe(true)
+        expect(yield* freeRowCount).toBe(0)
+      }),
+    ),
+  )
+
+  it.effect("start twice keeps the exercises already added", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        yield* TestClock.adjust("1 day")
+        const repo = yield* TodayRepo
+        const bench = yield* nth(ids, 1)
+        yield* repo.addExercise(bench)
+        yield* repo.startFreeWorkout
+        expect((yield* freeToday).exercises.map(({ exercise }) => exercise.id)).toEqual([bench])
+      }),
+    ),
+  )
+
+  it.effect("a planned session beats today's free workout", () =>
+    run(
+      Effect.gen(function* () {
+        yield* seedIfEmpty
+        const repo = yield* TodayRepo
+        yield* repo.startFreeWorkout
+        const today = yield* repo.today
+        expect(Option.map(today, (t) => t._tag)).toEqual(Option.some("Planned"))
+      }),
+    ),
+  )
+
+  it.effect("lists the row's exercises in order, then ones logged here but not in the row", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        yield* TestClock.adjust("1 day")
+        const repo = yield* TodayRepo
+        const [squat, bench, press] = [yield* nth(ids, 0), yield* nth(ids, 1), yield* nth(ids, 3)]
+        yield* repo.addExercise(press)
+        yield* repo.addExercise(bench)
+        yield* repo.logSet(squatInput(squat, 60, 8))
+        const free = yield* freeToday
+        expect(free.exercises.map(({ exercise }) => exercise.id)).toEqual([press, bench, squat])
+        expect(free.exercises.map(({ plannedSets }) => plannedSets.length)).toEqual([0, 0, 0])
+        expect(free.exercises.map(({ loggedSets }) => loggedSets.length)).toEqual([0, 0, 1])
+        expect(free.exercises.map(({ restSeconds }) => restSeconds)).toEqual([120, 120, 120])
+        expect(Option.map(free.session, (open) => open.setCount)).toEqual(Option.some(1))
+        expect(
+          Option.map(free.session, (open) => Option.isNone(open.session.plannedSessionId)),
+        ).toEqual(Option.some(true))
+      }),
+    ),
+  )
+
+  it.effect("prefills a free exercise from its last set in an older session, else 0 × 0", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        const squat = yield* nth(ids, 0)
+        const row = yield* nth(ids, 2)
+        const repo = yield* TodayRepo
+        yield* repo.logSet(squatInput(squat, 100, 5))
+        yield* TestClock.adjust("1 minute")
+        yield* repo.logSet(squatInput(squat, 105, 3))
+        yield* TestClock.adjust("1 day")
+        yield* repo.addExercise(squat)
+        yield* repo.addExercise(row)
+        const free = yield* freeToday
+        expect(free.exercises.map(({ prefill }) => prefill)).toEqual([
+          { weightKg: 105, reps: 3 },
+          { weightKg: 0, reps: 0 },
+        ])
+        yield* repo.logSet(squatInput(squat, 110, 2))
+        const after = yield* freeToday
+        expect(after.exercises[0]?.prefill).toEqual({ weightKg: 110, reps: 2 })
+      }),
+    ),
+  )
+
+  it.effect("finishing the unplanned session deletes today's row and empties Today", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        yield* TestClock.adjust("1 day")
+        const repo = yield* TodayRepo
+        const squat = yield* nth(ids, 0)
+        yield* repo.addExercise(squat)
+        // A day whose session `finishStaleSessions` closed after midnight leaves its row behind.
+        yield* LocalStore.use((store) =>
+          store.exec([
+            {
+              sql: `INSERT INTO "free_workout" ("localDate", "exerciseIds") VALUES (?, ?)`,
+              params: ["2026-10-20", JSON.stringify([squat])],
+            },
+          ]),
+        )
+        expect(yield* freeRowCount).toBe(2)
+        const set = yield* repo.logSet(squatInput(squat, 60, 8))
+        const finished = yield* repo.finishSession(set.sessionId)
+        expect(Option.map(finished, (f) => f.setCount)).toEqual(Option.some(1))
+        expect(yield* freeRowCount).toBe(0)
+        expect(Option.isNone(yield* repo.today)).toBe(true)
+      }),
+    ),
+  )
+
+  it.effect("finishing a planned session leaves a free-workout row alone", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        const repo = yield* TodayRepo
+        yield* repo.startFreeWorkout
+        const set = yield* repo.logSet(squatInput(yield* nth(ids, 0), 100, 5))
+        yield* repo.finishSession(set.sessionId)
+        expect(yield* freeRowCount).toBe(1)
+      }),
+    ),
+  )
+})
+
+describe("TodayRepo free workout, failure and races", () => {
+  it.effect.each(["not json", '["x"]'])(
+    "a corrupt free_workout row (%s) fails today with a StoreError",
+    (raw) =>
+      run(
+        Effect.gen(function* () {
+          yield* LocalStore.use((store) =>
+            store.exec([
+              {
+                sql: `INSERT INTO "free_workout" ("localDate", "exerciseIds") VALUES (?, ?)`,
+                params: ["2026-10-20", raw],
+              },
+            ]),
+          )
+          const error = yield* Effect.flip((yield* TodayRepo).today)
+          expect(error._tag).toBe("StoreError")
+        }),
+      ),
+  )
+
+  it.effect("a double tap on add answers added then alreadyPlanned and stores the id once", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = yield* seededExerciseIds
+        yield* TestClock.adjust("1 day")
+        const bench = yield* nth(ids, 1)
+        const add = TodayRepo.use((repo) => repo.addExercise(bench))
+        const answers = yield* Effect.all([add, add], { concurrency: 2 })
+        expect(answers).toEqual(["added", "alreadyPlanned"])
+        const rows = yield* (yield* LocalStore).all({
+          sql: `SELECT "exerciseIds" FROM "free_workout"`,
+          params: [],
+        })
+        expect(rows).toEqual([{ exerciseIds: JSON.stringify([bench]) }])
       }),
     ),
   )

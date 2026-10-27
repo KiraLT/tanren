@@ -4,6 +4,7 @@ import { useRouter } from "expo-router"
 import { useState } from "react"
 import { View } from "react-native"
 import { useCatalogSearch } from "../../src/hooks/useCatalogSearch"
+import { LIBRARY_ROLE } from "../../src/library/addToToday"
 import { CatalogDetail } from "../../src/library/CatalogDetail"
 import { CatalogFilterBar } from "../../src/library/CatalogFilterBar"
 import { CatalogList } from "../../src/library/CatalogList"
@@ -30,13 +31,7 @@ export default function LibraryScreen() {
     router.push({ pathname: "/library/[catalogId]", params: { catalogId: id } })
   }
   const aside = Option.match(Option.flatMap(selected, findCatalogExercise), {
-    onNone: () => (
-      <EmptyState
-        icon="dumbbell"
-        title="Pick an exercise"
-        body="Its illustration and instructions show here."
-      />
-    ),
+    onNone: () => <EmptyState icon="dumbbell" title="Pick an exercise" body={LIBRARY_ROLE} />,
     onSome: (entry) => (
       <View style={{ flex: 1, paddingHorizontal: gutter.desktop }}>
         <CatalogDetail key={entry.catalogId} entry={entry} inline={inline} />

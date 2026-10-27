@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Cause, Exit, Option } from "effect"
 import { StoreError } from "../services/SqlDriver"
-import { ADDED_COPY, ALREADY_PLANNED_COPY, addOutcome, noticeCopy } from "./addToToday"
+import { ADD_LABEL, ADDED_COPY, ALREADY_PLANNED_COPY, addOutcome, noticeCopy } from "./addToToday"
 
 const describeCause = (cause: Cause.Cause<unknown>) => (Cause.hasFails(cause) ? "store" : "defect")
 
@@ -14,10 +14,6 @@ describe("addOutcome", () => {
     expect(addOutcome(Exit.succeed("alreadyPlanned"), describeCause)).toEqual({
       _tag: "AlreadyPlanned",
     })
-  })
-
-  it("noSession shows the no-session notice", () => {
-    expect(addOutcome(Exit.succeed("noSession"), describeCause)).toEqual({ _tag: "NoSession" })
   })
 
   it("a failure or defect carries the described copy", () => {
@@ -33,17 +29,20 @@ describe("addOutcome", () => {
 })
 
 describe("noticeCopy", () => {
-  it("a duplicate add reads 'Already in today's session'", () => {
+  it("a duplicate add reads 'Already in today's workout'", () => {
     expect(noticeCopy({ _tag: "AlreadyPlanned" })).toEqual(Option.some(ALREADY_PLANNED_COPY))
-    expect(ALREADY_PLANNED_COPY).toBe("Already in today's session")
+    expect(ALREADY_PLANNED_COPY).toBe("Already in today's workout")
+  })
+
+  it("the add button reads 'Add to today's workout'", () => {
+    expect(ADD_LABEL).toBe("Add to today's workout")
   })
 
   it("a fresh add reads 'Added'", () => {
     expect(noticeCopy({ _tag: "Added" })).toEqual(Option.some(ADDED_COPY))
   })
 
-  it("no session and failures have no muted line (they use a banner)", () => {
-    expect(noticeCopy({ _tag: "NoSession" })).toEqual(Option.none())
+  it("a failure has no muted line (it uses a banner)", () => {
     expect(noticeCopy({ _tag: "Failed", message: "x" })).toEqual(Option.none())
   })
 })

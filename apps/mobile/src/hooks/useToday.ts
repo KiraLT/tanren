@@ -1,15 +1,22 @@
 import type { PlannedSession } from "@tanren/shared"
-import { Effect, Exit, Option, Stream } from "effect"
-import { useCallback, useEffect, useState } from "react"
+import { Effect, Exit, Match, Option, Stream } from "effect"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { failureMessage, runtime } from "../services/runtime"
+import type { StoreError } from "../services/SqlDriver"
 import { StoreEvents } from "../services/StoreEvents"
-import { type OpenSession, type Today, type TodayExercise, TodayRepo } from "../services/TodayRepo"
+import {
+  type OpenSession,
+  type Today,
+  type TodayExercise,
+  TodayRepo,
+  type TodayRepoShape,
+} from "../services/TodayRepo"
 
 export type { LogSetInput, TodayExercise } from "../services/TodayRepo"
 
 export type TodayState =
   | { readonly _tag: "Loading" }
-  /** No planned session today. */
+  /** No planned session and no free workout today. */
   | { readonly _tag: "Empty" }
   | { readonly _tag: "Failed"; readonly message: string }
   | {
@@ -19,15 +26,24 @@ export type TodayState =
       /** The unfinished session (None before the first set and after Finish workout). */
       readonly session: Option.Option<OpenSession>
     }
+  /** Today's free workout (ADR-0028); `exercises` may be empty right after "Start a workout". */
+  | {
+      readonly _tag: "Free"
+      readonly exercises: ReadonlyArray<TodayExercise>
+      readonly session: Option.Option<OpenSession>
+    }
 
 export const toTodayState = (today: Option.Option<Today>): TodayState =>
   Option.match(today, {
-    onNone: () => ({ _tag: "Empty" }),
-    onSome: ({ plannedSession, exercises, session }) => ({
-      _tag: "Ready",
-      plannedSession,
-      exercises,
-      session,
+    onNone: (): TodayState => ({ _tag: "Empty" }),
+    onSome: Match.typeTags<Today, TodayState>()({
+      Planned: ({ plannedSession, exercises, session }) => ({
+        _tag: "Ready",
+        plannedSession,
+        exercises,
+        session,
+      }),
+      Free: ({ exercises, session }) => ({ _tag: "Free", exercises, session }),
     }),
   })
 
@@ -80,3 +96,24 @@ export const useToday = (): { readonly state: TodayState; readonly reload: () =>
 
   return { state, reload }
 }
+
+/** Runs a free-workout write; a failure, defect or failed runtime build resolves false. */
+const runFree = (pick: (repo: TodayRepoShape) => Effect.Effect<void, StoreError>) =>
+  runtime.runPromiseExit(TodayRepo.use(pick)).then(Exit.isSuccess)
+
+/**
+ * Today's "Start a workout" and "Cancel workout" (docs/design/free-workout.md §4): both write the
+ * device-local `free_workout` row and resolve `true` on success; `useToday` reloads through
+ * `StoreEvents`.
+ */
+export const useFreeWorkoutActions = (): {
+  readonly start: () => Promise<boolean>
+  readonly cancel: () => Promise<boolean>
+} =>
+  useMemo(
+    () => ({
+      start: () => runFree((repo) => repo.startFreeWorkout),
+      cancel: () => runFree((repo) => repo.cancelFreeWorkout),
+    }),
+    [],
+  )

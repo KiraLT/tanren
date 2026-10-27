@@ -1,6 +1,6 @@
 import {
   type Exercise,
-  type ExerciseId,
+  ExerciseId,
   ExerciseRow,
   IdGenerator,
   LocalDate,
@@ -31,6 +31,7 @@ import {
   Match,
   Option,
   pipe,
+  Schema,
   Semaphore,
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
@@ -54,12 +55,26 @@ export interface OpenSession {
   readonly setCount: number
 }
 
-export interface Today {
-  readonly plannedSession: PlannedSession
-  readonly exercises: ReadonlyArray<TodayExercise>
-  /** None before the first set and again after `finishSession`. */
-  readonly session: Option.Option<OpenSession>
-}
+/**
+ * What Today shows (docs/design/free-workout.md §3, ADR-0028): the planned session dated today, or
+ * today's free workout (unplanned session + the device-local `free_workout` intent list). Planned
+ * beats Free. `session` is None before the first set and again after `finishSession`.
+ */
+export type Today =
+  | {
+      readonly _tag: "Planned"
+      readonly plannedSession: PlannedSession
+      readonly exercises: ReadonlyArray<TodayExercise>
+      readonly session: Option.Option<OpenSession>
+    }
+  | {
+      readonly _tag: "Free"
+      readonly exercises: ReadonlyArray<TodayExercise>
+      readonly session: Option.Option<OpenSession>
+    }
+
+/** `free_workout.exerciseIds`: a JSON array of exercise ids in pager order. */
+const FreeWorkoutIds = Schema.fromJsonString(Schema.Array(ExerciseId))
 
 /** `finishSession`'s answer: what the confirmation line shows. */
 export interface FinishedSession {
@@ -121,8 +136,16 @@ export const prefillFor = (
 const q = (sql: string, ...params: ReadonlyArray<string | number | null>) => ({ sql, params })
 
 export interface TodayRepoShape {
-  /** Today's planned session (active plan, not deleted) with its exercises; `None` when none. */
+  /**
+   * Today's planned session (active plan, not deleted) with its exercises, else today's free
+   * workout when its `free_workout` row exists (row order, then exercises logged in the open
+   * unplanned session but not in the row); `None` when neither.
+   */
   readonly today: Effect.Effect<Option.Option<Today>, StoreError>
+  /** Starts today's free workout: writes today's `free_workout` row with `[]` unless it exists. */
+  readonly startFreeWorkout: Effect.Effect<void, StoreError>
+  /** Deletes today's `free_workout` row (Today's zero-exercise "Cancel workout"). */
+  readonly cancelFreeWorkout: Effect.Effect<void, StoreError>
   /** Logs a set into today's session, creating the session on the first set. Marks both dirty. */
   readonly logSet: (input: LogSetInput) => Effect.Effect<WorkoutSet, StoreError | ValidationError>
   /**
@@ -134,13 +157,15 @@ export interface TodayRepoShape {
    * Puts an exercise on today's planned session: appends `ADDED_SET_COUNT` planned sets (Exact
    * `ADDED_SET_REPS` reps, no weight / RPE / rest / note) after the current max `order`, dirty.
    * `"added"` after the write, `"alreadyPlanned"` when a live planned set already has it (no
-   * write), `"noSession"` when nothing is planned today (no write).
+   * write). With nothing planned today it appends the id to today's free workout instead (creating
+   * the row): `"alreadyPlanned"` when the row already holds it (no write).
    */
   readonly addExercise: (exerciseId: ExerciseId) => Effect.Effect<AddExerciseResult, StoreError>
   /**
    * Finishes an open session (ADR-0018 decision 2026-10-26): `finishedAt` = now (never before
    * `startedAt`), `updatedAt` bumped, dirty for push. `None` and no write when the session is
    * unknown, deleted, already finished or has no live set. The next `logSet` opens a new session.
+   * Finishing an unplanned session also deletes today's `free_workout` row (Today → Empty).
    */
   readonly finishSession: (
     sessionId: SessionId,
@@ -160,7 +185,7 @@ export interface TodayRepoShape {
 export const STALE_SESSION_HOURS = 3
 
 /** `TodayRepo.addExercise`'s answer; consumers match it exhaustively. */
-export type AddExerciseResult = "added" | "alreadyPlanned" | "noSession"
+export type AddExerciseResult = "added" | "alreadyPlanned"
 
 export const ADDED_SET_COUNT = 3
 export const ADDED_SET_REPS = 10
@@ -297,6 +322,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
             }),
           )
           return {
+            _tag: "Planned" as const,
             plannedSession,
             exercises: todayExercises,
             session: Option.map(
@@ -309,15 +335,140 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
           }
         })
 
-      const today = withDeps(
-        plannedSessionToday.pipe(
-          Effect.flatMap((found) =>
-            Effect.transposeOption(
-              Option.map(found, (plannedSession) => buildToday(plannedSession)),
+      /** Today's `free_workout` row: its exercise ids, or None when no free workout is started. */
+      const freeWorkoutIds = Effect.gen(function* () {
+        const date = yield* localToday
+        const rows = yield* store.all(
+          q(`SELECT "exerciseIds" FROM "free_workout" WHERE "localDate" = ?`, date),
+        )
+        return yield* Effect.transposeOption(
+          Option.map(Arr.head(rows), (row) =>
+            Schema.decodeUnknownEffect(FreeWorkoutIds)(row.exerciseIds).pipe(
+              Effect.mapError((cause) => new StoreError({ cause })),
+            ),
+          ),
+        )
+      })
+
+      const writeFreeWorkout = (exerciseIds: ReadonlyArray<ExerciseId>) =>
+        Effect.gen(function* () {
+          const date = yield* localToday
+          const json = yield* Schema.encodeEffect(FreeWorkoutIds)(exerciseIds).pipe(
+            Effect.mapError((cause) => new StoreError({ cause })),
+          )
+          yield* store.exec([
+            q(
+              `INSERT INTO "free_workout" ("localDate", "exerciseIds") VALUES (?, ?)
+               ON CONFLICT ("localDate") DO UPDATE SET "exerciseIds" = excluded."exerciseIds"`,
+              date,
+              json,
+            ),
+          ])
+        })
+
+      /** Today's row and every older one (a day closed by `finishStaleSessions` leaves its row). */
+      const deleteFreeWorkout = localToday.pipe(
+        Effect.flatMap((date) =>
+          store.exec([q(`DELETE FROM "free_workout" WHERE "localDate" <= ?`, date)]),
+        ),
+      )
+
+      /** The exercise's last live set in any live session: a free exercise's first prefill. */
+      const lastLiveSet = (exerciseId: ExerciseId) =>
+        owner.pipe(
+          Effect.flatMap((userId) =>
+            store.all(
+              q(
+                `SELECT ws.* FROM "workout_set" ws
+                 JOIN "workout_session" s ON s."id" = ws."sessionId"
+                 WHERE ws."userId" = ? AND ws."exerciseId" = ?
+                   AND ws."deletedAt" IS NULL AND s."deletedAt" IS NULL
+                 ORDER BY ws."loggedAt" DESC LIMIT 1`,
+                userId,
+                exerciseId,
+              ),
+            ),
+          ),
+          Effect.flatMap(decodeRecords(WorkoutSetRow)),
+          Effect.map(Arr.head),
+        )
+
+      const buildFree = (rowIds: ReadonlyArray<ExerciseId>) =>
+        Effect.gen(function* () {
+          const session = yield* openSession(Option.none())
+          const logged = yield* loggedSets(Option.map(session, (s) => s.id))
+          // Row order first, then exercises logged here but missing from the row (another device).
+          const exerciseIds = Arr.dedupe([...rowIds, ...logged.map((set) => set.exerciseId)])
+          // Tombstoned exercises included, as in `buildToday`.
+          const exercises = yield* store
+            .all(
+              q(
+                `SELECT * FROM "exercise" WHERE "id" IN (${exerciseIds.map(() => "?").join(", ")})`,
+                ...exerciseIds,
+              ),
+            )
+            .pipe(Effect.flatMap(decodeRecords(ExerciseRow)))
+          const todayExercises = yield* Effect.forEach(
+            Arr.getSomes(
+              exerciseIds.map((exerciseId) =>
+                Arr.findFirst(exercises, (exercise) => exercise.id === exerciseId),
+              ),
+            ),
+            (exercise) =>
+              Effect.gen(function* () {
+                const done = logged.filter((set) => set.exerciseId === exercise.id)
+                const prefill = Arr.isReadonlyArrayNonEmpty(done)
+                  ? prefillFor([], done)
+                  : Option.match(yield* lastLiveSet(exercise.id), {
+                      onNone: () => ({ weightKg: 0, reps: 0 }),
+                      onSome: (set) => ({ weightKg: set.weightKg, reps: set.reps }),
+                    })
+                return {
+                  exercise,
+                  plannedSets: [],
+                  loggedSets: done,
+                  prefill,
+                  restSeconds: DEFAULT_REST_SECONDS,
+                } satisfies TodayExercise
+              }),
+          )
+          return {
+            _tag: "Free" as const,
+            exercises: todayExercises,
+            session: Option.map(
+              session,
+              (open): OpenSession => ({ session: open, setCount: logged.length }),
+            ),
+          }
+        })
+
+      const today: Effect.Effect<Option.Option<Today>, StoreError> = withDeps(
+        Effect.gen(function* () {
+          const planned = yield* plannedSessionToday
+          if (Option.isSome(planned)) {
+            return Option.some<Today>(yield* buildToday(planned.value))
+          }
+          const free = yield* freeWorkoutIds
+          return yield* Effect.transposeOption(
+            Option.map(free, (ids) => buildFree(ids).pipe(Effect.map((t): Today => t))),
+          )
+        }),
+      )
+
+      const startFreeWorkout = logLock.withPermits(1)(
+        withDeps(
+          freeWorkoutIds.pipe(
+            Effect.flatMap(
+              Option.match({
+                onSome: () => Effect.void,
+                onNone: () => writeFreeWorkout([]),
+              }),
             ),
           ),
         ),
       )
+
+      const cancelFreeWorkout = logLock.withPermits(1)(withDeps(deleteFreeWorkout))
 
       const validated = (input: LogSetInput) =>
         Effect.all({
@@ -413,7 +564,15 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
             Effect.gen(function* () {
               const found = yield* plannedSessionToday
               if (Option.isNone(found)) {
-                return "noSession" as const
+                const ids = Option.getOrElse(
+                  yield* freeWorkoutIds,
+                  (): ReadonlyArray<ExerciseId> => [],
+                )
+                if (Arr.contains(ids, exerciseId)) {
+                  return "alreadyPlanned" as const
+                }
+                yield* writeFreeWorkout([...ids, exerciseId])
+                return "added" as const
               }
               const plannedSessionId = found.value.id
               const existing = yield* store.all(
@@ -507,6 +666,12 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
               updatedAt: DateTime.max(now, DateTime.add(session.updatedAt, { milliseconds: 1 })),
             }).pipe(Effect.mapError((cause) => new StoreError({ cause })))
             yield* store.write([{ table: "session", row: finished }], { dirty: true })
+            if (Option.isNone(session.plannedSessionId)) {
+              // The free workout is done: Today returns to Empty, the feed card is the receipt.
+              // A second transaction (`store.write` carries sync rows only): if this delete fails the
+              // session stays finished, the call errors, and Today shows an empty Free until midnight.
+              yield* withDeps(deleteFreeWorkout)
+            }
             return Option.some<FinishedSession>({
               sessionId,
               setCount,
@@ -557,6 +722,8 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
 
       return TodayRepo.of({
         today,
+        startFreeWorkout,
+        cancelFreeWorkout,
         logSet,
         exerciseChoices,
         addExercise,

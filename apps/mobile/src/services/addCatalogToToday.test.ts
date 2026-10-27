@@ -45,7 +45,7 @@ describe("addCatalogToToday", () => {
     }),
   )
 
-  it.effect.each(["noSession", "alreadyPlanned"] as const)("passes on %s unchanged", (result) =>
+  it.effect.each(["added", "alreadyPlanned"] as const)("passes on %s unchanged", (result) =>
     Effect.gen(function* () {
       const link = Layer.succeed(
         ExerciseLink,

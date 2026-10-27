@@ -9,7 +9,7 @@ import {
 } from "@tanren/shared"
 import { Array as Arr, DateTime, Option } from "effect"
 import { LOCAL_USER_ID } from "../store/localUser"
-import { illustrationIdFor, lastSetText, todayEyebrowOf } from "./todayHeader"
+import { illustrationIdFor, lastSetText, NO_TARGET_TEXT, todayEyebrowOf } from "./todayHeader"
 
 const at = DateTime.makeUnsafe("2026-10-21T08:00:00.000Z")
 const enrollment = new ProgramEnrollment({
@@ -89,11 +89,23 @@ describe("lastSetText", () => {
           { weightKg: 100, reps: 5 },
         ],
         { weightKg: 105, reps: 3 },
+        3,
       ),
     ).toBe("Last set 100 kg × 5")
   })
 
   it("shows the prefilled target before the first set", () => {
-    expect(lastSetText([], { weightKg: 107.5, reps: 5 })).toBe("Target 107.5 kg × 5")
+    expect(lastSetText([], { weightKg: 107.5, reps: 5 }, 3)).toBe("Target 107.5 kg × 5")
+  })
+
+  it("a free exercise (no planned sets) has no target before its first set", () => {
+    expect(lastSetText([], { weightKg: 60, reps: 8 }, 0)).toBe("No target · log your first set")
+    expect(NO_TARGET_TEXT).toBe("No target · log your first set")
+  })
+
+  it("a free exercise shows its last set once one is logged", () => {
+    expect(lastSetText([{ weightKg: 60, reps: 8 }], { weightKg: 60, reps: 8 }, 0)).toBe(
+      "Last set 60 kg × 8",
+    )
   })
 })

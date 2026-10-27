@@ -217,8 +217,20 @@ const v6: ReadonlyArray<string> = [
   `ALTER TABLE "program_enrollment" ADD COLUMN "swaps" TEXT NOT NULL DEFAULT '[]'`,
 ]
 
+/**
+ * v7 (docs/design/free-workout.md §2, ADR-0028): the exercises the user intends to do in today's
+ * free workout, device-local (no `userId`, no sync columns, never pushed); `exerciseIds` is a JSON
+ * array of `ExerciseId` in pager order, keyed by the device-zone `LocalDate`.
+ */
+const v7: ReadonlyArray<string> = [
+  `CREATE TABLE IF NOT EXISTS "free_workout" (
+  "localDate" TEXT PRIMARY KEY NOT NULL,
+  "exerciseIds" TEXT NOT NULL
+)`,
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6, v7]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 
