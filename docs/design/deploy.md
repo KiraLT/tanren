@@ -156,6 +156,12 @@ production (`Config.ts` refuses it outside console mode).
   revoked key parks the integration as revoked in Settings until a new key is pasted.
 - **O3** First real import on tanren.me (needs the deploy in §4 and O1): paste the key, wait for the next 5-minute cron (or
   open the app and sync), check that a recent activity's start time and today's calories match Garmin Connect.
+- **CPU check (Lead, one cron tick after O1; GM-F1)**: Workers Free gives a cron invocation 10 ms CPU. Run
+  `cd apps/worker && pnpm exec wrangler tail --env production --format json | jq 'select(.scriptName and .event.cron) | {outcome, cpu: .cpuTime, wall: .wallTime, cron: .event.cron}'`
+  across one `*/5` tick: pass = `outcome == "ok"` and no `"exceededCpu"`; `cpu` should read well under 10 during a back-fill
+  (1 user, ≤ 2 pages of 50, ≤ 7 dailies per run; a 30-day back-fill takes 3–4 ticks). Field names: `outcome`, `scriptName`,
+  `event.cron` are what wrangler 4.151.2's tail printer reads; `cpuTime` / `wallTime` are `TraceItem` fields in
+  `@cloudflare/workers-types` (wrangler passes the JSON through) — if they print `null`, `outcome` alone is the verdict.
 
 ## 4. Deploy
 
@@ -186,6 +192,16 @@ by config: `workers_dev: false` and `preview_urls: false` in `wrangler.jsonc` an
 
 Rollback: `pnpm exec wrangler rollback --env production` (Workers keeps previous versions [V]); D1
 migrations are forward-only, so a schema rollback is a new migration.
+
+**Deploy order for breaking changes.** Pending migrations apply to the live D1 *before* the Worker
+upload (`MIGRATE=1 scratchpad/deploy.sh`, and the manual order above), so for a few seconds — and for
+as long as a rollback keeps the old version — the previously deployed Worker serves against the new
+schema. Every migration must therefore be servable by the previous Worker: add columns nullable or
+with a default, add tables freely, never rename or drop in the same release that stops using the old
+name. A rename or drop is split across releases: expand (migration adds the new shape, Worker writes
+both / reads the new) → migrate (backfill) → deploy (Worker uses only the new shape) → contract (a
+later migration drops the old column or table). Token or seal format changes follow the same rule:
+the new Worker reads both formats until no old value can exist.
 
 ## 5. Claude app custom connector (after §4 is green)
 

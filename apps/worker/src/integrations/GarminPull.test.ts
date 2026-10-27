@@ -30,8 +30,8 @@ import { TestClock } from "effect/testing"
 import { memoryPersistence } from "../app"
 import { MemoryStore } from "../repos"
 import { envVars as env } from "../testing/fixtures"
-import { GarminApi, GarminApiError, type GarminApiShape } from "./GarminApi"
-import { GARMIN_CALL_BUDGET, GarminPull, readCursor } from "./GarminPull"
+import { GARMIN_PAGE_SIZE, GarminApi, GarminApiError, type GarminApiShape } from "./GarminApi"
+import { GARMIN_CALL_BUDGET, GARMIN_MAX_USERS_PER_RUN, GarminPull, readCursor } from "./GarminPull"
 import { TokenSeal } from "./TokenSeal"
 
 const NOW = Date.UTC(2026, 9, 27, 10, 0)
@@ -48,6 +48,36 @@ interface Script {
   readonly fail?: Partial<Record<Call, ExportFailureReason>>
   /** Every activity page is full (`more: true`). */
   readonly endless?: boolean
+  /** Serve these activities like Garmin: filtered to the window's dates, paged by `start`. */
+  readonly catalog?: ReadonlyArray<ImportedActivityInsert>
+}
+
+const activityOn = (day: string, n: number) =>
+  ImportedActivityInsert.make({
+    provider: "garmin",
+    externalId: `c-${day}-${n}`,
+    sport: "running",
+    title: Label.make("Run"),
+    startedAt: DateTime.makeUnsafe(`${day}T0${n}:00:00.000Z`),
+    durationSeconds: 1200,
+    distanceMeters: Option.none(),
+    calories: Option.none(),
+    avgHeartRate: Option.none(),
+    maxHeartRate: Option.none(),
+  })
+
+/** One page of `catalog` as Garmin would serve it for `window` from offset `start`. */
+const catalogPage = (
+  catalog: ReadonlyArray<ImportedActivityInsert>,
+  window: { readonly startDate: string; readonly endDate: string },
+  start: number,
+) => {
+  const inWindow = catalog.filter((a) => {
+    const day = DateTime.formatIsoDateUtc(a.startedAt)
+    return day >= window.startDate && day <= window.endDate
+  })
+  const items = inWindow.slice(start, start + GARMIN_PAGE_SIZE)
+  return { items, more: items.length === GARMIN_PAGE_SIZE }
 }
 
 const failure = (reason: ExportFailureReason) =>
@@ -78,23 +108,28 @@ const scripted = (script: Script, calls: Ref.Ref<ReadonlyArray<string>>) => {
       ),
     activities: (_jwt, window, start) =>
       record(`activities ${window.startDate}..${window.endDate} @${start}`, "activities").pipe(
-        Effect.as({
-          items: [
-            ImportedActivityInsert.make({
-              provider: "garmin",
-              externalId: `a${start}`,
-              sport: "running",
-              title: Label.make("Run"),
-              startedAt: DateTime.makeUnsafe(NOW - 86_400_000),
-              durationSeconds: 1200,
-              distanceMeters: Option.some(3000),
-              calories: Option.none(),
-              avgHeartRate: Option.none(),
-              maxHeartRate: Option.none(),
-            }),
-          ],
-          more: script.endless === true,
-        }),
+        Effect.as(
+          Option.map(Option.fromNullishOr(script.catalog), (c) => catalogPage(c, window, start)),
+        ),
+        Effect.map((page) =>
+          Option.getOrElse(page, () => ({
+            items: [
+              ImportedActivityInsert.make({
+                provider: "garmin",
+                externalId: `a${start}`,
+                sport: "running",
+                title: Label.make("Run"),
+                startedAt: DateTime.makeUnsafe(NOW - 86_400_000),
+                durationSeconds: 1200,
+                distanceMeters: Option.some(3000),
+                calories: Option.none(),
+                avgHeartRate: Option.none(),
+                maxHeartRate: Option.none(),
+              }),
+            ],
+            more: script.endless === true,
+          })),
+        ),
       ),
     daily: (_jwt, date: LocalDate) =>
       record(`daily ${date}`, "daily").pipe(
@@ -158,13 +193,29 @@ const setup = (script: Script, opts: Setup = {}) =>
     const persistence = yield* Layer.build(memoryPersistence(MemoryStore.layer))
     const seal = TokenSeal.layerWithKey(Redacted.make(env.INTEGRATION_TOKEN_KEY))
     const baseImports = Context.get(persistence, GarminImportRepo)
-    const racing = Layer.succeed(
+    /** Every import write (one D1 `SyncStore.apply` each in production), with its row count. */
+    const writes = yield* Ref.make<ReadonlyArray<string>>([])
+    const counted = Layer.succeed(
       GarminImportRepo,
-      GarminImportRepo.of({ ...baseImports, upsertActivities: () => Effect.fail(raceError) }),
+      GarminImportRepo.of({
+        ...baseImports,
+        upsertActivities: (user, rows) =>
+          Ref.update(writes, Arr.append(`activities ${rows.length}`)).pipe(
+            Effect.andThen(
+              opts.race === true
+                ? Effect.fail(raceError)
+                : baseImports.upsertActivities(user, rows),
+            ),
+          ),
+        upsertDays: (user, rows) =>
+          Ref.update(writes, Arr.append(`days ${rows.length}`)).pipe(
+            Effect.andThen(baseImports.upsertDays(user, rows)),
+          ),
+      }),
     )
     const services = Layer.mergeAll(
       Layer.succeedContext(persistence),
-      opts.race === true ? racing : Layer.empty,
+      counted,
       seal,
       scripted(script, calls),
     )
@@ -207,7 +258,16 @@ const setup = (script: Script, opts: Setup = {}) =>
           }),
         ),
       )
-    return { calls: Ref.get(calls), logs: logs.lines, integrations, imports, pull, run, row }
+    return {
+      calls: Ref.get(calls),
+      writes: Ref.get(writes),
+      logs: logs.lines,
+      integrations,
+      imports,
+      pull,
+      run,
+      row,
+    }
   })
 
 const storedCursor = JSON.stringify({
@@ -225,12 +285,12 @@ describe("GarminPull cursor", () => {
     expect(Option.isSome(readCursor(storedCursor))).toBe(true)
   })
 
-  it.effect("no cursor: activities since today − 30 d, the 7 days up to today", () =>
+  it.effect("no cursor: the first 10-day window from today − 30 d, the 7 days up to today", () =>
     Effect.gen(function* () {
       const t = yield* setup({}, { scope: "{garbage" })
       yield* t.run(t.pull.drainUser(userId(1)))
       expect(yield* t.calls).toEqual([
-        "activities 2026-09-27..2026-10-27 @0",
+        "activities 2026-09-27..2026-10-06 @0",
         "daily 2026-10-21",
         "daily 2026-10-22",
         "daily 2026-10-23",
@@ -241,7 +301,8 @@ describe("GarminPull cursor", () => {
       ])
       expect(readCursor((yield* t.row()).scope)).toEqual(
         Option.some({
-          activitiesSince: DateTime.makeUnsafe("2026-10-26T00:00:00.000Z"),
+          // The window was read in full: the next run starts the day after it.
+          activitiesSince: DateTime.makeUnsafe("2026-10-07T00:00:00.000Z"),
           healthThrough: "2026-10-26",
           lastPullAt: Option.some(DateTime.makeUnsafe(NOW)),
           lastError: Option.none(),
@@ -289,7 +350,7 @@ describe("GarminPull failures", () => {
     Effect.gen(function* () {
       const t = yield* setup({ fail: { activities: "token_rejected", exchange: "token_rejected" } })
       yield* t.run(t.pull.drainUser(userId(1)))
-      expect(yield* t.calls).toEqual(["activities 2026-09-27..2026-10-27 @0", "exchange"])
+      expect(yield* t.calls).toEqual(["activities 2026-09-27..2026-10-06 @0", "exchange"])
       expect((yield* t.row()).status).toBe("revoked")
     }),
   )
@@ -431,6 +492,69 @@ describe("GarminPull log hygiene", () => {
         all.includes(secret),
       )
       expect(leaked).toEqual([])
+    }),
+  )
+})
+
+describe("GarminPull back-fill at page size 50", () => {
+  const firstDay = Date.UTC(2026, 8, 27)
+  /** 120 activities from today − 30 d: 6 a day for the first 10 days (2 pages), then 3 a day. */
+  const catalog = Arr.flatMap(Arr.range(0, 29), (i) => {
+    const day = DateTime.formatIsoDateUtc(DateTime.makeUnsafe(firstDay + i * 86_400_000))
+    return Arr.map(Arr.range(0, i < 10 ? 5 : 2), (n) => activityOn(day, n))
+  })
+
+  it.effect("imports 120 activities over 3 runs, the cursor advancing one window per run", () =>
+    Effect.gen(function* () {
+      expect(catalog).toHaveLength(120)
+      expect([GARMIN_PAGE_SIZE, GARMIN_MAX_USERS_PER_RUN]).toEqual([50, 1])
+      const t = yield* setup({ catalog })
+      const runs = yield* Effect.forEach(Arr.range(1, 3), () =>
+        Effect.gen(function* () {
+          const callsBefore = (yield* t.calls).length
+          const writesBefore = (yield* t.writes).length
+          yield* t.run(t.pull.drain({ max: GARMIN_MAX_USERS_PER_RUN }))
+          yield* TestClock.adjust("5 minutes")
+          const calls = (yield* t.calls).slice(callsBefore)
+          return {
+            imported: (yield* t.imports.counts(userId(1), "garmin")).activities,
+            since: Option.map(readCursor((yield* t.row()).scope), (c) =>
+              DateTime.formatIsoDateUtc(c.activitiesSince),
+            ),
+            activityCalls: calls.filter((c) => c.startsWith("activities")),
+            garminCalls: calls.length,
+            importWrites: (yield* t.writes).slice(writesBefore),
+          }
+        }),
+      )
+      expect(runs).toEqual([
+        {
+          imported: 60,
+          since: Option.some("2026-10-07"),
+          activityCalls: [
+            "activities 2026-09-27..2026-10-06 @0",
+            "activities 2026-09-27..2026-10-06 @50",
+          ],
+          garminCalls: 9,
+          importWrites: ["activities 60", "days 7"],
+        },
+        {
+          imported: 90,
+          since: Option.some("2026-10-17"),
+          activityCalls: ["activities 2026-10-07..2026-10-16 @0"],
+          garminCalls: 2,
+          importWrites: ["activities 30", "days 1"],
+        },
+        {
+          imported: 120,
+          // The last window ended yesterday: from here on every run re-reads yesterday..today.
+          since: Option.some("2026-10-26"),
+          activityCalls: ["activities 2026-10-17..2026-10-26 @0"],
+          garminCalls: 2,
+          importWrites: ["activities 30", "days 1"],
+        },
+      ])
+      expect(Math.max(...runs.map((r) => r.garminCalls))).toBeLessThanOrEqual(GARMIN_CALL_BUDGET)
     }),
   )
 })

@@ -36,8 +36,11 @@ export const GARMIN_DAILY_PATH = "/usersummary-service/usersummary/daily"
 export const GARMIN_USER_AGENT = "tanren/1"
 /** The longest one Garmin call (request and body together) may take; past it the attempt is `transport`. */
 export const GARMIN_REQUEST_TIMEOUT = "10 seconds"
-/** One page of the activity list; a page of exactly this length means there may be more. */
-export const GARMIN_PAGE_SIZE = 200
+/**
+ * One page of the activity list; a page of exactly this length means there may be more. 50 keeps
+ * the JSON parse + decode of a page well inside the Workers Free 10 ms CPU budget (GM-F1).
+ */
+export const GARMIN_PAGE_SIZE = 50
 /** A JWT whose `exp` cannot be read is re-exchanged one hour before the 24 h Garmin gives. */
 const FALLBACK_JWT_LIFETIME = { hours: 23 } as const
 
@@ -66,7 +69,7 @@ export interface GarminApiShape {
   readonly profile: (
     jwt: Redacted.Redacted<string>,
   ) => Effect.Effect<{ readonly displayName: Option.Option<Label> }, GarminApiError>
-  /** One page (limit 200) from offset `start`; `more` is true when the page is full. */
+  /** One page (`GARMIN_PAGE_SIZE`) from offset `start`; `more` is true when the page is full. */
   readonly activities: (
     jwt: Redacted.Redacted<string>,
     window: GarminActivityWindow,

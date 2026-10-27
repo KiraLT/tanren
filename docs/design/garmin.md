@@ -119,6 +119,7 @@ class GarminApiError extends Data.TaggedError("GarminApiError")<{ reason: Export
 `layerHttp` (fetch, 10 s timeout, logs only method + path + status, never a header, body or query) and
 `layerConsole` (deterministic fixture: 2 activities — one `running` with distance, one `strength` without — and 7
 days ending today, so local QA sees cards and the strip without a key).
+GM-F1 (Workers Free 10 ms CPU per cron run): `GARMIN_PAGE_SIZE = 50`, `GARMIN_MAX_USERS_PER_RUN = 1`, ≤ 2 pages per run, and the activity query spans `GARMIN_WINDOW_DAYS = 10` days from `activitiesSince` (a read window moves the cursor to the day after it, capped at yesterday), so a 30-day back-fill walks forward over 3–4 runs; this overrides the 200 / 4 / "to today" figures below.
 `GarminPull` (`drain({ max: GARMIN_MAX_USERS_PER_RUN = 4 })`, `drainUser(userId)`): for each `listActive("garmin")`
 row (oldest `updatedAt` first): open key + JWT (`TokenSeal.open`); if `expiresAt − now < REFRESH_MARGIN` →
 `exchange` and `setTokens` (401 → `markRevoked`, stop). Read the cursor from `scope` (empty → `startDate = today −
@@ -269,6 +270,7 @@ next sync. Screenshots 390 + 1280: integrations list (2 providers), garmin (disc
 Provider mode with the owner's token (GM-Q2): `GARMIN_MODE=provider` locally, paste from the scratchpad file, one
 cron curl, measured: ≥ 1 real activity row, its `startedAt` equals Garmin's start (±1 min), today's calories equal
 Garmin Connect's number. Never paste the token into a repo file or a committed log; the owner regenerates it after.
+After GM-F1 one cron curl imports only the first 10-day window of the 30-day back-fill (≤ 100 activities); repeat the curl 3–4 times to reach today, and check production CPU with deploy.md §Garmin "CPU check".
 
 ## 12. Not in this step
 .FIT download, HR series, Women's Health, Garmin "View on" link (§0), merging a Garmin strength activity with a Tanren

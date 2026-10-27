@@ -37,16 +37,25 @@ import {
 } from "./GarminApi"
 import { TokenSeal, type TokenSealError } from "./TokenSeal"
 
-/** Users one cron run pulls (garmin.md §3); the rest wait for the next `*\/5` run, oldest first. */
-export const GARMIN_MAX_USERS_PER_RUN = 4
+/**
+ * Users one cron run pulls (garmin.md §3); the rest wait for the next `*\/5` run, oldest first.
+ * One, so a run's CPU (≤ 2 pages of 50 + 7 dailies) stays inside the Workers Free 10 ms (GM-F1).
+ */
+export const GARMIN_MAX_USERS_PER_RUN = 1
 /** Garmin calls one user may cost per run, re-exchanges included (Workers subrequest budget). */
 export const GARMIN_CALL_BUDGET = 10
 /**
- * Activity pages per run (400 activities). When the cap cuts a window, `activitiesSince` is kept
- * and the next run re-reads that window from offset 0 (no page offset is stored): fine at personal
- * scale, where one 30-day window stays under 400 activities. A longer window never gets past page 2.
+ * Activity pages per run (2 × `GARMIN_PAGE_SIZE` = 100 activities). When the cap cuts a window,
+ * `activitiesSince` is kept and the next run re-reads that window from offset 0 (no page offset is
+ * stored), so a window must hold ≤ 100 activities: see `GARMIN_WINDOW_DAYS`.
  */
 export const GARMIN_MAX_ACTIVITY_PAGES = 2
+/**
+ * Calendar days one run's activity query spans, from `activitiesSince`. A 30-day back-fill walks
+ * forward one window per run (Garmin's list order is not documented, so the walk never relies on
+ * it); a window stalls only above 100 activities in 10 days.
+ */
+export const GARMIN_WINDOW_DAYS = 10
 /** Daily summaries per run. */
 export const GARMIN_MAX_DAYS = 7
 /** First pull (or an unreadable cursor): activities of the last 30 days. */
@@ -210,9 +219,13 @@ const make = Effect.gen(function* () {
       yield* exchange
     }
 
+    const windowEnd = DateTime.add(DateTime.startOf(cursor.activitiesSince, "day"), {
+      days: GARMIN_WINDOW_DAYS - 1,
+    })
+    const windowEndDate = yield* localDate(windowEnd)
     const window: GarminActivityWindow = {
       startDate: yield* localDate(cursor.activitiesSince),
-      endDate: today,
+      endDate: windowEndDate < today ? windowEndDate : today,
     }
     /** Pages while `more`, at most `GARMIN_MAX_ACTIVITY_PAGES`; `complete` = the window was read. */
     const pages = (
@@ -258,8 +271,11 @@ const make = Effect.gen(function* () {
       onNone: () => cursor.healthThrough,
       onSome: ({ day }) => (day < lastFinal ? day : lastFinal),
     })
+    // A read window moves on to the day after it, never past yesterday (late uploads are re-read).
+    const afterWindow = DateTime.add(windowEnd, { days: 1 })
+    const nextSince = DateTime.isLessThan(afterWindow, yesterday) ? afterWindow : yesterday
     yield* writeCursor(row, {
-      activitiesSince: activities.complete ? yesterday : cursor.activitiesSince,
+      activitiesSince: activities.complete ? nextSince : cursor.activitiesSince,
       healthThrough: healthThrough > cursor.healthThrough ? healthThrough : cursor.healthThrough,
       lastPullAt: Option.some(now),
       lastError: Option.none(),

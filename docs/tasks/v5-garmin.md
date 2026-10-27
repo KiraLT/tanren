@@ -127,3 +127,8 @@ and one Assumes line in `docs/tasks/v5-legal.md` quoting design §10 verbatim. T
 
 ### GM-R / GM-D / GM-Q1 / GM-Q2 — see the task table rows (criteria are complete there); boxes 25 / 10 / 20 / 15 min.
 - 14:31 · GM-D (fable): FIX (3 items + 1 re-shoot) — feed stat labels kcal/Avg bpm → Calories/Avg HR (bare numbers ratified); Garmin list subtitle 3 lines at 390 → 2; connected body breaks "2 / activities" → NBSP; About card in H1/H2/H4 shows the Strava-only text but ABOUT_BODIES scope wiring landed 14:30 after the shots → re-shoot proves it. HealthStrip, imported detail, "Connecting… up to 30 s" ratified
+
+## GM-F1 — Garmin cron pull inside the Workers Free CPU budget
+
+Log
+- 2026-10-27 15:04–15:10 engineer: `GARMIN_PAGE_SIZE` 200 → 50, `GARMIN_MAX_USERS_PER_RUN` 4 → 1, new `GARMIN_WINDOW_DAYS = 10`: the activity query spans 10 days from `activitiesSince` and a fully read window moves the cursor to the day after it (capped at yesterday). Needed because the old "re-read the cut window from offset 0" never got past 2 pages (100 activities at the new size). Back-fill test: 120 activities over 3 runs (60 / 90 / 120, cursor 10-07 / 10-17 / 10-26), 9 / 2 / 2 Garmin calls, 2 import writes per run. Lean decode confirmed (already declared only the mapper's keys) + a test with noisy keys. Prod CPU recipe in deploy.md §Garmin.

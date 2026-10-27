@@ -18,6 +18,7 @@ import {
   GARMIN_ACTIVITIES_PATH,
   GARMIN_DAILY_PATH,
   GARMIN_EXCHANGE_PATH,
+  GARMIN_PAGE_SIZE,
   GARMIN_PROFILE_PATH,
   GarminApi,
   GarminApiError,
@@ -215,12 +216,12 @@ describe("GarminApi.layerHttp data calls", () => {
   it.effect("maps one list item to an ImportedActivityInsert and sends the query", () =>
     Effect.gen(function* () {
       const { run, requests } = yield* stubbed(ok([listItem]))
-      const page = yield* run((api) => api.activities(JWT, window, 200))
+      const page = yield* run((api) => api.activities(JWT, window, 50))
       const [request] = yield* requests
       expect(request?.url).toBe(`${BASE}${GARMIN_ACTIVITIES_PATH}`)
       expect(request === undefined ? {} : paramsOf(request)).toEqual({
-        limit: "200",
-        start: "200",
+        limit: "50",
+        start: "50",
         startDate: "2026-09-27",
         endDate: "2026-10-27",
       })
@@ -274,16 +275,34 @@ describe("GarminApi.layerHttp data calls", () => {
     }),
   )
 
-  it.effect("a full page of 200 reports more; an item that does not decode is skipped", () =>
+  it.effect("a full page of 50 reports more; an item that does not decode is skipped", () =>
     Effect.gen(function* () {
+      expect(GARMIN_PAGE_SIZE).toBe(50)
       const full = [
         { activityId: "bad" },
-        ...Array.from({ length: 199 }, (_, index) => ({ ...listItem, activityId: index + 1 })),
+        ...Array.from({ length: 49 }, (_, index) => ({ ...listItem, activityId: index + 1 })),
       ]
       const { run } = yield* stubbed(ok(full))
       const page = yield* run((api) => api.activities(JWT, window, 0))
       expect(page.more).toBe(true)
-      expect(page.items).toHaveLength(199)
+      expect(page.items).toHaveLength(49)
+    }),
+  )
+
+  it.effect("ignores every Garmin key the mapper does not read (lean decode)", () =>
+    Effect.gen(function* () {
+      const noisy = {
+        ...listItem,
+        summaryDTO: { splits: Array.from({ length: 50 }, (_, lap) => ({ lap, hr: 140 })) },
+        ownerDisplayName: "someone",
+        deviceId: 3_456_789,
+        description: "x".repeat(2_000),
+      }
+      const lean = yield* (yield* stubbed(ok([listItem]))).run((api) =>
+        api.activities(JWT, window, 0),
+      )
+      const page = yield* (yield* stubbed(ok([noisy]))).run((api) => api.activities(JWT, window, 0))
+      expect(page.items).toEqual(lean.items)
     }),
   )
 
@@ -421,7 +440,9 @@ describe("GarminApi console layer", () => {
         ["strength", false],
       ])
       expect(first.items.every((item) => DateTime.toEpochMillis(item.startedAt) < NOW)).toBe(true)
-      const next = yield* consoleRun(Option.none(), (api) => api.activities(JWT, window, 200))
+      const next = yield* consoleRun(Option.none(), (api) =>
+        api.activities(JWT, window, GARMIN_PAGE_SIZE),
+      )
       expect(next.items).toEqual([])
     }),
   )
