@@ -69,7 +69,15 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    owned paths (the charter's Adjacent line names its owner) is one line in
    Verification — file, owner, when it cleared — not a diagnosis and not an
    escalation (hardening: two such reds, team gates green throughout, yet
-   an escalation line). Box tasks by size, not by default: a single-module
+   an escalation line). Registry growth needs no grant: when a task adds a
+   literal to a shared union or a table to the sync registries, the
+   one-line fills in every exhaustive consumer outside the owned paths
+   (erasure table lists, seeds, mock servers, `Record<Union, …>` tests) are
+   already the engineer's (engineer.md rule 6); brief them as
+   `registry: <file>` lines, list the files under `registry` in your interim
+   and team report, and do not wait for a reply — Garmin W1 (2026-10-27)
+   asked a grant for 10 such files in its first interim. Anything larger
+   than a line stays a grant ask. Box tasks by size, not by default: a single-module
    change with tests gets 10 min (hardening H1–H4 ran 2–5 min on 15–20 min
    boxes); 20 min only for a task that carries a runtime proof or opens a
    new package or runtime.

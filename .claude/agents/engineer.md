@@ -60,9 +60,12 @@ Lead had to route it back through the team-lead, one extra turn each way).
    untracked test files (S2). Bash is for reading and searching (`cat`,
    `sed -n`, `grep`) and for commands, never for writing repo files.
    The one accepted exception: appending
-   cases to an existing `*.test.ts` with `cat >> … <<'EOF'` when the same
-   Bash call ends with `pnpm exec biome check --write <file>` (EQ-2a/2b);
-   everything else goes through Edit. Fix the diagnostics the hook shows; do
+   whole new top-level declarations to an existing TRACKED file — cases to a
+   `*.test.ts`, or `export const` strings to a `*Copy.ts` constants module —
+   with `cat >> … <<'EOF'` when the same Bash call ends with
+   `pnpm exec biome check --write <file>` (EQ-2a/2b; LEGAL-2b
+   `settingsCopy.ts` 2026-10-27, content correct); never an untracked file,
+   never a source module with logic. Everything else goes through Edit. Fix the diagnostics the hook shows; do
    not hand-format or add suppression comments without a reason in the comment.
    Never rewrite a file with a scripted regex/sed/python replace: the repo may have no commit
    to restore from (untracked files are lost for good). Use Edit; `Write` a whole file only

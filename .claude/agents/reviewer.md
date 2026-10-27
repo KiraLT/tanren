@@ -49,7 +49,14 @@ engineer can act on without asking questions.
   `src/app.ts`, `_layout.tsx`), auth, or a dependency's import path, the
   report must show it running in its target runtime (`wrangler dev` + `curl`,
   or `ui-check`). Node tests alone are not evidence; missing smoke is
-  `blocking`.
+  `blocking`. Before you write that finding, check whether the brief
+  forwarded the engineer's Verification section at all: a review brief
+  that lists "Engineer's claims" but no runtime output, counts or capture
+  boxes is a brief gap, not an engineer gap. Report it as
+  `blocking · evidence not forwarded · ask the Lead for the engineer's
+  Verification section verbatim` and finish every other check — LEGAL-2b
+  (2026-10-27) had the ui-check run, D1 1→0 and PNG boxes in the engineer's
+  report; the paraphrased brief dropped them and the block cost a round.
 - Auth diffs, security first and in one pass (native-auth took 3 deltas for
   one allowlist because each finding was reported as it was found): before
   the hard rules, walk every endpoint that sets, reads or redeems a cookie,

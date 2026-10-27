@@ -136,6 +136,10 @@ task sheet. Tactics, in order of payoff:
    ≤ 10-min task run in parallel with the upstream tasks, never bundled into
    the task that depends on it (S2-T3: the workerd harness proof could have
    run during T1 ∥ T2; bundled, the task ran 24 min on a 20-min box).
+9. **Dispatch a team-lead on HOLD while its commit precondition is pending.**
+   Its prep (charter, ports, registry grep, wave-1 briefs ≈ 7 min) overlaps
+   the wait; GO is one message. Garmin TL: GO 13:48, first child 13:50:52,
+   ≈ 4 min saved vs dispatch-after-commit (EM batch 10, P4).
 
 ## Unattended mode (owner away; set 2026-10-21 00:35 for 8 h)
 
@@ -305,6 +309,10 @@ Budget: max <n> engineers in parallel · max <m> review rounds · parallel
   incl. EM/QA across all streams); the team-lead uses all of it for disjoint
   tasks and asks by interim when more are ready
 Forbidden: dependency changes, root config changes, files outside owned paths
+Registry growth: one-line fills in exhaustive consumers outside the owned paths
+  (erasure table lists, seeds, mock servers, `Record<Union, …>` tests) are
+  granted in advance; the team lists them as `registry` files in interims, no
+  grant ask (Garmin W1 asked for 10; EM batch 10, P3)
 Role files: before briefing each round, re-read engineer.md / reviewer.md / ui-check
   when their mtime is newer than your dispatch (`stat -f %m <file>`); the Lead also
   forwards EM deltas to live team-leads in the turn it accepts the EM report (r5's
@@ -452,6 +460,11 @@ pre-written briefs, until the workflow supports interim escalations and
 parallel integration tasks.
 
 ## Review → fix loop
+
+A review brief carries the engineer's Verification section verbatim (gate
+tail, runtime output, counts, capture boxes, file names), never a paraphrase
+of its claims: LEGAL-2b's reviewer blocked on evidence the engineer had
+already produced and cost a 4-min round (EM batch 10, P1).
 
 Blocking findings go back to the same engineer via `SendMessage`, verbatim,
 with "fix only these, re-run the gate, report". A fix brief for a UI finding
