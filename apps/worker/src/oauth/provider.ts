@@ -99,6 +99,11 @@ export const makeProvider = (config: WorkerConfigShape, handlers: WorkerHandlers
     // scopes, so a client asks for write; a read-only grant still works, `server.ts` gates the tools.
     requiredScopes: [...MCP_SCOPES],
     resourceMetadata: { resource: config.mcpResourceUrl },
+    // An https `client_id` with a path is a Client ID Metadata Document URL: the provider fetches,
+    // validates and caches it and sets `clientDomain` on the consent description (spike S1,
+    // docs/research/2026-10-27-mcp-client-identities.md). Needs `global_fetch_strictly_public`
+    // (wrangler.jsonc). Dynamic registration stays on; `knownClients.ts` decides who is trusted.
+    clientIdMetadataDocumentEnabled: true,
     accessTokenTTL: ACCESS_TOKEN_TTL,
     refreshTokenTTL: REFRESH_TOKEN_TTL,
     resolveExternalToken: ({ token }) =>

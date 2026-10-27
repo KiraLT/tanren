@@ -1,6 +1,6 @@
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { env } from "cloudflare:workers"
-import { beforeAll, describe, expect, it } from "@effect/vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "@effect/vitest"
 import { MCP_TOOLS, UserId } from "@tanren/shared"
 import { Effect, Layer, Option, Schema } from "effect"
 import { d1Persistence, makeApp } from "../app"
@@ -354,5 +354,103 @@ describe("MCP host root and root-form protected-resource metadata (workerd)", ()
   it("another host gets neither the landing page nor the metadata alias", async () => {
     expect((await otherHost("/")).status).toBe(404)
     expect((await otherHost("/.well-known/oauth-protected-resource")).status).toBe(404)
+  })
+})
+
+describe("Client ID Metadata Documents and client trust (workerd)", () => {
+  const CLAUDE_CODE = "https://claude.ai/oauth/claude-code-client-metadata"
+  const OTHER_HOST = "https://example.com/client.json"
+  // The test runtime must not hit the network: the provider's document fetch is answered here with
+  // the documents spike S1 fetched (docs/research/2026-10-27-mcp-client-identities.md).
+  const documents: Readonly<Record<string, Record<string, unknown>>> = {
+    [CLAUDE_CODE]: {
+      client_id: CLAUDE_CODE,
+      client_name: "Claude Code",
+      client_uri: "https://claude.ai",
+      redirect_uris: ["http://localhost/callback", "http://127.0.0.1/callback"],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    },
+    [OTHER_HOST]: {
+      client_id: OTHER_HOST,
+      client_name: "Claude",
+      redirect_uris: ["https://example.com/callback"],
+      token_endpoint_auth_method: "none",
+    },
+  }
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+  beforeEach(() => {
+    fetchSpy.mockImplementation((input) => {
+      const url = input instanceof Request ? input.url : String(input)
+      const document = documents[url]
+      return Promise.resolve(
+        document === undefined
+          ? new Response("not found", { status: 404 })
+          : new Response(JSON.stringify(document), {
+              headers: { "content-type": "application/json", "cache-control": "no-store" },
+            }),
+      )
+    })
+  })
+  afterAll(() => fetchSpy.mockRestore())
+
+  const authorizeUrl = (clientId: string, redirectUri: string) =>
+    `/authorize?${new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "tanren:read",
+      state: "st-1",
+      code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      code_challenge_method: "S256",
+    }).toString()}`
+
+  it("advertises CIMD support and the `none` auth method", async () => {
+    const metadata = await json(await send("/.well-known/oauth-authorization-server"))
+    expect(metadata.client_id_metadata_document_supported).toBe(true)
+    expect(metadata.token_endpoint_auth_methods_supported).toEqual(expect.arrayContaining(["none"]))
+  })
+
+  it("Claude Code's published identity reaches consent as the verified app Claude", async () => {
+    const response = await send(authorizeUrl(CLAUDE_CODE, "http://localhost:53123/callback"))
+    expect(response.status).toBe(200)
+    const page = await response.text()
+    expect(page).toContain("Allow <span>Claude</span>")
+    expect(page).toContain("Verified app · claude.ai")
+    expect(page).not.toContain("Unknown app")
+    expect(fetchSpy).toHaveBeenCalled()
+  })
+
+  it("the same identity with a foreign redirect is refused with a page, not a redirect", async () => {
+    const response = await send(authorizeUrl(CLAUDE_CODE, "https://evil.example/callback"))
+    expect(response.status).toBe(400)
+    expect(response.headers.get("location")).toBeNull()
+    expect(await response.text()).toContain("Invalid redirect URI")
+  })
+
+  it("a document on another host is an unknown app even when it calls itself Claude", async () => {
+    const response = await send(authorizeUrl(OTHER_HOST, "https://example.com/callback"))
+    expect(response.status).toBe(200)
+    const page = await response.text()
+    expect(page).toContain("Unknown app")
+    expect(page).toContain("Its identity document is hosted on example.com.")
+    expect(page).toContain("Allow anyway")
+  })
+
+  it("a registered client named Claude is an unknown app", async () => {
+    const registered = await send("/oauth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        redirect_uris: [REDIRECT],
+        token_endpoint_auth_method: "none",
+        client_name: "Claude",
+      }),
+    })
+    const clientId = str((await json(registered)).client_id)
+    const page = await (await send(authorizeUrl(clientId, REDIRECT))).text()
+    expect(page).toContain('It calls itself "Claude"')
+    expect(page).not.toContain("Verified app")
   })
 })

@@ -1,4 +1,4 @@
-import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider"
+import type { ConsentDescription, OAuthHelpers } from "@cloudflare/workers-oauth-provider"
 import { MCP_SCOPES, McpScope, type SessionStoreUnavailable } from "@tanren/shared"
 import {
   Array as Arr,
@@ -15,8 +15,9 @@ import { BetterAuth } from "../auth/BetterAuth"
 import { Sessions } from "../auth/Sessions"
 import { SessionsLive } from "../auth/SessionsLive"
 import { WorkerConfig } from "../Config"
+import { clientTrust } from "./knownClients"
 import { OAuthApi, type OAuthFailure } from "./OAuthApi"
-import { checkEmailPage, consentPage, errorPage, loginPage } from "./pages"
+import { type ConsentView, checkEmailPage, consentPage, errorPage, loginPage } from "./pages"
 
 /** The part of the Worker env this module reads: the helpers the `OAuthProvider` injects. */
 export interface AuthorizeEnv {
@@ -102,6 +103,16 @@ export const grantableScopes = (requested: ReadonlyArray<string>): ReadonlyArray
   requested.length === 0 ? MCP_SCOPES : Arr.filter(requested, isMcpScope)
 
 /**
+ * What the consent page shows: the grantable scopes, and the client's trust derived only from the
+ * provider's `clientDomain` (set for CIMD clients alone), never from its self-declared name.
+ */
+export const consentView = (consent: ConsentDescription): ConsentView => ({
+  ...consent,
+  scope: [...grantableScopes(consent.scope)],
+  trust: clientTrust(Option.fromNullishOr(consent.clientDomain)),
+})
+
+/**
  * What Better Auth's origin check and rate limiter read from the browser's request. Only
  * Cloudflare's own client-IP header: a caller-supplied `x-forwarded-for` would pick its own
  * rate-limit key.
@@ -129,8 +140,7 @@ const showAuthorize = Effect.fn("authorize.show")(function* (request: Request) {
   }
   const consent = yield* oauth.describeConsent(authRequest)
   const transaction = yield* oauth.beginConsent(authRequest)
-  const shown = { ...consent, scope: [...grantableScopes(consent.scope)] }
-  return html(200, consentPage(shown, transaction.handle), transaction.headers)
+  return html(200, consentPage(consentView(consent), transaction.handle), transaction.headers)
 })
 
 /** `POST /authorize/login`: send the magic link that returns to `next`. */

@@ -238,6 +238,26 @@ client; the Claude app connector is an owner action (deploy.md §5).
 Insufficient scope: a grant with only `tanren:read` sees four tools; `tools/call log_session` →
 JSON-RPC error "unknown tool" from the SDK (not registered).
 
+## 6a. Client identities and trust (IDENT-1, 2026-10-27; spike S1 `docs/research/2026-10-27-mcp-client-identities.md`)
+
+- `clientIdMetadataDocumentEnabled: true` (`provider.ts`) + compatibility flag `global_fetch_strictly_public`
+  (`wrangler.jsonc` top level, inherited by `env.production`; also `wrangler.test.jsonc`). An `https:`
+  `client_id` with a path is a Client ID Metadata Document: the provider fetches it (10 s, 5 KiB, cached ≤ 7 d),
+  requires `client_id` == URL, a `client_name`, matching redirect URIs, no secret, and sets
+  `ConsentDescription.clientDomain` (its hostname) for such clients only. AS metadata advertises
+  `client_id_metadata_document_supported: true` and `none` (Claude needs both). DCR stays on.
+- Trust (`oauth/knownClients.ts`): `clientTrust(Option.fromNullishOr(clientDomain))` →
+  `{ _tag: "Known", name, domain } | { _tag: "Unknown" }`. Known iff the domain equals or is a subdomain of a
+  `TRUSTED_CLIENT_HOSTS` entry: `claude.ai`, `claude.com` → "Claude", `chatgpt.com` → "ChatGPT". By host, not
+  URL: claude.ai's hosted document URL is unpublished, ChatGPT's varies per `callback_id`. A client's name never
+  counts (a DCR client may call itself "Claude"); a document on any other host is Unknown.
+- Consent page (`pages.ts`, `authorize.ts` `consentView`): Known → heading with our name, "Verified app · <domain>",
+  button "Approve". Unknown → `danger` block "Unknown app" ("Tanren can't verify who built this app. It calls
+  itself "<clientName>" and will return you to <redirect host>. …"), plus the document host for an unknown CIMD
+  client; button "Allow anyway". Every client string goes through `escapeHtml`; the loopback warning is unchanged.
+- Production check after deploy (owner/Lead): connect from claude.ai ("Use Claude's published identity") and
+  ChatGPT; chatgpt.com answered the spike's local workerd fetch with 403 (bot filter), production egress untested.
+
 ## 7. Not decided here
 
 - Writing to a non-active (draft) plan, deleting a week, deleting a session: not in the plan's tool

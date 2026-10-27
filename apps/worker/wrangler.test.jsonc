@@ -3,7 +3,8 @@
   // Each test file gets isolated D1 storage; nothing here reaches Cloudflare.
   "name": "tanren-worker-test",
   "compatibility_date": "2026-10-19",
-  "compatibility_flags": ["nodejs_compat"],
+  // Same flags as wrangler.jsonc: the OAuth provider refuses CIMD without `global_fetch_strictly_public`.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Same local values as wrangler.jsonc, so a workerd test can boot src/index.ts (module-scope `env`).
   "vars": {
     "ENVIRONMENT": "local",

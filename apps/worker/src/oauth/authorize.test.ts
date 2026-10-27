@@ -5,7 +5,7 @@ import { BetterAuth } from "../auth/BetterAuth"
 import { CapturedEmails, EmailSender } from "../auth/EmailSender"
 import { Sessions } from "../auth/Sessions"
 import { envVars } from "../testing/fixtures"
-import { makeAuthorize, safeNext } from "./authorize"
+import { consentView, makeAuthorize, safeNext } from "./authorize"
 import { FAKE_CLIENT_ID, FakeOAuth, OAuthApi, type OAuthApiShape, OAuthFailure } from "./OAuthApi"
 import { escapeHtml } from "./pages"
 
@@ -442,4 +442,68 @@ describe("helpers", () => {
       "&lt;a href=&quot;x&quot; title=&#39;y&#39;&gt;&amp;&lt;/a&gt;",
     )
   })
+})
+
+describe("consent trust", () => {
+  const consent = {
+    clientId: "client-1",
+    clientName: "Claude",
+    redirectUri: "https://claude.ai/api/mcp/auth_callback",
+    redirectHost: "claude.ai",
+    redirectIsLoopback: false,
+    scope: ["tanren:read"],
+  }
+
+  it("a registered client named Claude (no clientDomain) is Unknown", () => {
+    expect(consentView(consent).trust).toEqual({ _tag: "Unknown" })
+  })
+
+  it("a CIMD client on claude.ai is Known as Claude", () => {
+    expect(consentView({ ...consent, clientDomain: "claude.ai" }).trust).toEqual({
+      _tag: "Known",
+      name: "Claude",
+      domain: "claude.ai",
+    })
+  })
+
+  it("a CIMD client on another host is Unknown whatever it calls itself", () => {
+    expect(consentView({ ...consent, clientDomain: "claude.ai.evil.com" }).trust).toEqual({
+      _tag: "Unknown",
+    })
+  })
+
+  const withConsent = (clientDomain: Option.Option<string>) => (api: OAuthApiShape) =>
+    OAuthApi.of({
+      ...api,
+      describeConsent: (authRequest) =>
+        api.describeConsent(authRequest).pipe(
+          Effect.map((described) => ({
+            ...described,
+            clientName: "Claude",
+            ...Option.match(clientDomain, {
+              onNone: () => ({}),
+              onSome: (domain) => ({ clientDomain: domain }),
+            }),
+          })),
+        ),
+    })
+
+  it.effect("GET /authorize warns for a registered client that calls itself Claude", () =>
+    Effect.gen(function* () {
+      const { call, text } = yield* setup(signedIn, withConsent(Option.none()))
+      const body = yield* text(yield* call(`/authorize?${authorizeQuery()}`))
+      expect(body).toContain("Unknown app")
+      expect(body).toContain("Allow anyway")
+      expect(body).not.toContain("Verified app")
+    }),
+  )
+
+  it.effect("GET /authorize shows a verified claude.ai client as Claude without a warning", () =>
+    Effect.gen(function* () {
+      const { call, text } = yield* setup(signedIn, withConsent(Option.some("claude.ai")))
+      const body = yield* text(yield* call(`/authorize?${authorizeQuery()}`))
+      expect(body).toContain("Verified app · claude.ai")
+      expect(body).not.toContain("Unknown app")
+    }),
+  )
 })
