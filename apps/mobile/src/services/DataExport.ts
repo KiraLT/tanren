@@ -2,6 +2,7 @@ import {
   DailyHealthRow,
   DataExport,
   ExerciseRow,
+  FoodEntryRow,
   ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
@@ -15,6 +16,7 @@ import {
   type SyncChange,
   type SyncTable,
   UserId,
+  UserProgramRow,
   WorkoutSetRow,
 } from "@tanren/shared"
 import { Array as Arr, Context, DateTime, Effect, Layer, Option, Schema } from "effect"
@@ -77,6 +79,8 @@ const make = Effect.gen(function* () {
       yield* readLive("programDayCompletion", ProgramDayCompletionRow),
       yield* readLive("importedActivity", ImportedActivityRow),
       yield* readLive("dailyHealth", DailyHealthRow),
+      yield* readLive("foodEntry", FoodEntryRow),
+      yield* readLive("program", UserProgramRow),
     ])
     const encoded = yield* Schema.encodeEffect(DataExport)({
       format: "tanren.export",

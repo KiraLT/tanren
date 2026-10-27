@@ -12,14 +12,20 @@ import {
   ImportedActivity,
   ImportedActivityId,
   type ImportedActivityInsert,
+  type LocalDate,
   type Provider,
   type UserId,
 } from "@tanren/shared"
-import { Array as Arr, DateTime, Effect, Layer, Option } from "effect"
+import { Array as Arr, DateTime, Effect, Layer, Option, Order } from "effect"
 import { MemoryStore } from "./MemoryStore"
 
 const isLive = (row: { readonly deletedAt: Option.Option<DateTime.Utc> }) =>
   Option.isNone(row.deletedAt)
+
+const byDate: Order.Order<DailyHealth> = Order.combine(
+  Order.mapInput(Order.String, (row: DailyHealth) => row.date),
+  Order.mapInput(Order.String, (row: DailyHealth) => row.provider),
+)
 
 /** The last row per key, in first-seen order (like the D1 repo). */
 const lastByKey = <A>(rows: ReadonlyArray<A>, key: (a: A) => string): ReadonlyArray<A> =>
@@ -160,7 +166,19 @@ export const MemoryGarminImport = {
           }
         })
 
-      return GarminImportRepo.of({ upsertActivities, upsertDays, softDeleteAll, counts })
+      /** Live days (every provider) with `date` in `[from, to]`, both ends included, by date. */
+      const listDays = (userId: UserId, from: LocalDate, to: LocalDate) =>
+        Effect.map(store.rows("dailyHealth", userId), (stored) =>
+          Arr.sort(
+            Arr.filter(
+              Arr.map(stored, (s) => s.row),
+              (r) => isLive(r) && r.date >= from && r.date <= to,
+            ),
+            byDate,
+          ),
+        )
+
+      return GarminImportRepo.of({ upsertActivities, upsertDays, softDeleteAll, counts, listDays })
     }),
   ),
 } as const

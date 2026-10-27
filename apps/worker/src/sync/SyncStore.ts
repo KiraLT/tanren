@@ -46,6 +46,8 @@ const wrap: { readonly [T in SyncTable]: (row: RowByTable[T]) => SyncChange } = 
   programDayCompletion: (row) => ({ table: "programDayCompletion", row }),
   importedActivity: (row) => ({ table: "importedActivity", row }),
   dailyHealth: (row) => ({ table: "dailyHealth", row }),
+  foodEntry: (row) => ({ table: "foodEntry", row }),
+  program: (row) => ({ table: "program", row }),
 }
 
 interface Entry extends Position {

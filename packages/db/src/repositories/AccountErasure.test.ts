@@ -132,6 +132,17 @@ const seedUser = (n: number) => {
       id(17),
       u,
     ),
+    p(
+      `INSERT INTO food_entry (id, user_id, created_at, updated_at, deleted_at, server_seq, logged_at, meal, source, items, kcal, protein_g, carbs_g, fat_g) VALUES (${row}, '${T}', 'lunch', 'mcp', '[]', 0, 0, 0, 0)`,
+      id(18),
+      u,
+    ),
+    p(
+      `INSERT INTO program (id, user_id, created_at, updated_at, deleted_at, server_seq, title, slug, summary, days, schedule, source, version) VALUES (${row}, 'Mine', ?, 'S', '[]', '{}', 'mcp', 1)`,
+      id(19),
+      u,
+      `mine-${n}`,
+    ),
   ])
 }
 

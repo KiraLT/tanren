@@ -258,8 +258,9 @@ daily_health" apps/mobile/src/services` = reads only). `DataExport.ts` includes 
 "If you connect Garmin, you paste a personal API token issued by Garmin to you. Tanren checks it once, stores it
 encrypted on our server and uses it every five minutes to import your own Garmin activities (type, name, start
 time, duration, distance, calories, heart rate) and daily summaries (calories, steps, resting heart rate). This
-data is shown to you in the app and is never shared with third parties or used by the AI planning tools.
-Disconnecting deletes the token and removes the imported data from your account."
+data is shown to you in the app and is never shared with third parties. If you connect your own Claude (or
+another MCP client) through our connector, it can read everything Tanren stores for you, imported Garmin data
+included, when you ask it. Disconnecting deletes the token and removes the imported data from your account."
 
 ## 11. Local end-to-end (QA script, GM-Q1)
 `GARMIN_MODE=console`: `pnpm dev` worker + web :8790; sign in; Settings → Integrations → Garmin → paste any 16+

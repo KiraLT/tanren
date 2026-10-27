@@ -1,7 +1,7 @@
 import { CORE30 } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import { useKeepAwake } from "expo-keep-awake"
-import { useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { View } from "react-native"
 import { type PlayerSession, usePlayer } from "../../src/hooks/usePlayer"
@@ -11,7 +11,7 @@ import { approxMinutes } from "../../src/player/components/ProgramHome"
 import { isRunning } from "../../src/player/cues"
 import { dayFraction, eyebrowLabel, segmentsFilled } from "../../src/player/playerHeader"
 import { progress } from "../../src/player/playerMachine"
-import { useProgramDay } from "../../src/player/useProgramDay"
+import { usePrograms } from "../../src/player/usePrograms"
 import {
   AppBar,
   Banner,
@@ -26,6 +26,9 @@ import {
   Text,
   useBreakpoint,
 } from "../../src/ui"
+
+/** `?enrollmentId=` missing, unknown, paused or finished. */
+const WORKOUT_NOT_FOUND = "This workout is not available. Start it from the Programs tab."
 
 /** Core 30's first exercise stands for the program on the desktop empty state. */
 const PROGRAM_ART = Option.flatMap(Arr.head(CORE30.days), (day) =>
@@ -142,22 +145,32 @@ function Player({
 
 export default function PlayScreen() {
   const router = useRouter()
-  const { state } = useProgramDay()
+  const { state } = usePrograms()
+  const { enrollmentId } = useLocalSearchParams<{ enrollmentId?: string | string[] }>()
   const desktop = useBreakpoint() === "desktop"
   const close = () => (router.canGoBack() ? router.back() : router.replace("/programs"))
+  /** The `active` enrollment named by `?enrollmentId=`; a missing, unknown or paused one is `None`. */
+  const target =
+    state._tag === "Ready"
+      ? Arr.findFirst(
+          state.active,
+          (entry) => entry.enrollment.id === enrollmentId && entry.enrollment.status === "active",
+        )
+      : Option.none()
   // Latch the first loaded day: completing it bumps `currentDay`, which must not swap the player.
   const [session, setSession] = useState<Option.Option<PlayerSession>>(Option.none())
   useEffect(() => {
-    if (Option.isNone(session) && state._tag === "Ready" && Option.isSome(state.day)) {
+    const day = Option.flatMap(target, (entry) => entry.day)
+    if (Option.isNone(session) && Option.isSome(target) && Option.isSome(day)) {
       setSession(
         Option.some({
-          enrollmentId: state.enrollment.id,
-          dayNumber: state.day.value.dayNumber,
-          day: state.day.value,
+          enrollmentId: target.value.enrollment.id,
+          dayNumber: day.value.dayNumber,
+          day: day.value,
         }),
       )
     }
-  }, [session, state])
+  }, [session, target])
 
   const header = (
     <AppBar
@@ -176,6 +189,12 @@ export default function PlayScreen() {
           Match.tag("Failed", ({ message }) => (
             <Banner tone="danger" title="Could not load the workout" body={message} />
           )),
+          Match.when(
+            () => Option.isNone(target),
+            () => (
+              <Banner tone="danger" title="Could not load the workout" body={WORKOUT_NOT_FOUND} />
+            ),
+          ),
           Match.orElse(() =>
             desktop ? (
               <NoWorkoutDesktop onOpen={() => router.replace("/programs")} />

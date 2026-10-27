@@ -48,7 +48,7 @@ export const PRIVACY: LegalDoc = {
             "**Training log**: the sessions, sets, weights, reps, RPE and notes you log, the exercises you add, your plans and plan weeks, and the guided-program days you complete.",
             "**Profile**: goals, constraints, available days, your locations (for example Home, Gym) and the equipment at each.",
             "**Integrations**: if you connect Strava, the access and refresh tokens Strava issues. They are stored encrypted with a key that lives only on the server. If you connect Garmin, the token you paste is stored the same way, and the activities and daily health data we pull from Garmin are stored as your records.",
-            "**AI access**: if you connect your own Claude (or another MCP client) through our connector, we store the grant you approved and short-lived tokens for it. We never send your data to an AI service ourselves.",
+            "**AI access**: if you connect your own Claude (or another MCP client) through our connector, we store the grant you approved and short-lived tokens for it. That client can then read everything Tanren stores for you, imported Garmin data included, when you ask it. We never send your data to an AI service ourselves.",
             "**On your device**: the app keeps a copy of your training data in a local database so it works offline, plus your theme preference. On the web this lives in your browser's storage for tanren.me.",
           ],
         },

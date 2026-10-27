@@ -38,7 +38,8 @@ const program = Schema.decodeUnknownSync(Program)({
   description: "Two days.",
   days: [day(1), day(2)],
 })
-const find = (id: ProgramId) => (id === PROGRAM_ID ? Option.some(program) : Option.none())
+const find = (id: ProgramId) =>
+  Effect.succeed(id === PROGRAM_ID ? Option.some(program) : Option.none())
 
 const link = Layer.succeed(
   ExerciseLink,
@@ -92,6 +93,7 @@ const storedEnrollment = (
       startedOn: LocalDate.make("2026-10-01"),
       status: "active",
       currentDay: 1,
+      swaps: [],
       ...fields,
     })
     yield* (yield* LocalStore).write([{ table: "programEnrollment", row }], { dirty: false })

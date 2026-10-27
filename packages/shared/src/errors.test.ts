@@ -130,3 +130,14 @@ describe("ValidationError", () => {
     }),
   )
 })
+
+describe("NotFound for static entities", () => {
+  it("carries a catalog slug as its id and round-trips on the wire", () => {
+    const error = new NotFound({ entity: "catalogExercise", id: "made-up-move" })
+    const wire = Schema.encodeSync(NotFound)(error)
+    expect(wire).toEqual({ _tag: "NotFound", entity: "catalogExercise", id: "made-up-move" })
+    expect(Schema.decodeUnknownSync(NotFound)(wire)).toEqual(error)
+  })
+
+  it.effect("EntityName accepts catalogExercise", () => accepts(EntityName, "catalogExercise"))
+})

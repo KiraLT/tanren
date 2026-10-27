@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>HM-A Health</title><link rel="stylesheet" href="base.css"></head><body><script src="rings.js"></script>
+<div class="page"><div class="appbar"><h1>Health</h1><span class="caption">＋</span></div><div id="root"></div></div>
+<script>
+const wide=document.documentElement.classList.contains('wide');
+const hero=`<div style="display:flex;gap:${wide?32:16}px;align-items:center;${wide?'':'flex-direction:column'}">${ring(wide?240:176,wide?14:12,[{c:'--accent',p:1420/3070},{c:'--success',p:96/155}],'Eaten 46 percent, protein 62 percent')}
+<div style="${wide?'flex:1':'text-align:center'}"><div class="label">Left today</div><div class="numeral">1,650</div><div class="caption">of 3,070 kcal budget · burned as of 14:05</div>
+<div class="row3" style="margin-top:16px;${wide?'':'text-align:center'}"><div><div class="label"><i class="dot" style="background:var(--accent)"></i>Eaten</div><div class="title">1,420</div></div><div><div class="label">Burned</div><div class="title">1,840</div></div><div><div class="label"><i class="dot" style="background:var(--success)"></i>Protein</div><div class="title">96<span class="caption"> / 155 g</span></div></div></div></div></div>`;
+const week=`<div class="sec"><div class="label">This week</div><div class="card"><div class="week">${weekRings(W)}</div><div class="caption" style="margin-top:12px">Avg 2,610 kcal · protein 141 g/day · 1 day over budget · deficit −2,300 kcal vs goal</div></div></div>`;
+const ins=`<div class="sec"><div class="label">Insights</div><div class="card" style="padding:4px 16px"><div class="ins">●<div><div class="headline">Protein 59 g short</div><div class="caption">A shake covers it</div></div></div><div class="ins">●<div><div class="headline">Lower A planned</div><div class="caption">Eat 300 kcal more after training to keep the gain target</div></div></div></div></div>`;
+const log=`<div class="sec"><div class="label">Food log</div><div class="ph" style="margin-top:0">Oats + whey 08:10 · 520 kcal · Chicken rice 13:05 · 900 kcal</div></div>`;
+document.getElementById('root').innerHTML=wide?`<div class="cols"><div>${hero}${ins}</div><div>${week}${log}</div></div>`:hero+week+ins+log;
+</script></body></html>

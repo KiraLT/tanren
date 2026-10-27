@@ -2,6 +2,7 @@ import { PersistenceError } from "@tanren/db"
 import {
   DailyHealth,
   Exercise,
+  FoodEntry,
   Forbidden,
   ImportedActivity,
   Plan,
@@ -14,6 +15,7 @@ import {
   Session,
   type SyncTable,
   type UserId,
+  UserProgram,
   WorkoutSet,
 } from "@tanren/shared"
 import { Array as Arr, Context, Effect, HashMap, Layer, Option, pipe, Ref } from "effect"
@@ -32,6 +34,8 @@ export interface RowByTable {
   readonly programDayCompletion: ProgramDayCompletion
   readonly importedActivity: ImportedActivity
   readonly dailyHealth: DailyHealth
+  readonly foodEntry: FoodEntry
+  readonly program: UserProgram
 }
 
 /** A row plus its server sync position (the in-memory `server_seq`, db.md §3). */
@@ -64,6 +68,8 @@ const emptyState: MemoryState = {
     programDayCompletion: HashMap.empty(),
     importedActivity: HashMap.empty(),
     dailyHealth: HashMap.empty(),
+    foodEntry: HashMap.empty(),
+    program: HashMap.empty(),
   },
   clock: HashMap.empty(),
 }
@@ -220,6 +226,23 @@ const keep: { readonly [T in SyncTable]: Keep<T> } = {
       }),
       () => i,
     ),
+  foodEntry: (s, i) =>
+    Option.getOrElse(
+      FoodEntry.makeOption({ ...i, id: s.id, userId: s.userId, createdAt: s.createdAt }),
+      () => i,
+    ),
+  program: (s, i) =>
+    Option.getOrElse(
+      UserProgram.makeOption({
+        ...i,
+        id: s.id,
+        userId: s.userId,
+        createdAt: s.createdAt,
+        slug: s.slug,
+        source: s.source,
+      }),
+      () => i,
+    ),
 }
 
 /**
@@ -284,6 +307,9 @@ export const uniqueViolation = (tables: Tables, userId: UserId): Option.Option<s
   const completions = liveRows(tables, "programDayCompletion", userId)
   if (hasDuplicate(completions.map((c) => `${c.enrollmentId}:${c.dayNumber}`))) {
     return Option.some("program_day_completion_enrollment_day_unique")
+  }
+  if (hasDuplicate(liveRows(tables, "program", userId).map((p) => p.slug))) {
+    return Option.some("program_user_slug_unique")
   }
   return Option.none()
 }

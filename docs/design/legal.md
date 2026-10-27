@@ -23,7 +23,8 @@ the GDPR, Tanren is the controller of the personal data described here. Contact:
   encrypted with a key that lives only on the server. If you connect Garmin, the token you paste is stored
   the same way, and the activities and daily health data we pull from Garmin are stored as your records.
 - **AI access**: if you connect your own Claude (or another MCP client) through our connector, we store the
-  grant you approved and short-lived tokens for it. We never send your data to an AI service ourselves.
+  grant you approved and short-lived tokens for it. That client can then read everything Tanren stores for you,
+  imported Garmin data included, when you ask it. We never send your data to an AI service ourselves.
 - **On your device**: the app keeps a copy of your training data in a local database so it works offline,
   plus your theme preference. On the web this lives in your browser's storage for tanren.me.
 

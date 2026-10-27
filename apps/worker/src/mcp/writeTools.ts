@@ -370,7 +370,13 @@ export const updateProfile: Tool<typeof UpdateProfileInput, typeof UpdateProfile
     "(each { id, name, equipment }; ≤ 10), activeLocationId (one of locations, or null), " +
     "timezone (IANA). Only the keys you send change. Removing the active location requires " +
     "sending activeLocationId too (null clears it). The first call creates the profile and " +
-    "must include timezone.",
+    "must include timezone." +
+    " nutrition ({ goal: gain_muscle|lose_weight|maintain, bodyWeightKg, heightCm?, birthYear?, " +
+    "sex?, activityLevel: sedentary|light|moderate|active|extra, eatBackActive?: boolean " +
+    "(default false: add Garmin active calories to the day's budget), kcalTarget?, " +
+    "proteinTargetG? }; null turns nutrition tracking off). Targets are derived from the goal " +
+    "and body facts unless kcalTarget / proteinTargetG are set. Ask for weight and goal only; " +
+    "the rest is optional.",
   input: UpdateProfileInput,
   output: UpdateProfileResult,
   run: Effect.fn("update_profile")(function* (userId: UserId, patch: UpdateProfileInput) {

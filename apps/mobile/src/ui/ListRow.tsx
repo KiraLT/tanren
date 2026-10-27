@@ -11,6 +11,7 @@ import {
   ROW_TITLE_VARIANT,
   type RowTitleVariant,
   type RowTone,
+  rowAccessibility,
   rowChevron,
   rowLinesProps,
   rowPressedBackground,
@@ -116,6 +117,8 @@ export interface ListRowProps {
   readonly disabled?: boolean
   readonly onPress?: () => void
   readonly selected?: boolean
+  /** Set on a toggle row: it announces as a switch with this state instead of a button. */
+  readonly checked?: boolean
   /** The row holds a 56 px thumb: min height 64, vertical padding 4 (instead of 52 / 8). */
   readonly thumb?: boolean
   readonly accessibilityLabel?: string
@@ -139,6 +142,7 @@ export function ListRow({
   disabled = false,
   onPress,
   selected = false,
+  checked,
   thumb = false,
   accessibilityLabel,
   style,
@@ -195,8 +199,7 @@ export function ListRow({
   }
   return (
     <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
+      {...rowAccessibility(selected, disabled, checked)}
       disabled={disabled}
       onPress={onPress}
       {...label}

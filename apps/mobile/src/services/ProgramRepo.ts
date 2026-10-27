@@ -1,10 +1,13 @@
 import {
+  applySwaps,
   type CatalogId,
   type DayNumber,
+  type EnrollmentStatus,
   type ExerciseId,
   findProgram,
   IdGenerator,
   newId,
+  PROGRAMS,
   type Program,
   type ProgramDay,
   ProgramDayCompletion,
@@ -15,13 +18,21 @@ import {
   ProgramEnrollmentRow,
   type ProgramId,
   type ProgramItem,
+  type ProgramMeta,
+  type ProgramSummary,
+  programIdOfRow,
   Reps,
   SECONDS_PER_REP,
   Session,
   SessionId,
   SetId,
   type SyncChange,
+  summarize,
+  toProgram,
   type UserId,
+  UserProgram,
+  type UserProgramId,
+  UserProgramRow,
   WeightKg,
   WorkoutSet,
 } from "@tanren/shared"
@@ -38,7 +49,7 @@ import {
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
 import { ExerciseLink } from "./ExerciseLink"
-import { decodeRecords, LocalStore } from "./LocalStore"
+import { decodeRecords, LocalStore, type LocalStoreShape } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 import { localToday } from "./TodayRepo"
 
@@ -55,10 +66,16 @@ export interface CompletionInput {
   readonly performedItems: number
 }
 
-/** Internal: `complete` on an enrollment that is `abandoned` or `completed`. Carried as `StoreError.cause`. */
+/** Internal: `complete` on an enrollment that is not `active`. Carried as `StoreError.cause`. */
 export class EnrollmentNotActive extends Data.TaggedError("EnrollmentNotActive")<{
   readonly id: ProgramEnrollmentId
-  readonly status: ProgramEnrollment["status"]
+  readonly status: EnrollmentStatus
+}> {}
+
+/** Internal: a status or swap change on a `completed` / `abandoned` enrollment (terminal, §1). */
+export class EnrollmentTerminal extends Data.TaggedError("EnrollmentTerminal")<{
+  readonly id: ProgramEnrollmentId
+  readonly status: "completed" | "abandoned"
 }> {}
 
 /** Internal: `complete` for a day other than the enrollment's `currentDay`. Carried as `StoreError.cause`. */
@@ -72,27 +89,89 @@ export class EnrollmentNotFound extends Data.TaggedError("EnrollmentNotFound")<{
   readonly id: ProgramEnrollmentId
 }> {}
 
+/** Internal: the user program is unknown, tombstoned or not the owner's. Carried as `StoreError.cause`. */
+export class ProgramNotFound extends Data.TaggedError("ProgramNotFound")<{
+  readonly id: UserProgramId
+}> {}
+
+/** Internal: `deleteProgram` while an enrollment in it is `active` or `paused`. */
+export class ProgramInUse extends Data.TaggedError("ProgramInUse")<{
+  readonly id: UserProgramId
+  readonly enrollmentId: ProgramEnrollmentId
+}> {}
+
+/** A running (`active` or `paused`) enrollment with its program and next day. */
+export interface ActiveProgram {
+  readonly enrollment: ProgramEnrollment
+  readonly program: Program
+  /** The day to do next with the enrollment's swaps applied; `None` past the last day. */
+  readonly day: Option.Option<ProgramDay>
+}
+
+/** The statuses a user (or Claude) may set; `completed` is written only by `complete`. */
+export type SettableStatus = Exclude<EnrollmentStatus, "completed">
+
+/** Looks a program up by id: built-ins, then the owner's live `program` rows. */
+export type ProgramFinder = (id: ProgramId) => Effect.Effect<Option.Option<Program>, StoreError>
+
 export interface ProgramRepoShape {
+  /** Built-ins first, then the owner's live `program` rows (as `toProgram`). */
+  readonly find: ProgramFinder
+  /** Built-ins in catalog order, then rows by title; each with its live enrollment (running first, else newest). */
+  readonly list: () => Effect.Effect<ReadonlyArray<ProgramSummary>, StoreError>
   /** Every live (not tombstoned) enrollment of the owner, any status, newest first. */
   readonly enrollments: Effect.Effect<ReadonlyArray<ProgramEnrollment>, StoreError>
-  /** The newest live enrollment with status `active`, any program. */
-  readonly active: Effect.Effect<Option.Option<ProgramEnrollment>, StoreError>
-  /** Returns the live active enrollment for `programId` if there is one, else starts one today. */
+  /** Live `active` and `paused` enrollments, newest first; an unknown program is skipped. */
+  readonly activeEnrollments: () => Effect.Effect<ReadonlyArray<ActiveProgram>, StoreError>
+  /**
+   * `active` enrollments (never `paused`) that still have a day and no live completion on the
+   * local date of `now`, newest first.
+   */
+  readonly dueToday: (now: DateTime.Utc) => Effect.Effect<ReadonlyArray<ActiveProgram>, StoreError>
+  /** Returns the live active or paused enrollment for `programId` if there is one, else starts one today. */
   readonly enroll: (programId: ProgramId) => Effect.Effect<ProgramEnrollment, StoreError>
-  /** Sets status `abandoned`; fails with `StoreError(EnrollmentNotFound)` for an unknown id. */
-  readonly abandon: (id: ProgramEnrollmentId) => Effect.Effect<void, StoreError>
-  /** The day to do next; `None` past the last day or for an unknown program. */
-  readonly todayFor: (enrollment: ProgramEnrollment) => Option.Option<ProgramDay>
+  /**
+   * `active ↔ paused`, or `abandoned` ("Leave program"); the same status writes nothing. Fails
+   * with `StoreError(EnrollmentTerminal)` on a `completed` / `abandoned` enrollment and with
+   * `StoreError(EnrollmentNotFound)` for an unknown id.
+   */
+  readonly setStatus: (
+    id: ProgramEnrollmentId,
+    status: SettableStatus,
+  ) => Effect.Effect<ProgramEnrollment, StoreError>
+  /**
+   * Replaces `from` with `to` for this enrollment (dirty); `None` (or `to === from`) reverts it.
+   * Terminal enrollments fail like `setStatus`.
+   */
+  readonly setSwap: (
+    id: ProgramEnrollmentId,
+    from: CatalogId,
+    to: Option.Option<CatalogId>,
+  ) => Effect.Effect<ProgramEnrollment, StoreError>
+  /** The day to do next with the enrollment's swaps applied; `None` past the last day or for an unknown program. */
+  readonly todayFor: (
+    enrollment: ProgramEnrollment,
+  ) => Effect.Effect<Option.Option<ProgramDay>, StoreError>
+  /**
+   * Writes a user program (dirty): a new id is inserted as given; an existing live row keeps its
+   * `createdAt`, immutable `slug` / `source`, and gets `version + 1`. `updatedAt` is now.
+   */
+  readonly save: (row: UserProgram) => Effect.Effect<UserProgram, StoreError>
+  /**
+   * Tombstones a user program (dirty). Fails with `StoreError(ProgramInUse)` while an enrollment in
+   * it is `active` or `paused`, and `StoreError(ProgramNotFound)` for an unknown id.
+   */
+  readonly deleteProgram: (id: UserProgramId) => Effect.Effect<void, StoreError>
   /**
    * Records the day and moves `currentDay` to `dayNumber + 1` (status `completed` past the last
-   * day). Also logs the day as an ordinary session with one set per performed item-round (v2-programs.md
-   * §5); the completion's `sessionId` points at it, or is `None` when nothing could be logged.
-   * Session, sets, completion and enrollment go dirty in one batch (exercise links are written by
-   * `ExerciseLink.ensure` just before). Logging never fails the call. A second call for a day that
-   * already has a live completion returns that one and writes nothing. Otherwise a non-`active`
-   * enrollment fails with `StoreError(EnrollmentNotActive)`, writing nothing. Only the enrollment's
-   * `currentDay` can be completed: any other day fails with `StoreError(DayOutOfOrder)`, writing
-   * nothing.
+   * day). Also logs the day, with the enrollment's swaps applied, as an ordinary session with one
+   * set per performed item-round (v2-programs.md §5); the completion's `sessionId` points at it, or
+   * is `None` when nothing could be logged. Session, sets, completion and enrollment go dirty in one
+   * batch (exercise links are written by `ExerciseLink.ensure` just before). Logging never fails the
+   * call. A second call for a day that already has a live completion returns that one and writes
+   * nothing. Otherwise a non-`active` (incl. `paused`) enrollment fails with
+   * `StoreError(EnrollmentNotActive)`, writing nothing. Only the enrollment's `currentDay` can be
+   * completed: any other day fails with `StoreError(DayOutOfOrder)`, writing nothing.
    */
   readonly complete: (input: CompletionInput) => Effect.Effect<ProgramDayCompletion, StoreError>
 }
@@ -148,8 +227,48 @@ export const plannedItems = (day: ProgramDay): ReadonlyArray<PlannedItem> => {
   )
 }
 
-/** Builds the repo against a program catalog; the app uses `findProgram`, tests a fixture. */
-const make = (find: (id: ProgramId) => Option.Option<Program>) =>
+const BUILTIN_META: ProgramMeta = { source: "builtin", version: 1, schedule: Option.none() }
+
+const isRunning = (enrollment: ProgramEnrollment) =>
+  enrollment.status === "active" || enrollment.status === "paused"
+
+/** The owner's live `program` rows, by title. */
+const userPrograms = (store: LocalStoreShape, owner: Effect.Effect<UserId>) =>
+  owner.pipe(
+    Effect.flatMap((userId) =>
+      store.all(
+        q(
+          `SELECT * FROM "program" WHERE "userId" = ? AND "deletedAt" IS NULL
+           ORDER BY "title", "id"`,
+          userId,
+        ),
+      ),
+    ),
+    Effect.flatMap(decodeRecords(UserProgramRow)),
+  )
+
+/** The app's finder: `findProgram` (built-ins), then the owner's rows by `programIdOfRow`. */
+const storeFinder: Effect.Effect<ProgramFinder, never, LocalStore | CurrentUser> = Effect.gen(
+  function* () {
+    const rows = userPrograms(yield* LocalStore, ownerId(yield* CurrentUser))
+    return (id: ProgramId) =>
+      Option.match(findProgram(id), {
+        onSome: (program) => Effect.succeed(Option.some(program)),
+        onNone: () =>
+          rows.pipe(
+            Effect.map((all) =>
+              Option.map(
+                Arr.findFirst(all, (row) => programIdOfRow(row.id) === id),
+                toProgram,
+              ),
+            ),
+          ),
+      })
+  },
+)
+
+/** Builds the repo against a program finder; the app uses `storeFinder`, tests a fixture. */
+const make = (find: ProgramFinder) =>
   Effect.gen(function* () {
     const store = yield* LocalStore
     const ids = yield* IdGenerator
@@ -183,7 +302,7 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
       )
 
     const enrollments = enrollmentsWhere("")
-    const active = enrollmentsWhere(`AND "status" = 'active'`).pipe(Effect.map(Arr.head))
+    const running = enrollmentsWhere(`AND "status" IN ('active', 'paused')`)
 
     const byId = (id: ProgramEnrollmentId) =>
       enrollmentsWhere(`AND "id" = ?`, id).pipe(
@@ -196,12 +315,95 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
         ),
       )
 
+    const todayFor = (enrollment: ProgramEnrollment) =>
+      find(enrollment.programId).pipe(
+        Effect.map(
+          Option.flatMap((program) =>
+            Option.map(dayOf(program, enrollment.currentDay), (day) =>
+              applySwaps(day, enrollment.swaps),
+            ),
+          ),
+        ),
+      )
+
+    const withProgram = (enrollment: ProgramEnrollment) =>
+      find(enrollment.programId).pipe(
+        Effect.map(
+          Option.map(
+            (program): ActiveProgram => ({
+              enrollment,
+              program,
+              day: Option.map(dayOf(program, enrollment.currentDay), (day) =>
+                applySwaps(day, enrollment.swaps),
+              ),
+            }),
+          ),
+        ),
+      )
+
+    const activeEnrollments = () =>
+      running.pipe(Effect.flatMap(Effect.forEach(withProgram)), Effect.map(Arr.getSomes))
+
+    const liveCompletions = (enrollmentId: ProgramEnrollmentId) =>
+      store
+        .all(
+          q(
+            `SELECT * FROM "program_day_completion"
+             WHERE "enrollmentId" = ? AND "deletedAt" IS NULL
+             ORDER BY "createdAt", "id"`,
+            enrollmentId,
+          ),
+        )
+        .pipe(Effect.flatMap(decodeRecords(ProgramDayCompletionRow)))
+
+    const localDate = (at: DateTime.Utc) => DateTime.formatIsoDate(DateTime.setZone(at, zone))
+
+    const dueToday = (now: DateTime.Utc) =>
+      Effect.gen(function* () {
+        const today = localDate(now)
+        const candidates = Arr.filter(
+          yield* activeEnrollments(),
+          (entry) => entry.enrollment.status === "active" && Option.isSome(entry.day),
+        )
+        return yield* Effect.filter(candidates, (entry) =>
+          liveCompletions(entry.enrollment.id).pipe(
+            Effect.map(
+              (done) =>
+                !Arr.some(done, (completion) => localDate(completion.completedAt) === today),
+            ),
+          ),
+        )
+      })
+
+    const list = () =>
+      Effect.gen(function* () {
+        const all = yield* enrollments
+        const rows = yield* userPrograms(store, owner)
+        const enrollmentOf = (programId: ProgramId) =>
+          Option.orElse(
+            Arr.findFirst(all, (e) => e.programId === programId && isRunning(e)),
+            () => Arr.findFirst(all, (e) => e.programId === programId),
+          )
+        return [
+          ...Arr.map(PROGRAMS, (program) =>
+            summarize(program, BUILTIN_META, enrollmentOf(program.programId)),
+          ),
+          ...Arr.map(rows, (row) =>
+            summarize(
+              toProgram(row),
+              { source: row.source, version: row.version, schedule: Option.some(row.schedule) },
+              enrollmentOf(programIdOfRow(row.id)),
+            ),
+          ),
+        ]
+      })
+
     const enroll = (programId: ProgramId) =>
       lock.withPermits(1)(
         withDeps(
           Effect.gen(function* () {
             const existing = yield* enrollmentsWhere(
-              `AND "status" = 'active' AND "programId" = ?`,
+              `AND "status" IN ('active', 'paused') AND "programId" = ?`,
               programId,
             )
             const found = Arr.head(existing)
@@ -222,6 +424,7 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
                     startedOn: yield* localToday,
                     status: "active",
                     currentDay: 1,
+                    swaps: [],
                   })
                 }),
               ),
@@ -233,23 +436,118 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
         ),
       )
 
-    const abandon = (id: ProgramEnrollmentId) =>
+    /** Read-modify-write of one non-terminal enrollment; `change` returns `None` for "no write". */
+    const updateEnrollment = (
+      id: ProgramEnrollmentId,
+      change: (enrollment: ProgramEnrollment) => Option.Option<Partial<ProgramEnrollment>>,
+    ) =>
       lock.withPermits(1)(
         Effect.gen(function* () {
           const enrollment = yield* byId(id)
+          if (enrollment.status === "completed" || enrollment.status === "abandoned") {
+            return yield* Effect.fail(
+              toStoreError(new EnrollmentTerminal({ id, status: enrollment.status })),
+            )
+          }
+          const patch = change(enrollment)
+          if (Option.isNone(patch)) {
+            return enrollment
+          }
           const now = yield* DateTime.now
           const row = yield* ProgramEnrollment.makeEffect({
             ...enrollment,
-            status: "abandoned",
+            ...patch.value,
             updatedAt: now,
           }).pipe(Effect.mapError(toStoreError))
           yield* store.write([{ table: "programEnrollment", row }], { dirty: true })
+          return row
         }),
       )
 
-    const todayFor = (enrollment: ProgramEnrollment) =>
-      find(enrollment.programId).pipe(
-        Option.flatMap((program) => dayOf(program, enrollment.currentDay)),
+    const setStatus = (id: ProgramEnrollmentId, status: SettableStatus) =>
+      updateEnrollment(id, (enrollment) =>
+        enrollment.status === status ? Option.none() : Option.some({ status }),
+      )
+
+    const setSwap = (id: ProgramEnrollmentId, from: CatalogId, to: Option.Option<CatalogId>) =>
+      updateEnrollment(id, (enrollment) => {
+        const kept = Arr.filter(enrollment.swaps, (swap) => swap.from !== from)
+        const target = Option.filter(to, (catalogId) => catalogId !== from)
+        return Option.some({
+          swaps: Option.match(target, {
+            onNone: () => kept,
+            onSome: (catalogId) => [...kept, { from, to: catalogId }],
+          }),
+        })
+      })
+
+    const programRow = (id: UserProgramId) =>
+      owner.pipe(
+        Effect.flatMap((userId) =>
+          store.all(
+            q(
+              `SELECT * FROM "program" WHERE "userId" = ? AND "id" = ? AND "deletedAt" IS NULL`,
+              userId,
+              id,
+            ),
+          ),
+        ),
+        Effect.flatMap(decodeRecords(UserProgramRow)),
+        Effect.map(Arr.head),
+      )
+
+    const save = (row: UserProgram) =>
+      lock.withPermits(1)(
+        Effect.gen(function* () {
+          const now = yield* DateTime.now
+          const userId = yield* owner
+          const previous = yield* programRow(row.id)
+          const saved = yield* UserProgram.makeEffect(
+            Option.match(previous, {
+              onNone: () => ({ ...row, userId, updatedAt: now, deletedAt: Option.none() }),
+              onSome: (prev) => ({
+                ...row,
+                userId,
+                createdAt: prev.createdAt,
+                updatedAt: now,
+                deletedAt: Option.none(),
+                slug: prev.slug,
+                source: prev.source,
+                version: prev.version + 1,
+              }),
+            }),
+          ).pipe(Effect.mapError(toStoreError))
+          yield* store.write([{ table: "program", row: saved }], { dirty: true })
+          return saved
+        }),
+      )
+
+    const deleteProgram = (id: UserProgramId) =>
+      lock.withPermits(1)(
+        Effect.gen(function* () {
+          const found = yield* programRow(id)
+          if (Option.isNone(found)) {
+            return yield* Effect.fail(toStoreError(new ProgramNotFound({ id })))
+          }
+          const inUse = Arr.head(
+            yield* enrollmentsWhere(
+              `AND "status" IN ('active', 'paused') AND "programId" = ?`,
+              programIdOfRow(id),
+            ),
+          )
+          if (Option.isSome(inUse)) {
+            return yield* Effect.fail(
+              toStoreError(new ProgramInUse({ id, enrollmentId: inUse.value.id })),
+            )
+          }
+          const now = yield* DateTime.now
+          const row = yield* UserProgram.makeEffect({
+            ...found.value,
+            updatedAt: now,
+            deletedAt: Option.some(now),
+          }).pipe(Effect.mapError(toStoreError))
+          yield* store.write([{ table: "program", row }], { dirty: true })
+        }),
       )
 
     const liveCompletion = (input: CompletionInput) =>
@@ -277,23 +575,23 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
       )
 
     /**
-     * The day as an ordinary session plus its sets (§5), not yet written. `None` (with a logged
-     * warning) when the day is unknown, no catalog id could be linked, or a row fails its schema.
+     * The day (swaps applied) as an ordinary session plus its sets (§5), not yet written. `None`
+     * (with a logged warning) when the day is unknown, no catalog id could be linked, or a row fails
+     * its schema.
      */
-    const historyFor = (
-      programId: ProgramId,
-      userId: UserId,
-      input: CompletionInput,
-      now: DateTime.Utc,
-    ) =>
+    const historyFor = (enrollment: ProgramEnrollment, input: CompletionInput, now: DateTime.Utc) =>
       Effect.gen(function* () {
-        const found = find(programId).pipe(
-          Option.flatMap((program) =>
-            Option.map(dayOf(program, input.dayNumber), (day) => ({ program, day })),
-          ),
+        const userId = enrollment.userId
+        const found = Option.flatMap(yield* find(enrollment.programId), (program) =>
+          Option.map(dayOf(program, input.dayNumber), (day) => ({
+            program,
+            day: applySwaps(day, enrollment.swaps),
+          })),
         )
         if (Option.isNone(found)) {
-          yield* Effect.logWarning(`ProgramRepo: no day ${input.dayNumber} in ${programId}`)
+          yield* Effect.logWarning(
+            `ProgramRepo: no day ${input.dayNumber} in ${enrollment.programId}`,
+          )
           return Option.none()
         }
         const { program, day } = found.value
@@ -397,7 +695,7 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
               )
             }
             const now = yield* DateTime.now
-            const history = yield* historyFor(enrollment.programId, enrollment.userId, input, now)
+            const history = yield* historyFor(enrollment, input, now)
             const historyChanges: ReadonlyArray<SyncChange> = Option.match(history, {
               onNone: () => [],
               onSome: ({ session, sets }) => [
@@ -406,8 +704,9 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
               ],
             })
             const nextDay = input.dayNumber + 1
-            const finished = find(enrollment.programId).pipe(
-              Option.exists((program) => nextDay > program.days.length),
+            const finished = Option.exists(
+              yield* find(enrollment.programId),
+              (program) => nextDay > program.days.length,
             )
             const completion = yield* newId(ProgramDayCompletionId).pipe(
               Effect.flatMap((id) =>
@@ -445,16 +744,31 @@ const make = (find: (id: ProgramId) => Option.Option<Program>) =>
         ),
       )
 
-    return { enrollments, active, enroll, abandon, todayFor, complete }
+    return {
+      find,
+      list,
+      enrollments,
+      activeEnrollments,
+      dueToday,
+      enroll,
+      setStatus,
+      setSwap,
+      todayFor,
+      save,
+      deleteProgram,
+      complete,
+    }
   })
 
 export class ProgramRepo extends Context.Service<ProgramRepo, ProgramRepoShape>()(
   "@tanren/ProgramRepo",
 ) {
-  /** Against a given program catalog (tests pass a fixture `Program`). */
-  static readonly layerWith = (find: (id: ProgramId) => Option.Option<Program>) =>
-    Layer.effect(this, make(find))
+  /** Against a given finder (tests pass a fixture). */
+  static readonly layerWith = (find: ProgramFinder) => Layer.effect(this, make(find))
 
-  /** Needs LocalStore | CurrentUser | IdGenerator | DateTime.CurrentTimeZone | ExerciseLink. */
-  static readonly layerNoDeps = this.layerWith(findProgram)
+  /**
+   * Built-ins then the owner's `program` rows.
+   * Needs LocalStore | CurrentUser | IdGenerator | DateTime.CurrentTimeZone | ExerciseLink.
+   */
+  static readonly layerNoDeps = Layer.effect(this, Effect.flatMap(storeFinder, make))
 }

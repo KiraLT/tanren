@@ -397,6 +397,8 @@ describe("SyncEngine.syncOnce", () => {
             program_day_completion: 0,
             imported_activity: 0,
             daily_health: 0,
+            food_entry: 0,
+            program: 0,
           })
           expect(
             yield* phone.run(

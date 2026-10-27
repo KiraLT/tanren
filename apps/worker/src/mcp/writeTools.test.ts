@@ -21,10 +21,15 @@ import {
   type RowByTable,
   SessionRepo,
 } from "../repos"
+import { MemoryGarminImport } from "../repos/MemoryGarminImport"
+import { MemoryIntegrations } from "../repos/MemoryIntegrations"
 import { at, exercise, plan, session, userA, userB, week } from "../sync/fixtures"
 import { logSession, updateProfile, writePlanWeek, writeTools } from "./writeTools"
 
-const TestLayer = Layer.mergeAll(Repositories.layerMemory, IdGenerator.layerTest)
+const TestLayer = Layer.mergeAll(
+  MemoryGarminImport.layer.pipe(Layer.provide(MemoryIntegrations.layer)),
+  IdGenerator.layerTest,
+).pipe(Layer.provideMerge(Layer.merge(Repositories.layerMemory, IdGenerator.layerTest)))
 
 const NOW = at("2026-10-20T12:00:00.000Z")
 const LATER = at("2026-10-21T12:00:00.000Z")
@@ -727,7 +732,7 @@ describe("update_profile", () => {
 describe("writeTools", () => {
   it("lists the three write tools in MCP_TOOLS order, all kind write", () => {
     expect(writeTools.map((t) => [t.name, t.kind])).toEqual(
-      MCP_TOOLS.slice(6).map((name) => [name, "write"]),
+      MCP_TOOLS.slice(11, 14).map((name) => [name, "write"]),
     )
   })
 

@@ -22,23 +22,36 @@ const enrollment = new ProgramEnrollment({
   startedOn: LocalDate.make("2026-10-20"),
   status: "active",
   currentDay: 2,
+  swaps: [],
 })
-const ready = (day: Option.Option<ProgramDay>) =>
-  ({ _tag: "Ready", program: CORE30, enrollment, day }) as const
+const day2 = Arr.findFirst(CORE30.days, (day) => day.dayNumber === 2)
+const entry = (day: Option.Option<ProgramDay>, status: "active" | "paused" = "active") => ({
+  enrollment: new ProgramEnrollment({ ...enrollment, status }),
+  program: CORE30,
+  day,
+})
+const ready = (...active: ReadonlyArray<ReturnType<typeof entry>>) =>
+  ({ _tag: "Ready", summaries: [], active }) as const
 
 describe("todayEyebrowOf", () => {
   it("reads 'Core 30 · Day 2 of 30' with the share of days already done", () => {
-    const day2 = Arr.findFirst(CORE30.days, (day) => day.dayNumber === 2)
-    expect(todayEyebrowOf(ready(day2))).toEqual(
+    expect(todayEyebrowOf(ready(entry(day2)))).toEqual(
       Option.some({ label: "Core 30 · Day 2 of 30", progress: 1 / 30 }),
     )
   })
 
-  it("is None when not enrolled, loading, failed, or past the last day", () => {
-    expect(todayEyebrowOf({ _tag: "NotEnrolled", program: CORE30 })).toEqual(Option.none())
+  it("skips a paused program and one past its last day for the next active one", () => {
+    expect(todayEyebrowOf(ready(entry(day2, "paused"), entry(Option.none()), entry(day2)))).toEqual(
+      Option.some({ label: "Core 30 · Day 2 of 30", progress: 1 / 30 }),
+    )
+  })
+
+  it("is None when not enrolled, loading, failed, only paused, or past the last day", () => {
+    expect(todayEyebrowOf(ready())).toEqual(Option.none())
+    expect(todayEyebrowOf(ready(entry(day2, "paused")))).toEqual(Option.none())
     expect(todayEyebrowOf({ _tag: "Loading" })).toEqual(Option.none())
     expect(todayEyebrowOf({ _tag: "Failed", message: "x" })).toEqual(Option.none())
-    expect(todayEyebrowOf(ready(Option.none()))).toEqual(Option.none())
+    expect(todayEyebrowOf(ready(entry(Option.none())))).toEqual(Option.none())
   })
 })
 

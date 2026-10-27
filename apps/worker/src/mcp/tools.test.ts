@@ -22,6 +22,8 @@ import {
 import { DateTime, Effect, Layer, Option } from "effect"
 import { TestClock } from "effect/testing"
 import { ExerciseRepo, PlanRepo, ProfileRepo, Repositories, SessionRepo } from "../repos"
+import { MemoryGarminImport } from "../repos/MemoryGarminImport"
+import { MemoryIntegrations } from "../repos/MemoryIntegrations"
 import { at, exercise, plan, userA, userB, week } from "../sync/fixtures"
 import {
   DEFAULT_SEARCH_LIMIT,
@@ -36,8 +38,11 @@ import {
 } from "./tools"
 import { writeTools } from "./writeTools"
 
-/** Every `ToolDeps` service: in-memory repos plus the counting `IdGenerator`. */
-const TestLayer = Layer.mergeAll(Repositories.layerMemory, IdGenerator.layerTest)
+/** Every `ToolDeps` service: in-memory repos (Garmin import included) plus the counting `IdGenerator`. */
+const TestLayer = Layer.mergeAll(
+  MemoryGarminImport.layer.pipe(Layer.provide(MemoryIntegrations.layer)),
+  IdGenerator.layerTest,
+).pipe(Layer.provideMerge(Layer.merge(Repositories.layerMemory, IdGenerator.layerTest)))
 
 const NOW = at("2026-10-20T00:00:00.000Z")
 const setNow = TestClock.setTime(DateTime.toEpochMillis(NOW))

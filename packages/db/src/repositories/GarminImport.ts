@@ -9,6 +9,7 @@ import {
   ImportedActivityId,
   type ImportedActivityInsert,
   ImportedActivityRow,
+  type LocalDate,
   type Provider,
   type SyncChange,
   type UserId,
@@ -61,6 +62,12 @@ export interface GarminImportRepoShape {
     userId: UserId,
     provider: Provider,
   ) => Effect.Effect<ImportCounts, PersistenceError>
+  /** Live day rows (every provider) with `date` in `[from, to]`, both ends included, by date. */
+  readonly listDays: (
+    userId: UserId,
+    from: LocalDate,
+    to: LocalDate,
+  ) => Effect.Effect<ReadonlyArray<DailyHealth>, PersistenceError>
 }
 
 /** One `SyncStore.apply` per page: `MAX_PUSH_CHANGES`. */
@@ -157,6 +164,13 @@ export class GarminImportRepo extends Context.Service<GarminImportRepo, GarminIm
         execute: ({ userId, provider }) =>
           sql`SELECT * FROM daily_health WHERE user_id = ${userId}
             AND provider = ${provider} AND deleted_at IS NULL ORDER BY id LIMIT ${PAGE}`,
+      })
+      const daysInRange = SqlSchema.findAll({
+        Request: Schema.Struct({ userId: Schema.String, from: Schema.String, to: Schema.String }),
+        Result: DailyHealthRow,
+        execute: ({ userId, from, to }) =>
+          sql`SELECT * FROM daily_health WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND date >= ${from} AND date <= ${to} ORDER BY date, provider`,
       })
       const countRows = SqlSchema.findOne({
         Request: Schema.Struct({ userId: Schema.String, provider: Schema.String }),
@@ -393,6 +407,10 @@ export class GarminImportRepo extends Context.Service<GarminImportRepo, GarminIm
         counts: (userId, provider) =>
           countRows({ userId, provider }).pipe(
             Effect.mapError(persistenceError("garminImport.counts")),
+          ),
+        listDays: (userId, from, to) =>
+          daysInRange({ userId, from, to }).pipe(
+            Effect.mapError(persistenceError("garminImport.listDays")),
           ),
       }
     }),

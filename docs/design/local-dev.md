@@ -97,6 +97,10 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
 
 ## 5. MCP locally
 
+- **Seed first** (`pnpm db:seed`, or `pnpm db:seed -- --persist-to <dir>` for a scratch D1 migrated with
+  `wrangler d1 migrations apply tanren --local --persist-to <dir>`): the dev token acts as the seed user, and on
+  an empty D1 every tool answers `Forbidden` (nutri-server N-SQ).
+
 - OAuth (stateless since ADR-0022, `docs/design/auth-v2.md` §5): the Worker is its own authorization
   server. No KV, no Durable Object, no account, no library: `src/oauth/provider.ts` is the router,
   `clients.ts` (CIMD and DCR), `consent.ts`, `token.ts` and `metadata.ts` hold the logic, and the only state
@@ -377,4 +381,4 @@ no network, no key. `GARMIN_BASE_URL` is unset locally (decode default `https://
 - **Another dev server is running?** Spare port and own state, exactly as in §STRAVA_MODE.
 
 ## 9a. Implemented (2026-10-20)
-`pnpm db:migrate` / `pnpm db:seed [--seed n] [--end YYYY-MM-DD]` / `pnpm db:reset` (root) run against the local D1 under `apps/worker/.wrangler/state`; the runner is `apps/worker/scripts/seed.ts` via `tsx` (Node type stripping fails on extensionless imports).
+`pnpm db:migrate` / `pnpm db:seed [--seed n] [--end YYYY-MM-DD] [--persist-to <dir>]` / `pnpm db:reset` (root; `--persist-to` takes the same `<dir>` as `wrangler … --local --persist-to`, so a scratch D1 needs no copied script; the month seed also writes 10 food entries and 7 Garmin `daily_health` rows) run against the local D1 under `apps/worker/.wrangler/state`; the runner is `apps/worker/scripts/seed.ts` via `tsx` (Node type stripping fails on extensionless imports).

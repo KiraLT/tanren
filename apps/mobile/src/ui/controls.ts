@@ -210,6 +210,35 @@ export const rowTones: {
   danger: { title: "danger", icon: "danger" },
 }
 
+/**
+ * What a pressable row announces: a button (`selected`), or a switch when it carries `checked`
+ * (the eat-back row). `aria-checked` is for web: react-native-web reads only `disabled` from
+ * `accessibilityState`.
+ */
+export type RowAccessibility =
+  | {
+      readonly accessibilityRole: "button"
+      readonly accessibilityState: { readonly selected: boolean; readonly disabled: boolean }
+    }
+  | {
+      readonly accessibilityRole: "switch"
+      readonly accessibilityState: { readonly checked: boolean; readonly disabled: boolean }
+      readonly "aria-checked": boolean
+    }
+
+export const rowAccessibility = (
+  selected: boolean,
+  disabled: boolean,
+  checked: boolean | undefined,
+): RowAccessibility =>
+  checked === undefined
+    ? { accessibilityRole: "button", accessibilityState: { selected, disabled } }
+    : {
+        accessibilityRole: "switch",
+        accessibilityState: { checked, disabled },
+        "aria-checked": checked,
+      }
+
 /** Trailing chevron of a row that opens something: 20 px, `textMuted`. */
 export const rowChevron = { glyph: sizes.iconSm, color: "textMuted" } as const satisfies {
   readonly glyph: number

@@ -483,4 +483,60 @@
   </div>
 </section>
 
+<!-- N-MC gallery fragment: Today strip and /health, 390 and 1280, light and dark. Commit 7583691 + 136 dirty (exported build
+     on 9032 against an isolated worker on 9035; scratch D1 migrated to 0009 and seeded with a scratch copy of
+     scripts/seed.ts --end 2026-10-27 that also writes the seed's 10 food entries; no Garmin rows in the seed). -->
+<section id="nutri-health"><h2>Nutrition on Today and Health (N-MC)</h2>
+  <div class="row"><span class="badge">N1</span> Today Ready (seed plan "Lower A") with the Nutrition strip under the AppBar: 2,101 kcal left, burned no data, first insight (no HealthStrip: the seed has no Garmin day)
+    <img src="shots/UI-NUTRI-N1-today-390-light.png" alt=""><img src="shots/UI-NUTRI-N1-today-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N1-today-1280-light.png" alt=""><img src="shots/UI-NUTRI-N1-today-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N2</span> /health Ready: hero tiles (2 × 2 on phone), week bars Mon–Sun, protein days, insights, This week, food log (desktop: Columns 7/5)
+    <img src="shots/UI-NUTRI-N2-health-390-light.png" alt=""><img src="shots/UI-NUTRI-N2-health-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N2-health-1280-light.png" alt=""><img src="shots/UI-NUTRI-N2-health-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N3</span> /health Off (a signed-in account with no nutrition goal): "Set a nutrition goal" inside the wide frame
+    <img src="shots/UI-NUTRI-N3-health-off-390-light.png" alt=""><img src="shots/UI-NUTRI-N3-health-off-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N3-health-off-1280-light.png" alt=""><img src="shots/UI-NUTRI-N3-health-off-1280-dark.png" alt=""></div>
+</section>
+<!-- N-Q1 gallery fragment: /health/add quick-add, 390 and 1280, light and dark. Commit d170d1e + 104 dirty (dev server 9033,
+     empty offline store with EXPO_PUBLIC_DEV_USER_ID; local QUICK_ADD catalog, no network). -->
+<section id="nutri-q1"><h2>Quick-add food (N-Q1)</h2>
+  <div class="row"><span class="badge">N20</span> /health/add searching "shake": two catalog rows
+    <img src="shots/UI-NUTRI-N20-quickadd-390-light.png" alt=""><img src="shots/UI-NUTRI-N20-quickadd-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N20-quickadd-1280-light.png" alt=""><img src="shots/UI-NUTRI-N20-quickadd-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N25</span> /health/add with an empty query: the full catalog, sorted by name (desktop: "Pick a food" side hint)
+    <img src="shots/UI-NUTRI-N25-quickadd-all-390-light.png" alt=""><img src="shots/UI-NUTRI-N25-quickadd-all-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N25-quickadd-all-1280-light.png" alt=""><img src="shots/UI-NUTRI-N25-quickadd-all-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N21</span> Whey protein shake ×1.5, meal chip Supplement, "Add 159 kcal" (desktop: full list kept, editor in the side column)
+    <img src="shots/UI-NUTRI-N21-quickadd-edit-390-light.png" alt=""><img src="shots/UI-NUTRI-N21-quickadd-edit-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N21-quickadd-edit-1280-light.png" alt=""><img src="shots/UI-NUTRI-N21-quickadd-edit-1280-dark.png" alt=""></div>
+</section>
+<!-- N-Q2 gallery fragment: Settings → Nutrition & goals, 390 and 1280, light and dark. Commit d170d1e + 93 dirty (dev server 9035,
+     empty offline store with EXPO_PUBLIC_DEV_USER_ID; nutrition = gain, 85 kg, 180 cm, 1990, male, moderate → 3,070 kcal / 155 g). -->
+<section id="nutri-q2"><h2>Nutrition settings (N-Q2)</h2>
+  <div class="row"><span class="badge">N22</span> /settings with the Nutrition &amp; goals row (nutrition on)
+    <img src="shots/UI-NUTRI-N22-settings-390-light.png" alt=""><img src="shots/UI-NUTRI-N22-settings-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N22-settings-1280-light.png" alt=""><img src="shots/UI-NUTRI-N22-settings-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N23</span> /settings/nutrition filled, derived targets
+    <img src="shots/UI-NUTRI-N23-nutrition-390-light.png" alt=""><img src="shots/UI-NUTRI-N23-nutrition-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N23-nutrition-1280-light.png" alt=""><img src="shots/UI-NUTRI-N23-nutrition-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">N24</span> /settings/nutrition, Garmin connected: eat-back row + Switch (off; on in N23)
+    <img src="shots/UI-NUTRI-N24-nutrition-eatback-390-light.png" alt=""><img src="shots/UI-NUTRI-N24-nutrition-eatback-390-dark.png" alt="">
+    <img src="shots/UI-NUTRI-N24-nutrition-eatback-1280-light.png" alt=""><img src="shots/UI-NUTRI-N24-nutrition-eatback-1280-dark.png" alt=""></div>
+</section>
+<!-- HM-D gallery fragment: Today health module and /health, two directions (A rings, B gauge), HTML mockups from
+     docs/design/mockups/health-module/ (not the app), 390 and 1280, light and dark. Owner picks A, B or the merge (health-module.md §3). -->
+<section id="hm-d"><h2>Health module directions (HM-D)</h2>
+  <div class="row"><span class="badge">HM-A1</span> A "Rings": Today module — double ring (eaten amber, protein green), "Left today" numeral, three stats
+    <img src="shots/HM-A-today-390-light.png" alt=""><img src="shots/HM-A-today-390-dark.png" alt="">
+    <img src="shots/HM-A-today-1280-light.png" alt=""><img src="shots/HM-A-today-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">HM-A2</span> A "Rings": /health hero 176/240 ring, week as seven day rings, insights, food log
+    <img src="shots/HM-A-health-390-light.png" alt=""><img src="shots/HM-A-health-390-dark.png" alt="">
+    <img src="shots/HM-A-health-1280-light.png" alt=""><img src="shots/HM-A-health-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">HM-B1</span> B "Gauge": Today module — 240° gauge with the left numeral inside, three labelled bars
+    <img src="shots/HM-B-today-390-light.png" alt=""><img src="shots/HM-B-today-390-dark.png" alt="">
+    <img src="shots/HM-B-today-1280-light.png" alt=""><img src="shots/HM-B-today-1280-dark.png" alt=""></div>
+  <div class="row"><span class="badge">HM-B2</span> B "Gauge": /health hero gauge + bars, week as seven bars (over budget in danger), insights, food log
+    <img src="shots/HM-B-health-390-light.png" alt=""><img src="shots/HM-B-health-390-dark.png" alt="">
+    <img src="shots/HM-B-health-1280-light.png" alt=""><img src="shots/HM-B-health-1280-dark.png" alt=""></div>
+</section>
 <footer>Captured from the local web build (Expo SDK 58) with agent-browser: phone and first desktop groups at commit 19eb956, the two-column desktop group at 838a2f0, polish rounds as labelled. The screens are the real app, not mockups.</footer>

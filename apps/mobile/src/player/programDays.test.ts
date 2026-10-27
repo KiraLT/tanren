@@ -6,13 +6,11 @@ import {
   dayDisc,
   dayMinutes,
   dayStateLabel,
-  daySubtitle,
   daysDone,
   dayTrailing,
   doneLabel,
   insideRows,
   programProgress,
-  programStats,
   WEEK_LENGTH,
   weekWindow,
 } from "./programDays"
@@ -85,18 +83,6 @@ describe("dayStateLabel", () => {
   })
 })
 
-describe("daySubtitle", () => {
-  it("counts the day's items", () => {
-    expect(daySubtitle(firstDay)).toBe(`${firstDay.items.length} exercises`)
-  })
-
-  it("uses the singular for one item and 0 exercises for none", () => {
-    const one = { ...firstDay, items: Arr.take(firstDay.items, 1) }
-    expect(daySubtitle(one)).toBe("1 exercise")
-    expect(daySubtitle({ ...firstDay, items: [] })).toBe("0 exercises")
-  })
-})
-
 describe("day text", () => {
   it("rounds the planned length to whole minutes", () => {
     expect(dayMinutes(firstDay)).toBeGreaterThan(0)
@@ -137,23 +123,5 @@ describe("insideRows", () => {
 
   it("is empty for a program without days", () => {
     expect(insideRows([])).toEqual([])
-  })
-})
-
-describe("programStats", () => {
-  it("counts days, the first day's minutes and exercises", () => {
-    expect(programStats(CORE30.days)).toEqual([
-      { label: "Days", value: String(CORE30.days.length) },
-      { label: "Per day", value: dayTrailing(firstDay) },
-      { label: "Exercises", value: String(firstDay.items.length) },
-    ])
-  })
-
-  it("shows the days that exist for a short program", () => {
-    expect(programStats(Arr.take(CORE30.days, 3))[0]).toEqual({ label: "Days", value: "3" })
-  })
-
-  it("is zeroed for a program without days", () => {
-    expect(programStats([]).map((stat) => stat.value)).toEqual(["0", "0 min", "0"])
   })
 })

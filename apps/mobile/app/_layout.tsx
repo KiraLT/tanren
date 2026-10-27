@@ -1,12 +1,21 @@
 import { useFonts } from "expo-font"
-import { Redirect, SplashScreen, Stack, usePathname } from "expo-router"
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
+  Redirect,
+  SplashScreen,
+  Stack,
+  usePathname,
+} from "expo-router"
 import { StatusBar } from "expo-status-bar"
-import { useEffect } from "react"
+import { type ReactNode, useEffect } from "react"
 import { Platform, View, type ViewStyle } from "react-native"
 import { Landing } from "../src/components/landing/Landing"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import { useSync } from "../src/hooks/useSync"
 import { ThemeProvider, useTheme } from "../src/ui"
+import { navigationTheme } from "../src/ui/navigationTheme"
 import { fonts } from "../src/ui/tokens"
 
 // Hold the native splash until the display face is ready (released in `RootLayout`). Web has no
@@ -28,6 +37,17 @@ const FONT_MAP = {
 function ThemedStatusBar() {
   const { scheme } = useTheme()
   return <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+}
+
+/**
+ * Every navigator container (Stack content, Tabs scene, modal card) paints the Forge `bg`, so a
+ * route change never shows React Navigation's light default between screens (HOTFIX-1); must render
+ * inside `ThemeProvider`, which resolves the app scheme (the stored preference, not only the OS).
+ */
+function ForgeNavigationTheme({ children }: { readonly children: ReactNode }) {
+  const theme = useTheme()
+  const value = navigationTheme(theme, theme.scheme === "dark" ? DarkTheme : DefaultTheme)
+  return <NavigationThemeProvider value={value}>{children}</NavigationThemeProvider>
 }
 
 export default function RootLayout() {
@@ -52,7 +72,11 @@ export default function RootLayout() {
       {/* The navigator must stay mounted for the redirect and the landing's `router.replace`; while
           gated it is `display: none`, so it neither shows nor takes height (ADR-0021). */}
       <View style={gate === "allow" ? visible : hidden}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <ForgeNavigationTheme>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="health/add" options={{ presentation: "modal" }} />
+          </Stack>
+        </ForgeNavigationTheme>
       </View>
       {gate === "sign-in" ? (
         // Web shows strangers the landing on every gated route; native keeps the sign-in screen.

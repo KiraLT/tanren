@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Schema } from "effect"
 import { failingPaths, roundTrips, wireRoundTrips } from "./testing"
-import { Goal, Location, Profile, ProfileInsert, ProfilePatch } from "./user"
+import { Goal, Location, NutritionProfile, Profile, ProfileInsert, ProfilePatch } from "./user"
 
 const userId = "0b9f5c1e-6d43-4c1a-9a3e-2f4f1a2b3c4d"
 const gymId = "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c"
@@ -20,6 +20,7 @@ const profileFields = {
   ],
   activeLocationId: homeId,
   timezone: "Europe/Berlin",
+  nutrition: null,
 }
 
 const profileWire = {
@@ -215,6 +216,81 @@ describe("ProfilePatch", () => {
     wireRoundTrips(ProfilePatch, {
       locations: [{ id: gymId, name: "Gym", equipment: ["barbell", "rack"] }],
       activeLocationId: null,
+    }),
+  )
+})
+
+describe("NutritionProfile (optional facts)", () => {
+  const minimal = { goal: "gain_muscle", bodyWeightKg: 85, activityLevel: "moderate" } as const
+  const full = {
+    ...minimal,
+    heightCm: 180,
+    birthYear: 1990,
+    sex: "male" as const,
+    eatBackActive: true,
+    kcalTarget: 3000,
+    proteinTargetG: 170,
+  }
+
+  it.effect(
+    "decodes {goal, bodyWeightKg, activityLevel} with None for the five optional facts",
+    () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeUnknownEffect(NutritionProfile)(minimal)
+        expect([
+          decoded.heightCm,
+          decoded.birthYear,
+          decoded.sex,
+          decoded.kcalTarget,
+          decoded.proteinTargetG,
+        ]).toEqual([Option.none(), Option.none(), Option.none(), Option.none(), Option.none()])
+        expect(decoded.eatBackActive).toBe(false)
+      }),
+  )
+
+  it.effect("decodes a full object with Some values and round-trips it on the wire", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeUnknownEffect(NutritionProfile)(full)
+      expect(decoded.heightCm).toEqual(Option.some(180))
+      yield* wireRoundTrips(NutritionProfile, full)
+    }),
+  )
+
+  it.effect("encodes None facts as null, and null decodes back to None", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeUnknownEffect(NutritionProfile)(minimal)
+      const wire = yield* Schema.encodeEffect(NutritionProfile)(decoded)
+      expect(wire).toEqual({
+        ...minimal,
+        heightCm: null,
+        birthYear: null,
+        sex: null,
+        eatBackActive: false,
+        kcalTarget: null,
+        proteinTargetG: null,
+      })
+      yield* wireRoundTrips(NutritionProfile, wire)
+    }),
+  )
+
+  it.effect("Profile decodes nutrition: null as None and a minimal object as Some", () =>
+    Effect.gen(function* () {
+      const off = yield* Schema.decodeUnknownEffect(Profile)({ ...profileWire, nutrition: null })
+      expect(Option.isNone(off.nutrition)).toBe(true)
+      const on = yield* Schema.decodeUnknownEffect(Profile)({ ...profileWire, nutrition: minimal })
+      expect(Option.map(on.nutrition, (n) => n.goal)).toEqual(Option.some("gain_muscle"))
+    }),
+  )
+
+  it.effect("ProfilePatch takes a minimal nutrition object, and null clears it", () =>
+    Effect.gen(function* () {
+      const set = yield* Schema.decodeUnknownEffect(ProfilePatch)({ nutrition: minimal })
+      expect(Object.keys(set)).toEqual(["nutrition"])
+      expect(Option.map(set.nutrition ?? Option.none(), (n) => n.bodyWeightKg)).toEqual(
+        Option.some(85),
+      )
+      const cleared = yield* Schema.decodeUnknownEffect(ProfilePatch)({ nutrition: null })
+      expect(cleared.nutrition).toEqual(Option.none())
     }),
   )
 })

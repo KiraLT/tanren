@@ -3,6 +3,8 @@ import {
   type AcceptedChange,
   DailyHealthRow,
   ExerciseRow,
+  type FoodEntry,
+  FoodEntryRow,
   ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
@@ -22,7 +24,9 @@ import {
   type SyncCursor,
   type SyncTable,
   Timestamp,
+  totalsOf,
   type UserId,
+  UserProgramRow,
   type ValidationError,
   WorkoutSetRow,
 } from "@tanren/shared"
@@ -153,6 +157,16 @@ const decodeRow: {
       table: "dailyHealth",
       row,
     })),
+  foodEntry: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(FoodEntryRow)(r), (row) => ({
+      table: "foodEntry",
+      row,
+    })),
+  program: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(UserProgramRow)(r), (row) => ({
+      table: "program",
+      row,
+    })),
 }
 
 const encodeRow = (
@@ -172,6 +186,8 @@ const encodeRow = (
       programDayCompletion: ({ row }) => Schema.encodeEffect(ProgramDayCompletionRow)(row),
       importedActivity: ({ row }) => Schema.encodeEffect(ImportedActivityRow)(row),
       dailyHealth: ({ row }) => Schema.encodeEffect(DailyHealthRow)(row),
+      foodEntry: ({ row }) => Schema.encodeEffect(FoodEntryRow)(row),
+      program: ({ row }) => Schema.encodeEffect(UserProgramRow)(row),
     }),
   )
 
@@ -197,6 +213,9 @@ const parentKeys = (change: SyncChange): ReadonlyArray<SyncKey> =>
       programDayCompletion: ({ row }) => [syncKey("programEnrollment", row.enrollmentId)],
       importedActivity: () => [],
       dailyHealth: () => [],
+      foodEntry: () => [],
+      // Enrollments reference a program by `programId` value (built-ins have no row): no parent.
+      program: () => [],
     }),
   )
 
@@ -217,12 +236,18 @@ const chainParent = (change: SyncChange): Option.Option<SyncKey> =>
         Option.some(syncKey("programEnrollment", row.enrollmentId)),
       importedActivity: () => Option.none(),
       dailyHealth: () => Option.none(),
+      foodEntry: () => Option.none(),
+      program: () => Option.none(),
     }),
   )
 
 /** The immutable parent id of a row (DM §11.1), `""` for tables without one. */
 const immutableParent = (change: SyncChange): string =>
   Option.match(chainParent(change), { onNone: () => "", onSome: (parent) => parent.id })
+
+/** Immutable non-parent fields a push must not change (rejected, not silently kept). */
+const immutableFields = (change: SyncChange): string =>
+  change.table === "program" ? `${change.row.slug}|${change.row.source}` : ""
 
 const IMMUTABLE: { readonly [T in SyncTable]: ReadonlyArray<string> } = {
   profile: [],
@@ -237,6 +262,8 @@ const IMMUTABLE: { readonly [T in SyncTable]: ReadonlyArray<string> } = {
   programDayCompletion: ["enrollmentId", "dayNumber"],
   importedActivity: ["provider", "externalId"],
   dailyHealth: ["provider", "date"],
+  foodEntry: [],
+  program: ["slug", "source"],
 }
 
 const pushOrder: Order.Order<SyncChange> = Order.combine(
@@ -297,11 +324,13 @@ const WEEK_START = "plan_week_plan_week_start_unique"
 
 const ACTIVE_ENROLLMENT = "program_enrollment_user_program_active_unique"
 const COMPLETION_DAY = "program_day_completion_enrollment_day_unique"
+const PROGRAM_SLUG = "program_user_slug_unique"
 
 const exerciseNameSlot = (folded: string) => `${EXERCISE_NAME}|${folded}`
 const weekStartSlot = (planId: string, weekStart: string) => `${WEEK_START}|${planId}|${weekStart}`
 const activeEnrollmentSlot = (programId: string) => `${ACTIVE_ENROLLMENT}|${programId}`
 const completionDaySlot = (enrollmentDay: string) => `${COMPLETION_DAY}|${enrollmentDay}`
+const programSlugSlot = (slug: string) => `${PROGRAM_SLUG}|${slug}`
 
 /**
  * The slot a row takes in a partial unique index (all are scoped to live rows): migration 0000's
@@ -333,6 +362,9 @@ const uniqueSlot = (snapshot: Snapshot, change: SyncChange): Option.Option<strin
           // existing row's id for its natural key, and only the Worker writes these tables.
           importedActivity: () => Option.none(),
           dailyHealth: () => Option.none(),
+          foodEntry: () => Option.none(),
+          // 0009's `program (user_id, slug) WHERE deleted_at IS NULL`.
+          program: ({ row }) => Option.some(programSlugSlot(row.slug)),
         }),
       )
 
@@ -373,6 +405,17 @@ const accept = (
   }
 }
 
+/** The denormalised totals equal `totalsOf(items)` (nutrition.md §2). */
+const totalsMatch = (row: FoodEntry): boolean => {
+  const totals = totalsOf(row.items)
+  return (
+    totals.kcal === row.kcal &&
+    totals.proteinG === row.proteinG &&
+    totals.carbsG === row.carbsG &&
+    totals.fatG === row.fatG
+  )
+}
+
 /** One step of DM §10.2 rule 3. Pure: all lookups come from the snapshot. */
 const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outcome => {
   const { row } = change
@@ -382,6 +425,14 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
   }
   if (change.table === "profile" && row.id !== snapshot.userId) {
     return reject(outcome, change, "invariantViolated", "profile.id must equal the user id")
+  }
+  if (change.table === "foodEntry" && !totalsMatch(change.row)) {
+    return reject(
+      outcome,
+      change,
+      "invariantViolated",
+      "food entry totals must equal totalsOf(items)",
+    )
   }
   const missing = Arr.filter(
     Arr.map(parentKeys(change), (parent) => keyOf(parent.table, parent.id)),
@@ -409,6 +460,9 @@ const decide = (snapshot: Snapshot, outcome: Outcome, change: SyncChange): Outco
         immutableParent(existing) !== immutableParent(change)
       ) {
         return reject(outcome, change, "immutableFieldChanged", "createdAt or parent id changed")
+      }
+      if (immutableFields(existing) !== immutableFields(change)) {
+        return reject(outcome, change, "immutableFieldChanged", "slug or source changed")
       }
       return DateTime.isGreaterThan(effective, existing.row.updatedAt)
         ? accept(snapshot, outcome, change, effective)
@@ -540,6 +594,11 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
               : Result.failVoid,
           ),
         )
+        const slugs = Arr.dedupe(
+          Arr.filterMap(live, (c) =>
+            c.table === "program" ? Result.succeed(c.row.slug) : Result.failVoid,
+          ),
+        )
         const folded = Arr.isReadonlyArrayNonEmpty(names)
           ? yield* sql`SELECT value AS name, lower(value) AS folded
               FROM json_each(${JSON.stringify(names)})`.pipe(
@@ -590,6 +649,15 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
             WHERE user_id = ${userId} AND deleted_at IS NULL
               AND enrollment_id || '|' || day_number IN (SELECT value FROM json_each(${json}))`,
         )
+        const programSlugs = yield* holdersOf(
+          "program",
+          programSlugSlot,
+          slugs,
+          (json) =>
+            sql`SELECT id, slug AS value FROM program
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+              AND slug IN (SELECT value FROM json_each(${json}))`,
+        )
         return {
           folded: HashMap.fromIterable(Arr.map(folded, (r) => [r.name, r.folded] as const)),
           held: HashMap.fromIterable([
@@ -598,6 +666,7 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
             ...planWeeks,
             ...enrollments,
             ...completions,
+            ...programSlugs,
           ]),
         }
       })

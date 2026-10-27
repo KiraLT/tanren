@@ -126,7 +126,9 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   `wrangler dev`. Credentialed CORS fetches to the API work under the COEP
   value in `_headers` (proven S7-P4).
 - Web is single-tab in v1: `runtime.ts` `openPageStore` fails a second live tab with
-  `DatabaseInUse` after `LOCK_TIMEOUT` (cached by `ManagedRuntime`: the copy asks for a reload),
+  `DatabaseInUse` after `LOCK_TIMEOUT` (cached by `ManagedRuntime`; hooks reach it only through
+  `runtime.runCallback` + `runFailed` from `src/hooks/runExit.ts`, so `useAuthGate` shows the
+  "open in another tab" copy instead of a blank page — BS-1, 2026-10-27),
   aborts or releases the Web Lock on interrupt, failed open or scope close, and retries only
   the bfcache "Access Handle" open failure (`isAccessHandleError`).
 - `EXPO_PUBLIC_API_URL` is inlined at export time (local export:
@@ -362,7 +364,8 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   `NativeSession.clear`; hook `useAccountErasure`, UI Settings → Data → Delete account (inline danger confirm);
   web reloads to `/sign-in`, native `router.replace("/sign-in")`. Provided per call, not in `runtime.ts`.
 - `DataExporter` (`src/services/DataExport.ts`): named so because `DataExport` is the shared schema;
-  covers all 12 sync tables (v5 adds `imported_activity`, `daily_health`). Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
+  covers all 13 sync tables (store v4 added `imported_activity`, `daily_health`; v5, nutrition N-F0, adds
+  `food_entry` (synced both ways, `items` JSON) and `profile.nutrition`). Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
   "Export on the web app".
 - Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
   (`themePreferenceStore.web.ts`); native keeps it for the session only.
@@ -446,6 +449,74 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   358x36 at top 56 (AppBar bottom 43). Open: Today Ready with the strip not driven (no plan on a fresh
   account); revoked state has no console path (GM-Q1); the Worker's "today" is UTC, so the strip can be
   missing 00:00–02:00 EET until the next pull after UTC midnight.
+
+## v6 nutrition: quick-add, food log, Settings → Nutrition (ADR-0025, docs/design/nutrition.md §6–§7; team nutri-food)
+
+- Routes: `/health/add` (`app/health/add.tsx`, root-Stack modal: the one `Stack.Screen name="health/add"` child in
+  `app/_layout.tsx`) and `/settings/nutrition` (`app/settings/nutrition.tsx`, row `NutritionSection` after Equipment in
+  `app/settings.tsx`). Both `Page wide`, `Columns 7/5` at desktop. Numbers use shared `formatInt` (comma grouping).
+- Pure modules sit beside the `.tsx` under other names: `Foo.tsx` + `foo.ts` collide on case-insensitive macOS
+  (TS1261), hence `components/health/{quickAddMath,foodLogRows}.ts`, `components/settings/{nutritionCopy,nutritionSettings}.ts`
+  (each with a `.test.ts`; vitest runs only `src/**/*.test.ts`, so a `.test.tsx` never runs).
+- Quick-add (`QuickAddSheet`): local `QUICK_ADD` only (23 rows, no network); search via shared `searchQuickAdd`, empty
+  query lists all; row subtitle "106 kcal · 23 g · 1 scoop in water, 30 g" (`subtitleLines={2}`; the milk row is 80
+  high). Tap → inline editor: multiplier Stepper ×0.5–5 (scaling only via shared `quickAddToFoodItem`), meal = five
+  `ToggleChip`s, full words, outline/solid, in a `radiogroup` wrap (4 + 1 rows at 390, one row at 1280; a
+  5-option `SegmentedControl` scrolls and clipped). Primary lg "Add 159 kcal". Phone collapses the list to the chosen row
+  (no headline); desktop keeps the full list + headline, editor in the side column with a top-aligned "Pick a food"
+  hint. `useAddFood` → `FoodEntryRepo.insert(buildQuickAddDraft(...))` + `requestSync`, never rejects; a direct load
+  pops to `/today`. Search input focus ring copies `usePressableInteraction` (`colors.focus`, `stroke.outline`).
+- `FoodLog({ entries, onDelete, onRestore })` (pure, mounted by `/health`): newest first, trash `IconButton`, Banner
+  "Entry deleted" + Undo for 15 s (pure reducer in `foodLogRows.ts`, timer cleared on unmount).
+- Settings → Nutrition: goal SegmentedControl (Gain muscle / Lose weight / Maintain), weight Stepper 0.5 kg, optional
+  height / birth year ("Not set" + Add; set → Stepper lg + right-aligned "Clear"; caption "age 36"), sex (Male / Female
+  / Skip), activity as five radio `ListRow`s with subtitles (5th "Very active"), targets tiles from shared
+  `nutritionTargets` (overrides win; "Edit" → override Steppers snap to 50 kcal / 5 g, "Use derived"), the "add height…"
+  hint only while a body fact is unset, eat-back row only when `useIntegrationsOverview` garmin is `connected` (whole
+  358×80 row pressable, Switch hidden from a11y/focus, off track `textMuted`, thumb `onAccent`), primary Save, text
+  "Turn off" (→ `nutrition: None`). Desktop: Goal + Body in main, Activity + Targets + actions in side. The draft is
+  seeded once (a sync pull mid-edit is overwritten by Save; known limit). New draft = maintain, 75 kg, moderate.
+- Status: done (team nutri-food, 2026-10-27; REV-1/REV-2 APPROVE, designer N20–N25 PASS 4–4.5). Proven with
+  agent-browser: dev servers 9033/9035 (empty store) and worker 9034 Garmin console (eat-back on → Save → reload on);
+  shots `docs/design/screens/UI-NUTRI-N20..N25-*`, rows `NUTRI-Q{1,2}-rows.html`. Open: dark Switch thumb white
+  (designer nit), ListRow role/state override for the eat-back row (src/ui).
+
+## v6 nutrition: Today strip + /health (ADR-0025, docs/design/nutrition.md §3–§6; team nutri-today)
+
+- Data: `FoodEntryRepo` (`src/services/FoodEntryRepo.ts`, contract shared with nutri-food): `insert(FoodEntryDraft)` (=
+  `FoodEntryInsert` minus the four totals; the repo assigns id, `ownerId`, timestamps and totals = `totalsOf(items)`, the
+  SyncStore invariant), `list({ from, to })` (live, `loggedAt` in [from, to), asc; the SQL lives once in `liveFoodEntries`),
+  `softDelete` / `restore` → boolean; every write dirty. `NutritionRepo.day(date)` → `NutritionDay { day: DayTotals, insights }`
+  (shared `buildDayTotals` + `insights`; insights read the 7 days ENDING the date); `.week(monday)` → `HealthWeek { review:
+  WeekReview, activities }` (shared `weekSummary`, Mon–Sun, a future week has no insights, `workoutsPlanned` from
+  `PlanWeekRepo.currentWeek`). Both read `daily_health` / `imported_activity` / `workout_session` with their own range SELECTs
+  (Garmin's repos stay single-row) and take `CurrentTimeZone` per call; a day is device-zone local midnight to midnight.
+  Hooks `useNutritionDay` / `useNutritionWeek` sit on `useStoreRead` (`StoreRead` admits `NutritionRepo`); `useFoodEntryActions`
+  (softDelete / restore → Promise<boolean>, never rejects, requests a sync). Budget, targets and insights are never
+  re-implemented on device; they come from shared only.
+- Lead rulings: budget = goal intake (Garmin burn is information, shown "as of HH:MM"); eat-back only when `eatBackActive`
+  (default off); "Burned: no data" when the day has no `daily_health` row; commas (`formatInt` / `kcalText`); insights ≤ 3 in
+  group order.
+- Today: `NutritionStrip` (`src/components/today/`) under `HealthStrip` in Empty and Ready. Three rows of 18: value (`caption
+  accent`), detail (`caption muted`), first insight. 72 high (54 without an insight); rows 2–3 indented 24 under "Nutrition".
+  Hidden while loading, on a failed read, and when nutrition is off and nothing was logged today. Press → `/health`. Its text
+  lives in `components/health/nutritionText.ts` (`stripLines`, `kcalText`, `asOfText`, `burnedText`). The gap reads Garmin's
+  `useHealthLine()`, the one visibility rule: `space.sm` under a visible HealthStrip, else HealthStrip's slot; both hidden = 0 px.
+- `/health` (`app/health/index.tsx`, root Stack, not a tab): Loading | Off | Failed | Ready, all in one `Page wide` frame with
+  `AppBar "Health"` (Back falls back to `/today`, `plus` → `/health/add`, `settings` → `/settings/nutrition`). Off = no targets →
+  EmptyState "Set a nutrition goal"; it never waits on the week read. Ready: `HealthHero` (4 tiles: 2x2 on phone, since 4-up dense
+  truncated "kcal eaten" at 83.5 px; one dense row from tablet up; plus "Burned as of HH:MM" / "Burned: no data"), `DayBars` (Mon–Sun; 164 high = legend 16 "Eaten / Burned" (aria-hidden) + 8 + bars 120 + 4 +
+  letter 16; a `surface` track per column; eaten `accent`, burned `textMuted` (≥ 3:1 in both schemes, designer r1 F1); bars 18 wide,
+  28 at desktop (`barWidth`); a11y label per column, "Today, " on today; maths in `dayBarMath.ts` because of the TS1261 case rule), protein days `Card` + `SegmentBar`, `InsightList` (≤ 3
+  `Banner info`), `WeekReviewCard` (two `StatRow plain` rows of two, since `plain` ignores `direction`), the week's
+  `ImportedCard`s, and nutri-food's `FoodLog` (delete + Undo through `useFoodEntryActions`). Desktop ≥ 900: `Columns 7/5`; main =
+  hero, DayBars, protein days, food log; side = insights, week review, activities (main/side 658/470 at a 1280 window: `Columns`
+  inside `Page wide` splits the gutter-padded 1152, as `/activity` does).
+- Status: done (team nutri-today, 2026-10-27; REV-1/REV-2/N-MR APPROVE, designer `docs/design/reviews/UI-NUTRI-r1.md` N1 Today
+  strip PASS 4, N2 Health Ready PASS 4 after r2, N3 Off PASS 4). Proven with agent-browser: an exported build on web 9032 signed in to
+  an isolated worker on 9035 (scratch D1 migrated 0001–0009, month seed + 10 food entries); shots `docs/design/screens/UI-NUTRI-N{1,2,3}-*`,
+  rows `UI-NUTRI-rows.html`. Open: the seed has no `daily_health` rows, so no shot shows burned bars or HealthStrip + strip stacked
+  (seed.ts gaps → INT-N); FoodLog delete/Undo not driven in the browser by this team.
 
 ## Status
 

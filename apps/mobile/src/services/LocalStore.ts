@@ -1,6 +1,7 @@
 import {
   DailyHealthRow,
   ExerciseRow,
+  FoodEntryRow,
   ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
@@ -14,6 +15,7 @@ import {
   SessionRow,
   type SyncChange,
   type SyncTable,
+  UserProgramRow,
   WorkoutSetRow,
 } from "@tanren/shared"
 import { Context, Effect, Layer, Record as Rec, Schema } from "effect"
@@ -45,6 +47,10 @@ export const LocalChange = Schema.Union([
   // Pull-only (garmin.md §9): applied from the server, never written or dirtied by the app.
   recordMember("importedActivity", ImportedActivityRow),
   recordMember("dailyHealth", DailyHealthRow),
+  // Synced both ways (nutrition.md §2): quick-add writes dirty rows, MCP-logged rows are pulled.
+  recordMember("foodEntry", FoodEntryRow),
+  // Synced both ways (programs-mcp.md §2): the editor writes dirty rows, MCP-written rows are pulled.
+  recordMember("program", UserProgramRow),
 ])
 
 /**

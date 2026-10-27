@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
+  CatalogId,
+  CORE30,
   ExerciseId,
   IdGenerator,
   LocalDate,
@@ -8,7 +10,9 @@ import {
   ProgramEnrollment,
   ProgramEnrollmentId,
   ProgramId,
+  programIdOfRow,
   SessionRow,
+  UserProgram,
   WorkoutSetRow,
 } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
@@ -78,7 +82,8 @@ const circuit = new Program({
 })
 
 const CATALOG = [fixture(PROGRAM_ID, 2), fixture(OTHER_ID, 3), circuit]
-const find = (id: ProgramId) => Option.fromNullishOr(CATALOG.find((p) => p.programId === id))
+const find = (id: ProgramId) =>
+  Effect.succeed(Option.fromNullishOr(CATALOG.find((p) => p.programId === id)))
 
 /** Fake link: catalog id at index n → exercise …00a{n}; `failing` ids fail like an unknown id. */
 const exerciseIdOf = (catalogId: string) =>
@@ -140,6 +145,7 @@ const stored = (
       startedOn: LocalDate.make("2026-10-01"),
       status: "active",
       currentDay: 1,
+      swaps: [],
       ...fields,
     })
     yield* (yield* LocalStore).write([{ table: "programEnrollment", row }], { dirty: false })
@@ -217,7 +223,7 @@ describe("ProgramRepo", () => {
     ),
   )
 
-  it.effect("enrollments skip tombstones (newest first); active skips abandoned too", () =>
+  it.effect("enrollments skip tombstones (newest first); activeEnrollments skips abandoned", () =>
     run(
       Effect.gen(function* () {
         const repo = yield* ProgramRepo
@@ -225,37 +231,37 @@ describe("ProgramRepo", () => {
         const abandoned = yield* stored("00000000-0000-4000-8000-0000000000d2", {
           status: "abandoned",
         })
-        expect(Option.isNone(yield* repo.active)).toBe(true)
+        expect(yield* repo.activeEnrollments()).toEqual([])
         const live = yield* repo.enroll(PROGRAM_ID)
         expect((yield* repo.enrollments).map((e) => e.id)).toEqual([live.id, abandoned.id])
-        expect(Option.map(yield* repo.active, (e) => e.id)).toEqual(Option.some(live.id))
+        expect((yield* repo.activeEnrollments()).map((a) => a.enrollment.id)).toEqual([live.id])
       }),
     ),
   )
 
-  it.effect("abandon marks the row abandoned and dirty; a new enroll starts over", () =>
+  it.effect("setStatus abandoned marks the row dirty; a new enroll starts over", () =>
     run(
       Effect.gen(function* () {
         const repo = yield* ProgramRepo
         const old = yield* stored("00000000-0000-4000-8000-0000000000d3", {})
-        yield* repo.abandon(old.id)
+        yield* repo.setStatus(old.id, "abandoned")
         expect(yield* rows(`SELECT "status", "_dirty" FROM "program_enrollment"`)).toEqual([
           { status: "abandoned", _dirty: 1 },
         ])
-        expect(Option.isNone(yield* repo.active)).toBe(true)
+        expect(yield* repo.activeEnrollments()).toEqual([])
         const fresh = yield* repo.enroll(PROGRAM_ID)
         expect(fresh.id).not.toBe(old.id)
       }),
     ),
   )
 
-  it.effect("abandon and complete fail with StoreError(EnrollmentNotFound) for unknown ids", () =>
+  it.effect("setStatus and complete fail with StoreError(EnrollmentNotFound) for unknown ids", () =>
     run(
       Effect.gen(function* () {
         const repo = yield* ProgramRepo
         const id = ProgramEnrollmentId.make("00000000-0000-4000-8000-0000000000ee")
         const dead = yield* stored("00000000-0000-4000-8000-0000000000d4", { deletedAt: tombstone })
-        const abandonError = yield* Effect.flip(repo.abandon(id))
+        const abandonError = yield* Effect.flip(repo.setStatus(id, "abandoned"))
         const completeError = yield* Effect.flip(
           repo.complete({
             enrollmentId: dead.id,
@@ -277,11 +283,13 @@ describe("ProgramRepo", () => {
       Effect.gen(function* () {
         const repo = yield* ProgramRepo
         const live = yield* stored("00000000-0000-4000-8000-0000000000d5", { currentDay: 2 })
-        expect(Option.map(repo.todayFor(live), (d) => d.title)).toEqual(Option.some("Day 2 · Test"))
+        expect(Option.map(yield* repo.todayFor(live), (d) => d.title)).toEqual(
+          Option.some("Day 2 · Test"),
+        )
         const past = new ProgramEnrollment({ ...live, currentDay: 3, status: "completed" })
-        expect(Option.isNone(repo.todayFor(past))).toBe(true)
+        expect(Option.isNone(yield* repo.todayFor(past))).toBe(true)
         const unknown = new ProgramEnrollment({ ...live, programId: UNKNOWN_ID })
-        expect(Option.isNone(repo.todayFor(unknown))).toBe(true)
+        expect(Option.isNone(yield* repo.todayFor(unknown))).toBe(true)
       }),
     ),
   )
@@ -331,7 +339,7 @@ describe("ProgramRepo", () => {
         expect(yield* rows(`SELECT "status", "currentDay" FROM "program_enrollment"`)).toEqual([
           { status: "completed", currentDay: 3 },
         ])
-        expect(Option.isNone(yield* repo.active)).toBe(true)
+        expect(yield* repo.activeEnrollments()).toEqual([])
       }),
     ),
   )
@@ -546,6 +554,239 @@ describe("ProgramRepo.complete logs the day as a session", () => {
         expect(yield* rows(`SELECT "dayNumber" FROM "program_day_completion"`)).toEqual([
           { dayNumber: 1 },
         ])
+      }),
+    ),
+  )
+})
+
+const rowsLayer = ProgramRepo.layerNoDeps.pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      LocalStore.layerNoDeps.pipe(
+        Layer.provideMerge(Layer.mergeAll(nodeSqlDriverLayer, StoreEvents.layer)),
+      ),
+      IdGenerator.layerTest,
+      CurrentUser.layerTest(Option.none()),
+      DateTime.layerCurrentZoneNamed("Europe/Vilnius").pipe(Layer.orDie),
+      fakeLink([]),
+    ),
+  ),
+)
+
+/** The app's layer: built-ins plus the store's `program` rows. */
+const runRows = <A, E>(
+  body: Effect.Effect<A, E, ProgramRepo | LocalStore | StoreEvents | SqlDriver | IdGenerator>,
+) => TestClock.setTime(NOW).pipe(Effect.andThen(body), Effect.provide(rowsLayer))
+
+const USER_PROGRAM = Schema.decodeUnknownSync(UserProgram)({
+  id: "00000000-0000-4000-8000-0000000000f1",
+  userId: LOCAL_USER_ID,
+  createdAt: "2026-10-20T08:00:00.000Z",
+  updatedAt: "2026-10-20T08:00:00.000Z",
+  deletedAt: null,
+  title: "Zebra split",
+  slug: "zebra-split",
+  summary: "Three short days.",
+  description: null,
+  days: [day(1), day(2)],
+  schedule: { kind: "daysPerWeek", days: 3 },
+  source: "manual",
+  version: 1,
+})
+const USER_PROGRAM_ID = programIdOfRow(USER_PROGRAM.id)
+const PLANK = CatalogId.make("plank")
+const DEAD_BUG = CatalogId.make("dead-bug")
+
+describe("ProgramRepo statuses (v6b)", () => {
+  it.effect("complete on a paused enrollment fails EnrollmentNotActive and writes nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const paused = yield* stored("00000000-0000-4000-8000-0000000000c1", { status: "paused" })
+        const before = yield* version
+        const error = yield* Effect.flip(repo.complete(dayInput(paused.id, 1)))
+        expect(Predicate.isTagged(error.cause, "EnrollmentNotActive")).toBe(true)
+        expect(yield* version).toBe(before)
+        expect(yield* rows(`SELECT "id" FROM "program_day_completion"`)).toEqual([])
+      }),
+    ),
+  )
+
+  it.effect("setStatus on a completed enrollment fails EnrollmentTerminal and writes nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const done = yield* stored("00000000-0000-4000-8000-0000000000c2", {
+          status: "completed",
+          currentDay: 3,
+        })
+        const before = yield* version
+        const error = yield* Effect.flip(repo.setStatus(done.id, "active"))
+        expect(Predicate.isTagged(error.cause, "EnrollmentTerminal")).toBe(true)
+        expect(yield* version).toBe(before)
+      }),
+    ),
+  )
+
+  it.effect("setStatus pauses and resumes, dirty; the same status writes nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const live = yield* stored("00000000-0000-4000-8000-0000000000c3", {})
+        expect((yield* repo.setStatus(live.id, "paused")).status).toBe("paused")
+        const before = yield* version
+        yield* repo.setStatus(live.id, "paused")
+        expect(yield* version).toBe(before)
+        expect((yield* repo.setStatus(live.id, "active")).status).toBe("active")
+        expect(yield* rows(`SELECT "status", "_dirty" FROM "program_enrollment"`)).toEqual([
+          { status: "active", _dirty: 1 },
+        ])
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.dueToday", () => {
+  it.effect("lists two active programs and never a paused one", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const a = yield* repo.enroll(PROGRAM_ID)
+        const b = yield* repo.enroll(OTHER_ID)
+        yield* stored("00000000-0000-4000-8000-0000000000c4", {
+          status: "paused",
+          programId: CIRCUIT_ID,
+        })
+        const due = yield* repo.dueToday(DateTime.makeUnsafe(NOW))
+        // Same createdAt (TestClock): newest first falls back to id desc.
+        expect(due.map((entry) => entry.enrollment.id)).toEqual([b.id, a.id])
+        expect((yield* repo.activeEnrollments()).length).toBe(3)
+      }),
+    ),
+  )
+
+  it.effect("drops a program whose day was completed today; it is due again tomorrow", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* repo.enroll(PROGRAM_ID)
+        yield* repo.complete(dayInput(enrollment.id, 1))
+        expect(yield* repo.dueToday(DateTime.makeUnsafe(NOW))).toEqual([])
+        const tomorrow = yield* repo.dueToday(DateTime.makeUnsafe(NOW + 86_400_000))
+        expect(tomorrow.map((entry) => Option.map(entry.day, (d) => d.dayNumber))).toEqual([
+          Option.some(2),
+        ])
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo swaps", () => {
+  it.effect("a swap is applied to todayFor, plannedItems and the logged sets", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* repo.enroll(PROGRAM_ID)
+        const swapped = yield* repo.setSwap(enrollment.id, PLANK, Option.some(DEAD_BUG))
+        expect(swapped.swaps).toEqual([{ from: PLANK, to: DEAD_BUG }])
+        const today = yield* repo.todayFor(swapped)
+        expect(
+          Option.map(today, (d) => plannedItems(d).map((planned) => planned.item.catalogId)),
+        ).toEqual(Option.some([DEAD_BUG]))
+        yield* repo.complete(dayInput(enrollment.id, 1))
+        expect((yield* sets).map((set) => set.exerciseId)).toEqual([exerciseIdOf(DEAD_BUG)])
+      }),
+    ),
+  )
+
+  it.effect("setSwap with None reverts to the original exercise, dirty", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* repo.enroll(PROGRAM_ID)
+        yield* repo.setSwap(enrollment.id, PLANK, Option.some(DEAD_BUG))
+        const reverted = yield* repo.setSwap(enrollment.id, PLANK, Option.none())
+        expect(reverted.swaps).toEqual([])
+        expect(
+          Option.map(yield* repo.todayFor(reverted), (d) => d.items.map((i) => i.catalogId)),
+        ).toEqual(Option.some([PLANK]))
+        expect(yield* rows(`SELECT "swaps", "_dirty" FROM "program_enrollment"`)).toEqual([
+          { swaps: "[]", _dirty: 1 },
+        ])
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo user programs", () => {
+  it.effect("find returns a built-in and a user row as a Program", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        yield* repo.save(USER_PROGRAM)
+        expect(Option.map(yield* repo.find(CORE30.programId), (p) => p.name)).toEqual(
+          Option.some(CORE30.name),
+        )
+        const own = yield* repo.find(USER_PROGRAM_ID)
+        expect(Option.map(own, (p) => [p.name, p.days.length])).toEqual(
+          Option.some(["Zebra split", 2]),
+        )
+      }),
+    ),
+  )
+
+  it.effect("save inserts at the given version, then bumps it and keeps the slug", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        expect((yield* repo.save(USER_PROGRAM)).version).toBe(1)
+        const edited = yield* UserProgram.makeEffect({
+          ...USER_PROGRAM,
+          title: "Zebra split v2",
+          slug: "renamed",
+        })
+        const saved = yield* repo.save(edited)
+        expect([saved.version, saved.slug, saved.title]).toEqual([
+          2,
+          "zebra-split",
+          "Zebra split v2",
+        ])
+        expect(yield* rows(`SELECT "version", "_dirty" FROM "program"`)).toEqual([
+          { version: 2, _dirty: 1 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("list puts built-ins first, then rows, each with its running enrollment", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        yield* repo.save(USER_PROGRAM)
+        const enrollment = yield* repo.enroll(USER_PROGRAM_ID)
+        const list = yield* repo.list()
+        expect(list.map((s) => s.source)).toEqual(["builtin", "builtin", "manual"])
+        expect(Option.map(list[2]?.enrollment ?? Option.none(), (e) => e.enrollmentId)).toEqual(
+          Option.some(enrollment.id),
+        )
+      }),
+    ),
+  )
+
+  it.effect("deleteProgram is refused while enrolled and tombstones the row after leaving", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        yield* repo.save(USER_PROGRAM)
+        const enrollment = yield* repo.enroll(USER_PROGRAM_ID)
+        const error = yield* Effect.flip(repo.deleteProgram(USER_PROGRAM.id))
+        expect(Predicate.isTagged(error.cause, "ProgramInUse")).toBe(true)
+        yield* repo.setStatus(enrollment.id, "abandoned")
+        yield* repo.deleteProgram(USER_PROGRAM.id)
+        expect(Option.isNone(yield* repo.find(USER_PROGRAM_ID))).toBe(true)
+        expect(yield* rows(`SELECT "_dirty" FROM "program" WHERE "deletedAt" IS NOT NULL`)).toEqual(
+          [{ _dirty: 1 }],
+        )
       }),
     ),
   )

@@ -9,6 +9,7 @@ import {
   PlanWeek,
   Profile,
   Session,
+  totalsOf,
   WorkoutSet,
 } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Option, Schema } from "effect"
@@ -274,7 +275,51 @@ describe("seedMonth", () => {
     Effect.gen(function* () {
       const data = yield* run(1, endDate)
       expect([data.programEnrollment, data.programDayCompletion]).toEqual([[], []])
-      expect([data.importedActivity, data.dailyHealth]).toEqual([[], []])
+      expect(data.importedActivity).toEqual([])
     }),
+  )
+
+  it.effect("seeds 7 Garmin daily summaries ending on the end date, in realistic ranges", () =>
+    Effect.gen(function* () {
+      const data = yield* run(1, endDate)
+      expect(data.dailyHealth.map((d) => d.date)).toEqual([
+        "2026-10-14",
+        "2026-10-15",
+        "2026-10-16",
+        "2026-10-17",
+        "2026-10-18",
+        "2026-10-19",
+        "2026-10-20",
+      ])
+      const within = (value: Option.Option<number>, min: number, max: number) =>
+        Option.exists(value, (v) => v >= min && v <= max)
+      expect(
+        data.dailyHealth.every(
+          (d) =>
+            d.provider === "garmin" &&
+            d.userId === SEED_USER_ID &&
+            within(d.totalCalories, 2300, 2900) &&
+            within(d.activeCalories, 300, 900) &&
+            within(d.steps, 4000, 12000) &&
+            within(d.restingHeartRate, 48, 56),
+        ),
+      ).toBe(true)
+    }),
+  )
+})
+
+describe("seedMonth nutrition", () => {
+  it.effect(
+    "seeds a nutrition profile and 10 food entries on the last three days, totals = totalsOf(items)",
+    () =>
+      Effect.gen(function* () {
+        const data = yield* run(1, endDate)
+        expect(Option.isSome(data.profile[0]?.nutrition ?? Option.none())).toBe(true)
+        expect(data.foodEntry.length).toBe(10)
+        expect(
+          Arr.dedupe(data.foodEntry.map((e) => DateTime.formatIso(e.loggedAt).slice(0, 10))),
+        ).toEqual(["2026-10-18", "2026-10-19", "2026-10-20"])
+        expect(data.foodEntry.every((e) => totalsOf(e.items).kcal === e.kcal)).toBe(true)
+      }),
   )
 })

@@ -1,9 +1,11 @@
 import {
   type AccountErasure,
   type ActivityExportRepo,
+  FoodEntryRepo,
   GarminImportRepo,
   type IntegrationRepo,
   type OAuthCodeUseRepo,
+  UserProgramRepo,
   type UserTokens,
 } from "@tanren/db"
 import { IdGenerator } from "@tanren/shared"
@@ -69,6 +71,8 @@ export type Persistence =
   | OAuthCodeUseRepo
   | AccountErasure
   | GarminImportRepo
+  | FoodEntryRepo
+  | UserProgramRepo
 
 export interface AppServices {
   readonly auth: AuthMode
@@ -109,6 +113,8 @@ export const d1Persistence = (db: D1Database): Layer.Layer<Persistence> =>
     SyncStore.layer,
     // Garmin imports write through the same SyncStore (garmin.md §2); one SyncStore per build.
     GarminImportRepo.layer.pipe(Layer.provide(Layer.merge(SyncStore.layer, IdGenerator.layer))),
+    FoodEntryRepo.layer.pipe(Layer.provide(SyncStore.layer)),
+    UserProgramRepo.layer.pipe(Layer.provide(SyncStore.layer)),
   ).pipe(Layer.provide(D1Layer(db)), Layer.orDie)
 
 /** CORS for the allowed origins, with cookies (`HttpRouter.cors` also answers preflights). */

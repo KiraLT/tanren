@@ -30,7 +30,29 @@
           background: #0f1113;
         }
       }
+      html[data-theme="light"],
+      html[data-theme="light"] body {
+        background: #ffffff;
+      }
+      html[data-theme="dark"],
+      html[data-theme="dark"] body {
+        background: #0f1113;
+      }
     </style>
+    <!-- The app's stored theme (localStorage "tanren.theme" = "system" | "light" | "dark",
+         src/ui/themePreferenceStore.web.ts) can differ from the OS scheme: mark it on <html> before
+         React mounts so a reload never paints the other scheme's bg first. "system", absent or
+         blocked storage leaves the media query above in charge. -->
+    <script>
+      try {
+        const stored = localStorage.getItem("tanren.theme");
+        if (stored === "light" || stored === "dark") {
+          document.documentElement.setAttribute("data-theme", stored);
+        }
+      } catch {
+        // Storage blocked (private mode): the media query decides.
+      }
+    </script>
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

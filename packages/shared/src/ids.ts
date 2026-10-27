@@ -44,6 +44,12 @@ export type ImportedActivityId = typeof ImportedActivityId.Type
 export const DailyHealthId = Uuid.pipe(Schema.brand("DailyHealthId"))
 export type DailyHealthId = typeof DailyHealthId.Type
 
+export const FoodEntryId = Uuid.pipe(Schema.brand("FoodEntryId"))
+export type FoodEntryId = typeof FoodEntryId.Type
+
+export const UserProgramId = Uuid.pipe(Schema.brand("UserProgramId"))
+export type UserProgramId = typeof UserProgramId.Type
+
 export const LocationId = Uuid.pipe(Schema.brand("LocationId"))
 export type LocationId = typeof LocationId.Type
 

@@ -1,13 +1,14 @@
 import type { UserId } from "@tanren/shared"
-import { Effect, Fiber, Option, Stream } from "effect"
+import { Effect, Option, Stream } from "effect"
 import { useEffect, useState } from "react"
 import { type GateDecision, gateFor } from "../services/authGate"
 import { CurrentUser, gateAccount, localSetCount } from "../services/CurrentUser"
 import { runtime } from "../services/runtime"
+import { runFailed } from "./runExit"
 
 type GateState =
   | { readonly _tag: "Loading" }
-  /** The runtime could not be built (store error, second tab): the screens show their own errors. */
+  /** Runtime build or gate program failed (store error, second tab): screens show their own errors. */
   | { readonly _tag: "Failed" }
   | {
       readonly _tag: "Ready"
@@ -18,13 +19,17 @@ type GateState =
 /**
  * The sign-in gate (ADR-0019) for `route`: `"loading"` until `CurrentUser` and the local store
  * answered (the layout renders no screen meanwhile), then `gateFor`. Follows `CurrentUser.changes`,
- * so the native sign-in exchange lifts the gate without a reload. A failed runtime allows: the
- * gate is about an absent account, not about a broken store.
+ * so the native sign-in exchange lifts the gate without a reload. A build failure shows only in the
+ * exit, a program failure in `catchCause`; both → `Failed` → allow: the gate is about an absent
+ * account, not about a broken store, and the screens show their own store error.
  */
 export const useAuthGate = (route: string): GateDecision | "loading" => {
   const [state, setState] = useState<GateState>({ _tag: "Loading" })
   useEffect(() => {
-    const fiber = runtime.runFork(
+    // `runCallback`, not `runFork`: a runtime BUILD failure (`DatabaseInUse` from a second tab,
+    // `StoreError`) never reaches the program's `catchCause`; it only shows in the exit, and
+    // without this the gate stayed "loading" and the layout rendered nothing (HOTFIX-1).
+    const cancel = runtime.runCallback(
       CurrentUser.use((user) =>
         Stream.runForEach(user.changes, (signedIn) =>
           Effect.gen(function* () {
@@ -35,9 +40,16 @@ export const useAuthGate = (route: string): GateDecision | "loading" => {
           }),
         ),
       ).pipe(Effect.catchCause(() => Effect.sync(() => setState({ _tag: "Failed" })))),
+      {
+        onExit: (exit) => {
+          if (runFailed(exit)) {
+            setState({ _tag: "Failed" })
+          }
+        },
+      },
     )
     return () => {
-      runtime.runFork(Fiber.interrupt(fiber))
+      cancel()
     }
   }, [])
   if (state._tag === "Loading") {

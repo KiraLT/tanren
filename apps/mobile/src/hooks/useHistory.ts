@@ -3,6 +3,7 @@ import { type DateTime, Effect, Exit, type Option, Stream } from "effect"
 import { useCallback, useEffect, useState } from "react"
 import type { FeedRepo } from "../services/FeedRepo"
 import { type ExerciseHistory, type ExerciseSummary, HistoryRepo } from "../services/HistoryRepo"
+import type { NutritionRepo } from "../services/NutritionRepo"
 import { failureMessage, runtime } from "../services/runtime"
 import type { StoreError } from "../services/SqlDriver"
 import { StoreEvents } from "../services/StoreEvents"
@@ -22,7 +23,7 @@ export type HistoryState<A> =
 /** A read against the app runtime's repos; keep its identity stable (module level). */
 export type StoreRead<Arg, A> = (
   arg: Arg,
-) => Effect.Effect<A, StoreError, HistoryRepo | FeedRepo | DateTime.CurrentTimeZone>
+) => Effect.Effect<A, StoreError, HistoryRepo | FeedRepo | NutritionRepo | DateTime.CurrentTimeZone>
 
 /** Module-level readers: stable identities, so they can sit in the effect's dependencies. */
 const readExercises: StoreRead<undefined, ReadonlyArray<ExerciseSummary>> = () =>

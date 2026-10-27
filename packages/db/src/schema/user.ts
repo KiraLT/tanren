@@ -15,6 +15,8 @@ export const profile = sqliteTable(
     timezone: text("timezone").notNull(),
     locations: text("locations").notNull().default("[]"),
     activeLocationId: text("active_location_id"),
+    /** `NutritionProfile` JSON, or null when the user has not set nutrition goals. */
+    nutrition: text("nutrition"),
   },
   (t) => [
     uniqueIndex("profile_user_id_unique").on(t.userId),

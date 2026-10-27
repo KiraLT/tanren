@@ -329,3 +329,32 @@ Recorded 2026-10-19, from the owner's kickoff message:
    Worker cannot serve is split expand → migrate live D1 → deploy → contract,
    and every deploy applies pending migrations to production before the
    Worker upload (`scratchpad/deploy.sh` `MIGRATE=1`, `docs/design/deploy.md`).
+24. **MCP reads everything, integrations included** (2026-10-27 16:09, owner,
+   verbatim, after reading the Garmin copy "never shared with third parties
+   or used by the AI planning tools" and asking "You mean MCP cant access this
+   info or what?"): "Going back to MCP, it should be able to access all info:
+   including synced from integrations". Lead reading: every row Tanren stores
+   for the user is readable through the MCP connector — training, nutrition,
+   profile, and the data imported from integrations (Garmin activities and
+   daily summaries; Strava is push-only, nothing to read). v6 already returns
+   daily summaries in `get_nutrition_day` / `get_week_review`; a
+   `list_activities(period)` tool and an imported-activities summary in
+   `get_overview` follow (N-S4, `docs/tasks/v6-nutrition.md`), and the Garmin
+   copy in Settings, `docs/design/garmin.md` §10 and the privacy page say so
+   ("never shared with third parties; your own Claude reads it through the MCP
+   connector when you ask").
+25. **Program day preview** (2026-10-27 16:10, owner, verbatim, three
+   messages): "https://tanren.me/programs -> you should be able to preview
+   each day for the program" / "Including today without starting" / "each day
+   program on click". Lead reading: on a program's detail every day — today's
+   and the current one included — is pressable and opens a read-only preview
+   of that day (items with mode and targets, rest, the day's stats and its
+   position in the program) without enrolling or starting anything; a "Start
+   this day" action appears only for the enrolled program's current day. Works
+   for built-in and user programs (P-M5, `docs/tasks/v6b-programs.md`).
+26. **Resting heart rate off Today** (2026-10-27 16:18, owner, verbatim): "Also
+   I think you can drop bpm from UI- or do you think we need it somewhere?"
+   Lead reading: the Today health module shows calories left, eaten, burned,
+   protein and steps; resting heart rate is dropped there and kept only on the
+   Health screen as a small weekly trend stat (it is a recovery signal worth a
+   glance, not a daily headline). Recorded in `docs/design/health-module.md`.

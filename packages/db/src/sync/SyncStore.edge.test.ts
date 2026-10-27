@@ -1,5 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { PullRequest, PushRequest, type SyncChange, SyncCursor, UserId } from "@tanren/shared"
+import {
+  PullRequest,
+  PushRequest,
+  SYNC_TABLE_ORDER,
+  type SyncChange,
+  SyncCursor,
+  UserId,
+} from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Layer, Option, Order, Result, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import {
@@ -337,8 +344,8 @@ describe("SyncStore.pull edges", () => {
         "-1:0:-",
         `1:0:${"g".repeat(36)}`,
         "99999999999999999999:0:-",
-        // Ranks 10 and 11 are real since GM-2 (importedActivity, dailyHealth); past the last is not.
-        "1:12:-",
+        // Every rank below SYNC_TABLE_ORDER.length is real; past the last is not.
+        `1:${SYNC_TABLE_ORDER.length}:-`,
         "1:100:-",
       ]
       yield* Effect.forEach(bad, (raw) =>

@@ -5,6 +5,7 @@ import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import {
   Button,
+  type ButtonVariant,
   Card,
   gutter,
   ListGroup,
@@ -12,6 +13,7 @@ import {
   ProgressRing,
   rhythm,
   StatRow,
+  StatusPill,
   sizes,
   space,
   stepperSizeFor,
@@ -24,13 +26,11 @@ import {
   dayDisc,
   dayMinutes,
   dayStateLabel,
-  daySubtitle,
   daysDone,
   dayTrailing,
   doneLabel,
   insideRows,
   programProgress,
-  programStats,
   weekWindow,
 } from "../programDays"
 
@@ -50,10 +50,20 @@ interface EnrolCardProps {
   readonly program: Program
   readonly enrolling: boolean
   readonly onEnrol: () => void
+  /** "Start program" (default) or "Start alongside" when another program runs. */
+  readonly startLabel?: string
+  /** The caption under the title: "30 days · 4–18 min" (`summarySubtitle`, as on the tab row). */
+  readonly meta: string
 }
 
 /** No active enrollment: what the program is and one primary pill to start it. */
-export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
+export function EnrolCard({
+  program,
+  enrolling,
+  onEnrol,
+  startLabel = "Start program",
+  meta,
+}: EnrolCardProps) {
   const desktop = useBreakpoint() === "desktop"
   return (
     // Desktop: a "Program" eyebrow (same 28-px slot as "What's inside" on the right) so both
@@ -63,7 +73,7 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
         <Text
           variant="caption"
           tone="muted"
-          accessibilityRole="header"
+          headingLevel={2}
           style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
         >
           Program
@@ -83,18 +93,21 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
               size={desktop ? sizes.illustrationLg : sizes.illustrationSm}
             />
             <View style={{ flex: 1, gap: space.xs }}>
-              <Text variant={desktop ? "display" : "title2"} accessibilityRole="header">
+              <Text variant={desktop ? "display" : "title2"} headingLevel={2}>
                 {program.name}
               </Text>
+              <Text variant="caption" tone="muted">
+                {meta}
+              </Text>
               <Text variant="subhead" tone="muted">
-                {`${program.tagline} · ${program.days.length} days`}
+                {program.tagline}
               </Text>
             </View>
           </View>
           <Text>{program.description}</Text>
           <Button
-            label={`Start ${program.name}`}
-            accessibilityLabel={`Enrol in ${program.name}`}
+            label={startLabel}
+            accessibilityLabel={`${startLabel}: ${program.name}`}
             icon="zap"
             variant="primary"
             size="lg"
@@ -111,46 +124,29 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
  * Not enrolled, phone: "What's inside", the first week of days (name left, minutes right) under
  * the enrol card, so the page is not half empty.
  */
-export function ProgramInside({
-  program,
-  flush = false,
-}: {
-  readonly program: Program
-  /** Desktop side column: nothing above it, so no card -> label offset. */
-  readonly flush?: boolean
-}) {
+export function ProgramInside({ program }: { readonly program: Program }) {
   return (
     // The Page's section gap is 16; the card -> label gap is 24 (rhythm.groupToLabel).
     <View
       style={{
         gap: rhythm.labelToGroup,
-        marginTop: flush ? 0 : rhythm.groupToLabel - space.lg,
+        marginTop: rhythm.groupToLabel - space.lg,
       }}
     >
       <Text
         variant="caption"
         tone="muted"
-        accessibilityRole="header"
+        headingLevel={2}
         style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
       >
         What's inside
       </Text>
       <ListGroup>
-        {Arr.map(insideRows(program.days), (row, index) => (
+        {Arr.map(insideRows(program.days), (row) => (
           <ListRow
             key={row.dayNumber}
             title={row.title}
             titleVariant="body"
-            // Desktop only (390/768 unchanged): 64-high rows with the routine size as subtitle.
-            {...(flush
-              ? {
-                  subtitle: Option.match(Arr.get(program.days, index), {
-                    onNone: () => "",
-                    onSome: daySubtitle,
-                  }),
-                  style: { minHeight: sizes.rowTall },
-                }
-              : {})}
             accessibilityLabel={`${row.title}, ${row.trailing}`}
             trailing={
               <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
@@ -164,24 +160,26 @@ export function ProgramInside({
   )
 }
 
-/** Not enrolled, desktop right column: "What's inside" (first week) and the three program stats. */
-export function ProgramPreview({ program }: { readonly program: Program }) {
-  return (
-    <View style={{ gap: rhythm.groupToLabel }}>
-      <ProgramInside program={program} flush />
-      <StatRow variant="tile" items={programStats(program.days)} />
-    </View>
-  )
-}
-
 interface DayCardProps {
   readonly program: Program
   readonly day: ProgramDay
   readonly onStart: () => void
+  /** A paused enrollment shows the "Paused" pill and "Resume" in place of "Start day N". */
+  readonly paused: boolean
+  readonly onResume: () => void
+  /** The Resume pill: primary on the detail hero (default), secondary in the tab's list. */
+  readonly resumeVariant?: ButtonVariant
 }
 
 /** The enrolled program: progress ring, name, "Day 2 of 30 · …" and the one primary pill. */
-export function DayCard({ program, day, onStart }: DayCardProps) {
+export function DayCard({
+  program,
+  day,
+  onStart,
+  paused,
+  onResume,
+  resumeVariant = "primary",
+}: DayCardProps) {
   const total = program.days.length
   return (
     <Card>
@@ -198,21 +196,37 @@ export function DayCard({ program, day, onStart }: DayCardProps) {
             </Text>
           </ProgressRing>
           <View style={{ flex: 1, gap: space.xs }}>
-            <Text variant="title2" accessibilityRole="header">
+            <Text variant="title2" headingLevel={2}>
               {program.name}
             </Text>
             <Text variant="subhead" tone="muted">
               {dayCardLine(day, total)}
             </Text>
+            {paused ? (
+              // The pill's `surface` fill vanishes on the card: pull its text onto the text edge.
+              <StatusPill tone="neutral" label="Paused" style={{ marginLeft: -space.sm }} />
+            ) : null}
           </View>
         </View>
-        <Button
-          label={`Start day ${day.dayNumber}`}
-          icon="zap"
-          variant="primary"
-          size="lg"
-          onPress={onStart}
-        />
+        {paused ? (
+          <Button
+            label="Resume"
+            accessibilityLabel={`Resume ${program.name}`}
+            icon="play"
+            variant={resumeVariant}
+            size="lg"
+            onPress={onResume}
+          />
+        ) : (
+          <Button
+            label={`Start day ${day.dayNumber}`}
+            accessibilityLabel={`Start day ${day.dayNumber} of ${program.name}`}
+            icon="zap"
+            variant="primary"
+            size="lg"
+            onPress={onStart}
+          />
+        )}
       </View>
     </Card>
   )
@@ -254,12 +268,7 @@ interface DayItemsProps {
 export function DayItems({ day }: DayItemsProps) {
   return (
     <View style={{ gap: rhythm.labelToGroup }}>
-      <Text
-        variant="caption"
-        tone="muted"
-        accessibilityRole="header"
-        style={{ paddingLeft: space.lg }}
-      >
+      <Text variant="caption" tone="muted" headingLevel={2} style={{ paddingLeft: space.lg }}>
         {`Day ${day.dayNumber} exercises`}
       </Text>
       <ListGroup>
@@ -304,7 +313,7 @@ export function DayList({ program, currentDay }: DayListProps) {
           paddingHorizontal: space.lg,
         }}
       >
-        <Text variant="caption" tone="muted" accessibilityRole="header">
+        <Text variant="caption" tone="muted" headingLevel={2}>
           {wide ? "Days" : "This week"}
         </Text>
         <Text variant="caption" tone="accent">

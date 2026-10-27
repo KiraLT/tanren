@@ -30,6 +30,8 @@ describe("migrations v2", () => {
         "status",
         "currentDay",
         ...sync,
+        // v6 ALTER TABLE appends it after the sync columns.
+        "swaps",
       ])
       expect(yield* columnsOf("program_day_completion")).toEqual([
         "id",
@@ -103,8 +105,7 @@ describe("migrations v4", () => {
     Effect.gen(function* () {
       const driver = yield* SqlDriver
       yield* migrate(driver)
-      expect(MIGRATIONS.length).toBe(4)
-      expect(yield* userVersion(driver)).toBe(4)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       const sync = ["createdAt", "updatedAt", "deletedAt", "_dirty", "_rejected"]
       expect(yield* columnsOf("imported_activity")).toEqual([
         "id",
@@ -156,11 +157,124 @@ describe("migrations v4", () => {
         },
       ])
       yield* migrate(driver)
-      expect(yield* userVersion(driver)).toBe(4)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       expect(yield* driver.all({ sql: `SELECT "name" FROM "exercise"`, params: [] })).toEqual([
         { name: "Squat" },
       ])
       expect(yield* driver.all({ sql: `SELECT * FROM "daily_health"`, params: [] })).toEqual([])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
+describe("migrations v5", () => {
+  const indexesOf = (table: string) =>
+    SqlDriver.use((driver) =>
+      driver.all({ sql: `PRAGMA index_list("${table}")`, params: [] }),
+    ).pipe(Effect.map((rows) => rows.map((row) => String(row.name))))
+
+  it.effect("creates food_entry with its indexes and adds profile.nutrition", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
+      expect(yield* columnsOf("food_entry")).toEqual([
+        "id",
+        "userId",
+        "loggedAt",
+        "meal",
+        "source",
+        "items",
+        "kcal",
+        "proteinG",
+        "carbsG",
+        "fatG",
+        "note",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "_dirty",
+        "_rejected",
+      ])
+      expect(yield* indexesOf("food_entry")).toEqual(
+        expect.arrayContaining(["food_entry_logged", "food_entry_dirty"]),
+      )
+      expect(yield* columnsOf("profile")).toContain("nutrition")
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+
+  it.effect("upgrades a v4 store in place, keeping its profile with nutrition null", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* driver.batch([
+        ...MIGRATIONS.slice(0, 4)
+          .flat()
+          .map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 4", params: [] },
+        {
+          sql: `INSERT INTO "profile" ("id", "userId", "goals", "constraints", "availableDays", "equipment", "timezone", "createdAt", "updatedAt")
+            VALUES ('u1', 'u1', '[]', '[]', '[]', '[]', 'Europe/Vilnius', 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
+      expect(
+        yield* driver.all({ sql: `SELECT "id", "nutrition" FROM "profile"`, params: [] }),
+      ).toEqual([{ id: "u1", nutrition: null }])
+      expect(yield* driver.all({ sql: `SELECT * FROM "food_entry"`, params: [] })).toEqual([])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
+describe("migrations v6", () => {
+  it.effect("creates program with its dirty index; the store is at version 6", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* migrate(driver)
+      expect(MIGRATIONS.length).toBe(6)
+      expect(yield* userVersion(driver)).toBe(6)
+      expect(yield* columnsOf("program")).toEqual([
+        "id",
+        "userId",
+        "title",
+        "slug",
+        "summary",
+        "description",
+        "days",
+        "schedule",
+        "source",
+        "version",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "_dirty",
+        "_rejected",
+      ])
+      const indexes = yield* driver.all({ sql: `PRAGMA index_list("program")`, params: [] })
+      expect(indexes.map((row) => String(row.name))).toContain("program_dirty")
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+
+  it.effect("upgrades a v5 store in place: existing enrollments get swaps '[]'", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* driver.batch([
+        ...MIGRATIONS.slice(0, 5)
+          .flat()
+          .map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 5", params: [] },
+        {
+          sql: `INSERT INTO "program_enrollment" ("id", "userId", "programId", "startedOn", "status", "currentDay", "createdAt", "updatedAt")
+            VALUES ('pe1', 'u1', 'core-30', '2026-10-01', 'active', 3, 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(6)
+      expect(
+        yield* driver.all({ sql: `SELECT "id", "swaps" FROM "program_enrollment"`, params: [] }),
+      ).toEqual([{ id: "pe1", swaps: "[]" }])
+      expect(yield* driver.all({ sql: `SELECT * FROM "program"`, params: [] })).toEqual([])
     }).pipe(Effect.provide(nodeSqlDriverLayer)),
   )
 })

@@ -166,8 +166,8 @@ extra: 1.9 }` (primary source unverified in the note; convention). Goal factor: 
 `maintain ×1.00`, `gain_muscle ×1.10` (Iraki 2019). Floor 1200. kcal rounded to the nearest 10. Protein g/kg:
 `lose_weight 2.2`, `gain_muscle 1.8`, `maintain 1.6` (ISSN 2017), rounded to 5. Overrides win:
 `kcal = Option.getOrElse(p.kcalTarget, derived)`, same for protein.
-Pinned test values (today = 2026-10-27): male 85 kg 180 cm born 1990 moderate gain → BMR 1 807.5 → TDEE 2 801.6
-→ ×1.10 = 3 081.8 → **3 080**; protein 85 × 1.8 = 153 → **155**. Fallback 85 kg no height, light, lose →
+Pinned test values (today = 2026-10-27): male 85 kg 180 cm born 1990 moderate gain → BMR 1 800 (850 + 1 125 − 180 + 5) → TDEE 2 790
+→ ×1.10 = 3 069 → **3 070** (corrected 2026-10-27 by N-F0; the earlier 1 807.5 / 3 080 was an arithmetic slip); protein 85 × 1.8 = 153 → **155**. Fallback 85 kg no height, light, lose →
 1 870 × 1.375 = 2 571.25 × 0.80 = 2 057 → **2 060**; protein 187 → **185**. Maintain 70 kg sedentary, no
 height → 1 540 × 1.2 = 1 848 → **1 850**; protein **110** (112 → 110). Floor case: 40 kg sedentary lose → 845.6 →
 **1 200**.
@@ -235,16 +235,27 @@ Writes `FoodEntry { source: "quick_add", items: [item × multiplier], loggedAt: 
 **Settings → Nutrition** `app/settings/nutrition.tsx` + `src/components/settings/NutritionSection.tsx`
 (`ListRow title="Nutrition & goals" subtitle=<goal label · "2 800 kcal · 170 g"> chevron` inserted after
 `EquipmentSection` in `app/settings.tsx`): `SegmentedControl` goal (3), `Stepper` weight (0.5 kg), optional
-`Stepper`s height/birth year, `SegmentedControl` sex (2 + "skip"), `SegmentedControl` activity (4 at 358 =
-89.5 ✓), derived targets shown as `StatRow tile` 2 items ((358 − 8)/2 = 175 ✓) with "Edit" → override
+`Stepper`s height/birth year, `SegmentedControl` sex (2 + "skip"), activity as five radio `ListRow`s with
+subtitles (as landed: activity has 5 values, and a 5-option `SegmentedControl` scrolls at 358), derived targets shown as `StatRow tile` 2 items ((358 − 8)/2 = 175 ✓) with "Edit" → override
 `Stepper`s (kcal 50 steps, protein 5); a `ListRow title="Eat back active calories" subtitle="Adds Garmin active
 calories to the day's budget" trailing=<Switch>` (RN `Switch`, 44 tap; default off; hidden when Garmin is not
-connected — `useIntegrations().garmin.status !== "connected"`). The strip's and hero's burned value carries
+connected — `useIntegrationsOverview()` garmin `state !== "connected"`; the row announces as a switch through
+`ListRow checked`, the Switch itself is hidden from assistive tech). The strip's and hero's burned value carries
 "as of HH:MM" from `burnedAsOf` in the accessibility label and as a `label`-variant suffix on Health only.
 Saves via `ProfileRepo.save({ nutrition: Option.some(...) })`
 (`apps/mobile/src/services/ProfileRepo.ts` `save(patch: ProfilePatch)`); "Turn off" → `nutrition: None`.
 Theme: both; measured screenshots at 390 and 1280, light and dark: Today with both strips, Health Ready, Health
 Off, quick-add, settings nutrition (gallery badges **N1–N6**).
+
+**§6 amendment (as landed, 2026-10-27; nutri-food truth-up, nutri-today D7/D9/D10/D11 ratified by the Lead).** The
+table's `VERIFY`s resolved: there is no `Banner tone="neutral"` (insights are `Banner info`) and no `IconButton tone`
+prop (the food-log trash uses the plain `IconButton`). Health hero: four tiles, 2×2 on phone (4-up dense truncated
+"kcal eaten"), one dense row from tablet up. Week card: a 2×2 grid of two `StatRow plain` rows (`plain` ignores
+`direction`). `DayBars`: burned bar `textMuted` (not the border tone; ≥ 3:1 in both schemes), a `surface` track per
+column, a legend row "Eaten / Burned", bars 18 wide (28 at desktop), 164 high in all (legend 16 + 8 + bars 120 + 4 +
+letter 16). Desktop 1280: `Columns 7/5` inside `Page wide`, main/side 658/470 (as `/activity`). Quick-add meal picker:
+five `ToggleChip`s in a radiogroup (a 5-option `SegmentedControl` scrolls at 358). Designer findings F1–F5:
+`docs/design/reviews/UI-NUTRI-r1.md`.
 
 ## 7. Quick-add catalog (`packages/shared/src/nutrition/quickAdd.ts`; `QUICK_ADD: ReadonlyArray<QuickAddItem>`)
 `QuickAddItem = { id: string (slug), name: Label, portion: Label, grams: Option<number>, kcal, proteinG, carbsG, fatG,
@@ -255,8 +266,8 @@ and records the FDC id per row in a comment; a row it cannot verify is dropped, 
 (ODbL, share-alike) is the v2 barcode option, called live, never mirrored into D1 (research §Food data).
 | id | name | portion | g | kcal | P | C | F | meal | aliases |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| whey-scoop | Whey protein shake | 1 scoop in water, 30 g | 30 | 120 | 24 | 3 | 1.5 | supplement | shake, protein |
-| whey-milk | Whey shake with milk | 1 scoop + 300 ml milk | 330 | 270 | 34 | 17 | 7 | supplement | shake |
+| whey-scoop | Whey protein shake | 1 scoop in water, 30 g | 30 | 106 | 23.4 | 1.9 | 0.5 | supplement | shake, protein |
+| whey-milk | Whey shake with milk | 1 scoop + 300 ml 2 % milk | 335 | 258 | 33.5 | 16.5 | 6.5 | supplement | shake |
 | protein-bar | Protein bar | 1 bar, 60 g | 60 | 220 | 20 | 22 | 7 | snack | bar |
 | creatine | Creatine monohydrate | 5 g | 5 | 0 | 0 | 0 | 0 | supplement | creatine |
 | casein | Casein shake | 1 scoop, 30 g | 30 | 110 | 24 | 3 | 1 | supplement | |
@@ -281,17 +292,19 @@ and records the FDC id per row in a comment; a row it cannot verify is dropped, 
 | olive-oil | Olive oil | 1 tbsp, 14 g | 14 | 120 | 0 | 0 | 14 | dinner | oil |
 | coffee-milk | Coffee with milk | 1 cup | 200 | 40 | 2 | 3 | 2 | breakfast | latte, cappuccino |
 | beer | Beer | 500 ml | 500 | 215 | 2 | 18 | 0 | snack | |
-Test pins: 26 items, unique ids, every `totalsOf([item])` equals the row, `search("shake")` returns 3 (whey-scoop,
-whey-milk, casein — "shake" is in two names and one alias).
+Test pins (as landed by N-F0, 2026-10-27): 23 items (casein, protein bar, creatine dropped: not verifiable in USDA SR
+Legacy), unique ids, every `totalsOf([item])` equals the row, `searchQuickAdd("shake")` returns 2 (whey-scoop, whey-milk).
 
 ## 8. End-to-end recipe (QA, N-Q1 local; N-Q2 production)
 Local: worker `pnpm dev` (`GARMIN_MODE=console` for the fixture burn) + web; sign in; Settings → Nutrition → goal
-gain, 85 kg, moderate → shows "3 100 kcal · 170 g" (fallback path: 85 × 22 = 1 870 × 1.55 = 2 898.5 + 300 = 3 200,
-protein 170 — the `VERIFY` numbers must match §4's pins once height is added); MCP Inspector or the
+gain, 85 kg, moderate, no height → shows "3,190 kcal · 155 g" (§4 fallback: 22 × 85 = 1,870 × 1.55 = 2,898.5 ×
+1.10 = 3,188.35 → 3,190; protein 85 × 1.8 = 153 → 155); add 180 cm, born 1990, male → "3,070 kcal · 155 g" (§4's
+Mifflin pin); MCP Inspector or the
 `McpRoute.workerd.test.ts` harness: `tools/call log_food { meal: "lunch", items: [{ name: "Chicken rice bowl",
-portion: "1 bowl", kcal: 650, proteinG: 45, carbsG: 70, fatG: 15 }] }` → `day.kcalLeft = 2550` (or 2450 with the
-fallback); app sync → Today strip "2 550 kcal left · Eaten 650"; Health hero and food log show the entry;
-quick-add Whey ×1 → strip 2 430 left; delete the bowl from the log → Undo → still there; `get_week_review` →
+portion: "1 bowl", kcal: 650, proteinG: 45, carbsG: 70, fatG: 15 }] }` → `day.kcalLeft = 2420` (Mifflin; 2540 on the
+fallback; eat-back off); app sync → Today strip "2,420 kcal left · Eaten 650"; Health hero and food log show the entry;
+quick-add Whey ×1 (106 kcal, §7) → strip 2,314 left; delete the bowl from the log → Undo → still there; with
+Garmin connected (`GARMIN_MODE=console`, or the month seed's 7 `daily_health` rows) the Health burned bars show; `get_week_review` →
 `daysLogged = 1`, `workoutsPlanned` = this week's plan count. Production (owner): Claude app → photo of a meal →
 "log it" → Claude calls `log_food` → Today strip updates after the next sync (≤ 1 min foreground). Screenshots
 N1–N6 both themes, both widths.

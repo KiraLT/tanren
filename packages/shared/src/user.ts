@@ -74,6 +74,44 @@ const uniqueLocationIds = Schema.makeFilter(
     },
 )
 
+// Nutrition (ADR-0025, nutrition.md §1)
+
+export const NutritionGoal = Schema.Literals(["gain_muscle", "lose_weight", "maintain"])
+export type NutritionGoal = typeof NutritionGoal.Type
+
+export const ActivityLevel = Schema.Literals(["sedentary", "light", "moderate", "active", "extra"])
+export type ActivityLevel = typeof ActivityLevel.Type
+
+export const Sex = Schema.Literals(["male", "female"])
+export type Sex = typeof Sex.Type
+
+/**
+ * An optional fact: the key may be absent or `null` on the wire (both decode to `None`, `None`
+ * encodes to `null`), and constructors default it to `None` (same idiom as `activeLocationId`).
+ */
+const optionalFact = <S extends Schema.Top>(schema: S) =>
+  Schema.OptionFromOptionalNullOr(schema, { onNoneEncoding: null }).pipe(
+    Schema.withConstructorDefault(Effect.succeed(Option.none())),
+  )
+
+export const NutritionProfile = Schema.Struct({
+  goal: NutritionGoal,
+  bodyWeightKg: Schema.Number.check(Schema.isBetween({ minimum: 30, maximum: 300 })),
+  heightCm: optionalFact(Schema.Number.check(Schema.isBetween({ minimum: 120, maximum: 230 }))),
+  birthYear: optionalFact(Schema.Int.check(Schema.isBetween({ minimum: 1920, maximum: 2020 }))),
+  sex: optionalFact(Sex),
+  activityLevel: ActivityLevel,
+  /** ADR-0025 §1: add Garmin `activeCalories` to the day's budget (floored at 0). Default false. */
+  eatBackActive: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+    Schema.withConstructorDefault(Effect.succeed(false)),
+  ),
+  /** Manual overrides; `None` = derived by `nutritionTargets` (nutrition.md §4). */
+  kcalTarget: optionalFact(Schema.Int.check(Schema.isBetween({ minimum: 800, maximum: 8000 }))),
+  proteinTargetG: optionalFact(Schema.Int.check(Schema.isBetween({ minimum: 20, maximum: 500 }))),
+})
+export type NutritionProfile = typeof NutritionProfile.Type
+
 export const ProfileFields = {
   /** Ordered by priority. */
   goals: Schema.Array(Goal).check(Schema.isMaxLength(10)),
@@ -96,6 +134,10 @@ export const ProfileFields = {
   ),
   /** IANA zone name, used by the server/MCP to compute "today". */
   timezone: TimeZone,
+  /** Nutrition goal and body facts; `None` = tracking off. Missing key = `None` (pre-v6 peers). */
+  nutrition: Schema.OptionFromOptionalNullOr(NutritionProfile, { onNoneEncoding: null }).pipe(
+    Schema.withConstructorDefault(Effect.succeed(Option.none())),
+  ),
 }
 
 /** One per user; invariant `id === userId`, enforced by the server and the D1 primary key. */
@@ -124,5 +166,7 @@ export const ProfilePatch = Schema.Struct({
   locations: Schema.optionalKey(Locations),
   activeLocationId: Schema.optionalKey(Schema.OptionFromNullOr(LocationId)),
   timezone: Schema.optionalKey(ProfileFields.timezone),
+  /** `null` turns nutrition tracking off. */
+  nutrition: Schema.optionalKey(Schema.OptionFromNullOr(NutritionProfile)),
 })
 export type ProfilePatch = typeof ProfilePatch.Type

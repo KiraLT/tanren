@@ -29,7 +29,7 @@ export const encodeCursor = (position: Position): SyncCursor =>
   SyncCursor.make(`${position.seq}:${position.rank}:${position.id || "-"}`)
 
 // Uppercase hex too: `Schema.isUUID()` accepts it, so a stored id may be uppercase. The rank has as
-// many digits as SYNC_TABLE_ORDER needs (12 tables since GM-2: ranks 10 and 11 are two digits); a
+// many digits as SYNC_TABLE_ORDER needs (14 tables since v6b: ranks 10 to 13 are two digits); a
 // rank past the last table is rejected below.
 const CURSOR = /^(\d{1,15}):(\d{1,2}):([0-9a-fA-F-]{36}|-)$/
 

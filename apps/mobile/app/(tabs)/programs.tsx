@@ -1,81 +1,100 @@
-import { Match, Option } from "effect"
+import { Match } from "effect"
 import { useRouter } from "expo-router"
-import { ScrollView, View } from "react-native"
+import { View } from "react-native"
 import {
-  DayCard,
-  DayItems,
-  DayList,
-  DayStats,
-  EnrolCard,
-  ProgramFinished,
-  ProgramInside,
-  ProgramPreview,
-} from "../../src/player/components/ProgramHome"
-import { useProgramDay } from "../../src/player/useProgramDay"
-import { AppBar, Banner, Columns, gutter, Page, Skeleton, space, useBreakpoint } from "../../src/ui"
+  ActiveSection,
+  NoActiveCard,
+  ProgramsSection,
+} from "../../src/player/components/ProgramList"
+import { type ProgramsState, usePrograms } from "../../src/player/usePrograms"
+import {
+  AppBar,
+  Banner,
+  Columns,
+  IconButton,
+  Page,
+  Skeleton,
+  space,
+  useBreakpoint,
+} from "../../src/ui"
 
-const PROGRAMS_BAR = <AppBar title="Programs" />
+function ProgramsBar({ onNew }: { readonly onNew?: () => void }) {
+  return (
+    <AppBar
+      title="Programs"
+      {...(onNew === undefined
+        ? {}
+        : {
+            trailing: <IconButton icon="plus" accessibilityLabel="New program" onPress={onNew} />,
+          })}
+    />
+  )
+}
 
 export default function ProgramsScreen() {
   const router = useRouter()
-  const { state, enroll, enrolling } = useProgramDay()
-  const breakpoint = useBreakpoint()
-  const wide = breakpoint === "desktop"
-  const phone = breakpoint === "phone"
-  // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-  const play = () => router.push("/programs/play")
-
-  return Match.value(state).pipe(
+  const wide = useBreakpoint() === "desktop"
+  const { state, setStatus } = usePrograms()
+  return Match.value<ProgramsState>(state).pipe(
     Match.tagsExhaustive({
       Loading: () => (
-        <Page header={PROGRAMS_BAR}>
-          <View accessible accessibilityLabel="Loading program" style={{ gap: space.lg }}>
+        <Page header={<ProgramsBar />}>
+          <View accessible accessibilityLabel="Loading programs" style={{ gap: space.lg }}>
             <Skeleton width="100%" height={136} />
             <Skeleton width="100%" height={220} />
           </View>
         </Page>
       ),
       Failed: ({ message }) => (
-        <Page header={PROGRAMS_BAR}>
+        <Page header={<ProgramsBar />}>
           <Banner tone="danger" title="Could not load programs" body={message} />
         </Page>
       ),
-      NotEnrolled: ({ program }) => (
-        <Page header={PROGRAMS_BAR} scroll wide>
-          {/* Desktop: Columns 6/6, enrol card left, "What's inside" + stats right; below it stacks. */}
-          <Columns
-            split="6/6"
-            main={
-              <EnrolCard program={program} enrolling={enrolling} onEnrol={() => enroll(program)} />
+      Ready: ({ summaries, active }) => {
+        const running = (
+          <ActiveSection
+            active={active}
+            onStart={(enrollmentId) =>
+              // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+              router.push({ pathname: "/programs/play", params: { enrollmentId } })
             }
-            side={wide ? <ProgramPreview program={program} /> : null}
+            onResume={(entry) => {
+              setStatus(entry.enrollment.id, "active")
+            }}
           />
-          {phone ? <ProgramInside program={program} /> : null}
-        </Page>
-      ),
-      Ready: ({ program, enrollment, day }) => (
-        <Page
-          header={PROGRAMS_BAR}
-          scroll
-          aside={
-            <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
-              <DayList program={program} currentDay={enrollment.currentDay} />
-            </ScrollView>
-          }
-        >
-          {Option.match(day, {
-            onNone: () => <ProgramFinished program={program} />,
-            onSome: (today) => (
-              <>
-                <DayCard program={program} day={today} onStart={play} />
-                {wide ? <DayStats program={program} day={today} /> : null}
-                <DayItems day={today} />
-              </>
-            ),
-          })}
-          {wide ? null : <DayList program={program} currentDay={enrollment.currentDay} />}
-        </Page>
-      ),
+        )
+        const list = (
+          <ProgramsSection
+            summaries={summaries}
+            onOpen={(summary) =>
+              // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+              router.push({
+                pathname: "/programs/[programId]",
+                params: { programId: summary.programId },
+              })
+            }
+          />
+        )
+        return (
+          <Page
+            header={
+              <ProgramsBar
+                // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+                onNew={() => router.push("/programs/new")}
+              />
+            }
+            scroll
+            wide
+          >
+            {/* Desktop: running programs left, the full list right; a phone stacks them. */}
+            <Columns
+              split="6/6"
+              main={active.length > 0 ? running : wide ? <NoActiveCard /> : null}
+              side={list}
+            />
+          </Page>
+        )
+      },
     }),
   )
 }

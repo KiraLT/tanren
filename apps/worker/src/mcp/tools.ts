@@ -1,3 +1,4 @@
+import type { FoodEntryRepo, GarminImportRepo, UserProgramRepo } from "@tanren/db"
 import {
   activeLocation,
   CurrentPlanResult,
@@ -31,7 +32,15 @@ import { ExerciseRepo, type PersistenceError, PlanRepo, ProfileRepo, SessionRepo
 // The MCP read tools (docs/design/mcp.md §4) as plain Effect programs over the repository ports.
 // No MCP SDK here: `server.ts` registers `readTools` (and `writeTools`) and runs `call`.
 
-export type ToolDeps = ExerciseRepo | PlanRepo | SessionRepo | ProfileRepo | IdGenerator
+export type ToolDeps =
+  | ExerciseRepo
+  | PlanRepo
+  | SessionRepo
+  | ProfileRepo
+  | IdGenerator
+  | FoodEntryRepo
+  | GarminImportRepo
+  | UserProgramRepo
 export type ToolError = NotFound | ValidationError | Forbidden | PersistenceError
 
 /** `read` tools are registered for every principal, `write` tools only with `tanren:write`. */

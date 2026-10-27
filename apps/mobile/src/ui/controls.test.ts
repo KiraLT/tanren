@@ -22,6 +22,7 @@ import {
   ringGeometry,
   ringSizes,
   ringSpec,
+  rowAccessibility,
   rowBackground,
   rowChevron,
   rowLinesProps,
@@ -157,6 +158,25 @@ describe("Card", () => {
 })
 
 describe("ListRow", () => {
+  it("a pressable row without `checked` announces as a button with its selected state", () => {
+    expect(rowAccessibility(true, false, undefined)).toEqual({
+      accessibilityRole: "button",
+      accessibilityState: { selected: true, disabled: false },
+    })
+  })
+
+  it("a row with `checked` announces as a switch, aria-checked included for web", () => {
+    expect(rowAccessibility(false, false, true)).toEqual({
+      accessibilityRole: "switch",
+      accessibilityState: { checked: true, disabled: false },
+      "aria-checked": true,
+    })
+    expect(rowAccessibility(false, true, false)).toMatchObject({
+      accessibilityRole: "switch",
+      "aria-checked": false,
+    })
+  })
+
   it("rows have minHeight 52 and no fixed height", () => {
     const style = rowStyle(true, false, lightColors)
     expect(style.minHeight).toBe(52)

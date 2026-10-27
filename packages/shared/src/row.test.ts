@@ -2,9 +2,11 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Order, Schema } from "effect"
 import { SyncTable } from "./common"
 import { Exercise } from "./exercise"
+import { FoodEntry } from "./nutrition"
 import { Plan, type PlanEncoded, PlannedSession, PlannedSet, PlanWeek } from "./plan"
 import {
   ExerciseRow,
+  FoodEntryRow,
   PlannedSessionRow,
   PlannedSetRow,
   PlanRow,
@@ -43,6 +45,23 @@ const profileRecord = {
     '[{"id":"0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c","name":"Home","equipment":["dumbbell"]}]',
   activeLocationId: "0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c",
   timezone: "Europe/Vilnius",
+  nutrition: null,
+}
+const nutritionJson =
+  '{"goal":"gain_muscle","bodyWeightKg":85,"heightCm":180,"birthYear":1990,"sex":"male","activityLevel":"moderate","eatBackActive":false,"kcalTarget":null,"proteinTargetG":null}'
+const foodEntryRecord = {
+  ...rowColumns,
+  id: "0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f",
+  loggedAt: "2026-10-27T12:40:00.000Z",
+  meal: "lunch" as const,
+  source: "mcp" as const,
+  items:
+    '[{"name":"Chicken rice bowl","portion":"1 bowl, ~450 g","grams":450,"kcal":650,"proteinG":45,"carbsG":70,"fatG":15,"fibreG":null,"confidence":0.6}]',
+  kcal: 650,
+  proteinG: 45,
+  carbsG: 70,
+  fatG: 15,
+  note: null,
 }
 const exerciseRecord = {
   ...rowColumns,
@@ -131,6 +150,17 @@ describe("row codecs round-trip a DB record through the entity class", () => {
   )
   it.effect("ProfileRow, soft deleted", () =>
     decodesToInstance(ProfileRow, Profile, { ...profileRecord, ...deleted }),
+  )
+  it.effect("ProfileRow, nutrition JSON column set", () =>
+    Effect.gen(function* () {
+      const record = { ...profileRecord, nutrition: nutritionJson }
+      yield* decodesToInstance(ProfileRow, Profile, record)
+      const profile = yield* Schema.decodeUnknownEffect(ProfileRow)(record)
+      expect(Option.map(profile.nutrition, (n) => n.goal)).toEqual(Option.some("gain_muscle"))
+    }),
+  )
+  it.effect("FoodEntryRow, items as a JSON string", () =>
+    decodesToInstance(FoodEntryRow, FoodEntry, foodEntryRecord),
   )
   it.effect("ExerciseRow, empty notes", () =>
     decodesToInstance(ExerciseRow, Exercise, exerciseRecord),
@@ -338,6 +368,7 @@ describe("ROW_TABLE and ROW_KEYS", () => {
     expect(ROW_TABLE.planWeek).toBe("plan_week")
     expect(ROW_TABLE.importedActivity).toBe("imported_activity")
     expect(ROW_TABLE.dailyHealth).toBe("daily_health")
+    expect(ROW_TABLE.foodEntry).toBe("food_entry")
   })
 
   it("list the record keys of every table", () => {

@@ -19,7 +19,8 @@ const toPathKey = (segment: PropertyKey | { readonly key: PropertyKey }): string
 
 export class NotFound extends Schema.TaggedError<NotFound>()(
   "NotFound",
-  { entity: EntityName, id: Uuid },
+  // A row UUID, or a slug for the static entities (`catalogExercise`, built-in `program`).
+  { entity: EntityName, id: Schema.String },
   { httpApiStatus: 404 },
 ) {}
 

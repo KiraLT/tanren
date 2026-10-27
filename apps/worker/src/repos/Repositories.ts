@@ -1,6 +1,7 @@
 import {
   Repositories as DbRepositories,
   ExerciseRepo,
+  type FoodEntryRepo,
   PlanRepo,
   ProfileRepo,
   SessionRepo,
@@ -17,6 +18,8 @@ import type {
   UserId,
 } from "@tanren/shared"
 import { Array as Arr, Context, DateTime, Effect, Layer, Option, Order, pipe } from "effect"
+import { MemoryFoodEntry } from "./MemoryFoodEntry"
+import { MemoryPrograms } from "./MemoryPrograms"
 import { MemoryStore, type RowByTable } from "./MemoryStore"
 
 // In-memory implementations of the `@tanren/db` repository ports, for Node tests (the D1
@@ -227,13 +230,20 @@ const makeMemory = Effect.gen(function* () {
     .pipe(Context.add(SessionRepo, session))
 })
 
-export type Repositories = ProfileRepo | ExerciseRepo | PlanRepo | SessionRepo
+export type Repositories = ProfileRepo | ExerciseRepo | PlanRepo | SessionRepo | FoodEntryRepo
+
+/** The memory ports on a `MemoryStore` the caller provides. */
+const memoryPorts = Layer.mergeAll(
+  Layer.effectContext(makeMemory),
+  MemoryFoodEntry.layer,
+  MemoryPrograms.layer,
+)
 
 export const Repositories = {
   /** The D1 repositories of `@tanren/db`; need `D1Client` (`D1Layer(env.DB)`). */
   layer: DbRepositories.layer,
-  /** All four ports on a `MemoryStore` the caller provides (shared with `SyncStore.layerMemory`). */
-  layerMemoryNoDeps: Layer.effectContext(makeMemory),
-  /** All four ports on a fresh store; `MemoryStore` stays visible for sync. */
-  layerMemory: Layer.effectContext(makeMemory).pipe(Layer.provideMerge(MemoryStore.layer)),
+  /** All five ports on a `MemoryStore` the caller provides (shared with `SyncStore.layerMemory`). */
+  layerMemoryNoDeps: memoryPorts,
+  /** All five ports on a fresh store; `MemoryStore` stays visible for sync. */
+  layerMemory: memoryPorts.pipe(Layer.provideMerge(MemoryStore.layer)),
 }

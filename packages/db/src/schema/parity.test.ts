@@ -4,8 +4,9 @@ import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core"
 import { Array as Arr, String as Str } from "effect"
 import { exercise } from "./exercise"
 import { dailyHealth, importedActivity } from "./garmin"
+import { foodEntry } from "./nutrition"
 import { plan, plannedSession, plannedSet, planWeek } from "./plan"
-import { programDayCompletion, programEnrollment } from "./program"
+import { program, programDayCompletion, programEnrollment } from "./program"
 import { workoutSession, workoutSet } from "./session"
 import { profile } from "./user"
 
@@ -23,6 +24,8 @@ const TABLES: { readonly [T in SyncTable]: SQLiteTable } = {
   programDayCompletion,
   importedActivity,
   dailyHealth,
+  foodEntry,
+  program,
 }
 
 /** Server-only: never on a synced row. */

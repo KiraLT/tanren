@@ -60,11 +60,11 @@ export type AboutScope = "list" | Provider
  * list nor the Garmin page may claim that Tanren never reads data back.
  */
 export const ABOUT_BODIES: { readonly [S in AboutScope]: string } = {
-  list: "Strava receives your finished sessions; Tanren never reads Strava data. Garmin imports your own activities and daily summaries, read-only, never shared or used by the AI planning tools.",
+  list: "Strava receives your finished sessions; Tanren never reads Strava data. Garmin imports your own activities and daily summaries, read-only and never shared; your own Claude can read them through the MCP connector.",
   strava:
     "Integrations send finished sessions to other apps. Tanren only writes; it never reads data back.",
   garmin:
-    "Tanren imports your own Garmin activities and daily summaries (calories, steps, resting heart rate). Read-only: never shared with third parties or used by the AI planning tools. Disconnecting removes the token and the imported data.",
+    "Tanren imports your own Garmin activities and daily summaries (calories, steps, resting heart rate). Read-only and never shared with third parties. Your own Claude can read everything Tanren stores, imported Garmin data included, through the MCP connector when you ask. Disconnecting removes the token and the imported data.",
 }
 
 /** Garmin's personal-API-token page (a constant: the UI never links anything else). */

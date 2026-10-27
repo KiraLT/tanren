@@ -29,6 +29,8 @@ const erase =
         programDayCompletion: keep(state.tables.programDayCompletion),
         importedActivity: keep(state.tables.importedActivity),
         dailyHealth: keep(state.tables.dailyHealth),
+        foodEntry: keep(state.tables.foodEntry),
+        program: keep(state.tables.program),
       },
       clock: HashMap.remove(state.clock, userId),
     }

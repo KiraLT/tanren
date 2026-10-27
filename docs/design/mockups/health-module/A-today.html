@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>HM-A Today</title><link rel="stylesheet" href="base.css"></head><body><script src="rings.js"></script>
+<div class="page"><div class="appbar"><h1>Today</h1><span class="caption">Tue 27 Oct</span></div>
+<div id="root"></div></div>
+<script>
+const mod=`<div class="card" aria-label="Health today: 1,650 kcal left of 3,070; eaten 1,420; burned 1,840; protein 96 of 155 g; 8,420 steps; 52 bpm resting">
+<div style="display:flex;gap:16px;align-items:center">${ring(104,10,[{c:'--accent',p:1420/3070},{c:'--success',p:96/155}],'Eaten 46 percent of budget, protein 62 percent of target')}
+<div style="flex:1"><div class="label">Left today</div><div class="display">1,650</div><div class="caption">of 3,070 kcal budget</div></div></div>
+<div class="row3"><div><div class="label"><i class="dot" style="background:var(--accent)"></i>Eaten</div><div class="headline">1,420</div></div><div><div class="label">Burned</div><div class="headline">1,840</div></div><div><div class="label"><i class="dot" style="background:var(--success)"></i>Protein</div><div class="headline">96<span class="caption"> / 155 g</span></div></div></div>
+<div class="caption" style="margin-top:8px;color:var(--text)">Protein 59 g short — a shake covers it · 8,420 steps · 52 bpm</div></div>`;
+const sess=`<div class="ph"><div class="t">Lower A</div>5 exercises · Back squat 100 kg × 5 · planned session (unchanged)</div>`;
+document.getElementById('root').innerHTML=document.documentElement.classList.contains('wide')?`<div class="cols"><div>${sess}</div><div style="margin-top:16px">${mod}</div></div>`:mod+sess;
+</script></body></html>

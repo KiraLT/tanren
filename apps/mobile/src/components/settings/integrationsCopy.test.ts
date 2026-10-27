@@ -435,10 +435,16 @@ describe("ABOUT_BODIES", () => {
     ).toBe(false)
   })
 
-  it("says Garmin imports are read-only and kept from the AI planning tools", () => {
+  it("says Garmin imports are read-only, never shared, and readable by the owner's own Claude", () => {
     expect(ABOUT_BODIES.garmin).toContain(
-      "never shared with third parties or used by the AI planning tools",
+      "Read-only and never shared with third parties. Your own Claude can read everything Tanren stores, imported Garmin data included, through the MCP connector when you ask.",
     )
+  })
+
+  it("no longer claims the AI tools cannot read Garmin data", () => {
+    expect(
+      [ABOUT_BODIES.garmin, ABOUT_BODIES.list].some((body) => body.includes("AI planning tools")),
+    ).toBe(false)
   })
 
   it("keeps Strava's export-only text", () => {

@@ -1,7 +1,7 @@
 import { CATALOG, type CatalogExercise, type CatalogId, type Exercise } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { programProgress } from "../player/programDays"
-import type { ProgramDayState } from "../player/useProgramDay"
+import type { ProgramsState } from "../player/usePrograms"
 import { formatKg } from "./stepMath"
 
 /** The AppBar eyebrow on Today: "Core 30 · Day 2 of 30" plus the ring's done share. */
@@ -10,16 +10,23 @@ export interface TodayEyebrow {
   readonly progress: number
 }
 
-/** Only for an active enrollment that still has a day to do; the ring is `programProgress`. */
-export const todayEyebrowOf = (state: ProgramDayState): Option.Option<TodayEyebrow> =>
+/**
+ * The first (newest) `active` enrollment that still has a day to do (`paused` ones are hidden from
+ * Today); the ring is `programProgress`.
+ */
+export const todayEyebrowOf = (state: ProgramsState): Option.Option<TodayEyebrow> =>
   state._tag === "Ready"
-    ? Option.map(state.day, (day) => {
-        const total = state.program.days.length
-        return {
-          label: `${state.program.name} · Day ${day.dayNumber} of ${total}`,
-          progress: programProgress(day.dayNumber, total),
-        }
-      })
+    ? Arr.findFirst(state.active, ({ enrollment, program, day }) =>
+        enrollment.status === "active"
+          ? Option.map(day, (today) => {
+              const total = program.days.length
+              return {
+                label: `${program.name} · Day ${today.dayNumber} of ${total}`,
+                progress: programProgress(today.dayNumber, total),
+              }
+            })
+          : Option.none(),
+      )
     : Option.none()
 
 const sameName = (name: string) => (entry: CatalogExercise) => {

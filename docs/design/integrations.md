@@ -235,8 +235,9 @@ Add the two authenticated GETs and the DELETE to `Routes.edge.test.ts` (401 sign
   on strava.com" and Retry (`resetToPending`). Pure `nextAttempt(attempts, now)` and
   `failureOutcome(reason, attempts, now)` (`ExportQueue.ts`) with tests.
 - `scheduled` handler (`index.ts`): `export default { fetch: (r, e, c) => provider.fetch(r, e, c),
-  scheduled: (_ctrl, env, ctx) => ctx.waitUntil(runScheduled(env)) }` where `runScheduled` runs
-  `ExportQueue.drain({ userId: None, max: 10 })` on a `ManagedRuntime` built from `d1Persistence`.
+  scheduled: (_ctrl, env, ctx) => ctx.waitUntil(scheduledRun.run()) }` where `scheduledRun =
+  makeScheduled(scheduledLayer(env))` (`integrations/scheduled.ts`, GM-F2) runs `ExportQueue.drain({ userId: None,
+  max: 10 })`, then `GarminPull.drain`, on one slim `ManagedRuntime` built once per isolate (no auth/OAuth/MCP/HTTP).
   VERIFY: `OAuthProvider.fetch` callable as a method (`provider.ts` returns the instance; the test
   `index.workerd.test.ts` boots the default export — keep it green). Local:
   `wrangler dev --test-scheduled` + `curl "localhost:<port>/cdn-cgi/local/scheduled?cron=*/5+*+*+*+*"`

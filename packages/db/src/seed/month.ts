@@ -5,9 +5,12 @@
  */
 import {
   CatalogId,
-  type DailyHealth,
+  DailyHealth,
+  DailyHealthId,
   Exercise,
   ExerciseId,
+  FoodEntry,
+  FoodEntryId,
   type IdGenerator,
   type ImportedActivity,
   LOCATION_PRESETS,
@@ -32,7 +35,9 @@ import {
   SessionId,
   SetId,
   TimeZone,
+  totalsOf,
   UserId,
+  type UserProgram,
   WeightKg,
   WorkoutSet,
 } from "@tanren/shared"
@@ -75,9 +80,14 @@ export interface SeedData {
   /** Empty: the seeded month has no program progress. */
   readonly programEnrollment: ReadonlyArray<ProgramEnrollment>
   readonly programDayCompletion: ReadonlyArray<ProgramDayCompletion>
-  /** Empty: imports come from a provider pull, never from the seed. */
+  /** Empty: activity imports come from a provider pull, never from the seed. */
   readonly importedActivity: ReadonlyArray<ImportedActivity>
+  /** 7 Garmin days ending on `endDate` (`buildDailyHealth`), so Today and Health show burn. */
   readonly dailyHealth: ReadonlyArray<DailyHealth>
+  /** 10 entries on the last three days (`buildFood`); totals = `totalsOf(items)`. */
+  readonly foodEntry: ReadonlyArray<FoodEntry>
+  /** Empty: the seed has no user programs (built-ins need no row). */
+  readonly program: ReadonlyArray<UserProgram>
 }
 
 const MINUTE = 60_000
@@ -225,8 +235,95 @@ const buildProfile = ({ userId, ms }: Stamp) =>
       ],
       activeLocationId: Option.some(GYM_ID),
       timezone: TimeZone.make("Europe/Berlin"),
+      // The design §4 pin: 85 kg / 180 cm / 1990, moderate, gain → 3,070 kcal / 155 g.
+      nutrition: Option.some({
+        goal: "gain_muscle",
+        bodyWeightKg: 85,
+        heightCm: Option.some(180),
+        birthYear: Option.some(1990),
+        sex: Option.some("male"),
+        activityLevel: "moderate",
+        eatBackActive: false,
+        kcalTarget: Option.none(),
+        proteinTargetG: Option.none(),
+      }),
     }).pipe(Effect.orDie)
   })
+
+const food = (name: string, portion: string, grams: number, macros: readonly number[]) => ({
+  name,
+  portion,
+  grams: Option.some(grams),
+  kcal: macros[0] ?? 0,
+  proteinG: macros[1] ?? 0,
+  carbsG: macros[2] ?? 0,
+  fatG: macros[3] ?? 0,
+  fibreG: Option.none(),
+  confidence: Option.some(0.8),
+})
+
+/** Meals of one seeded day: [hour (UTC), meal, items]. */
+const MEALS = [
+  [7, "breakfast", [food("Oats with milk", "80 g oats, 250 ml milk", 330, [430, 18, 66, 10])]],
+  [
+    12,
+    "lunch",
+    [
+      food("Chicken breast", "1 breast", 180, [297, 56, 0, 6]),
+      food("White rice", "1 cup cooked", 186, [242, 4, 53, 0]),
+    ],
+  ],
+  [16, "supplement", [food("Whey shake", "1 scoop in water", 30, [120, 24, 3, 2])]],
+  [
+    19,
+    "dinner",
+    [food("Salmon with potatoes", "1 fillet, 300 g potatoes", 450, [720, 42, 60, 30])],
+  ],
+] as const
+
+/**
+ * Food entries on the last three days (nutrition.md §2): all four meals on the two days before
+ * `endDate`, breakfast and lunch on `endDate`. Totals are `totalsOf(items)`.
+ */
+const buildFood = (userId: UserId, endMs: number) =>
+  Effect.forEach([2, 1, 0], (daysBack) =>
+    Effect.forEach(daysBack === 0 ? MEALS.slice(0, 2) : MEALS, ([hour, meal, items]) =>
+      Effect.gen(function* () {
+        const ms = endMs - daysBack * DAY + hour * HOUR
+        return yield* FoodEntry.makeEffect({
+          id: yield* newId(FoodEntryId),
+          ...stamp(userId, ms),
+          loggedAt: instant(ms),
+          meal,
+          source: "mcp",
+          items,
+          ...totalsOf(items),
+          note: Option.none(),
+        }).pipe(Effect.orDie)
+      }),
+    ),
+  ).pipe(Effect.map(Arr.flatten))
+
+/**
+ * One Garmin daily summary per day for the 7 days ending on the end date (oldest first), stamped
+ * 06:00 UTC like a morning pull. Drawn after every other table, so their output is unchanged.
+ */
+const buildDailyHealth = (userId: UserId, endMs: number) =>
+  Effect.forEach([6, 5, 4, 3, 2, 1, 0], (daysBack) =>
+    Effect.gen(function* () {
+      const dayMs = endMs - daysBack * DAY
+      return yield* DailyHealth.makeEffect({
+        id: yield* newId(DailyHealthId),
+        ...stamp(userId, dayMs + 6 * HOUR),
+        provider: "garmin",
+        date: yield* localDate(dayMs),
+        totalCalories: Option.some(yield* Random.nextIntBetween(2300, 2900)),
+        activeCalories: Option.some(yield* Random.nextIntBetween(300, 900)),
+        steps: Option.some(yield* Random.nextIntBetween(4000, 12000)),
+        restingHeartRate: Option.some(yield* Random.nextIntBetween(48, 56)),
+      }).pipe(Effect.orDie)
+    }),
+  )
 
 interface ExerciseBuild {
   readonly spec: ExerciseSpec
@@ -529,6 +626,8 @@ const build = (options: SeedOptions) =>
           }).pipe(Effect.orDie)
         : Effect.succeed(set),
     )
+    const foodEntry = yield* buildFood(userId, window.endMs)
+    const dailyHealth = yield* buildDailyHealth(userId, window.endMs)
 
     return {
       profile: [profile],
@@ -542,7 +641,9 @@ const build = (options: SeedOptions) =>
       programEnrollment: [],
       programDayCompletion: [],
       importedActivity: [],
-      dailyHealth: [],
+      dailyHealth,
+      foodEntry,
+      program: [],
     } satisfies SeedData
   })
 

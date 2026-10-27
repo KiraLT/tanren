@@ -167,6 +167,8 @@ describe("SyncChange", () => {
           programDayCompletion: ({ row }) => Option.some(row.enrollmentId),
           importedActivity: () => Option.none(),
           dailyHealth: () => Option.none(),
+          foodEntry: () => Option.none(),
+          program: () => Option.none(),
         }),
       )
     const decoded = Schema.decodeUnknownSync(PushRequest)(pushRequestJson)
@@ -182,9 +184,47 @@ describe("SYNC_TABLE_ORDER", () => {
     expectTypeOf<(typeof SYNC_TABLE_ORDER)[number]>().toEqualTypeOf<SyncTable>()
     expect(new globalThis.Set(SYNC_TABLE_ORDER).size).toBe(SYNC_TABLE_ORDER.length)
   })
-  it("ends with the parentless, pull-only Garmin import tables", () => {
-    expect(SYNC_TABLE_ORDER.slice(-2)).toEqual(["importedActivity", "dailyHealth"])
+  it("ends with the parentless Garmin import tables, then foodEntry, then program", () => {
+    expect(SYNC_TABLE_ORDER.slice(-4)).toEqual([
+      "importedActivity",
+      "dailyHealth",
+      "foodEntry",
+      "program",
+    ])
   })
+  it.effect("a program row change decodes and re-encodes (the LAST table)", () =>
+    Effect.gen(function* () {
+      const change = {
+        table: "program",
+        row: {
+          id: "99999999-9999-4999-8999-999999999999",
+          userId: "6f1d2b7e-3c4a-4e2b-9a0e-1f2a3b4c5d6e",
+          createdAt: "2026-10-27T08:00:00.000Z",
+          updatedAt: "2026-10-27T08:00:00.000Z",
+          deletedAt: null,
+          title: "Push Pull",
+          slug: "push-pull",
+          summary: "Two days a week.",
+          description: null,
+          days: [
+            {
+              dayNumber: 1,
+              title: "Day 1",
+              rounds: 2,
+              items: [{ kind: "reps", catalogId: "push-up", reps: 10, restSeconds: 30 }],
+              restBetweenRoundsSeconds: 60,
+            },
+          ],
+          schedule: { kind: "daysPerWeek", days: 2 },
+          source: "mcp",
+          version: 1,
+        },
+      }
+      const decoded = yield* Schema.decodeUnknownEffect(PushRequest)({ changes: [change] })
+      expect(decoded.changes[0]?.table).toBe(SYNC_TABLE_ORDER[SYNC_TABLE_ORDER.length - 1])
+      expect(yield* Schema.encodeEffect(PushRequest)(decoded)).toStrictEqual({ changes: [change] })
+    }),
+  )
 })
 
 describe("SyncChange rejects", () => {

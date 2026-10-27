@@ -894,6 +894,103 @@
         "UI-GM-7-today-1280-dark.png"
       ],
       "title": "Garmin integration (GM-6S): integrations, connect, feed, detail, Today"
+    },
+    {
+      "badges": [
+        "N1",
+        "N2",
+        "N3"
+      ],
+      "id": "nutri-health",
+      "shots": [
+        "UI-NUTRI-N1-today-390-light.png",
+        "UI-NUTRI-N1-today-390-dark.png",
+        "UI-NUTRI-N1-today-1280-light.png",
+        "UI-NUTRI-N1-today-1280-dark.png",
+        "UI-NUTRI-N2-health-390-light.png",
+        "UI-NUTRI-N2-health-390-dark.png",
+        "UI-NUTRI-N2-health-1280-light.png",
+        "UI-NUTRI-N2-health-1280-dark.png",
+        "UI-NUTRI-N3-health-off-390-light.png",
+        "UI-NUTRI-N3-health-off-390-dark.png",
+        "UI-NUTRI-N3-health-off-1280-light.png",
+        "UI-NUTRI-N3-health-off-1280-dark.png"
+      ],
+      "title": "Nutrition on Today and Health (N-MC)"
+    },
+    {
+      "badges": [
+        "N20",
+        "N25",
+        "N21"
+      ],
+      "id": "nutri-q1",
+      "shots": [
+        "UI-NUTRI-N20-quickadd-390-light.png",
+        "UI-NUTRI-N20-quickadd-390-dark.png",
+        "UI-NUTRI-N20-quickadd-1280-light.png",
+        "UI-NUTRI-N20-quickadd-1280-dark.png",
+        "UI-NUTRI-N25-quickadd-all-390-light.png",
+        "UI-NUTRI-N25-quickadd-all-390-dark.png",
+        "UI-NUTRI-N25-quickadd-all-1280-light.png",
+        "UI-NUTRI-N25-quickadd-all-1280-dark.png",
+        "UI-NUTRI-N21-quickadd-edit-390-light.png",
+        "UI-NUTRI-N21-quickadd-edit-390-dark.png",
+        "UI-NUTRI-N21-quickadd-edit-1280-light.png",
+        "UI-NUTRI-N21-quickadd-edit-1280-dark.png"
+      ],
+      "title": "Quick-add food (N-Q1)"
+    },
+    {
+      "badges": [
+        "N22",
+        "N23",
+        "N24"
+      ],
+      "id": "nutri-q2",
+      "shots": [
+        "UI-NUTRI-N22-settings-390-light.png",
+        "UI-NUTRI-N22-settings-390-dark.png",
+        "UI-NUTRI-N22-settings-1280-light.png",
+        "UI-NUTRI-N22-settings-1280-dark.png",
+        "UI-NUTRI-N23-nutrition-390-light.png",
+        "UI-NUTRI-N23-nutrition-390-dark.png",
+        "UI-NUTRI-N23-nutrition-1280-light.png",
+        "UI-NUTRI-N23-nutrition-1280-dark.png",
+        "UI-NUTRI-N24-nutrition-eatback-390-light.png",
+        "UI-NUTRI-N24-nutrition-eatback-390-dark.png",
+        "UI-NUTRI-N24-nutrition-eatback-1280-light.png",
+        "UI-NUTRI-N24-nutrition-eatback-1280-dark.png"
+      ],
+      "title": "Nutrition settings (N-Q2)"
+    },
+    {
+      "badges": [
+        "HM-A1",
+        "HM-A2",
+        "HM-B1",
+        "HM-B2"
+      ],
+      "id": "hm-d",
+      "shots": [
+        "HM-A-today-390-light.png",
+        "HM-A-today-390-dark.png",
+        "HM-A-today-1280-light.png",
+        "HM-A-today-1280-dark.png",
+        "HM-A-health-390-light.png",
+        "HM-A-health-390-dark.png",
+        "HM-A-health-1280-light.png",
+        "HM-A-health-1280-dark.png",
+        "HM-B-today-390-light.png",
+        "HM-B-today-390-dark.png",
+        "HM-B-today-1280-light.png",
+        "HM-B-today-1280-dark.png",
+        "HM-B-health-390-light.png",
+        "HM-B-health-390-dark.png",
+        "HM-B-health-1280-light.png",
+        "HM-B-health-1280-dark.png"
+      ],
+      "title": "Health module directions (HM-D)"
     }
   ]
 }

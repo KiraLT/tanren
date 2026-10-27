@@ -7,7 +7,7 @@ import { useProfileState } from "../hooks/useProfile"
 import { useRestTimer } from "../hooks/useRestTimer"
 import type { TodayExercise } from "../hooks/useToday"
 import { segmentsFilled } from "../player/playerHeader"
-import { useProgramDay } from "../player/useProgramDay"
+import { usePrograms } from "../player/usePrograms"
 import {
   AppBar,
   Banner,
@@ -173,7 +173,7 @@ export function TodayReady({ title, accessory, exercises, footer, banner }: Toda
   const breakpoint = useBreakpoint()
   const index = clampPage(page, exercises.length)
   const current = Arr.get(exercises, index)
-  const eyebrow = todayEyebrowOf(useProgramDay().state)
+  const eyebrow = todayEyebrowOf(usePrograms().state)
   const setup = needsEquipmentSetup(useProfileState())
   const onLogged = (seconds: number) => {
     setRestTotal(seconds)

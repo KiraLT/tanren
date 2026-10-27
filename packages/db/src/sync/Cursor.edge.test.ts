@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { SyncCursor } from "@tanren/shared"
+import { SYNC_TABLE_ORDER, SyncCursor } from "@tanren/shared"
 import { Effect } from "effect"
 import { decodeCursor, encodeCursor, tableRank } from "./Cursor"
 
@@ -30,7 +30,8 @@ describe("cursor rank width", () => {
 
   it.effect("rejects a rank past the last synced table", () =>
     Effect.gen(function* () {
-      const error = yield* Effect.flip(decodeCursor(SyncCursor.make(`3:12:${ID}`)))
+      const past = SYNC_TABLE_ORDER.length
+      const error = yield* Effect.flip(decodeCursor(SyncCursor.make(`3:${past}:${ID}`)))
       expect(error._tag).toBe("ValidationError")
     }),
   )
@@ -39,6 +40,20 @@ describe("cursor rank width", () => {
     Effect.gen(function* () {
       const exit = yield* Effect.exit(decodeCursor(SyncCursor.make("nope")))
       expect(exit._tag).toBe("Failure")
+    }),
+  )
+})
+
+describe("cursor rank per table", () => {
+  it.effect("round-trips a cursor on every table rank, the LAST (program) included", () =>
+    Effect.gen(function* () {
+      const ranks = yield* Effect.forEach(SYNC_TABLE_ORDER, (table) =>
+        decodeCursor(encodeCursor({ seq: 7, rank: tableRank(table), id: ID })).pipe(
+          Effect.map((back) => back.rank),
+        ),
+      )
+      expect(ranks).toEqual(SYNC_TABLE_ORDER.map((_, i) => i))
+      expect(SYNC_TABLE_ORDER[SYNC_TABLE_ORDER.length - 1]).toBe("program")
     }),
   )
 })

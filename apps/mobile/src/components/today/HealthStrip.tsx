@@ -14,6 +14,13 @@ export interface HealthStripProps {
 }
 
 /**
+ * The strip's line for the device's calendar day at render (same read as the Plan screen's
+ * `today`); `None` exactly when `HealthStrip` renders nothing. Today's layout reads it too.
+ */
+export const useHealthLine = (): Option.Option<string> =>
+  Option.flatMap(useDailyHealth(localDateOf(new Date())), healthLine)
+
+/**
  * Today's imported health line (garmin.md §7): flame, "Today", "1,840 kcal · 8,420 steps · 52 bpm
  * resting". Renders nothing while loading, on a failed read, with no row for the local date, or
  * when the row reports none of the three values. `surfaceRaised` with a hairline border, because
@@ -21,9 +28,7 @@ export interface HealthStripProps {
  */
 export function HealthStrip({ style }: HealthStripProps) {
   const { colors } = useTheme()
-  // The device's calendar day at render (same read as the Plan screen's `today`).
-  const health = useDailyHealth(localDateOf(new Date()))
-  return Option.match(Option.flatMap(health, healthLine), {
+  return Option.match(useHealthLine(), {
     onNone: () => null,
     onSome: (line) => (
       <View

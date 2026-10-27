@@ -6,6 +6,7 @@ import { AppearanceSection } from "../src/components/settings/AppearanceSection"
 import { DataSection } from "../src/components/settings/DataSection"
 import { EquipmentSection } from "../src/components/settings/EquipmentSection"
 import { IntegrationsSection } from "../src/components/settings/IntegrationsSection"
+import { NutritionSection } from "../src/components/settings/NutritionSection"
 import { AppBar, Columns, IconButton, Page, rhythm } from "../src/ui"
 
 /** Root-Stack route reached from the Progress header: Account, Appearance, Units, Data, About. */
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
             <AccountSection />
             <IntegrationsSection />
             <EquipmentSection />
+            <NutritionSection />
           </View>
         }
         side={

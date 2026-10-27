@@ -21,9 +21,11 @@ import { DailyHealthRepo } from "./DailyHealthRepo"
 import { DataExporter } from "./DataExport"
 import { ExerciseLink } from "./ExerciseLink"
 import { FeedRepo } from "./FeedRepo"
+import { FoodEntryRepo } from "./FoodEntryRepo"
 import { HistoryRepo } from "./HistoryRepo"
 import { ImportedActivityRepo } from "./ImportedActivityRepo"
 import { LocalStore } from "./LocalStore"
+import { NutritionRepo } from "./NutritionRepo"
 import { PhaseAlerts } from "./PhaseAlerts"
 import { PlanWeekRepo } from "./PlanWeekRepo"
 import { ProfileRepo } from "./ProfileRepo"
@@ -184,6 +186,8 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       FeedRepo.layer,
       DailyHealthRepo.layer,
       ImportedActivityRepo.layer,
+      FoodEntryRepo.layer,
+      NutritionRepo.layer.pipe(Layer.provide(PlanWeekRepo.layer)),
       Account.layer,
       DataExporter.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),

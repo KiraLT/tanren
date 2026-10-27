@@ -140,7 +140,7 @@ describe("/mcp in workerd", () => {
     expect(await rpcResult(response)).toMatchObject({ serverInfo: { name: "tanren" } })
   })
 
-  it("lists all nine tools for the dev token (every scope): reads read-only, writes not", async () => {
+  it("lists all twenty-two tools for the dev token (every scope): reads read-only, writes not", async () => {
     const result = await post(rpc(2, "tools/list", {})).then(rpcResult)
     const tools = Schema.decodeUnknownSync(
       Schema.Array(
@@ -152,17 +152,9 @@ describe("/mcp in workerd", () => {
       ),
     )(result.tools)
     expect(tools.map((tool) => tool.name)).toEqual([...MCP_TOOLS])
-    expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      false,
-      false,
-      false,
-    ])
+    expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual(
+      MCP_TOOLS.map((_, index) => index < 11),
+    )
   })
 
   it("get_overview returns structured content that decodes as Overview", async () => {

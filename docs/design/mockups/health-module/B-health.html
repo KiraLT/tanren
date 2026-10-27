@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>HM-B Health</title><link rel="stylesheet" href="base.css"></head><body><script src="rings.js"></script>
+<div class="page"><div class="appbar"><h1>Health</h1><span class="caption">＋</span></div><div id="root"></div></div>
+<script>
+const wide=document.documentElement.classList.contains('wide');const gw=wide?320:260;
+const bar=(l,v,p,c,r)=>`<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="label">${l}</span><span class="headline">${v}<span class="caption"> ${r}</span></span></div><div class="bar"><i style="width:${Math.min(100,p*100)}%;background:var(${c})"></i></div></div>`;
+const hero=`<div style="display:flex;gap:32px;align-items:center;${wide?'':'flex-direction:column'}"><div style="position:relative;width:${gw}px">${gauge(gw,14,1420/3070,'--accent','Eaten 46 percent of budget')}<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:${gw*0.12}px"><div class="numeral">1,650</div><div class="label">kcal left of 3,070</div></div></div>
+<div style="flex:1;width:100%">${bar('Eaten','1,420',1420/3070,'--accent','/ 3,070')}${bar('Protein','96',96/155,'--success','/ 155 g')}${bar('Burned','1,840',1840/3070,'--muted','kcal · as of 14:05')}</div></div>`;
+const week=`<div class="sec"><div class="label">This week</div><div class="card"><div class="week">${weekBars(W)}</div><div class="caption" style="margin-top:12px">Avg 2,610 kcal · protein 141 g/day · 1 day over budget · deficit −2,300 kcal vs goal</div></div></div>`;
+const ins=`<div class="sec"><div class="label">Insights</div><div class="card" style="padding:4px 16px"><div class="ins">●<div><div class="headline">Protein 59 g short</div><div class="caption">A shake covers it</div></div></div><div class="ins">●<div><div class="headline">Lower A planned</div><div class="caption">Eat 300 kcal more after training to keep the gain target</div></div></div></div></div>`;
+const log=`<div class="sec"><div class="label">Food log</div><div class="ph" style="margin-top:0">Oats + whey 08:10 · 520 kcal · Chicken rice 13:05 · 900 kcal</div></div>`;
+document.getElementById('root').innerHTML=wide?`<div class="cols"><div>${hero}${ins}</div><div>${week}${log}</div></div>`:hero+week+ins+log;
+</script></body></html>

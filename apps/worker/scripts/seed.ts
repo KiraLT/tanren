@@ -1,21 +1,25 @@
 /**
  * Local seed runner (docs/design/local-dev.md §1): fills the local D1 with a fake month for the
- * dev user. Flags: `--seed <n>` (default 1), `--end <YYYY-MM-DD>` (default: today in the machine's local zone).
+ * dev user. Flags: `--seed <n>` (default 1), `--end <YYYY-MM-DD>` (default: today in the machine's local zone),
+ * `--persist-to <dir>` (the same `<dir>` as `wrangler … --local --persist-to <dir>`; default
+ * wrangler's own `apps/worker/.wrangler/state`).
  * Entry point: this is where the Effect program is run.
  */
 import {
   type D1Database,
   D1Layer,
   ExerciseRepo,
+  FoodEntryRepo,
   PlanRepo,
   ProfileRepo,
   Repositories,
   SEED_USER_ID,
   SessionRepo,
+  SyncStore,
   seededIdGenerator,
   seedMonth,
 } from "@tanren/db"
-import { LocalDate, SYNC_TABLE_ORDER } from "@tanren/shared"
+import { LocalDate, SYNC_TABLE_ORDER, type SyncChange } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Layer, Option, Schema } from "effect"
 import { getPlatformProxy } from "wrangler"
 
@@ -45,13 +49,22 @@ const parseOptions = Effect.gen(function* () {
   return { seed, endDate }
 })
 
+/**
+ * The platform proxy's `persist.path` is the `v3` folder itself; wrangler's `--persist-to <dir>`
+ * writes to `<dir>/v3`, so the flag takes the same `<dir>` as `wrangler d1 migrations apply`.
+ */
+const persistPath = Option.match(flag("persist-to"), {
+  onNone: () => `${import.meta.dirname}/../.wrangler/state/v3`,
+  onSome: (dir) => `${dir}/v3`,
+})
+
 /** Local D1 from wrangler's platform proxy, always local (`remoteBindings: false`). */
 const withLocalD1 = <A, E, R>(use: (db: D1Database) => Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(
     Effect.promise(() =>
       getPlatformProxy<{ readonly DB: D1Database }>({
         configPath: `${import.meta.dirname}/../wrangler.jsonc`,
-        persist: { path: `${import.meta.dirname}/../.wrangler/state/v3` },
+        persist: { path: persistPath },
         remoteBindings: false,
       }),
     ),
@@ -67,6 +80,8 @@ const program = Effect.gen(function* () {
   const exercise = yield* ExerciseRepo
   const plan = yield* PlanRepo
   const session = yield* SessionRepo
+  const food = yield* FoodEntryRepo
+  const store = yield* SyncStore
 
   const chunked = <A>(
     rows: ReadonlyArray<A>,
@@ -86,9 +101,19 @@ const program = Effect.gen(function* () {
     // repository writes these tables; clients sync them.
     programEnrollment: Effect.void,
     programDayCompletion: Effect.void,
-    // Imports are written by the Garmin pull only (garmin.md §3); the seed has none.
+    // Activity imports are written by the Garmin pull only (garmin.md §3); the seed has none.
     importedActivity: Effect.void,
-    dailyHealth: Effect.void,
+    // Straight through the sync store: `GarminImportRepo` writes only while Garmin is connected,
+    // and the seeded user has no integration row.
+    dailyHealth: chunked(data.dailyHealth, (rows) =>
+      store.apply(
+        userId,
+        rows.map((row): SyncChange => ({ table: "dailyHealth", row })),
+      ),
+    ),
+    foodEntry: chunked(data.foodEntry, (rows) => food.put(userId, rows)),
+    // The seed has no user programs (programs-mcp.md §2); built-ins need no row.
+    program: Effect.void,
   }
   // Parents first: foreign keys are enforced by D1.
   yield* Effect.forEach(SYNC_TABLE_ORDER, (table) => writes[table], { discard: true })
@@ -101,7 +126,10 @@ await Effect.runPromise(
   withLocalD1((db) =>
     program.pipe(
       Effect.provide(
-        Layer.mergeAll(Repositories.layer, seededIdGenerator).pipe(Layer.provideMerge(D1Layer(db))),
+        Layer.mergeAll(Repositories.layer, FoodEntryRepo.layer, seededIdGenerator).pipe(
+          Layer.provideMerge(SyncStore.layer),
+          Layer.provideMerge(D1Layer(db)),
+        ),
       ),
     ),
   ),

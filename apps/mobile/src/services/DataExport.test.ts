@@ -31,6 +31,8 @@ const DELETED_ENROLLMENT = "9d0e1f2a-3b4c-4d5e-8f6a-8b9c0d1e2f3a"
 const IMPORTED = "0e1f2a3b-4c5d-4e6f-9a7b-9c0d1e2f3a4b"
 const HEALTH = "1f2a3b4c-5d6e-4f7a-8b8c-0d1e2f3a4b5c"
 const DELETED_HEALTH = "2a3b4c5d-6e7f-4a8b-9c9d-1e2f3a4b5c6d"
+const FOOD = "3b4c5d6e-7f8a-4b9c-8d0e-2f3a4b5c6d7e"
+const PROGRAM = "4c5d6e7f-8a9b-4c0d-9e1f-3a4b5c6d7e8f"
 
 const dailyHealth = (id: string, columns: typeof live | typeof tombstone, date: string) => ({
   table: "dailyHealth",
@@ -76,6 +78,7 @@ const wire = [
       locations: [],
       activeLocationId: null,
       timezone: "Europe/Vilnius",
+      nutrition: null,
     },
   },
   {
@@ -166,6 +169,7 @@ const wire = [
       startedOn: "2026-10-19",
       status: "active",
       currentDay: 2,
+      swaps: [{ from: "push-up", to: "incline-push-up" }],
     },
   },
   {
@@ -177,6 +181,7 @@ const wire = [
       startedOn: "2026-09-01",
       status: "abandoned",
       currentDay: 1,
+      swaps: [],
     },
   },
   {
@@ -210,6 +215,57 @@ const wire = [
   },
   dailyHealth(HEALTH, live, "2026-10-21"),
   dailyHealth(DELETED_HEALTH, tombstone, "2026-10-20"),
+  {
+    table: "foodEntry",
+    row: {
+      id: FOOD,
+      ...live,
+      loggedAt: AT,
+      meal: "lunch",
+      source: "quick_add",
+      items: [
+        {
+          name: "Chicken breast, cooked",
+          portion: "100 g",
+          grams: 100,
+          kcal: 165,
+          proteinG: 31,
+          carbsG: 0,
+          fatG: 3.6,
+          fibreG: null,
+          confidence: null,
+        },
+      ],
+      kcal: 165,
+      proteinG: 31,
+      carbsG: 0,
+      fatG: 3.6,
+      note: null,
+    },
+  },
+  {
+    table: "program",
+    row: {
+      id: PROGRAM,
+      ...live,
+      title: "Push Pull",
+      slug: "push-pull",
+      summary: "Two days a week.",
+      description: null,
+      days: [
+        {
+          dayNumber: 1,
+          title: "Day 1",
+          rounds: 2,
+          items: [{ kind: "reps", catalogId: "push-up", reps: 10, restSeconds: 30 }],
+          restBetweenRoundsSeconds: 60,
+        },
+      ],
+      schedule: { kind: "daysPerWeek", days: 2 },
+      source: "manual",
+      version: 1,
+    },
+  },
 ]
 
 const TestLayer = DataExporter.layer.pipe(
@@ -242,7 +298,7 @@ const exported = Effect.gen(function* () {
 })
 
 describe("DataExporter.exportAll", () => {
-  it.effect("decodes with DataExport and holds the live rows of all 12 tables, parents first", () =>
+  it.effect("decodes with DataExport and holds the live rows of all 14 tables, parents first", () =>
     Effect.gen(function* () {
       yield* seed(true)
       const file = yield* exported
@@ -259,6 +315,8 @@ describe("DataExporter.exportAll", () => {
         "programDayCompletion",
         "importedActivity",
         "dailyHealth",
+        "foodEntry",
+        "program",
       ])
       expect(file.format).toBe("tanren.export")
       expect(file.version).toBe(1)

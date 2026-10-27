@@ -1,6 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
 import { GarminImportRepo, IntegrationRepo, SealedToken } from "@tanren/db"
-import { IdGenerator, ImportedActivityInsert, UserId, Uuid } from "@tanren/shared"
+import {
+  DailyHealth,
+  IdGenerator,
+  ImportedActivityInsert,
+  LocalDate,
+  UserId,
+  Uuid,
+} from "@tanren/shared"
 import { Effect, Layer, Schema } from "effect"
 import { at } from "../sync/fixtures"
 import { MemoryGarminImport } from "./MemoryGarminImport"
@@ -55,5 +62,49 @@ describe("MemoryGarminImport and the connection gate (like the D1 repo)", () => 
       expect(yield* repo.upsertActivities(user, [activity])).toBe(0)
       expect(yield* repo.counts(user, "garmin")).toEqual({ activities: 0, days: 0 })
     }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+const day = (n: number, date: string, deletedAt: string | null = null) =>
+  Schema.decodeUnknownSync(DailyHealth)({
+    id: `73000000-0000-4000-8000-${n.toString().padStart(12, "0")}`,
+    userId: user,
+    createdAt: "2026-10-27T08:00:00.000Z",
+    updatedAt: "2026-10-27T08:00:00.000Z",
+    deletedAt,
+    provider: "garmin",
+    date,
+    totalCalories: 2500,
+    activeCalories: 600,
+    steps: 9000,
+    restingHeartRate: 52,
+  })
+
+describe("MemoryGarminImport.listDays", () => {
+  it.effect("returns live days with date in [from, to], both ends included, by date", () =>
+    Effect.gen(function* () {
+      const store = yield* MemoryStore
+      yield* store.put("dailyHealth", user, [
+        day(1, "2026-10-21"),
+        day(2, "2026-10-27"),
+        day(3, "2026-10-22"),
+        day(4, "2026-10-28"),
+        day(5, "2026-10-24", "2026-10-27T09:00:00.000Z"),
+      ])
+      const days = yield* (yield* GarminImportRepo).listDays(
+        user,
+        LocalDate.make("2026-10-22"),
+        LocalDate.make("2026-10-27"),
+      )
+      expect(days.map((d) => d.date)).toEqual(["2026-10-22", "2026-10-27"])
+    }).pipe(
+      Effect.provide(
+        MemoryGarminImport.layer.pipe(
+          Layer.provide(IdGenerator.layerTest),
+          Layer.provide(MemoryIntegrations.layer),
+          Layer.provideMerge(MemoryStore.layer),
+        ),
+      ),
+    ),
   )
 })

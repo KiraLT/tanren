@@ -2,10 +2,18 @@ import { Schema, SchemaGetter, Struct } from "effect"
 import type { SyncTable } from "./common"
 import { Exercise } from "./exercise"
 import { DailyHealth, ImportedActivity } from "./garmin"
+import { FoodEntry, FoodItems } from "./nutrition"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
-import { ProgramDayCompletion, ProgramEnrollment } from "./program"
+import {
+  ProgramDayCompletion,
+  ProgramDays,
+  ProgramEnrollment,
+  ProgramSchedule,
+  Swaps,
+  UserProgram,
+} from "./program"
 import { Session, WorkoutSet } from "./session"
-import { Locations, Profile } from "./user"
+import { Locations, NutritionProfile, Profile } from "./user"
 
 /**
  * DB row codecs (DB §5). A DB record has camelCase keys (after `transformResultNames`) and
@@ -37,6 +45,7 @@ export const ProfileRow = Schema.Struct({
   equipment: Schema.String,
   locations: jsonColumn(Locations),
   activeLocationId: Schema.NullOr(Schema.String),
+  nutrition: Schema.NullOr(jsonColumn(NutritionProfile)),
 }).pipe(
   Schema.decodeTo(Profile, {
     decode: SchemaGetter.transform(({ equipment: _legacy, ...profile }) => profile),
@@ -46,6 +55,7 @@ export const ProfileRow = Schema.Struct({
       ...profile,
       locations: profile.locations ?? [],
       activeLocationId: profile.activeLocationId ?? null,
+      nutrition: profile.nutrition ?? null,
       equipment: LEGACY_EQUIPMENT,
     })),
   }),
@@ -74,9 +84,10 @@ export const SessionRow = wireRecord(Session.fields).pipe(Schema.decodeTo(Sessio
 
 export const WorkoutSetRow = wireRecord(WorkoutSet.fields).pipe(Schema.decodeTo(WorkoutSet))
 
-export const ProgramEnrollmentRow = wireRecord(ProgramEnrollment.fields).pipe(
-  Schema.decodeTo(ProgramEnrollment),
-)
+export const ProgramEnrollmentRow = Schema.Struct({
+  ...wireRecord(ProgramEnrollment.fields).fields,
+  swaps: jsonColumn(Swaps),
+}).pipe(Schema.decodeTo(ProgramEnrollment))
 
 export const ProgramDayCompletionRow = wireRecord(ProgramDayCompletion.fields).pipe(
   Schema.decodeTo(ProgramDayCompletion),
@@ -87,6 +98,17 @@ export const ImportedActivityRow = wireRecord(ImportedActivity.fields).pipe(
 )
 
 export const DailyHealthRow = wireRecord(DailyHealth.fields).pipe(Schema.decodeTo(DailyHealth))
+
+export const FoodEntryRow = Schema.Struct({
+  ...wireRecord(FoodEntry.fields).fields,
+  items: jsonColumn(FoodItems),
+}).pipe(Schema.decodeTo(FoodEntry))
+
+export const UserProgramRow = Schema.Struct({
+  ...wireRecord(UserProgram.fields).fields,
+  days: jsonColumn(ProgramDays),
+  schedule: jsonColumn(ProgramSchedule),
+}).pipe(Schema.decodeTo(UserProgram))
 
 /** SQL table per synced entity (DB §1). */
 export const ROW_TABLE = {
@@ -102,6 +124,8 @@ export const ROW_TABLE = {
   programDayCompletion: "program_day_completion",
   importedActivity: "imported_activity",
   dailyHealth: "daily_health",
+  foodEntry: "food_entry",
+  program: "program",
 } as const satisfies { readonly [T in SyncTable]: string }
 
 /** The camelCase record keys of each table: the codec's columns, in field order. */
@@ -118,4 +142,6 @@ export const ROW_KEYS = {
   programDayCompletion: Struct.keys(ProgramDayCompletionRow.from.fields),
   importedActivity: Struct.keys(ImportedActivityRow.from.fields),
   dailyHealth: Struct.keys(DailyHealthRow.from.fields),
+  foodEntry: Struct.keys(FoodEntryRow.from.fields),
+  program: Struct.keys(UserProgramRow.from.fields),
 } as const satisfies { readonly [T in SyncTable]: ReadonlyArray<string> }

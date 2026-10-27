@@ -25,6 +25,7 @@ const exportJson = {
         locations: [],
         activeLocationId: null,
         timezone: "Europe/Vilnius",
+        nutrition: null,
       },
     },
     {

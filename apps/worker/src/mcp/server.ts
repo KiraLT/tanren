@@ -3,6 +3,12 @@ import type { PersistenceError } from "@tanren/db"
 import type { McpToolName, UserId } from "@tanren/shared"
 import { Effect, Predicate, Schema } from "effect"
 import type { McpPrincipal } from "./McpAuth"
+import {
+  nutritionReadTools,
+  nutritionWriteAnnotations,
+  nutritionWriteTools,
+} from "./nutritionTools"
+import { programReadTools, programWriteAnnotations, programWriteTools } from "./programTools"
 import { type AnyTool, readTools, type ToolDeps } from "./tools"
 import { writeToolAnnotations, writeTools } from "./writeTools"
 
@@ -106,7 +112,14 @@ const ANNOTATIONS: { readonly [N in McpToolName]: ToolAnnotations } = {
   get_current_plan: READ_ONLY,
   search_exercises: READ_ONLY,
   get_profile: READ_ONLY,
+  get_nutrition_day: READ_ONLY,
+  get_week_review: READ_ONLY,
+  list_programs: READ_ONLY,
+  get_program: READ_ONLY,
+  get_program_progress: READ_ONLY,
   ...writeToolAnnotations,
+  ...nutritionWriteAnnotations,
+  ...programWriteAnnotations,
 }
 
 /**
@@ -114,9 +127,19 @@ const ANNOTATIONS: { readonly [N in McpToolName]: ToolAnnotations } = {
  * `tanren:write`. The OAuth provider advertises `requiredScopes` but does not enforce them, so the
  * registration here is the enforcement; no scope → no tools.
  */
-export const toolsFor = (principal: McpPrincipal): ReadonlyArray<AnyTool> => [
-  ...(principal.scopes.includes("tanren:read") ? readTools : []),
-  ...(principal.scopes.includes("tanren:write") ? writeTools : []),
+export const toolsFor = (principal: McpPrincipal): ReadonlyArray<AnyTool> =>
+  ALL_TOOLS.filter((tool) =>
+    principal.scopes.includes(tool.kind === "read" ? "tanren:read" : "tanren:write"),
+  )
+
+/** Every tool in `MCP_TOOLS` order: the reads, then the writes. */
+const ALL_TOOLS: ReadonlyArray<AnyTool> = [
+  ...readTools,
+  ...nutritionReadTools,
+  ...programReadTools,
+  ...writeTools,
+  ...nutritionWriteTools,
+  ...programWriteTools,
 ]
 
 /**

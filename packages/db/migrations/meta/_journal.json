@@ -57,6 +57,20 @@
       "when": 1793101967267,
       "tag": "0007_garmin_import",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793106769526,
+      "tag": "0008_nutrition",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793108170194,
+      "tag": "0009_programs",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import type { CurrentPlanEncoded } from "./currentPlan"
 import type { Exercise } from "./exercise"
 import {
   CurrentPlanResult,
+  EnrollmentSummary,
   ExerciseHistory,
   type ExerciseSummary,
   GetOverviewInput,
@@ -17,12 +18,17 @@ import {
   McpToolName,
   OAuthProps,
   Overview,
+  ProgramItemInput,
   SearchExercisesInput,
   SearchExercisesResult,
   SessionList,
+  SetEnrollmentStatusInput,
+  SwapExerciseInput,
   UpdateProfileResult,
+  UpdateProgramInput,
   WritePlanWeekInput,
   WritePlanWeekResult,
+  WriteProgramInput,
 } from "./mcp"
 import { accepts, failingPaths, rejects, wireRoundTrips } from "./testing"
 import { Profile } from "./user"
@@ -393,6 +399,7 @@ describe("GetProfileResult", () => {
     ],
     activeLocationId: "1c1c1c1c-1c1c-4c1c-8c1c-1c1c1c1c1c1c",
     timezone: "Europe/Vilnius",
+    nutrition: null,
   }
 
   it.effect("decodes null as None and a profile as Some, round-tripping both", () =>
@@ -466,12 +473,116 @@ describe("MCP_TOOLS", () => {
     ])
   })
 
-  it.effect("names the nine tools and McpToolName accepts exactly those", () =>
+  it.effect("names the twenty-two tools and McpToolName accepts exactly those", () =>
     Effect.gen(function* () {
-      expect(MCP_TOOLS).toHaveLength(9)
-      expect(new Set(MCP_TOOLS).size).toBe(9)
+      expect(MCP_TOOLS).toEqual([
+        "get_overview",
+        "get_exercise_history",
+        "list_sessions",
+        "get_current_plan",
+        "search_exercises",
+        "get_profile",
+        "get_nutrition_day",
+        "get_week_review",
+        "list_programs",
+        "get_program",
+        "get_program_progress",
+        "write_plan_week",
+        "log_session",
+        "update_profile",
+        "log_food",
+        "delete_food_entry",
+        "write_program",
+        "update_program",
+        "delete_program",
+        "enroll_program",
+        "set_enrollment_status",
+        "swap_exercise",
+      ])
+      expect(new Set(MCP_TOOLS).size).toBe(22)
       yield* Effect.forEach(MCP_TOOLS, (name) => Schema.decodeUnknownEffect(McpToolName)(name))
       yield* rejects(McpToolName, "delete_everything")
+    }),
+  )
+})
+
+describe("program tool contracts", () => {
+  const repsItem = { kind: "reps", catalogId: "push-up", reps: 10, restSeconds: 30 }
+  const timedItem = { kind: "timed", catalogId: "plank", seconds: 30, restSeconds: 15 }
+  const dayInput = {
+    title: "Day 1",
+    rounds: 2,
+    items: [repsItem, timedItem],
+    restBetweenRoundsSeconds: 60,
+  }
+
+  it.effect("ProgramItemInput accepts both arms and rejects seconds 5 and reps 0", () =>
+    Effect.gen(function* () {
+      yield* accepts(ProgramItemInput, repsItem)
+      yield* accepts(ProgramItemInput, timedItem)
+      expect(yield* failingPaths(ProgramItemInput, { ...timedItem, seconds: 5 })).toEqual([
+        ["seconds"],
+      ])
+      expect(yield* failingPaths(ProgramItemInput, { ...repsItem, reps: 0 })).toEqual([["reps"]])
+    }),
+  )
+
+  it.effect("WriteProgramInput decodes a one-day program and rejects 61 days", () =>
+    Effect.gen(function* () {
+      const input = {
+        slug: "push-pull",
+        title: "Push Pull",
+        summary: "Two days a week.",
+        schedule: { kind: "weekdays", weekdays: ["mon", "thu"] },
+        days: [dayInput],
+      }
+      yield* accepts(WriteProgramInput, input)
+      const days = Array.from({ length: 61 }, () => dayInput)
+      expect(yield* failingPaths(WriteProgramInput, { ...input, days })).toEqual([["days"]])
+    }),
+  )
+
+  it.effect(
+    "UpdateProgramInput decodes { programId } alone (the handler rejects the empty patch)",
+    () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decodeUnknownEffect(UpdateProgramInput)({
+          programId: "core-30",
+        })
+        expect(Object.keys(decoded)).toEqual(["programId"])
+      }),
+  )
+
+  it.effect("SwapExerciseInput decodes to: null as None (revert)", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeUnknownEffect(SwapExerciseInput)({
+        enrollmentId: "77777777-7777-4777-8777-777777777777",
+        from: "push-up",
+        to: null,
+      })
+      expect(Option.isNone(decoded.to)).toBe(true)
+    }),
+  )
+
+  it.effect("SetEnrollmentStatusInput rejects the terminal completed status", () =>
+    rejects(SetEnrollmentStatusInput, {
+      enrollmentId: "77777777-7777-4777-8777-777777777777",
+      status: "completed",
+    }),
+  )
+
+  it.effect("EnrollmentSummary round-trips with a null lastCompletedAt", () =>
+    wireRoundTrips(EnrollmentSummary, {
+      enrollmentId: "77777777-7777-4777-8777-777777777777",
+      programId: "core-30",
+      title: "Core 30",
+      status: "paused",
+      startedOn: "2026-10-20",
+      currentDay: 3,
+      totalDays: 30,
+      completedDays: 2,
+      lastCompletedAt: null,
+      swaps: [],
     }),
   )
 })

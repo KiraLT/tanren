@@ -162,6 +162,8 @@ production (`Config.ts` refuses it outside console mode).
   (1 user, ≤ 2 pages of 50, ≤ 7 dailies per run; a 30-day back-fill takes 3–4 ticks). Field names: `outcome`, `scriptName`,
   `event.cron` are what wrangler 4.151.2's tail printer reads; `cpuTime` / `wallTime` are `TraceItem` fields in
   `@cloudflare/workers-types` (wrangler passes the JSON through) — if they print `null`, `outcome` alone is the verdict.
+  `wrangler tail --format json` emits a stream of pretty-printed objects, not JSONL: never `grep` / `while read` the raw
+  stream; `jq` reads concatenated values, or run `jq -c .` first and grep the one-line output.
   GM-F2 expectation: an idle tick (`attempted=0`, `users=0`) measured 28–30 ms before GM-F2 (bac78729); after it the cron
   builds a slim layer once per isolate (`makeScheduled(scheduledLayer(env))`), so warm idle ticks should read ≈ 1–3 ms; a
   cold-isolate tick still pays module evaluation of the whole bundle (not addressed by GM-F2) and may stay well above 10.

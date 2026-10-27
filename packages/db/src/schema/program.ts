@@ -2,7 +2,31 @@ import { sql } from "drizzle-orm"
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { rowColumns, userSeqIndex } from "./sync"
 
-/** Program progress (v2-programs.md §2); the program definitions are static in `@tanren/shared`. */
+/**
+ * The user's own programs (ADR-0026, programs-mcp.md §2); built-ins are static in `@tanren/shared`
+ * and have no row. `days` and `schedule` are JSON text; `slug` and `source` are immutable.
+ */
+export const program = sqliteTable(
+  "program",
+  {
+    ...rowColumns(),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(),
+    summary: text("summary").notNull(),
+    description: text("description"),
+    days: text("days").notNull(),
+    schedule: text("schedule").notNull(),
+    source: text("source").notNull(),
+    version: integer("version").notNull(),
+  },
+  (t) => [
+    userSeqIndex("program", t),
+    // One live program per slug and user.
+    uniqueIndex("program_user_slug_unique").on(t.userId, t.slug).where(sql`${t.deletedAt} IS NULL`),
+  ],
+)
+
+/** Program progress (v2-programs.md §2); `program_id` is a built-in slug or a `program` row id. */
 export const programEnrollment = sqliteTable(
   "program_enrollment",
   {
@@ -11,6 +35,7 @@ export const programEnrollment = sqliteTable(
     startedOn: text("started_on").notNull(),
     status: text("status").notNull(),
     currentDay: integer("current_day").notNull(),
+    swaps: text("swaps").notNull().default("[]"),
   },
   (t) => [
     userSeqIndex("program_enrollment", t),

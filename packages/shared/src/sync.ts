@@ -3,8 +3,9 @@ import { PageLimit, SyncTable, Timestamp } from "./common"
 import { Exercise } from "./exercise"
 import { DailyHealth, ImportedActivity } from "./garmin"
 import { Uuid } from "./ids"
+import { FoodEntry } from "./nutrition"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
-import { ProgramDayCompletion, ProgramEnrollment } from "./program"
+import { ProgramDayCompletion, ProgramEnrollment, UserProgram } from "./program"
 import { Session, WorkoutSet } from "./session"
 import { Profile } from "./user"
 
@@ -27,6 +28,8 @@ export const SYNC_TABLE_ORDER = [
   "programDayCompletion",
   "importedActivity",
   "dailyHealth",
+  "foodEntry",
+  "program",
 ] as const satisfies ReadonlyArray<SyncTable>
 
 export const MAX_PUSH_CHANGES = 500
@@ -48,6 +51,8 @@ export const SyncChange = Schema.Union([
   member("programDayCompletion", ProgramDayCompletion),
   member("importedActivity", ImportedActivity),
   member("dailyHealth", DailyHealth),
+  member("foodEntry", FoodEntry),
+  member("program", UserProgram),
 ])
 export type SyncChange = typeof SyncChange.Type
 export type SyncChangeEncoded = (typeof SyncChange)["Encoded"]

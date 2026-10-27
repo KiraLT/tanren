@@ -306,9 +306,9 @@ describe("OAuth flow through the provider (workerd)", () => {
     expect(await toolNames(Option.some(token))).toEqual([...MCP_TOOLS])
   })
 
-  it("a read-only grant lists the six read tools and cannot call a write tool", async () => {
+  it("a read-only grant lists the eight read tools and cannot call a write tool", async () => {
     const token = await grant(["tanren:read"])
-    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 6))
+    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 11))
     const response = await mcp(Option.some(token), "tools/call", {
       name: "update_profile",
       arguments: { timezone: "Europe/Vilnius" },

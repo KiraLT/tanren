@@ -175,8 +175,50 @@ const v4: ReadonlyArray<string> = [
   dirtyIndex("daily_health"),
 ]
 
+/**
+ * v5 (docs/design/nutrition.md §2, ADR-0025): food entries, synced both ways (the app quick-adds,
+ * Claude logs via MCP); `items` is the JSON column. The profile gains its nutrition goal.
+ */
+const v5: ReadonlyArray<string> = [
+  table(
+    "food_entry",
+    `"loggedAt" TEXT NOT NULL,
+  "meal" TEXT NOT NULL,
+  "source" TEXT NOT NULL,
+  "items" TEXT NOT NULL,
+  "kcal" INTEGER NOT NULL,
+  "proteinG" REAL NOT NULL,
+  "carbsG" REAL NOT NULL,
+  "fatG" REAL NOT NULL,
+  "note" TEXT`,
+  ),
+  `CREATE INDEX IF NOT EXISTS "food_entry_logged" ON "food_entry" ("loggedAt")`,
+  dirtyIndex("food_entry"),
+  `ALTER TABLE "profile" ADD COLUMN "nutrition" TEXT`,
+]
+
+/**
+ * v6 (docs/design/programs-mcp.md §2, ADR-0026): user programs, synced both ways (the editor writes,
+ * Claude writes via MCP); `days` and `schedule` are JSON columns. Enrollments gain their swaps.
+ */
+const v6: ReadonlyArray<string> = [
+  table(
+    "program",
+    `"title" TEXT NOT NULL,
+  "slug" TEXT NOT NULL,
+  "summary" TEXT NOT NULL,
+  "description" TEXT,
+  "days" TEXT NOT NULL,
+  "schedule" TEXT NOT NULL,
+  "source" TEXT NOT NULL,
+  "version" INTEGER NOT NULL`,
+  ),
+  dirtyIndex("program"),
+  `ALTER TABLE "program_enrollment" ADD COLUMN "swaps" TEXT NOT NULL DEFAULT '[]'`,
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

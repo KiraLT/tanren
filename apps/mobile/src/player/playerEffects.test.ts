@@ -45,11 +45,17 @@ const repoLayer = (
   Layer.succeed(
     ProgramRepo,
     ProgramRepo.of({
+      find: () => notUsed,
+      list: () => notUsed,
       enrollments: notUsed,
-      active: notUsed,
+      activeEnrollments: () => notUsed,
+      dueToday: () => notUsed,
       enroll: () => notUsed,
-      abandon: () => notUsed,
-      todayFor: () => Option.none(),
+      setStatus: () => notUsed,
+      setSwap: () => notUsed,
+      todayFor: () => notUsed,
+      save: () => notUsed,
+      deleteProgram: () => notUsed,
       complete,
     }),
   )

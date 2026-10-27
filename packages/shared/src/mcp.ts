@@ -4,7 +4,7 @@
  * write tools and OAuth props follow docs/design/oauth.md §4–§5.
  */
 import { Schema, Struct } from "effect"
-import { CatalogEquipment, CatalogExercise, ExerciseKind } from "./catalog"
+import { CatalogEquipment, CatalogExercise, CatalogId, ExerciseKind, Slug } from "./catalog"
 import {
   Label,
   LocalDate,
@@ -22,14 +22,27 @@ import { CurrentPlan } from "./currentPlan"
 import { Exercise, MuscleGroup } from "./exercise"
 import {
   ExerciseId,
+  FoodEntryId,
   LocationId,
   PlanId,
   PlannedSessionId,
   PlanWeekId,
+  ProgramEnrollmentId,
   SessionId,
   UserId,
 } from "./ids"
+import { Count, DayTotals, FoodEntry, FoodItems, Grams, Insight, Meal } from "./nutrition"
 import { PlannedSessionFields, PlannedSet } from "./plan"
+import {
+  EnrollmentStatus,
+  MinutesRange,
+  ProgramSchedule,
+  ProgramSource,
+  ProgramSummary,
+  Swaps,
+  UserProgramPatch,
+} from "./program"
+import { DayNumber, Program, ProgramId } from "./programs/Program"
 import { Session, WorkoutSet } from "./session"
 import { Profile, ProfilePatch } from "./user"
 
@@ -190,6 +203,63 @@ export type UpdateProfileInput = typeof UpdateProfileInput.Type
 export const UpdateProfileResult = Profile
 export type UpdateProfileResult = typeof UpdateProfileResult.Type
 
+// Nutrition (docs/design/nutrition.md §3). Day boundaries use `profile.timezone`.
+
+// log_food
+export const LogFoodInput = Schema.Struct({
+  /** Default now. */
+  loggedAt: Schema.optionalKey(Timestamp),
+  meal: Meal,
+  items: FoodItems,
+  note: Schema.optionalKey(Note),
+})
+export type LogFoodInput = typeof LogFoodInput.Type
+export const LogFoodResult = Schema.Struct({ entry: FoodEntry, day: DayTotals })
+export type LogFoodResult = typeof LogFoodResult.Type
+
+// get_nutrition_day
+export const GetNutritionDayInput = Schema.Struct({
+  /** Default today in the profile zone. */
+  date: Schema.optionalKey(LocalDate),
+})
+export type GetNutritionDayInput = typeof GetNutritionDayInput.Type
+export const GetNutritionDayResult = DayTotals
+export type GetNutritionDayResult = typeof GetNutritionDayResult.Type
+
+// delete_food_entry
+export const DeleteFoodEntryInput = Schema.Struct({ id: FoodEntryId })
+export type DeleteFoodEntryInput = typeof DeleteFoodEntryInput.Type
+export const DeleteFoodEntryResult = Schema.Struct({ deleted: Schema.Boolean })
+export type DeleteFoodEntryResult = typeof DeleteFoodEntryResult.Type
+
+// get_week_review
+export const GetWeekReviewInput = Schema.Struct({
+  /** Any weekday; default this week's Monday (profile zone). */
+  weekStart: Schema.optionalKey(LocalDate),
+})
+export type GetWeekReviewInput = typeof GetWeekReviewInput.Type
+export const WeekReview = Schema.Struct({
+  weekStart: LocalDate,
+  days: Schema.Array(DayTotals).check(Schema.isMinLength(7), Schema.isMaxLength(7)),
+  eatenKcal: Count,
+  burnedKcal: Schema.OptionFromNullOr(Count),
+  daysWithBurn: Count,
+  /** Σ(eaten − burned) over `daysWithBurn`. */
+  netKcal: Schema.OptionFromNullOr(Schema.Int),
+  proteinAvgG: Grams,
+  daysOnKcalTarget: Count,
+  daysOnProteinTarget: Count,
+  daysLogged: Count,
+  /** Sessions started in the local Mon–Sun with `finishedAt` set. */
+  workoutsDone: Count,
+  /** Planned sessions of the active plan's week. */
+  workoutsPlanned: Count,
+  insights: Schema.Array(Insight),
+})
+export type WeekReview = typeof WeekReview.Type
+export const GetWeekReviewResult = WeekReview
+export type GetWeekReviewResult = typeof GetWeekReviewResult.Type
+
 // OAuth (docs/design/oauth.md §4)
 export const MCP_SCOPES = ["tanren:read", "tanren:write"] as const
 export const McpScope = Schema.Literals(MCP_SCOPES)
@@ -235,7 +305,163 @@ export const SearchExercisesResult = Schema.Struct({
 })
 export type SearchExercisesResult = typeof SearchExercisesResult.Type
 
-/** The read tools come first and stay contiguous (`slice(0, 6)`), then the write tools. */
+// Programs (programs-mcp.md §3, ADR-0026). Tool names join `MCP_TOOLS` with the tools (P-S2).
+
+const Int = Schema.Number.check(Schema.isInt())
+const IntBetween = (minimum: number, maximum: number) =>
+  Schema.Number.check(Schema.isInt(), Schema.isBetween({ minimum, maximum }))
+
+export const ListProgramsInput = Schema.Struct({})
+export type ListProgramsInput = typeof ListProgramsInput.Type
+/** Built-ins first, then the user's rows by title. */
+export const ProgramList = Schema.Struct({ programs: Schema.Array(ProgramSummary) })
+export type ProgramList = typeof ProgramList.Type
+
+export const EnrollmentSummary = Schema.Struct({
+  enrollmentId: ProgramEnrollmentId,
+  programId: ProgramId,
+  title: Label,
+  status: EnrollmentStatus,
+  startedOn: LocalDate,
+  currentDay: Int,
+  totalDays: Int,
+  completedDays: Int,
+  lastCompletedAt: Schema.OptionFromNullOr(Timestamp),
+  swaps: Swaps,
+})
+export type EnrollmentSummary = typeof EnrollmentSummary.Type
+
+export const GetProgramInput = Schema.Struct({ programId: ProgramId })
+export type GetProgramInput = typeof GetProgramInput.Type
+export const ProgramDetail = Schema.Struct({
+  program: Program,
+  source: ProgramSource,
+  version: Int,
+  schedule: Schema.OptionFromNullOr(ProgramSchedule),
+  enrollments: Schema.Array(EnrollmentSummary),
+})
+export type ProgramDetail = typeof ProgramDetail.Type
+
+export const ProgramItemInput = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("timed"),
+    catalogId: CatalogId,
+    seconds: IntBetween(10, 600),
+    restSeconds: IntBetween(0, 300),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("reps"),
+    catalogId: CatalogId,
+    reps: IntBetween(1, 100),
+    restSeconds: IntBetween(0, 300),
+  }),
+])
+export type ProgramItemInput = typeof ProgramItemInput.Type
+
+/** `dayNumber` is the day's position in `days`. */
+export const ProgramDayInput = Schema.Struct({
+  title: Label,
+  rounds: IntBetween(1, 5),
+  items: Schema.Array(ProgramItemInput).check(Schema.isMinLength(1), Schema.isMaxLength(12)),
+  restBetweenRoundsSeconds: IntBetween(0, 300),
+})
+export type ProgramDayInput = typeof ProgramDayInput.Type
+
+const ProgramDaysInput = Schema.Array(ProgramDayInput).check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(60),
+)
+
+export const WriteProgramInput = Schema.Struct({
+  slug: Slug,
+  title: Label,
+  summary: Note,
+  description: Schema.optionalKey(Text),
+  schedule: ProgramSchedule,
+  days: ProgramDaysInput,
+})
+export type WriteProgramInput = typeof WriteProgramInput.Type
+export const WriteProgramResult = Schema.Struct({
+  programId: ProgramId,
+  /** `false` = replaced by slug, same id. */
+  created: Schema.Boolean,
+  version: Int,
+  days: Int,
+  minutesPerDay: MinutesRange,
+  warnings: Schema.Array(Schema.String),
+})
+export type WriteProgramResult = typeof WriteProgramResult.Type
+
+/** `{}` besides `programId` is a `ValidationError "empty patch"` (handler). */
+export const UpdateProgramInput = Schema.Struct({
+  programId: ProgramId,
+  ...UserProgramPatch.fields,
+  days: Schema.optionalKey(ProgramDaysInput),
+})
+export type UpdateProgramInput = typeof UpdateProgramInput.Type
+export const UpdateProgramResult = WriteProgramResult
+export type UpdateProgramResult = typeof UpdateProgramResult.Type
+
+export const DeleteProgramInput = Schema.Struct({
+  programId: ProgramId,
+  force: Schema.optionalKey(Schema.Boolean),
+})
+export type DeleteProgramInput = typeof DeleteProgramInput.Type
+export const DeleteProgramResult = Schema.Struct({
+  deleted: Schema.Boolean,
+  abandonedEnrollments: Int,
+})
+export type DeleteProgramResult = typeof DeleteProgramResult.Type
+
+export const EnrollProgramInput = Schema.Struct({
+  programId: ProgramId,
+  startedOn: Schema.optionalKey(LocalDate),
+})
+export type EnrollProgramInput = typeof EnrollProgramInput.Type
+export const EnrollProgramResult = Schema.Struct({
+  enrollment: EnrollmentSummary,
+  alreadyActive: Schema.Boolean,
+})
+export type EnrollProgramResult = typeof EnrollProgramResult.Type
+
+export const GetProgramProgressInput = Schema.Struct({ programId: Schema.optionalKey(ProgramId) })
+export type GetProgramProgressInput = typeof GetProgramProgressInput.Type
+/** `completions` only when `programId` was given, else `[]`. */
+export const ProgramProgress = Schema.Struct({
+  enrollments: Schema.Array(EnrollmentSummary),
+  completions: Schema.Array(
+    Schema.Struct({
+      enrollmentId: ProgramEnrollmentId,
+      dayNumber: DayNumber,
+      completedAt: Timestamp,
+      durationSeconds: Int,
+    }),
+  ),
+})
+export type ProgramProgress = typeof ProgramProgress.Type
+
+export const SetEnrollmentStatusInput = Schema.Struct({
+  enrollmentId: ProgramEnrollmentId,
+  status: Schema.Literals(["active", "paused", "abandoned"]),
+})
+export type SetEnrollmentStatusInput = typeof SetEnrollmentStatusInput.Type
+export const SetEnrollmentStatusResult = Schema.Struct({ enrollment: EnrollmentSummary })
+export type SetEnrollmentStatusResult = typeof SetEnrollmentStatusResult.Type
+
+/** `to: null` reverts `from` to the original exercise. */
+export const SwapExerciseInput = Schema.Struct({
+  enrollmentId: ProgramEnrollmentId,
+  from: CatalogId,
+  to: Schema.OptionFromNullOr(CatalogId),
+})
+export type SwapExerciseInput = typeof SwapExerciseInput.Type
+export const SwapExerciseResult = Schema.Struct({
+  swaps: Swaps,
+  candidates: Schema.Array(CatalogId),
+})
+export type SwapExerciseResult = typeof SwapExerciseResult.Type
+
+/** The eleven read tools come first and stay contiguous (`slice(0, 11)`), then the write tools. */
 export const MCP_TOOLS = [
   "get_overview",
   "get_exercise_history",
@@ -243,9 +469,22 @@ export const MCP_TOOLS = [
   "get_current_plan",
   "search_exercises",
   "get_profile",
+  "get_nutrition_day",
+  "get_week_review",
+  "list_programs",
+  "get_program",
+  "get_program_progress",
   "write_plan_week",
   "log_session",
   "update_profile",
+  "log_food",
+  "delete_food_entry",
+  "write_program",
+  "update_program",
+  "delete_program",
+  "enroll_program",
+  "set_enrollment_status",
+  "swap_exercise",
 ] as const
 export const McpToolName = Schema.Literals(MCP_TOOLS)
 export type McpToolName = typeof McpToolName.Type

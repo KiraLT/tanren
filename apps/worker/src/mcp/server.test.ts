@@ -3,11 +3,16 @@ import { PersistenceError } from "@tanren/db"
 import { Forbidden, IdGenerator, MCP_TOOLS } from "@tanren/shared"
 import { Effect, Layer, Schema } from "effect"
 import { Repositories } from "../repos"
+import { MemoryGarminImport } from "../repos/MemoryGarminImport"
+import { MemoryIntegrations } from "../repos/MemoryIntegrations"
 import { userA } from "../sync/fixtures"
 import { callTool, GONE_USER, guardWrite, toolsFor } from "./server"
 import type { AnyTool } from "./tools"
 
-const TestLayer = Layer.mergeAll(Repositories.layerMemory, IdGenerator.layerTest)
+const TestLayer = Layer.mergeAll(
+  MemoryGarminImport.layer.pipe(Layer.provide(MemoryIntegrations.layer)),
+  IdGenerator.layerTest,
+).pipe(Layer.provideMerge(Layer.merge(Repositories.layerMemory, IdGenerator.layerTest)))
 
 /** A tool whose program dies (e.g. the output-encode `orDie`) with a message that must not leak. */
 const dyingTool: AnyTool = {
@@ -43,23 +48,26 @@ describe("callTool", () => {
 })
 
 describe("toolsFor", () => {
-  it("registers the six read tools, get_profile included, for a read-only grant", () => {
+  it("registers the eleven read tools, get_profile and the program reads included, for a read-only grant", () => {
     const names = toolsFor({ userId: userA, scopes: ["tanren:read"] }).map((t) => t.name)
-    expect(names).toEqual(MCP_TOOLS.slice(0, 6))
-    expect(names).toHaveLength(6)
+    expect(names).toEqual(MCP_TOOLS.slice(0, 11))
+    expect(names).toHaveLength(11)
+    expect(names).toEqual(
+      expect.arrayContaining(["list_programs", "get_program", "get_program_progress"]),
+    )
     expect(names).toContain("search_exercises")
     expect(names).toContain("get_profile")
   })
 
-  it("adds the three write tools, in MCP_TOOLS order, with tanren:write", () => {
+  it("adds the eleven write tools, in MCP_TOOLS order, with tanren:write", () => {
     expect(
       toolsFor({ userId: userA, scopes: ["tanren:read", "tanren:write"] }).map((t) => t.name),
     ).toEqual([...MCP_TOOLS])
   })
 
-  it("registers only the three write tools for a write-only grant", () => {
+  it("registers only the eleven write tools for a write-only grant", () => {
     expect(toolsFor({ userId: userA, scopes: ["tanren:write"] }).map((t) => t.name)).toEqual(
-      MCP_TOOLS.slice(6),
+      MCP_TOOLS.slice(11),
     )
   })
 
