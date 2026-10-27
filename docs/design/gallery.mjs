@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-// Review-gallery manifest (GAL-2). Reads the gallery HTML, writes <screensDir>/gallery.json and prints
+// Review-gallery manifest (GAL-2, GAL-3). Reads the gallery HTML (default: the tracked source
+// docs/design/screens/tanren-screens.html, named on stderr), writes <screensDir>/gallery.json and prints
 // (a) the Artifact `files` map for every referenced shot, (b) shots missing on disk, (c) duplicate badges.
 // Exit code 1 when (b) or (c) is non-empty.
-// Usage: node docs/design/gallery.mjs [gallery.html] [screensDir]
+// Usage: node docs/design/gallery.mjs [gallery.html] [screensDir] [--publish]
+//   gallery.html: path relative to the cwd or absolute; omit it to read the tracked source.
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
-const defaultHtml =
-  "/private/tmp/claude-501/-Users-lukas-Documents-Personal-tanren/2f72436e-0cd5-4397-8737-fd4699a2ee88/scratchpad/tanren-screens.html"
+const defaultHtml = join(repoRoot, "docs", "design", "screens", "tanren-screens.html")
 const argv = process.argv.slice(2)
 const publish = argv.includes("--publish")
 const positional = argv.filter((a) => a !== "--publish")
@@ -17,6 +18,7 @@ const htmlPath = positional[0] ?? defaultHtml
 const screensArg = positional[1] ?? "docs/design/screens"
 const screensDir = resolve(repoRoot, screensArg)
 
+console.error(`gallery.mjs: reading ${htmlPath}`)
 const html = readFileSync(htmlPath, "utf8")
 const strip = (text) =>
   text

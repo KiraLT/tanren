@@ -179,7 +179,10 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   ring) and `tooltip {padX 12, labelRow 20, labelWidth 72}` (Sparkline tooltip); the strip now sits
   below the card header (+32 px, empty when not hovered) and the pill is content-sized, clamped to the
   plot (`tooltipWidth`/`tooltipLeft`). Plan week summary labels read "Planned sets / Planned volume";
-  logged figures need `loggedSets` in `PlanWeekView` (PLAN-LOG, Lead). `formatVolume` lives in the leaf
+  each `PlanWeekView` session carries `logged {sets, volumeKg}` (one `GROUP BY` aggregate over live sets of
+  live linked sessions in `PlanWeekRepo`; bodyweight = 0 kg) and `WeekStats` (PlanWeek.tsx) renders the
+  week line "Logged 3 sets · 1,500 kg" as a `caption` under the tiles only when the week has logged sets
+  (PLAN-LOG; `weekLoggedLine` in planFormat.ts). `formatVolume` lives in the leaf
   `components/volumeFormat.ts` (planFormat and progressFormat import it, never each other).
   `cardStyle` keeps a 1 px border in dark (transparent) so light and dark cards measure the same.
   Progress rows are one line (`rowDetail.ts fitRowDetail` clamps at the separator); Library detail

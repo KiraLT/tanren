@@ -3,8 +3,8 @@ import { Match, Option } from "effect"
 import { useState } from "react"
 import { ScrollView, View } from "react-native"
 import { PlannedSessionCard } from "../../src/components/PlannedSessionCard"
-import { PlanWeek } from "../../src/components/PlanWeek"
-import { localDateOf, weekStats, weekSummary } from "../../src/components/planFormat"
+import { PlanWeek, WeekStats } from "../../src/components/PlanWeek"
+import { localDateOf } from "../../src/components/planFormat"
 import { selectedSession } from "../../src/components/planSelection"
 import { nextUpcoming, upNextDate, upNextLines } from "../../src/components/planUpNext"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
@@ -17,7 +17,6 @@ import {
   Page,
   rhythm,
   Skeleton,
-  StatRow,
   sizes,
   space,
   Text,
@@ -121,7 +120,7 @@ function PlanReady({ view }: PlanReadyProps) {
           <Text variant="caption" tone="muted" accessibilityRole="header">
             This week
           </Text>
-          <StatRow variant="tile" direction="column" items={weekStats(weekSummary(view))} />
+          <WeekStats view={view} variant="tile" />
         </View>
         <UpNextCard view={view} today={today} />
       </ScrollView>

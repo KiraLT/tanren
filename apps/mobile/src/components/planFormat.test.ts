@@ -12,6 +12,7 @@ import {
   sessionLabel,
   statusLabel,
   weekdayLabel,
+  weekLoggedLine,
   weekStats,
   weekSummary,
 } from "./planFormat"
@@ -190,7 +191,26 @@ describe("weekSummary", () => {
       setsDone: 5,
       setsTotal: 13,
       volumeKg: 3 * 100 * 5 + 2 * 80 * 8,
+      loggedSets: 0,
+      loggedVolumeKg: 0,
     })
+  })
+
+  it("sums logged sets and volume over scheduled and unscheduled sessions", () => {
+    const loggedByName: Readonly<Record<string, { sets: number; volumeKg: number }>> = {
+      "Lower A": { sets: 3, volumeKg: 1000 },
+      "Optional arms": { sets: 2, volumeKg: 280 },
+    }
+    const withLogged = (item: (typeof planWeekFixture.unscheduled)[number]) => ({
+      ...item,
+      logged: loggedByName[item.plannedSession.name] ?? item.logged,
+    })
+    const summary = weekSummary({
+      days: planWeekFixture.days.map((day) => ({ ...day, sessions: day.sessions.map(withLogged) })),
+      unscheduled: planWeekFixture.unscheduled.map(withLogged),
+    })
+    expect(summary.loggedSets).toBe(5)
+    expect(summary.loggedVolumeKg).toBe(1280)
   })
 
   it("is all zero for a week without sessions", () => {
@@ -201,6 +221,8 @@ describe("weekSummary", () => {
       setsDone: 0,
       setsTotal: 0,
       volumeKg: 0,
+      loggedSets: 0,
+      loggedVolumeKg: 0,
     })
   })
 
@@ -225,6 +247,8 @@ describe("weekStats", () => {
       setsDone: 5,
       setsTotal: 13,
       volumeKg: 4110,
+      loggedSets: 0,
+      loggedVolumeKg: 0,
     })
     expect(stats).toEqual([
       { label: "Sessions", value: "1/5" },
@@ -240,12 +264,38 @@ describe("weekStats", () => {
       setsDone: 0,
       setsTotal: 0,
       volumeKg: 0,
+      loggedSets: 0,
+      loggedVolumeKg: 0,
     })
     expect(stats).toEqual([
       { label: "Sessions", value: "0/0" },
       { label: "Planned sets", value: "0/0" },
       { label: "Planned volume", value: "0 kg" },
     ])
+  })
+})
+
+describe("weekLoggedLine", () => {
+  const base = {
+    sessionsDone: 1,
+    sessionsTotal: 5,
+    setsDone: 5,
+    setsTotal: 13,
+    volumeKg: 4110,
+  }
+
+  it("prints the logged sets and volume when the week has logged sets", () => {
+    const line = weekLoggedLine({ ...base, loggedSets: 18, loggedVolumeKg: 1240 })
+    expect(line).toEqual(Option.some("Logged 18 sets · 1,240 kg"))
+  })
+
+  it("uses the singular for one set and shows 0 kg for bodyweight-only sets", () => {
+    const line = weekLoggedLine({ ...base, loggedSets: 1, loggedVolumeKg: 0 })
+    expect(line).toEqual(Option.some("Logged 1 set · 0 kg"))
+  })
+
+  it("is None when nothing was logged, so only the planned figures show", () => {
+    expect(weekLoggedLine({ ...base, loggedSets: 0, loggedVolumeKg: 0 })).toEqual(Option.none())
   })
 })
 

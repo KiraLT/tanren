@@ -29,6 +29,17 @@ export interface PlannedExerciseBlock {
  */
 export type PlannedSessionStatus = "done" | "today" | "upcoming" | "missed"
 
+/**
+ * What was actually logged against a planned session: live sets of live workout sessions that
+ * link to it. `0` / `0` when nothing was logged. Bodyweight sets (0 kg) count as sets, 0 volume.
+ */
+export interface LoggedTotals {
+  readonly sets: number
+  readonly volumeKg: number
+}
+
+export const NOT_LOGGED: LoggedTotals = { sets: 0, volumeKg: 0 }
+
 export interface PlanDay {
   readonly date: LocalDate
   readonly weekday: Weekday
@@ -36,6 +47,7 @@ export interface PlanDay {
     readonly plannedSession: PlannedSession
     readonly status: PlannedSessionStatus
     readonly blocks: ReadonlyArray<PlannedExerciseBlock>
+    readonly logged: LoggedTotals
   }>
 }
 
@@ -131,6 +143,8 @@ export const buildView = (input: {
   readonly sets: ReadonlyArray<PlannedSet>
   readonly exercises: ReadonlyArray<Exercise>
   readonly doneIds: ReadonlySet<string>
+  /** Logged totals by planned session id; a session without an entry has nothing logged. */
+  readonly logged: ReadonlyMap<string, LoggedTotals>
 }): PlanWeekView => {
   const entries = input.sessions.map(
     (plannedSession): PlanSessionEntry => ({
@@ -140,6 +154,7 @@ export const buildView = (input: {
         input.sets.filter((set) => set.plannedSessionId === plannedSession.id),
         input.exercises,
       ),
+      logged: input.logged.get(plannedSession.id) ?? NOT_LOGGED,
     }),
   )
   const days = Arr.makeBy(7, (offset): PlanDay => {
@@ -225,8 +240,28 @@ export class PlanWeekRepo extends Context.Service<PlanWeekRepo, PlanWeekRepoShap
           const doneIds = new Set(
             done.flatMap((row) => (typeof row.id === "string" ? [row.id] : [])),
           )
+          // One aggregate for the whole week: sets and kg lifted per linked planned session.
+          const loggedRows = yield* whereIn(
+            `SELECT ws."plannedSessionId" AS "id", COUNT(s."id") AS "sets",
+                    COALESCE(SUM(s."weightKg" * s."reps"), 0) AS "volumeKg"
+             FROM "workout_set" s
+             JOIN "workout_session" ws ON ws."id" = s."sessionId"
+             WHERE s."deletedAt" IS NULL AND ws."deletedAt" IS NULL AND ws."plannedSessionId"`,
+            sessionIds,
+            `GROUP BY ws."plannedSessionId"`,
+          )
+          const logged = new Map(
+            loggedRows.flatMap(
+              (row): ReadonlyArray<readonly [string, LoggedTotals]> =>
+                typeof row.id === "string" &&
+                typeof row.sets === "number" &&
+                typeof row.volumeKg === "number"
+                  ? [[row.id, { sets: row.sets, volumeKg: row.volumeKg }]]
+                  : [],
+            ),
+          )
           return Option.map(Arr.head(plans), (plan) =>
-            buildView({ plan, week, today, sessions, sets, exercises, doneIds }),
+            buildView({ plan, week, today, sessions, sets, exercises, doneIds, logged }),
           )
         })
 

@@ -254,6 +254,73 @@ describe("PlanWeekRepo.currentWeek", () => {
   )
 })
 
+const workoutSet = (
+  id: number,
+  sessionId: string,
+  weightKg: number,
+  reps: number,
+  deletedAt: string | null = null,
+) => ({
+  table: "set",
+  row: {
+    ...row(uid(id), deletedAt),
+    sessionId,
+    exerciseId: SQUAT,
+    order: 0,
+    weightKg,
+    reps,
+    rpe: null,
+    note: null,
+    plannedSetId: null,
+    loggedAt: STAMP,
+  },
+})
+
+const loggedOf = (view: PlanWeekView) =>
+  Object.fromEntries(
+    [...view.days.flatMap((day) => day.sessions), ...view.unscheduled].map((s) => [
+      s.plannedSession.name,
+      s.logged,
+    ]),
+  )
+
+describe("PlanWeekRepo logged totals", () => {
+  it.effect(
+    "sums live sets of live linked sessions: 2 x 100 x 5 + bodyweight 10 = 3 sets, 1000 kg",
+    () =>
+      Effect.gen(function* () {
+        yield* write([
+          ...wednesdayWeek(),
+          workoutSet(50, uid(40), 100, 5),
+          workoutSet(51, uid(40), 100, 5),
+          workoutSet(52, uid(40), 0, 10),
+          // A soft-deleted set, and a set of the tombstoned workout session, do not count.
+          workoutSet(53, uid(40), 200, 5, STAMP),
+          workoutSet(54, uid(41), 60, 8),
+        ])
+        const view = yield* expectSome(yield* currentWeekAt("2026-10-16"))
+        expect(loggedOf(view)).toEqual({
+          "Lower A": { sets: 3, volumeKg: 1000 },
+          "Upper A": { sets: 0, volumeKg: 0 },
+          "Lower B": { sets: 0, volumeKg: 0 },
+          "Upper B1": { sets: 0, volumeKg: 0 },
+          "Upper B2": { sets: 0, volumeKg: 0 },
+          Conditioning: { sets: 0, volumeKg: 0 },
+        })
+      }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("is 0 sets and 0 kg for every session of a week with nothing logged", () =>
+    Effect.gen(function* () {
+      yield* write(wednesdayWeek())
+      const view = yield* expectSome(yield* currentWeekAt("2026-10-16"))
+      expect(Object.values(loggedOf(view)).every((l) => l.sets === 0 && l.volumeKg === 0)).toBe(
+        true,
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
 describe("PlanWeekRepo year boundary", () => {
   it.effect("a Sunday weekStart in December covers 6 days into January, 7th day is outside", () =>
     Effect.gen(function* () {

@@ -181,6 +181,10 @@ export interface WeekSummary {
   readonly setsTotal: number
   /** Planned volume (target kg × reps; a rep range counts its minimum) of the done sessions. */
   readonly volumeKg: number
+  /** Sets actually logged against the week's planned sessions (store rows, not the plan). */
+  readonly loggedSets: number
+  /** Kilograms lifted in those sets (weight x reps; bodyweight sets add 0). */
+  readonly loggedVolumeKg: number
 }
 
 type WeekSessions = Pick<PlanWeekView, "days" | "unscheduled">
@@ -197,8 +201,8 @@ const volumeOf = (set: SetTarget): number =>
 
 /**
  * The week header's numbers: sessions and sets of the whole week (scheduled and unscheduled) and
- * what is done. The plan view carries no logged sets, so "done" means the sets and volume planned
- * in sessions whose status is `done`.
+ * what is done: "done" means the sets and volume planned in sessions whose status is `done`.
+ * The logged figures are separate: what the store holds for the week's sessions.
  */
 export const weekSummary = (view: WeekSessions): WeekSummary => {
   const sessions = [...Arr.flatMap(view.days, (day) => day.sessions), ...view.unscheduled]
@@ -213,8 +217,21 @@ export const weekSummary = (view: WeekSessions): WeekSummary => {
     setsDone: sum(done, (item) => setsOf(item).length),
     setsTotal: sum(sessions, (item) => setsOf(item).length),
     volumeKg: sum(done, (item) => Arr.reduce(setsOf(item), 0, (v, set) => v + volumeOf(set))),
+    loggedSets: sum(sessions, (item) => item.logged.sets),
+    loggedVolumeKg: sum(sessions, (item) => item.logged.volumeKg),
   }
 }
+
+/**
+ * The second caption under the week stat row: "Logged 18 sets · 1,240 kg". `None` when nothing
+ * was logged this week, so the row keeps showing the planned figures alone.
+ */
+export const weekLoggedLine = (summary: WeekSummary): Option.Option<string> =>
+  summary.loggedSets > 0
+    ? Option.some(
+        `Logged ${summary.loggedSets} ${summary.loggedSets === 1 ? "set" : "sets"} · ${formatVolume(summary.loggedVolumeKg)}`,
+      )
+    : Option.none()
 
 /**
  * The three stat slots under the Plan header: "Sessions 1/5 · Planned sets 5/13 · Planned volume

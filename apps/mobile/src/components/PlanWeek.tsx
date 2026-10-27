@@ -3,8 +3,39 @@ import { Option } from "effect"
 import { View } from "react-native"
 import type { PlanWeekView } from "../hooks/usePlanWeek"
 import { ListGroup, rhythm, StatRow, space, Text, useBreakpoint } from "../ui"
+
 import { PlanDayRow, PlanSessionRow } from "./PlanDayRow"
-import { formatWeekRange, weekStats, weekSummary } from "./planFormat"
+import { formatWeekRange, weekLoggedLine, weekStats, weekSummary } from "./planFormat"
+
+/**
+ * The week stat row and, when the week has logged sets, one caption under it ("Logged 18 sets ·
+ * 1,240 kg"). The line sits outside the tiles, so their height does not change.
+ */
+export function WeekStats({
+  view,
+  variant = "bare",
+}: {
+  readonly view: PlanWeekView
+  readonly variant?: "bare" | "tile"
+}) {
+  const summary = weekSummary(view)
+  return (
+    <View style={{ gap: space.xs }}>
+      <StatRow
+        items={weekStats(summary)}
+        {...(variant === "tile" ? { variant, direction: "column" as const } : {})}
+      />
+      {Option.match(weekLoggedLine(summary), {
+        onNone: () => null,
+        onSome: (line) => (
+          <Text variant="caption" tone="muted" tabular>
+            {line}
+          </Text>
+        ),
+      })}
+    </View>
+  )
+}
 
 interface PlanWeekProps {
   readonly view: PlanWeekView
@@ -54,7 +85,7 @@ export function PlanWeek({
       </View>
       {phone ? (
         <View style={{ marginBottom: rhythm.heroToSection }}>
-          <StatRow items={weekStats(weekSummary(view))} />
+          <WeekStats view={view} />
         </View>
       ) : null}
       <ListGroup>
