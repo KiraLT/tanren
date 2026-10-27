@@ -55,6 +55,34 @@ bindings, `nodejs_compat`), local dev + Miniflare D1, migration workflow
 D1 layer, secrets handling (`.dev.vars`, never read by agents), custom
 domains (`api.`, `mcp.`, apex), static assets for the web build.
 
+## Data modules (fonts, binaries) — verified OAUTH-FONT, 2026-10-27
+
+Static binaries the Worker serves (the Barlow Condensed woff2 at
+`/oauth/assets/…`) are wrangler Data modules: `rules: [{ type: "Data", globs:
+["**/*.woff2"] }]` in BOTH `wrangler.jsonc` and `wrangler.test.jsonc` (the
+workerd test project reads the latter; `rules` is `@inheritable`, so
+`env.production` needs nothing). Type them with an ambient
+`declare module "*.woff2" { const d: ArrayBuffer; export default d }` in a
+`.d.ts` next to the asset AND a `/// <reference path="…" />` in the importing
+file: TypeScript 7 does not apply the `*.ext` pattern otherwise, and
+`tsconfig.test.json` lists its files explicitly. Never import a Data module
+from a file the Node test project loads (`pages.ts` → `assets.ts` chain): put
+the route in its own file (`fontRoute.ts`) and prove it in a
+`*.workerd.test.ts` (200 body length = `wc -c`, immutable cache, 404 on
+`../`/`%2e%2e`/other names/POST). Subset fonts with `fonttools` in a scratch
+venv (`mktemp -d` under `$S`), never a repo or global dependency; Latin range
+as Google Fonts; keep the OFL copy next to the file.
+
+## Deploy order for breaking changes (owner, plan Amendment 23, 2026-10-27)
+
+Pending D1 migrations apply to production BEFORE the Worker upload
+(`wrangler d1 migrations apply tanren --remote --env production`, then
+`wrangler deploy`). Every migration must be servable by the Worker version
+that is live while it runs: expand (add column/table, nullable or defaulted)
+→ migrate → deploy the code that reads it → contract (drop the old shape) in
+a later deploy. A migration the running Worker cannot serve (rename, NOT NULL
+without default, dropped column still read) is never shipped in one step.
+
 ## MCP server: stateless `createMcpHandler`, no McpAgent (verified S4-T4, 2026-10-20)
 
 `McpAgent` is deprecated and needs a Durable Object; Tanren uses the stateless handler (ADR-0010):

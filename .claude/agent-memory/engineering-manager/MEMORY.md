@@ -5,3 +5,4 @@
 - [EM batch watchlist 2026-10-27b](project_em-batch-watchlist-2026-10-27b.md) — items 46–50: spike secrets/servers, shared-union fills, pnpm FIRST_FAIL ≠ memory, wave-commit import test, Lead trust predicates
 - [EM batch watchlist 2026-10-27c](project_em-batch-watchlist-2026-10-27c.md) — items 51–55: spec-gap serial rounds, recipe-not-numbers, in-path leftovers, barrel commit waits, phantom Log lines
 - [EM batch watchlist 2026-10-27d](project_em-batch-watchlist-2026-10-27d.md) — items 56–60: paraphrased review briefs, choke-point scopes, registry grants, HOLD→GO ≈ 4 min saved, reused agents
+- [EM batch watchlist 2026-10-27e](project_em-batch-watchlist-2026-10-27e.md) — items 61–64: optional design assets → serial follow-ups, reviewers run workerd, storage-shape grep, Amendment 23 no-legacy/migrate-first

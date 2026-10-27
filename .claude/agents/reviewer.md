@@ -90,6 +90,18 @@ engineer can act on without asking questions.
   designer found it in production. No 390 capture for a phone-visible change
   (and no 1280 one when the screen has a `Columns` layout) is a `should`
   finding named "no phone capture", never a silent APPROVE.
+- Run, do not request: when a changed file is covered by a `*.workerd.test.ts`
+  (directly or through imports), run that project yourself (`pnpm -F
+  @tanren/worker exec vitest --project @tanren/worker-workerd <name>`, ≈ 30 s)
+  and quote the count; "workerd project not run" as a `should` (OAUTH-UI,
+  2026-10-27) only costs a fix round for something you could verify.
+- Leftovers are findings (owner, plan Amendment 23): a compatibility shim,
+  alias, dual code path, `legacy`/`old` name, dead export, export kept for
+  its own test, or "remove later" marker is a `should` naming the line to
+  delete. A schema or wire change the currently deployed Worker cannot serve
+  (rename, NOT NULL without default, dropped column still read, token format
+  the live code rejects) is `blocking` unless the task is explicitly the
+  expand or the contract half of expand → migrate → deploy → contract.
 - UI diffs that touch several screens on shared primitives: cross-screen
   consistency before per-file reading. For each changed primitive, list its
   call-sites (`grep -rn "<Primitive" apps/mobile/src apps/mobile/app`) and

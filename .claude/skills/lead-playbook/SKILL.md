@@ -368,6 +368,14 @@ Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless 
 Security (auth / redirect / token work only): design §<n> + architect.md "Auth /
 redirect design checklist" line by line; paste the bypass tests you ran (`../`,
 `%2e%2e`, look-alike host, sibling tenant) — native-auth ran 4 rounds without it.
+After every batch that touches auth, OAuth, tokens, sync or integrations, the Lead
+dispatches two read-only fable security reviews in parallel (A: auth/OAuth/MCP;
+B: REST/repos/sync/integrations/mobile client), 10-min boxes, whole codebase at
+HEAD + working tree; findings go to `docs/tasks/v5-security.md` and into the next
+batch's briefs (2026-10-27: A 8.0 / B 5.1 active min, no Critical/High — EM batch 11, P1).
+Never offer a design-system element (face, mark, token) as optional "if the box is
+tight" when a designer verdict follows; split the asset/plumbing out as a parallel
+task (OAUTH-UI → OAUTH-FONT cost ≈ 12 serial min, 2026-10-27 — EM batch 11, P2).
 
 ## Open questions
 <anything unverified, as a question — "does the session cookie cross :8081→:8787, or is a dev
@@ -496,7 +504,17 @@ architect to decide the contested point.
   out the other stream's line, `git apply --cached $S/b.patch` — and let
   engineers add their barrel line as the task's LAST edit (engineer.md 15).
   The STLS commit waited ≈ 8 min on LEGAL-2a's two export lines on
-  2026-10-27 (EM batch 9, P2).
+  2026-10-27 (EM batch 9, P2). Package `CLAUDE.md` status lines: engineers write
+  one self-contained line last (engineer.md 15); if two streams' lines
+  interleave, defer the FILE to the later commit, never the commit itself
+  (OAUTH-FONT: `apps/worker/CLAUDE.md` deferred to the Garmin commit — EM batch 11, P3).
+- **Shared files are a coordination note, not a gate.** A foundation task whose
+  files another live team already finished editing (their wave is done, only
+  fix rounds remain elsewhere) starts NOW with "build on the tree state, edit
+  additively, re-read before editing, list reds by owner" — not after that
+  team's commit. The Lead held v6 N-F0 ≈ 40 min for the Garmin commit although
+  GM-2/GM-5 had finished their shared-file edits at 14:01; the owner asked
+  "why so slow?" at 14:44 (incident; EM batch 12 to rule on the template line).
 - `docs/handoff.md`: rewrite at session end (`/handoff`). It must let a cold
   session resume without the transcript.
 - After each step: what did an agent lack? Put it in a rule, a skill, or a

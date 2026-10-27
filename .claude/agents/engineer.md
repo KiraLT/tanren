@@ -195,11 +195,31 @@ Lead had to route it back through the team-lead, one extra turn each way).
    targets as a question and cost a fifth round (2026-10-27). When a fix
    names one instance of a class (one 16 px anchor, one footer link), fix
    every instance of that class on the screens you own and list them.
+16. When you change how something is stored or shaped (hashed instead of
+   plain, a renamed column, a new token format), first list every reader:
+   `grep -rn "FROM <table>\|<column>" apps packages --include=*.ts` — tests
+   included — and update or delete them in the same task. SEC-A2 hashed the
+   magic-link token and `index.workerd.test.ts` kept reading the plain one
+   from D1 (2026-10-27). When a changed file is imported, directly or
+   through `pages.ts`-style chains, by a `*.workerd.test.ts`, run that
+   project (`pnpm -F @tanren/worker exec vitest --project
+   @tanren/worker-workerd <name>`) and quote the count; the Node gate alone
+   does not prove it (OAUTH-UI, "workerd project not run" review should).
+17. A replacement deletes what it replaces in the same task (owner, plan
+   Amendment 23): no compatibility shim, alias, dual code path, `legacy`/`old`
+   name, dead export or "remove later" marker. An export kept because only
+   its own test imports it (`SessionToken`) is dead: delete export and test
+   together. Breaking storage or wire changes follow the deploy order in the
+   `cloudflare-workers` skill (expand → migrate → deploy → contract) and say
+   so in the report's Decisions.
 15. Shared barrels (`packages/*/src/index.ts`, `repositories/index.ts`) are
    touched by every live stream: add your export line as the LAST edit of
    the task, right before the gate, so the Lead can commit the other
    stream's work meanwhile (the STLS commit waited on LEGAL-2a's line,
-   2026-10-27).
+   2026-10-27). The same goes for your package `CLAUDE.md` line: one
+   self-contained line, last edit, so the Lead can stage it alone
+   (OAUTH-FONT's `apps/worker/CLAUDE.md` line was deferred to another
+   stream's commit because it was interleaved with Garmin lines).
 
 ## Kaizen
 
