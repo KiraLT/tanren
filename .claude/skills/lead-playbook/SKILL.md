@@ -354,7 +354,11 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
 ## Scope
 In: <files / modules you own in this brief — name the component that *renders* the thing being
 changed, found by grep (`grep -rn SetList apps/mobile/src`), not the file a diagnosis cites:
-FIN-LAYOUT's "TodayReady.tsx only" was wrong and the engineer rightly deviated (EM batch 6, P4)>
+FIN-LAYOUT's "TodayReady.tsx only" was wrong and the engineer rightly deviated (EM batch 6, P4).
+For a cross-cutting guard (middleware, token check, write gate) name the choke point by its grep
+("every `.middleware(Authentication)` group; every `registerTool`") plus "the file that wires its
+layer", not a file list — STLS-F3 and F4 each needed `app.ts` / `McpRoute.ts` outside their lists
+(EM batch 10, P2)>
 Out: <explicitly not this brief; leave notes instead>
 
 ## Interfaces / decisions already made
