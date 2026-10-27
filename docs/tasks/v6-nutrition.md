@@ -118,3 +118,8 @@ sees the photo; the tool takes items).
 ## Log
 - 2026-10-27 14:08 · architect: ADR-0025 + design + this sheet written; Lead ruling 14:02 applied (eat-back toggle,
   goal factors, protein g/kg, USDA verification, photo wording).
+
+## INT-N addenda (Lead, 2026-10-27 15:32)
+- `docs/design/integrations.md:238` still shows `runScheduled(env)` (deleted by GM-F2: the cron is `makeScheduled(scheduledLayer(env)).run()` in `index.ts`) — truth-up.
+- `docs/design/local-dev.md` §5: add "seed first" — the dev token gets `Forbidden` on an empty D1 (nutri-server N-SQ).
+- `docs/design/nutrition.md` §4 pin 1 = 3,070 and §7 = 23 items / shake → 2 were corrected by the nutri-server team-lead; verify the §8 e2e numbers (3,100 / 170) against §4 and fix.
