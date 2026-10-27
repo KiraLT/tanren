@@ -5,10 +5,11 @@ Older session history lives in git (`git log -- docs/handoff.md`); this file hol
 
 ## Where we are (2026-10-27 10:05)
 **Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
-mcp.tanren.me (MCP). Production = commit `7678246` (= HEAD), deployed 10:55 (DEPLOY-5) from a clean worktree
-whose root gate was green (159 files, 1994 tests); D1 migration 0005 applied remotely; the `*/5` Strava-drain
-cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: W1 wordmark + the T
-mark as app/PWA icons (plan Amendment 15), OG image + metas, polish round 5, Forge design, designed magic-link email,
+mcp.tanren.me (MCP). Production = commit `4426117` (= HEAD), deployed 11:12 (DEPLOY-6) from a clean worktree
+whose root gate was green (159 files, 2002 tests); D1 at migration 0005 (applied by DEPLOY-5); the `*/5`
+Strava-drain cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: Plan week
+"Logged N sets · volume" line (PLAN-LOG), W1 wordmark + the T mark as app/PWA icons (plan Amendment 15), OG
+image + metas, polish round 5, Forge design, designed magic-link email,
 sign-in gate (ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated
 illustrations), Feed tab + activity detail + `/progress` (ADR-0017), guided programs with rep-count items
 (ADR-0020: 15 of 24 Core 30 moves count reps), **Finish workout** on Today (inline after the set list on
@@ -43,9 +44,10 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `docs/design/screens/tanren-screens.html` (`gallery.mjs` now defaults to it, GAL-3). Brandbook artifact v5
   carries the W1 wordmark + T mark Logo group (BRAND-3; publish recipe: read the artifact, then `root`
   `docs/design/brandbook`, `file_path` = the index, other `project/*` files in `files`).
-- **PLAN-LOG review fixes** in flight (engineer resumed 11:10, 6 min): Schema decode of the aggregate rows,
-  `LoggedTotals` derived from the struct, fixture literal. WIP commit `e71da43` (REV-PL2 APPROVE). Then the
-  reviewed commit and DEPLOY-6; Plan dark captures go to the next polish round.
+- PLAN-LOG done and reviewed (`e71da43` → `4426117`: Schema-decoded aggregate rows, `LoggedTotals` from the
+  struct, fixture literal; REV-PL2 APPROVE) and live via DEPLOY-6 11:12 (Worker 2f896c11, web 6a38a0dc; "Logged"
+  present in the live `__common` chunk). Plan dark captures go to the next polish round.
+- **Streams are QUIET as of 11:13** (all agents reported; nothing live). The owner may restart Claude Code.
 - EM batch 7 done (`fe602ef`): engineer rule 9 (scratch D1 proofs, `db:reset`, no `--dry-run`), team-lead
   capture-stack ownership, ui-check per-task stack; playbook P1–P4 + P6 applied. P5 is the owner's (item 9 below).
 - Done this morning (all committed): FIN-LAYOUT `e34ca1e` + DEPLOY-4; EM batch 6 (`4e74a28`); SF-1 Strava
@@ -88,9 +90,7 @@ on AC). Retro verdict: throughput high (9 streams,
    present) or keep the gap and rely on the role files, which forbid subagents from deploying.
 
 ## Next actions (in order)
-1. Accept the PLAN-LOG review fixes (Schema decode of the aggregate rows; see Live), commit "PLAN-LOG reviewed",
-   DEPLOY-6 (`scratchpad/deploy.sh`, no migration) and verify the Plan week "Logged" line on the live
-   `__common-*.js` (`weekLoggedLine` / "Logged"); EM batch 8 after the next ≥ 4 commits.
+1. EM batch 8 after the next ≥ 4 commits (two since batch 7: PLAN-LOG reviewed, docs).
 2. Next polish round (nits in `docs/tasks/v4-polish-briefs.md` §Queued: eyebrow 28 px slot at 1280, landing
    light-scheme colour set, eyebrow repeats the name; dark captures for the Plan logged line) — or the next
    feature the owner names; the v4 backlog is otherwise empty.
