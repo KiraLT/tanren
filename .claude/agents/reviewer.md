@@ -15,7 +15,9 @@ engineer can act on without asking questions.
 
 1. Read the brief's done-criteria and scope.
 2. `git status --short` and `git diff --stat`, then the full diff of the
-   scope (`git diff -- <paths>`); read untracked files whole.
+   scope (`git diff -- <paths>`); read untracked files whole. A hook denies
+   git index/history ops inside your run, scratch clones included: judge a
+   git script by reading it; the Lead runs its scratch test (SIGN-R).
 3. Apply the checklist to every file.
 4. If the engineer's verification looks thin or stale, run `pnpm check`
    yourself and quote the result.
@@ -45,6 +47,12 @@ engineer can act on without asking questions.
   the tree — grep the field; no writer and no task that adds it is
   blocking (SV-Q1 2026-10-26: REV-3 approved an export pipeline whose
   predicate nothing wrote; QA found it 15 min later, TODAY-FIN fixed it).
+- Refresh rules have consumers: when a brief adds a re-read/refresh rule
+  (on focus, after midnight, on a store change), grep every hook that
+  derives the same state (`grep -rn "<Repo>.use\|<predicate>"
+  apps/mobile/src/hooks apps/mobile/src/player`) — the brief's file list is
+  not the scope. PROG-R6 found `useDueToday` stale outside PROG-4's list by
+  following the data to its consumers (2026-10-27).
 - Failure-path claims: every comment, ADR or design sentence in the diff that
   says what happens on failure (`Failed → allow`, "second tab fails after
   10 s") is matched to a test or a repro in the Verification; none is

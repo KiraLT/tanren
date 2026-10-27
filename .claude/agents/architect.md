@@ -239,6 +239,12 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   amends them in the same design, as a task line. nutrition.md exposed
   `daily_health` to MCP and left "never used by the AI planning tools" in
   the Garmin row (owner question, 2026-10-27).
+- Named symbols are exported: when a design names a symbol another task must
+  use (`roundId`, a helper, a constant), check `grep -rn "export const
+  <sym>" apps packages`; if it is not exported, the task's Files line lists
+  the exporting file or the task adds the export. WT-1 could not use
+  `roundId` (unexported in `cues.ts`, not in its list) and fell back to
+  `item.catalogId` (2026-10-27).
 - Stubbed foundations have an owner: when a foundation task stubs a seed,
   fixture or handler (`foodEntry: Effect.void`, no `daily_health` rows), the
   sheet names the task that fills it before the first capture that needs

@@ -452,6 +452,12 @@ write; everything else is read-only, proven by `git status --short` AND
 $S/<task>-stamp` empty (`git status` ignores node_modules). Never prescribe a
 package manager inside a copy that links the real `node_modules`: GATE-IDX's
 brief did, and pnpm rewrote 27 real `.bin` shims (2026-10-27, EM batch 17 P1).
+Git: a PreToolUse hook denies every git index/history op (`add|mv|rm|commit|reset|checkout|…`)
+inside ANY subagent, scratch clones included, and it matches the TEXT of the command (a heredoc
+that quotes `git commit` is denied too — write such text with Edit/Write, never a shell heredoc);
+a task whose test needs git (a script under `scripts/`) proves it by read + `zsh -n`, and the
+LEAD runs the scratch-clone test itself (SIGN-R and SIGN-1b were both denied, 2026-10-27). Put
+this line in such a brief.
 After every batch that touches auth, OAuth, tokens, sync or integrations, the Lead
 dispatches two read-only fable security reviews in parallel (A: auth/OAuth/MCP;
 B: REST/repos/sync/integrations/mobile client), 10-min boxes, whole codebase at
@@ -589,12 +595,13 @@ and the Lead commits the group by file ownership (one commit per overlapping set
 task). Cost: three multi-task commits instead of six; benefit: no serial wait on the review.
 It is never allowed when the earlier task's reviewer may still request a rewrite of that file.
 
-Signing stall: `op-ssh-sign` "failed to fill whole buffer" = 1Password locked after an
-auto-update (`pgrep -fl 1Password` shows `--just-updated`). Ask the owner in bold to unlock,
-keep the index as staged, start one background loop `until git commit -F $S/msg -- <paths>; do
-sleep 120; done` (≤ 30 min) and STAGE NOTHING ELSE until it lands (19:17–19:33 and 19:47–19:53,
-2026-10-27: 16 + 6 min, landed on retries 4 and 3). Never commit unsigned or change signing config.
-When several approved batches sit staged behind the blocked signature, queue them as ORDERED
+Signing: local commits are UNSIGNED (owner 2026-10-27 20:27, `commit.gpgsign=false`);
+`scripts/sign-push.sh` signs every unpushed commit at push time and the OWNER runs it — the Lead
+never runs sign-push and never pushes. (If signing is ever re-enabled: `op-ssh-sign` "failed to
+fill whole buffer" = 1Password locked after an auto-update → ask the owner in bold, one background
+`until git commit -F $S/msg -- <paths>` loop ≤ 30 min, stage nothing else meanwhile.) The two
+lessons below hold for ANY commit blocker (a red index-check, a live team on a shared file):
+when several approved batches sit staged behind the blocker, queue them as ORDERED
 pathspec commits in one loop (`git commit -F $S/msg-A -- <A paths> && git commit -F $S/msg-B --
 <B paths>`, disjoint path lists, each `-F` file written before the loop); a `GIT_INDEX_FILE`
 side index is a CONTENT snapshot of those paths, never a tree to commit: `commit-tree -p HEAD` on
@@ -627,8 +634,10 @@ already produced and cost a 4-min round (EM batch 10, P1).
 Blocking findings go back to the same engineer via `SendMessage`, verbatim,
 with "fix only these, re-run the gate, report". When every finding carries
 `file:line` and a concrete fix, the round is sonnet-shaped: same engineer (or a
-fresh sonnet when the original is gone), box ≤ 8 — PROG-2b (4 findings, 3.5 min)
-and the NAV-1b fix round (3.2 min on 6) both landed first time (2026-10-27). A fix brief for a UI finding
+fresh sonnet when the original is gone), **box 6**: five such rounds on 2026-10-27 took 2–3.5 min
+(PROG-2b 3.5, NAV-1b 3.2, PROG-4 3.5, WT-2 2.6, SIGN-1b 2.0), none needed its 8. Same engineer
+when the fix needs its context (a hook's data flow, its capture stack still up); a fresh sonnet
+when the findings are self-contained `file:line` edits or the engineer is gone. A fix brief for a UI finding
 names the CLASS and the count ("every anchor on /privacy, /terms, /sign-in
 and the landing: N of them; measure each hit box"), never one instance:
 LEGAL-1 ran r2→r5 on 2026-10-27 because each brief named one link (footer

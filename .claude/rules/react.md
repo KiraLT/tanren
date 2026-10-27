@@ -12,6 +12,13 @@ paths:
   `src/hooks/`; a hook used by one feature may live in that feature's folder
   (`src/player/useProgramDay.ts`), next to the pure module it drives.
 - All data shapes come from `@tanren/shared`; never redeclare a type locally.
+- A hook that subscribes to `StoreEvents.changes` (or any store stream) and
+  runs a fallible effect per event (`repo.get`, `repo.byId`) catches INSIDE
+  the per-event effect (`Effect.catch` → a neutral value such as
+  `Option.none()`, or `Effect.match` → a `Failed` state) so one `StoreError`
+  does not end the stream for the component's lifetime (WT-R: `useStep`
+  died on the first failure, 2026-10-27; `useImportedActivity` is the
+  pattern). `Effect.sync(setVersion)` per event needs no catch.
 - State: local `useState`/`useReducer` for UI state; persisted data lives in
   the local store service, never in component state.
 - Offline first: every Today-screen interaction must succeed with no

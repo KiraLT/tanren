@@ -123,6 +123,9 @@ Lead had to route it back through the team-lead, one extra turn each way).
    delete with plain `mv`/`rm`; the Lead stages and commits. NAV-2's `git mv
    feed.tsx → activity.tsx` sat in the shared index and the Lead's handoff
    commit a04b551 swept the OLD content into HEAD (COMMIT-SWEEP, 2026-10-27).
+   A hook denies these ops in your run, scratch clones included, by matching
+   the command TEXT (a heredoc quoting them is denied too — use Edit/Write):
+   a git script is proven by read + `zsh -n`; the Lead runs its scratch test.
    Never change git config, install global tools, edit files
    outside this repository, or read `.env*` / `.dev.vars*`. Do not create
    README files or ad-hoc docs; put decisions in the report so the Lead can

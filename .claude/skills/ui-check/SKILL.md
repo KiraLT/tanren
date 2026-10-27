@@ -161,19 +161,25 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   exits 1 and is named). A plain run never writes; only `--write` regenerates the checked-in manifest
   `docs/design/screens/gallery.json`, and only the Lead passes it (at publish time). The Lead publishes
   from `node docs/design/gallery.mjs --publish` (map of shots on disk; duplicate badges are the only
-  hard failure). A new section picks a badge prefix not already in `gallery.json`.
+  hard failure). A new section picks a badge prefix not already in `gallery.json`. The
+  `<id>-rows.html` fragment's `src` paths match where the PNGs are written, sub-folder included:
+  74 `programs-v6b/*.png` rows pointed at files living in `v6b/` and stayed unpublished until GAL-6
+  (2026-10-27); the plain run's `missing files (0)` is the proof the task pastes.
 - `ui-measure.js` `docH` (`documentElement.scrollHeight`) equals the viewport height on every route whose
   ScrollView scrolls (RNW pins the body to 100 %), so it proves nothing about page length (LAND-1,
   2026-10-26). Read the scrolling column's `scrollHeight` (`contentH`) instead; desktop r4 adds the probe.
 - Dev-server data states (team feed / FEED-X, 2026-10-26): after ADR-0019 an empty store redirects to
   `/sign-in`, so a dev-server capture needs either `EXPO_PUBLIC_DEV_USER_ID=<uuid>` at start or a sign-in
   against a local worker (the exported-build recipe above). Done activities without a worker: Programs →
-  "Start day N" with `EXPO_PUBLIC_PLAYER_SPEED=60` at `expo start` (≈ 20 s per day), or the seeded worker
+  "Start day N" with `EXPO_PUBLIC_PLAYER_SPEED=60` at `expo start`, one "Done with …" tap, then
+  "Finish workout" completes the day in ≈ 5 s (PROG-4, 2026-10-27), or the seeded worker
   with your own `--persist-to` copy. `ab close` ends the browser profile and the local store with it: shoot
   everything you need before closing. Metro served stale bundles after edits while still logging "Web
   Bundled" six times on 2026-10-27 (NAV-2 twice, CONFIRM-2, PROG-1, PROG-2, NAV-1b): the rule is
   "finish ALL edits, then restart with `expo start --clear`, then take the FIRST capture" — a server
-  started before your edits is stale even if it logs a rebuild; confirm the snapshot shows a
+  started before your edits is stale even if it logs a rebuild; "restart" means the PROCESS (kill
+  the pid, `expo start --clear` again) — a browser reload or Metro's `r` does not pick up `src/ui`
+  primitive edits (WT-1, 2026-10-27); confirm the snapshot shows a
   string the edit introduced — a "Web Bundled" line does not prove a fresh bundle; a
   `(tabs)` route not listed in `APP_NAV` redirects to `/home` (NAV-3). A shot taken from a stale
   bundle is not a proof — retake it (NAV-3b's Done-row shot still read "1 sets" after the fix, 2026-10-27).

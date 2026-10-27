@@ -212,7 +212,8 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    2026-10-27): a plain run only checks (exit 0 with "missing files (0)"; an
    entry with `store: true` lives only in the artifact store); `--write`
    regenerates `docs/design/screens/gallery.json`, which a shooter never
-   passes — the Lead writes the manifest at publish time. The sheet Log gets a line at
+   passes — the Lead writes the manifest at publish time; a rows fragment's `src` must name
+   the folder the PNG was written to (GAL-6: 74 rows pointed at the wrong sub-folder). The sheet Log gets a line at
    every dispatch and every report (step 2): desktop's Log was empty at its
    final report and the Lead reconstructed the rounds from commits. In that file list and in the
    team report's `## Files changed`, a file another live stream also edits

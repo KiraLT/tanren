@@ -382,7 +382,9 @@ review rounds, gate failures, incidents, critical-path ratio (critical path
 Owner lists (EM batch 21): every engineer brief names the live streams and the files each one owns; an
 engineer attributes a foreign red only from that list, else writes "unknown live stream". A PreToolUse hook
 (`.claude/hooks/deny-index-ops.sh`) denies `git add|mv|rm|commit|reset|checkout|…` inside any subagent, so
-staging stays the Lead's by construction, not by rule-reading.
+staging stays the Lead's by construction, not by rule-reading. The hook matches the command text with heredoc
+bodies and quoted strings removed, so a doc edit that mentions a git op passes; a git-script test that needs a scratch
+clone is run by the Lead (SIGN-1b).
 
 ## 13. Production operations (owner lift of 2026-10-26)
 
