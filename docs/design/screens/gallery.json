@@ -1252,6 +1252,40 @@
         "UI-WT-1-step-390-dark.png"
       ],
       "title": "Program player v2 (PROG-1…5, WT-1)"
+    },
+    {
+      "badges": [
+        "DF1",
+        "DF2",
+        "DF3",
+        "DF4",
+        "DF5",
+        "DF6",
+        "DF7",
+        "DF8",
+        "DF9",
+        "DF10",
+        "DF11",
+        "DF12",
+        "DF13"
+      ],
+      "id": "desktop-fill",
+      "shots": [
+        "nav-v2/DESK-0-home-1280.png",
+        "nav-v2/DESK-0-train-view-plan-1280.png",
+        "nav-v2/DESK-0-library-1280.png",
+        "nav-v2/DESK-0-library-detail-1280.png",
+        "nav-v2/DESK-0-progress-1280.png",
+        "nav-v2/DESK-0-activity-1280.png",
+        "nav-v2/DESK-0-home-390.png",
+        "nav-v2/DESK-1-home-1280-light-data.png",
+        "nav-v2/DESK-1-home-1280-dark-data.png",
+        "nav-v2/DESK-1-home-390-light-data.png",
+        "nav-v2/DESK-2-you-1280-light.png",
+        "nav-v2/DESK-2-you-1280-dark.png",
+        "nav-v2/DESK-2-you-390-light.png"
+      ],
+      "title": "Desktop fill (DESK-0…2, desktop-fill.md)"
     }
   ]
 }
