@@ -78,7 +78,7 @@ export function ConfirmProvider({ children }: { readonly children: ReactNode }) 
   )
   const settle = (open: Pending, confirmed: boolean) => {
     open.resolve(confirmed)
-    dispatch({ _tag: "Resolved" })
+    dispatch({ _tag: "Resolved", pending: open })
   }
   return (
     <ConfirmContext value={Platform.OS === "web" ? webConfirm : nativeConfirm}>

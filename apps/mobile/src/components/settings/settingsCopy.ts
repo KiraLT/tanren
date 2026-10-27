@@ -1,6 +1,6 @@
 import type { CatalogEquipment } from "@tanren/shared"
 import { Option } from "effect"
-import type { IconName, ThemePreference } from "../../ui"
+import type { ConfirmRequest, IconName, ThemePreference } from "../../ui"
 
 /** Why a sign-out did not happen (the `SignOutFailed` reasons), as the copy the screen shows. */
 export const signOutFailureTitle = (reason: "offline" | "server"): string =>
@@ -78,11 +78,31 @@ export const aboutTitle = (version: string | undefined): string =>
 /** Settings → Data → Delete account (LEGAL-2, ADR-0024, legal.md §1.7). */
 export const DELETE_ACCOUNT_TITLE = "Delete account"
 export const DELETE_ACCOUNT_NOTE = "Remove your account and every record"
-export const DELETE_ACCOUNT_CONFIRM_TITLE =
-  "This removes your account and every record. There is no undo."
-export const DELETE_ACCOUNT_CONFIRM = "Delete everything"
 export const DELETE_ACCOUNT_WORKING = "Deleting…"
-export const DELETE_ACCOUNT_CANCEL = "Cancel"
+
+/** The confirm dialog (confirm-dialogs.md §3 row 1); the short label fits a 157 px button. */
+export const DELETE_ACCOUNT_REQUEST: ConfirmRequest = {
+  title: "Delete your account?",
+  message:
+    "Every workout, program and food entry is erased on this device and the server. This cannot be undone.",
+  confirmLabel: "Delete all",
+  confirmAccessibilityLabel: "Delete everything",
+}
+
+/** The confirm dialog (confirm-dialogs.md §3 row 3). */
+export const DISCONNECT_AI_REQUEST: ConfirmRequest = {
+  title: "Disconnect AI clients?",
+  message: "Every connected Claude or ChatGPT loses access until you authorise it again.",
+  confirmLabel: "Disconnect",
+}
+
+/** The confirm dialog (confirm-dialogs.md §3 row 9). */
+export const deleteLocationRequest = (name: string): ConfirmRequest => ({
+  title: `Delete ${name}?`,
+  message:
+    "Its equipment list is removed. If it is active, the Library switches to your first location.",
+  confirmLabel: "Delete",
+})
 
 /** One line per failure reason; the account is untouched unless the reason is `local`. */
 export const deleteAccountFailure = (reason: "offline" | "server" | "local"): string =>

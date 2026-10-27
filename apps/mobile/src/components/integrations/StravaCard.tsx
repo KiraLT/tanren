@@ -2,7 +2,18 @@ import type { ProviderStatus } from "@tanren/shared"
 import { type DateTime, Option } from "effect"
 import { View } from "react-native"
 import type { ActionState } from "../../hooks/useIntegrations"
-import { Button, Card, ListGroup, ListRow, rhythm, StatusPill, space, Text } from "../../ui"
+import {
+  Button,
+  Card,
+  type ConfirmRequest,
+  ListGroup,
+  ListRow,
+  rhythm,
+  StatusPill,
+  space,
+  Text,
+  useConfirm,
+} from "../../ui"
 import {
   actionBanner,
   CONNECT_LABEL,
@@ -13,6 +24,13 @@ import {
   providerRow,
 } from "../settings/integrationsCopy"
 import { StatusBanner } from "./StatusBanner"
+
+/** The confirm dialog (confirm-dialogs.md §3 row 4). */
+const DISCONNECT_STRAVA_REQUEST: ConfirmRequest = {
+  title: "Disconnect Strava?",
+  message: "New workouts stop being sent to Strava. Already sent activities stay.",
+  confirmLabel: "Disconnect",
+}
 
 export interface StravaCardProps {
   readonly strava: ProviderStatus
@@ -28,6 +46,7 @@ export interface StravaCardProps {
  * above Strava's 48 px minimum) with the brand's exact label.
  */
 export function StravaCard({ strava, zone, action, onConnect, onDisconnect }: StravaCardProps) {
+  const confirm = useConfirm()
   const pill = providerRow(strava, zone).pill
   const busy = action._tag === "Busy"
   const canConnect = strava.state !== "connected"
@@ -67,7 +86,9 @@ export function StravaCard({ strava, zone, action, onConnect, onDisconnect }: St
             title={busy && action.action === "disconnect" ? "Disconnecting…" : DISCONNECT_LABEL}
             accessibilityLabel={DISCONNECT_LABEL}
             disabled={busy}
-            onPress={onDisconnect}
+            onPress={() => {
+              confirm(DISCONNECT_STRAVA_REQUEST).then((ok) => ok && onDisconnect())
+            }}
           />
         </ListGroup>
       ) : null}

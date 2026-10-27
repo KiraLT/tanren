@@ -4,7 +4,6 @@ import {
   alertButtons,
   type ConfirmRequest,
   closedState,
-  DIALOG,
   dialogWidth,
   type Pending,
   type PendingState,
@@ -72,13 +71,27 @@ describe("stepPending", () => {
     expect(next.dismissed).toEqual([a, b])
   })
 
-  it("closes on resolve and keeps the dismissed queue", () => {
+  it("closes on resolve of the open request and keeps the dismissed queue", () => {
     const first = pendingOf("A")
-    const state: PendingState = { open: Option.some(pendingOf("B")), dismissed: [first] }
-    expect(stepPending(state, { _tag: "Resolved" })).toEqual({
+    const open = pendingOf("B")
+    const state: PendingState = { open: Option.some(open), dismissed: [first] }
+    expect(stepPending(state, { _tag: "Resolved", pending: open })).toEqual({
       open: Option.none(),
       dismissed: [first],
     })
+  })
+
+  it("keeps a replacement open when the replaced request is the one resolved", () => {
+    const first = pendingOf("A")
+    const second = pendingOf("B")
+    const state: PendingState = { open: Option.some(second), dismissed: [first] }
+    expect(stepPending(state, { _tag: "Resolved", pending: first })).toBe(state)
+  })
+
+  it("stays closed when a resolve arrives with nothing open", () => {
+    expect(stepPending(closedState, { _tag: "Resolved", pending: pendingOf("A") })).toBe(
+      closedState,
+    )
   })
 
   it("forgets only the flushed requests", () => {
@@ -93,11 +106,6 @@ describe("dialogWidth", () => {
     expect(dialogWidth(390)).toBe(358)
     expect(dialogWidth(1280)).toBe(400)
     expect(dialogWidth(320)).toBe(288)
-    expect(DIALOG.maxWidth).toBe(400)
-  })
-
-  it("leaves two 156 px buttons at 390 and two 177 px at 1280 inside the bordered card", () => {
-    expect(DIALOG.buttonWidth(390)).toBe(156)
-    expect(DIALOG.buttonWidth(1280)).toBe(177)
+    expect(dialogWidth(432)).toBe(400)
   })
 })

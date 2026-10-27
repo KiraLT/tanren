@@ -4,12 +4,9 @@ import { useCallback } from "react"
 import { View } from "react-native"
 import { type EraseState, useAccountErasure } from "../../hooks/useAccountErasure"
 import { useExportData } from "../../hooks/useExportData"
-import { Banner, Button, ListRow, space } from "../../ui"
+import { Banner, ListRow, space } from "../../ui"
 import { SettingsSection } from "./SettingsSection"
 import {
-  DELETE_ACCOUNT_CANCEL,
-  DELETE_ACCOUNT_CONFIRM,
-  DELETE_ACCOUNT_CONFIRM_TITLE,
   DELETE_ACCOUNT_NOTE,
   DELETE_ACCOUNT_TITLE,
   DELETE_ACCOUNT_WORKING,
@@ -22,46 +19,23 @@ const IS_WEB = process.env.EXPO_OS === "web"
 
 interface DeleteAccountProps {
   readonly state: EraseState
-  readonly open: () => void
-  readonly cancel: () => void
-  readonly confirm: () => void
+  readonly request: () => void
 }
 
-/** Danger row; tapping it opens an inline confirm (no `Alert.alert`: a no-op on web). */
-function DeleteAccount({ state, open, cancel, confirm }: DeleteAccountProps) {
+/** Danger row; tapping it opens the confirm dialog, then the row shows "Deleting…". */
+function DeleteAccount({ state, request }: DeleteAccountProps) {
   const working = state._tag === "Working"
-  const confirming = state._tag === "Confirming" || working
   return (
     <View>
       <ListRow
         tone="danger"
         icon="trash"
-        title={DELETE_ACCOUNT_TITLE}
+        title={working ? DELETE_ACCOUNT_WORKING : DELETE_ACCOUNT_TITLE}
         subtitle={DELETE_ACCOUNT_NOTE}
         accessibilityLabel={DELETE_ACCOUNT_TITLE}
-        disabled={confirming}
-        onPress={open}
+        disabled={working}
+        onPress={request}
       />
-      {confirming ? (
-        <View style={{ padding: space.lg, gap: space.md }}>
-          <Banner tone="danger" title={DELETE_ACCOUNT_CONFIRM_TITLE} />
-          <View style={{ flexDirection: "row", gap: space.md }}>
-            <Button
-              variant="destructive"
-              label={working ? DELETE_ACCOUNT_WORKING : DELETE_ACCOUNT_CONFIRM}
-              loading={working}
-              disabled={working}
-              onPress={confirm}
-            />
-            <Button
-              variant="text"
-              label={DELETE_ACCOUNT_CANCEL}
-              disabled={working}
-              onPress={cancel}
-            />
-          </View>
-        </View>
-      ) : null}
       {state._tag === "Failed" ? (
         <View style={{ padding: space.lg }}>
           <Banner tone="danger" title={deleteAccountFailure(state.reason)} />

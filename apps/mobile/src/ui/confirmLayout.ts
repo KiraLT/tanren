@@ -1,6 +1,6 @@
 import { Match, Option } from "effect"
 import { CARD_PADDING } from "./controls"
-import { gutter, space, stroke } from "./tokens"
+import { gutter, space } from "./tokens"
 
 /** One confirmation (docs/design/confirm-dialogs.md §2). Copy rules and the inventory are §3. */
 export interface ConfirmRequest {
@@ -42,8 +42,11 @@ export const closedState: PendingState = { open: Option.none(), dismissed: [] }
 export type PendingEvent =
   /** A `confirm()` call: it shows, and an open request moves to `dismissed`. */
   | { readonly _tag: "Requested"; readonly pending: Pending }
-  /** The open request was answered (its promise is already resolved by the caller): close. */
-  | { readonly _tag: "Resolved" }
+  /**
+   * `pending` was answered (its promise is already resolved by the caller): close it, but only
+   * while it is still the open one (a replacement that rendered in the same frame stays).
+   */
+  | { readonly _tag: "Resolved"; readonly pending: Pending }
   /** The provider resolved these dismissed requests `false`: forget them. */
   | { readonly _tag: "Flushed"; readonly flushed: ReadonlyArray<Pending> }
 
@@ -58,7 +61,10 @@ export const stepPending = (state: PendingState, event: PendingEvent): PendingSt
           onSome: (replaced) => [...state.dismissed, replaced],
         }),
       }),
-      Resolved: () => ({ ...state, open: Option.none() }),
+      Resolved: ({ pending }) =>
+        Option.exists(state.open, (open) => open === pending)
+          ? { ...state, open: Option.none() }
+          : state,
       Flushed: ({ flushed }) => ({
         ...state,
         dismissed: state.dismissed.filter((pending) => !flushed.includes(pending)),
@@ -95,15 +101,8 @@ export const dialogWidth = (viewportWidth: number): number =>
 
 /** Web `ConfirmDialog` measures (§2 table): card padding 16, message gap 8, buttons 24 below, 12 apart. */
 export const DIALOG = {
-  maxWidth: MAX_WIDTH,
   padding: CARD_PADDING,
   messageGap: space.sm,
   buttonsGap: space.xl,
   buttonGap: space.md,
-  /**
-   * Each of the two `flex: 1` button slots: (width − card hairline and padding per side − gap) / 2;
-   * 156 at 390, 177 at 1280 (the spec's 157 / 178 left out the card's 1 px border, drawn in both schemes).
-   */
-  buttonWidth: (viewportWidth: number): number =>
-    (dialogWidth(viewportWidth) - 2 * (stroke.hairline + CARD_PADDING) - space.md) / 2,
 } as const

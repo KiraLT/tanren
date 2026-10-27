@@ -6,6 +6,7 @@ import type { ActionState } from "../../hooks/useIntegrations"
 import {
   Button,
   Card,
+  type ConfirmRequest,
   radius,
   rhythm,
   StatusPill,
@@ -15,6 +16,7 @@ import {
   Text,
   type Theme,
   type,
+  useConfirm,
   useStyles,
   useTheme,
 } from "../../ui"
@@ -101,8 +103,17 @@ function TokenForm({
   )
 }
 
+/** The confirm dialog (confirm-dialogs.md §3 row 5). */
+const DISCONNECT_GARMIN_REQUEST: ConfirmRequest = {
+  title: "Disconnect Garmin?",
+  message:
+    "Imports stop. The token and all imported Garmin activities and daily summaries are removed from your account.",
+  confirmLabel: "Disconnect",
+}
+
 /** Garmin's card: paste-token connect (disconnected, revoked) or the import summary + Disconnect. */
 export function GarminCard({ garmin, zone, action, onConnect, onDisconnect }: GarminCardProps) {
+  const confirm = useConfirm()
   const pill = providerRow(garmin, zone).pill
   const busy = action._tag === "Busy"
   const failure = garminVisibleFailure(action, garmin.state)
@@ -142,7 +153,9 @@ export function GarminCard({ garmin, zone, action, onConnect, onDisconnect }: Ga
                 size="lg"
                 loading={busy && action.action === "disconnect"}
                 disabled={busy}
-                onPress={onDisconnect}
+                onPress={() => {
+                  confirm(DISCONNECT_GARMIN_REQUEST).then((ok) => ok && onDisconnect())
+                }}
                 style={{ alignSelf: "stretch" }}
               />
             </>

@@ -103,7 +103,7 @@ Dialog copy (title / message / confirmLabel):
 2 "Sign out?" / "You will need a new magic link to sign in again." / "Sign out"
 3 "Disconnect AI clients?" / "Every connected Claude or ChatGPT loses access until you authorise it again." / "Disconnect"
 4 "Disconnect Strava?" / "New workouts stop being sent to Strava. Already sent activities stay." / "Disconnect"
-5 "Disconnect Garmin?" / "Imports stop and the stored token is removed. Imported activities stay." / "Disconnect"
+5 "Disconnect Garmin?" / "Imports stop. The token and all imported Garmin activities and daily summaries are removed from your account." / "Disconnect"
 6 `Delete ${name}?` / `Its ${days} days are gone for good.` / "Delete"
 7 `Leave ${name}?` / "Your progress in it is lost; you can enrol again from day 1." / "Leave"
 8 `Remove ${day.title}?` / "Its exercises are removed from the program." / "Remove"

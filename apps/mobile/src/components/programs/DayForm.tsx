@@ -1,8 +1,17 @@
 import type { ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
-import { useState } from "react"
 import { View } from "react-native"
-import { Banner, Button, Card, Columns, rhythm, space, Text, useBreakpoint } from "../../ui"
+import {
+  Banner,
+  Button,
+  Card,
+  Columns,
+  rhythm,
+  space,
+  Text,
+  useBreakpoint,
+  useConfirm,
+} from "../../ui"
 import { ItemCard } from "./ItemCard"
 import { CompactStepper, SectionLabel, TextField } from "./ProgramFields"
 import {
@@ -83,25 +92,23 @@ export function DayForm({
   onDone,
 }: DayFormProps) {
   const desktop = useBreakpoint() === "desktop"
-  // `Alert.alert` is a no-op on web: removing a whole day is confirmed inline.
-  const [confirmRemove, setConfirmRemove] = useState(false)
+  const confirm = useConfirm()
   const footer = (
     <View style={{ gap: space.sm }}>
       <Button variant="primary" size="lg" label="Done" onPress={onDone} />
-      {onlyDay ? null : confirmRemove ? (
-        <Button
-          variant="destructive"
-          label={`Remove ${day.title}? Tap again`}
-          accessibilityLabel={`Confirm removing ${day.title}`}
-          disabled={busy}
-          onPress={onRemoveDay}
-        />
-      ) : (
+      {onlyDay ? null : (
         <Button
           variant="text"
           label="Remove day"
           accessibilityLabel={`Remove ${day.title}`}
-          onPress={() => setConfirmRemove(true)}
+          disabled={busy}
+          onPress={() => {
+            confirm({
+              title: `Remove ${day.title}?`,
+              message: "Its exercises are removed from the program.",
+              confirmLabel: "Remove",
+            }).then((ok) => ok && onRemoveDay())
+          }}
         />
       )}
     </View>

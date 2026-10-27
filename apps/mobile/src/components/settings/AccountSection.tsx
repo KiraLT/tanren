@@ -7,12 +7,13 @@ import {
   type SignOutState,
   useAccount,
 } from "../../hooks/useAccount"
-import { Banner, ListRow, sizes, space } from "../../ui"
+import { Banner, ListRow, sizes, space, useConfirm } from "../../ui"
 import { SettingsSection } from "./SettingsSection"
 import {
   DISCONNECT_AI_DONE_BODY,
   DISCONNECT_AI_DONE_TITLE,
   DISCONNECT_AI_NOTE,
+  DISCONNECT_AI_REQUEST,
   DISCONNECT_AI_TITLE,
   disconnectFailureBody,
   disconnectFailureTitle,
@@ -61,6 +62,7 @@ interface DisconnectProps {
 
 /** Danger row that revokes every MCP token, plus the one status banner it can leave. */
 function DisconnectAiClients({ state, onPress }: DisconnectProps) {
+  const confirm = useConfirm()
   const working = state._tag === "Working"
   return (
     <View>
@@ -71,7 +73,9 @@ function DisconnectAiClients({ state, onPress }: DisconnectProps) {
         subtitle={DISCONNECT_AI_NOTE}
         accessibilityLabel={DISCONNECT_AI_TITLE}
         disabled={working}
-        onPress={onPress}
+        onPress={() => {
+          confirm(DISCONNECT_AI_REQUEST).then((ok) => ok && onPress())
+        }}
       />
       {state._tag === "Done" ? (
         <View style={{ padding: space.lg }}>

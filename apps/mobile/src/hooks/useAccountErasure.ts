@@ -1,31 +1,29 @@
 import { Cause, Effect, Exit, Option, Predicate } from "effect"
 import { useCallback, useState } from "react"
+import { DELETE_ACCOUNT_REQUEST } from "../components/settings/settingsCopy"
 import { AccountErasure } from "../services/AccountErasure"
 import { runtime } from "../services/runtime"
+import { useConfirm } from "../ui"
 
 export type EraseState =
   | { readonly _tag: "Idle" }
-  /** The inline confirm is open. */
-  | { readonly _tag: "Confirming" }
   | { readonly _tag: "Working" }
   | { readonly _tag: "Failed"; readonly reason: "offline" | "server" | "local" }
 
 /**
- * Settings → Data → Delete account. `confirm` runs the erasure (server, then the local wipe and
- * the native tokens); on success `onErased` runs (the screen navigates to sign-in).
+ * Settings → Data → Delete account. `request` asks through the confirm dialog, then runs the
+ * erasure (server, then the local wipe and the native tokens); on success `onErased` runs (the
+ * screen navigates to sign-in).
  */
 export const useAccountErasure = (
   onErased: () => void,
 ): {
   readonly state: EraseState
-  readonly open: () => void
-  readonly cancel: () => void
-  readonly confirm: () => void
+  readonly request: () => void
 } => {
   const [state, setState] = useState<EraseState>({ _tag: "Idle" })
-  const open = useCallback(() => setState({ _tag: "Confirming" }), [])
-  const cancel = useCallback(() => setState({ _tag: "Idle" }), [])
-  const confirm = useCallback(() => {
+  const confirm = useConfirm()
+  const erase = useCallback(() => {
     setState({ _tag: "Working" })
     runtime
       .runPromiseExit(
@@ -46,5 +44,8 @@ export const useAccountErasure = (
         })
       })
   }, [onErased])
-  return { state, open, cancel, confirm }
+  const request = useCallback(() => {
+    confirm(DELETE_ACCOUNT_REQUEST).then((ok) => ok && erase())
+  }, [confirm, erase])
+  return { state, request }
 }

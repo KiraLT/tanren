@@ -124,6 +124,7 @@ function ProgramPage({
             const actions = (
               <ProgramActions
                 title={program.name}
+                dayCount={program.days.length}
                 running={running}
                 builtin={summary.source === "builtin"}
                 busy={busy}

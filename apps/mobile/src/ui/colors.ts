@@ -68,6 +68,6 @@ export const darkColors: ColorRoles = {
   danger: "#FF6B6B",
   dangerSoft: "#3A1A19",
   focus: "#93C5FD",
-  overlay: "rgba(0,0,0,0.6)",
+  overlay: "rgba(0,0,0,0.72)",
   glow: "rgba(255,176,32,0.35)",
 }

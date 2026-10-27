@@ -1,12 +1,13 @@
 import { Option } from "effect"
-import { useState } from "react"
 import { View } from "react-native"
 import type { ActiveProgram } from "../../services/ProgramRepo"
-import { Banner, Button, ListGroup, ListRow, rhythm, space } from "../../ui"
+import { Banner, ListGroup, ListRow, rhythm, useConfirm } from "../../ui"
 import { DELETE_BLOCKED } from "../programList"
 
 interface ProgramActionsProps {
   readonly title: string
+  /** The program's day count, for the delete dialog's message. */
+  readonly dayCount: number
   /** The live enrollment in this program, if any. */
   readonly running: Option.Option<ActiveProgram>
   /** Built-ins offer "Duplicate to edit"; the owner's programs offer Edit and Delete. */
@@ -21,11 +22,12 @@ interface ProgramActionsProps {
 }
 
 /**
- * The actions group of the detail route. Delete confirms inline (`Alert.alert` is a no-op on web)
- * and is disabled, with a reason, while an enrollment runs.
+ * The actions group of the detail route. Leave and Delete ask through the `useConfirm` dialog;
+ * Delete is disabled, with a reason, while an enrollment runs.
  */
 export function ProgramActions({
   title,
+  dayCount,
   running,
   builtin,
   busy,
@@ -36,7 +38,7 @@ export function ProgramActions({
   onDuplicate,
   onDelete,
 }: ProgramActionsProps) {
-  const [confirming, setConfirming] = useState(false)
+  const confirm = useConfirm()
   const paused = Option.exists(running, ({ enrollment }) => enrollment.status === "paused")
   const isRunning = Option.isSome(running)
   return (
@@ -68,7 +70,13 @@ export function ProgramActions({
               title="Leave program"
               accessibilityLabel={`Leave ${title}`}
               disabled={busy}
-              onPress={onLeave}
+              onPress={() => {
+                confirm({
+                  title: `Leave ${title}?`,
+                  message: "Your progress in it is lost; you can enrol again from day 1.",
+                  confirmLabel: "Leave",
+                }).then((ok) => ok && onLeave())
+              }}
             />
           ) : null,
           builtin ? (
@@ -99,33 +107,21 @@ export function ProgramActions({
               title="Delete program"
               {...(isRunning ? { subtitle: DELETE_BLOCKED } : {})}
               accessibilityLabel={`Delete ${title}`}
-              disabled={isRunning || busy || confirming}
-              onPress={() => setConfirming(true)}
+              disabled={isRunning || busy}
+              onPress={() => {
+                confirm({
+                  title: `Delete ${title}?`,
+                  message:
+                    dayCount === 1
+                      ? "Its 1 day is gone for good."
+                      : `Its ${dayCount} days are gone for good.`,
+                  confirmLabel: "Delete",
+                }).then((ok) => ok && onDelete())
+              }}
             />
           ),
         ]}
       </ListGroup>
-      {confirming ? (
-        <View style={{ gap: space.md }}>
-          <Banner tone="danger" title={`Delete ${title}? This cannot be undone.`} />
-          <View style={{ flexDirection: "row", gap: space.md }}>
-            <Button
-              variant="destructive"
-              label="Delete"
-              accessibilityLabel={`Delete ${title}`}
-              loading={busy}
-              disabled={busy}
-              onPress={onDelete}
-            />
-            <Button
-              variant="text"
-              label="Cancel"
-              disabled={busy}
-              onPress={() => setConfirming(false)}
-            />
-          </View>
-        </View>
-      ) : null}
     </View>
   )
 }

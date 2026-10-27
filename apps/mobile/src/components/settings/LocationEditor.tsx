@@ -24,11 +24,12 @@ import {
   ToggleChip,
   type,
   useBreakpoint,
+  useConfirm,
   useTheme,
 } from "../../ui"
 import { MAX_LOCATION_NAME } from "./locationsState"
 import { SettingsSection } from "./SettingsSection"
-import { equipmentGlyph, itemsSelectedLabel } from "./settingsCopy"
+import { deleteLocationRequest, equipmentGlyph, itemsSelectedLabel } from "./settingsCopy"
 import { useLocations } from "./useLocations"
 
 /** Invisible extra tap area around a 32 px chip (the Pressable is 44 tall already). */
@@ -52,6 +53,7 @@ export interface LocationEditorProps {
 export function LocationEditor({ location, active, onDeleted }: LocationEditorProps) {
   const { colors } = useTheme()
   const breakpoint = useBreakpoint()
+  const confirm = useConfirm()
   const { apply, error, dismiss } = useLocations()
   const [name, setName] = useState(location.name)
   useEffect(() => setName(location.name), [location.name])
@@ -145,9 +147,11 @@ export function LocationEditor({ location, active, onDeleted }: LocationEditorPr
         icon="trash"
         title="Delete location"
         accessibilityLabel={`Delete ${location.name}`}
-        onPress={() =>
-          apply({ _tag: "Remove", id: location.id }).then((done) => (done ? onDeleted() : null))
-        }
+        onPress={() => {
+          confirm(deleteLocationRequest(location.name))
+            .then((ok) => ok && apply({ _tag: "Remove", id: location.id }))
+            .then((done) => (done ? onDeleted() : null))
+        }}
       />
     </ListGroup>
   )
