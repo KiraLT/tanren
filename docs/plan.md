@@ -358,3 +358,18 @@ Recorded 2026-10-19, from the owner's kickoff message:
    protein and steps; resting heart rate is dropped there and kept only on the
    Health screen as a small weekly trend stat (it is a recovery signal worth a
    glance, not a daily headline). Recorded in `docs/design/health-module.md`.
+27. **Confirmation dialogs** (2026-10-27 17:55, owner, verbatim): "Our app is
+   missing simle popups to confirm dangerous operations." Lead reading: every
+   destructive or hard-to-undo action (deleting a program, abandoning an
+   enrollment, disconnecting an integration, erasing data, signing out
+   everywhere) asks first through one `useConfirm` primitive — the platform
+   alert on iPhone, a Forge dialog on web — with the inventory, the rule for
+   which actions qualify and the briefs in `docs/design/confirm-dialogs.md`
+   (CONFIRM-D).
+28. **Styling stack** (2026-10-27 17:55, owner, verbatim): "Also do you use
+   tailwind for css? Or https://ui.shadcn.com? Both of these can helps to have
+   more consistent UI with some customatizations." then "Decide yourself if
+   its worth". Lead decision: no — shadcn/ui is React-DOM-only and Tailwind on
+   React Native means NativeWind, a second styling language next to the Forge
+   tokens; consistency comes from the `src/ui` primitives, the token table and
+   the measured design reviews (ADR-0027).

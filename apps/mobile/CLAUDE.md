@@ -237,6 +237,18 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   load (the dev server is unreachable under `set offline on`, so that only proves client navigation).
 - API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
   else `http://localhost:8787`.
+- Rest-day proofs: the seed plan has no session on Tuesdays; to see Today on a rest day launch
+  agent-browser with e.g. `TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Empty-state proofs: signed
+  out always seeds the demo plan, so use Library "no results" or a signed-in empty account.
+- Web OPFS + bfcache (S7-P1): on a full cross-route navigation Chrome bfcaches the old page, whose
+  sqlite worker keeps the OPFS access handle, so the new page's open failed and `ManagedRuntime`
+  cached the failure. `runtime.ts` `PageSqlDriver` takes a page-lifetime Web Lock named after the
+  database (evicts the bfcached holder; 10 s timeout; skipped on native) and retries the open
+  (250 ms × 20). Two live tabs still cannot share the store: the second one fails after ~10 s with
+  "Tanren is open in another tab" (open product decision; BS-1 made that failure visible).
+- Stale Metro after edits: restart the server, `--clear` is not enough.
+- History (steps 6–7, INT-A/X1, v2 design, 2026-10-20/21): `docs/tasks/step-2.md` Log and `git log`,
+  not this file.
 
 ## Programs (v2, team programs — docs/design/v2-programs.md)
 
@@ -584,43 +596,3 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   rows `UI-NUTRI-rows.html`. INT-N (2026-10-27): the month seed now writes 7 `daily_health` rows (end − 6 … end); `/health`
   DayBars is the calendar week Mon–Sun, so 7 burned bars need `--end <a Sunday>` + a fake date on it (`docs/design/reviews/UI-NUTRI-e2e.md`,
   shots N2b); FoodLog delete → Undo → entry back driven (N4); the eat-back row (only with Garmin connected) is `switch [checked]`.
-
-## Status
-
-Step 6 (2026-10-20, company mode): M1–M4 done, 51 tests, reviewed. INT-2b
-(2026-10-20): web ↔ local worker proven end to end with agent-browser, no code
-change: magic link → cookie → get-session → re-key → pull → log set → push →
-server pull shows it. `localhost:8081` and `:8787` are the same site, so the
-SameSite=Lax cookie rides `credentials: "include"`. The seed plan has no session
-on Tuesdays: to test Today on a rest day, launch agent-browser with e.g.
-`TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Open: a manual rest → swipe
-pass on a phone in Expo Go (offline logging; native sign-in arrived with native-auth, see above).
-
-Step 7 (2026-10-20, team plan-web): Plan screen (PlanWeekRepo + usePlanWeek),
-two-column layout at ≥ 900 px, web export served by the assets-only Worker on
-:8790 with COOP/COEP, sign-in screen (S7-P6). Proven with agent-browser on the
-exported build at 390 and 1280 px. Web OPFS + bfcache (S7-P1 fix): on a full cross-route
-navigation Chrome bfcaches the old page, whose sqlite worker keeps the OPFS
-access handle, so the new page's open failed and `ManagedRuntime` cached the
-failure. `runtime.ts` `PageSqlDriver` takes a page-lifetime Web Lock named
-after the database (evicts the bfcached holder; 10 s timeout; skipped on
-native) and retries the open (250 ms × 20). Two live tabs still cannot share
-the store (second tab fails after 10 s): open product decision.
-
-INT-A (2026-10-20): owner recipe proven on the export via root `pnpm dev`
-(`docs/design/local-dev.md` §Owner recipe). Gap: `logSet` does not call
-`syncNow()`, so a logged set reaches the server only on the next ~60 s loop.
-
-v2 design + extras (2026-10-21, team design): `src/ui` design system (tokens, light/dark,
-theme preference, 15 primitives + Icon, desktop `AppBar` nav), Today/Plan/Sign-in/auth callback
-restyled, legacy `components/{theme,Screen,BigButton}` deleted; Progress tab, Settings, PWA
-manifest. Proven on the export at 390/768/1280 light+dark (30 screenshots). `EmptyState` carries
-`minHeight: 240` in the primitive (UI-FIX-1), so it renders inside `Page scroll` and `FlatList`
-empty components without per-screen patches. Stale Metro after edits: restart the server,
-`--clear` is not enough. Empty-state proofs in the browser: signed out always seeds the demo
-plan, so use Library "no results" or a signed-in empty account.
-
-INT-X1 (2026-10-21, partial, time-boxed): on the export via `pnpm dev`, root gate green (1172 tests);
-magic-link sign-in, Library search/filter/detail and "Add to today's session" (stays on the detail and shows "Added" / "Already in today's session" for 3 s since EQ-2b; before that it navigated to Today)
-proven at 390 px. Library detail then showed the placeholder (the SVG map was empty; since replaced by generated webps, see Illustrations). Not proven: the added exercise visible on Today,
-Programs player, Progress PR, Settings export/sign-out, dark/1280.
