@@ -92,7 +92,7 @@ export function HealthModule({ style }: HealthModuleProps) {
       {Option.match(insight, {
         onNone: () => null,
         onSome: (text) => (
-          <Text variant="caption" numberOfLines={1} style={{ marginTop: space.xs }}>
+          <Text variant="caption" numberOfLines={2} style={{ marginTop: space.xs }}>
             {text}
           </Text>
         ),

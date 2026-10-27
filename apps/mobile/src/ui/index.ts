@@ -13,6 +13,7 @@ export { Banner } from "./Banner"
 export { Button, type ButtonSize, type ButtonVariant } from "./Button"
 export { Card } from "./Card"
 export { Columns, type ColumnsProps, useColumns } from "./ColumnsView"
+export { type Confirm, ConfirmProvider, type ConfirmRequest, useConfirm } from "./Confirm"
 export type { ColorRoles } from "./colors"
 export {
   type ColumnSplit,

@@ -65,9 +65,9 @@ hover/pressed = `surface` → `surfaceRaised` (the `Card onPress` default). `acc
 | 1 | `HealthRings size=104` · gap 16 · text block (`label` 16 + `display` 38 + `caption` 18 = 72, centred vertically) | 104 + 16 + 206 = 326 | 104 + 16 + 344 = 464 | 104 |
 | 2 | 3 × `HealthStat` (flex 1, gap 8; first slot takes the rounding remainder) | 104 + 8 + 103 + 8 + 103 = 326 | 150 + 8 + 149 + 8 + 149 = 464 | 38 |
 | 3 | `caption muted` one line, `numberOfLines={1}` | ≤ 44 chars × 6.5 = 286 ≤ 326 | ≤ 464 | 18 |
-| 4 | `caption` (text colour) one line | ≤ 326 | ≤ 464 | 18 or 0 |
-Card height: 16 + 104 + 12 + 38 + 8 + 18 + 4 + 18 + 16 = 234 (+ Card border as the `Card` primitive draws it);
-212 without an insight. Stat slot content: label ≤ 8 chars (52 px + 14 px dot) and value "96 / 155 g" = 22 + 50 =
+| 4 | `caption` (text colour), `numberOfLines={2}`: one line when it fits, two when the insight is long | ≤ 326 | ≤ 464 | 18 (36 on two lines) or 0 |
+Card height: 16 + 104 + 12 + 38 + 8 + 18 + 4 + 18 + 16 = 234 (+ Card border as the `Card` primitive draws it; 252
+when the insight wraps to two lines); 212 without an insight. Stat slot content: label ≤ 8 chars (52 px + 14 px dot) and value "96 / 155 g" = 22 + 50 =
 72 ≤ 103 ✓. Dots: 8 px circles (`accent` before Eaten, `success` before Protein, none before Burned).
 Ring geometry: outer r = 52 − 5 = 47 (stroke 10 = `stroke.ring`), inner r = 47 − 10 − 4 = 33, track `border`.
 

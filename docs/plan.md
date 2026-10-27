@@ -385,3 +385,15 @@ Recorded 2026-10-19, from the owner's kickoff message:
    session; the Library's purpose (browse by muscle and equipment, see what
    the active location allows, add or swap) is stated in the app
    (ADR-0028, `docs/design/free-workout.md`, FREE-D).
+30. **Navigation for growth** (2026-10-27 18:30, owner, verbatim): "Also I
+   think we should be smart about bottom navigation cause its very limited.
+   And overall limitations. Research strava, garmin and suggest how to remake
+   navigation and pages to be easier to navigate and be more usefull.
+   Expecially if we are planning to grow our functionality." Lead reading: a
+   fable architect researches the hub structure of Strava, Garmin Connect,
+   Apple Fitness and the strength-logging apps, then proposes two directions
+   and a merge for the tab bar, the hubs behind each tab (Home, Train, Feed,
+   You or similar), the desktop nav, growth rules (new features land as cards
+   or hub rows, never new tabs) and a route-migration plan; the owner picks
+   from a contact sheet (`docs/research/2026-10-27-navigation-ia.md`,
+   `docs/design/navigation-v2.md`, NAV-D).

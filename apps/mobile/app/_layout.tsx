@@ -14,7 +14,7 @@ import { Platform, View, type ViewStyle } from "react-native"
 import { Landing } from "../src/components/landing/Landing"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import { useSync } from "../src/hooks/useSync"
-import { ThemeProvider, useTheme } from "../src/ui"
+import { ConfirmProvider, ThemeProvider, useTheme } from "../src/ui"
 import { navigationTheme } from "../src/ui/navigationTheme"
 import { fonts } from "../src/ui/tokens"
 
@@ -69,23 +69,26 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <ThemedStatusBar />
-      {/* The navigator must stay mounted for the redirect and the landing's `router.replace`; while
+      {/* `useConfirm()` for every screen; the web dialog reads the theme, so it sits inside it. */}
+      <ConfirmProvider>
+        {/* The navigator must stay mounted for the redirect and the landing's `router.replace`; while
           gated it is `display: none`, so it neither shows nor takes height (ADR-0021). */}
-      <View style={gate === "allow" ? visible : hidden}>
-        <ForgeNavigationTheme>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="health/add" options={{ presentation: "modal" }} />
-          </Stack>
-        </ForgeNavigationTheme>
-      </View>
-      {gate === "sign-in" ? (
-        // Web shows strangers the landing on every gated route; native keeps the sign-in screen.
-        Platform.OS === "web" ? (
-          <Landing />
-        ) : (
-          <Redirect href="/sign-in" />
-        )
-      ) : null}
+        <View style={gate === "allow" ? visible : hidden}>
+          <ForgeNavigationTheme>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="health/add" options={{ presentation: "modal" }} />
+            </Stack>
+          </ForgeNavigationTheme>
+        </View>
+        {gate === "sign-in" ? (
+          // Web shows strangers the landing on every gated route; native keeps the sign-in screen.
+          Platform.OS === "web" ? (
+            <Landing />
+          ) : (
+            <Redirect href="/sign-in" />
+          )
+        ) : null}
+      </ConfirmProvider>
     </ThemeProvider>
   )
 }
