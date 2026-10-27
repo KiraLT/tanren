@@ -86,7 +86,7 @@ const accountTitle = (account: AccountState): string =>
 export default function YouScreen() {
   const router = useRouter()
   const { account } = useAccount()
-  // One week read per screen: the tiles card below desktop, the rings card on top of Setup at desktop.
+  // One week read per screen: the tiles card below desktop, the rings card on top of About at desktop.
   const week = useWeekReview(weekStartFor(localDateOf(new Date())))
   const weekCard = (variant: "tiles" | "rings") =>
     week._tag === "Ready" ? <ThisWeekCard summary={week.value} variant={variant} /> : null
@@ -135,15 +135,14 @@ export default function YouScreen() {
               />
             </SettingsSection>
             {group(INSIGHTS)}
-            {/* At desktop About balances the columns against the week card on top of Setup. */}
-            {desktop ? group(ABOUT) : null}
+            {group(SETUP)}
           </View>
         }
         side={
           <View style={{ gap: rhythm.groupToLabel }}>
+            {/* Desktop (desktop-fill.md §3): rows with rows on the left, the week card and About here. */}
             {desktop ? weekCard("rings") : null}
-            {group(SETUP)}
-            {desktop ? null : group(ABOUT)}
+            {group(ABOUT)}
           </View>
         }
       />

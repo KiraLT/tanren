@@ -3,6 +3,8 @@ import { Option } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { Card, HealthRings, ProgressRing, StatRow, space, Text } from "../../ui"
+import { DayBars } from "../health/DayBars"
+import { localDateOf } from "../planFormat"
 import {
   kcalTone,
   NUTRITION_RING,
@@ -10,6 +12,7 @@ import {
   sessionRatio,
   sessionsCentre,
   targetFraction,
+  weekHasNutritionData,
 } from "../review/reviewMath"
 import { formatVolume } from "../volumeFormat"
 
@@ -96,6 +99,10 @@ export function ThisWeekCard({
         </Text>
         {variant === "rings" ? <Rings summary={summary} /> : null}
         <StatRow variant="tile" items={variant === "rings" ? rest : [sessions, ...rest]} />
+        {/* desktop-fill.md §3: the week's bars in the same card, only when some day has data. */}
+        {variant === "rings" && weekHasNutritionData(summary.days) ? (
+          <DayBars days={summary.days} today={localDateOf(new Date())} />
+        ) : null}
       </View>
     </Card>
   )
