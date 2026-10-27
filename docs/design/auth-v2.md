@@ -166,3 +166,9 @@ duplicate) and `purge(now)`. `apps/worker/src/testing/workerdSetup.ts` lists 000
 
 Forge styling of the consent/login pages; listing connected clients (needs grant storage); refresh rotation with reuse
 detection; dual-key secret rotation; Apple Health; moving web to Tanren JWT cookies.
+
+## Hardening (SEC-A2, 2026-10-27)
+
+- A2: `magicLink({ storeToken: "hashed" })`: `verification.identifier` is `magic-link:<SHA-256(token)>`, so D1 never holds a live login token (`auth/magicLinkHashed.workerd.test.ts`).
+- A5: `bearer({ requireSignature: true })`: a bare `session.token` as `Authorization: Bearer` is signed out; the signed `<token>.<hmac>` and the app JWT (checked first by `SessionsLive`) still resolve (`auth/auth.test.ts`).
+- A4: `makeRouter` limits `/authorize*` 30/min, `POST /oauth/token` 60/min, `POST /oauth/register` 10/min per `cf-connecting-ip` and isolate (`OAUTH_RATE_LIMITS`); 429 + `Retry-After`, `{"error":"temporarily_unavailable"}` JSON or the HTML error page (`oauth/rateLimit.workerd.test.ts`).

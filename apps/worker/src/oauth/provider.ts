@@ -1,6 +1,7 @@
 import type { OAuthCodeUseRepo, UserTokens } from "@tanren/db"
-import { type Effect, Layer, ManagedRuntime, Option } from "effect"
+import { Effect, Layer, ManagedRuntime, Option } from "effect"
 import type { App } from "../app"
+import { makeLimiterWith } from "../auth/nativeAuthRoutes"
 import { Tokens } from "../auth/Tokens"
 import { WorkerConfig, type WorkerConfigShape } from "../Config"
 import { mcpLandingResponse } from "../mcp/McpLanding"
@@ -13,6 +14,7 @@ import {
   PROTECTED_RESOURCE_METADATA,
 } from "./metadata"
 import { OAuthApi } from "./OAuthApi"
+import { errorPage, PAGE_CSP } from "./pages"
 import { tokenEndpoint } from "./token"
 
 // The Worker's router (ADR-0022, docs/design/auth-v2.md §5): the stateless OAuth authorization
@@ -115,6 +117,47 @@ const methodNotAllowed = (allow: string, json: boolean): Response =>
     : new Response(null, { status: 405, headers: { allow } })
 
 /**
+ * SEC-A2 (A4): per isolate, per route, per `cf-connecting-ip`, fixed 60 s windows (`makeLimiterWith`;
+ * weak like the native limiter, the upgrade is the Workers rate-limiting binding). Sized well above a
+ * real client: one OAuth flow is 2-3 `/authorize*` requests, one token exchange plus a refresh every
+ * 15 minutes, and one registration per client install.
+ */
+export const OAUTH_RATE_LIMITS = {
+  authorize: { max: 30, windowMs: 60_000 },
+  token: { max: 60, windowMs: 60_000 },
+  register: { max: 10, windowMs: 60_000 },
+} as const
+
+type LimitedRoute = keyof typeof OAUTH_RATE_LIMITS
+
+/** RFC 6749 has no 429 error code; `temporarily_unavailable` (§4.1.2.1) is the closest. */
+const tooManyJson = (retryAfterSeconds: number): Response =>
+  new Response(
+    JSON.stringify({ error: "temporarily_unavailable", error_description: "Too many requests" }),
+    {
+      status: 429,
+      headers: {
+        "retry-after": String(retryAfterSeconds),
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        pragma: "no-cache",
+      },
+    },
+  )
+
+/** The `/authorize*` 429: the same page frame and CSP as every authorize page. */
+const tooManyHtml = (retryAfterSeconds: number): Response =>
+  new Response(errorPage("Too many requests", "Wait a minute, then start again from your app."), {
+    status: 429,
+    headers: {
+      "retry-after": String(retryAfterSeconds),
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+      "content-security-policy": PAGE_CSP,
+    },
+  })
+
+/**
  * `OPTIONS` on a CORS path → 204; discovery → `metadata.ts`; `/oauth/token`, `/oauth/register`;
  * `/mcp` → MCP; `GET|HEAD /` on the MCP host → the static landing page (the bare origin is not the
  * RFC 8707 resource); `/authorize` and below → the authorize pages; everything else → the REST app.
@@ -135,6 +178,31 @@ export const makeRouter = (
   const mcpHostname = new URL(config.mcpResourceUrl).hostname
   const run = (effect: Effect.Effect<Response, never, Tokens | UserTokens | OAuthCodeUseRepo>) =>
     runtime.runPromise(effect)
+  // Three `Ref.make`s: no I/O, so building them where `index.ts` builds the router is safe.
+  const limiters = Effect.runSync(
+    Effect.all({
+      authorize: makeLimiterWith(OAUTH_RATE_LIMITS.authorize),
+      token: makeLimiterWith(OAUTH_RATE_LIMITS.token),
+      register: makeLimiterWith(OAUTH_RATE_LIMITS.register),
+    }),
+  )
+  /** `handle()` unless this `cf-connecting-ip` is over the route's limit, then the 429. */
+  const limited = (
+    route: LimitedRoute,
+    request: Request,
+    tooMany: (retryAfterSeconds: number) => Response,
+    handle: () => Promise<Response>,
+  ): Promise<Response> =>
+    Effect.runPromise(
+      limiters[route](
+        `oauth-${route}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`,
+      ).pipe(
+        Effect.flatMap(() => Effect.promise(handle)),
+        Effect.catchTag("NativeRateLimited", ({ retryAfterSeconds }) =>
+          Effect.succeed(tooMany(retryAfterSeconds)),
+        ),
+      ),
+    )
 
   const isCorsPath = (pathname: string, hostname: string) =>
     pathname === "/mcp" ||
@@ -163,7 +231,7 @@ export const makeRouter = (
     if (pathname === TOKEN_PATH) {
       return withCors(
         request.method === "POST"
-          ? await run(tokenEndpoint(request))
+          ? await limited("token", request, tooManyJson, () => run(tokenEndpoint(request)))
           : methodNotAllowed("POST, OPTIONS", true),
         request,
       )
@@ -171,7 +239,7 @@ export const makeRouter = (
     if (pathname === REGISTER_PATH) {
       return withCors(
         request.method === "POST"
-          ? await run(register(request))
+          ? await limited("register", request, tooManyJson, () => run(register(request)))
           : methodNotAllowed("POST, OPTIONS", true),
         request,
       )
@@ -187,7 +255,9 @@ export const makeRouter = (
       return mcpLandingResponse(request, config.mcpResourceUrl)
     }
     if (pathname === "/authorize" || pathname.startsWith("/authorize/")) {
-      return authorize.handle(request, workerEnv, ctx)
+      return limited("authorize", request, tooManyHtml, () =>
+        authorize.handle(request, workerEnv, ctx),
+      )
     }
     return app.handler(request)
   }

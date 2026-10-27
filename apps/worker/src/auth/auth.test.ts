@@ -15,6 +15,7 @@ import {
 import { CapturedEmails, EmailSender } from "./EmailSender"
 import { Sessions } from "./Sessions"
 import { SessionsLive } from "./SessionsLive"
+import { Tokens } from "./Tokens"
 
 const BASE = "http://localhost:8787"
 const ORIGIN = "http://localhost:8081"
@@ -217,6 +218,43 @@ describe("magic-link sign-in", () => {
         body: JSON.stringify({ email: "not-an-email" }),
       })
       expect(response.status).toBe(400)
+    }),
+  )
+})
+
+/** The decoded value of the `…session_token` cookie in a `name=value; …` header. */
+const sessionTokenOf = (cookie: string): string => {
+  const pair = cookie.split("; ").find((entry) => entry.includes("session_token=")) ?? ""
+  return decodeURIComponent(pair.slice(pair.indexOf("=") + 1))
+}
+
+describe("bearer plugin requireSignature (SEC-A2 A5)", () => {
+  it.effect("a bare session.token as Bearer is signed out; the signed form still resolves", () =>
+    Effect.gen(function* () {
+      const { cookie, sessions } = yield* signIn("local", "bearer@example.com")
+      const signed = sessionTokenOf(cookie) // `<session.token>.<hmac>`
+      const raw = signed.split(".")[0] ?? ""
+      expect(raw.length).toBeGreaterThan(0)
+      expect(raw).not.toBe(signed)
+      const bare = yield* sessions.current(new Headers({ authorization: `Bearer ${raw}` }))
+      expect(bare).toEqual(Option.none())
+      const viaSigned = yield* sessions.current(new Headers({ authorization: `Bearer ${signed}` }))
+      expect(Option.isSome(viaSigned)).toBe(true)
+    }),
+  )
+
+  it.effect("the app access JWT still resolves through the same stack", () =>
+    Effect.gen(function* () {
+      const { context } = yield* setup("local")
+      const sessions = Context.get(context, Sessions)
+      const pair = yield* Effect.gen(function* () {
+        return yield* (yield* Tokens).issueAppPair(DEV_USER_ID, 0)
+      }).pipe(
+        Effect.provide(Tokens.layer),
+        Effect.provide(WorkerConfig.layerFromEnv(envVars("local"))),
+      )
+      const headers = new Headers({ authorization: `Bearer ${pair.accessToken}` })
+      expect(yield* sessions.current(headers)).toEqual(Option.some(DEV_USER_ID))
     }),
   )
 })

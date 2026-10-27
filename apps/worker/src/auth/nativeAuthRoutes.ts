@@ -70,27 +70,31 @@ interface Bucket {
  * is the Workers rate-limiting binding, see apps/worker/CLAUDE.md). Expired buckets are dropped on
  * every call, so the map stays as small as the set of recent callers.
  */
-export const makeLimiter = Effect.gen(function* () {
-  const buckets = yield* Ref.make(HashMap.empty<string, Bucket>())
-  return (key: string) =>
-    Effect.gen(function* () {
-      const now = yield* Clock.currentTimeMillis
-      const { max, windowMs } = NATIVE_RATE_LIMIT
-      const bucket = yield* Ref.modify(buckets, (map) => {
-        const live = HashMap.filter(map, (b) => b.windowStart + windowMs > now)
-        const next = Option.match(HashMap.get(live, key), {
-          onNone: () => ({ windowStart: now, count: 1 }),
-          onSome: (b) => ({ windowStart: b.windowStart, count: b.count + 1 }),
+export const makeLimiterWith = (rate: { readonly max: number; readonly windowMs: number }) =>
+  Effect.gen(function* () {
+    const buckets = yield* Ref.make(HashMap.empty<string, Bucket>())
+    return (key: string) =>
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
+        const { max, windowMs } = rate
+        const bucket = yield* Ref.modify(buckets, (map) => {
+          const live = HashMap.filter(map, (b) => b.windowStart + windowMs > now)
+          const next = Option.match(HashMap.get(live, key), {
+            onNone: () => ({ windowStart: now, count: 1 }),
+            onSome: (b) => ({ windowStart: b.windowStart, count: b.count + 1 }),
+          })
+          return [next, HashMap.set(live, key, next)] as const
         })
-        return [next, HashMap.set(live, key, next)] as const
+        if (bucket.count > max) {
+          return yield* new NativeRateLimited({
+            retryAfterSeconds: Math.ceil((bucket.windowStart + windowMs - now) / 1000),
+          })
+        }
       })
-      if (bucket.count > max) {
-        return yield* new NativeRateLimited({
-          retryAfterSeconds: Math.ceil((bucket.windowStart + windowMs - now) / 1000),
-        })
-      }
-    })
-})
+  })
+
+/** `makeLimiterWith(NATIVE_RATE_LIMIT)`: 10 per minute per key. */
+export const makeLimiter = makeLimiterWith(NATIVE_RATE_LIMIT)
 
 const ENTITIES: Readonly<Record<string, string>> = {
   "&": "&amp;",

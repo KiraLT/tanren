@@ -84,10 +84,15 @@ const makeAuth = (
         // sign-in request fails instead of pretending an email went out.
         sendMagicLink: ({ email, url }) =>
           Effect.runPromiseWith(context)(sender.send({ email, url })),
+        // SEC-A2 (A2): `verification.identifier` holds SHA-256(token), never the live 5-min token;
+        // verify hashes the presented token the same way (`dist/plugins/magic-link/index.mjs:164`).
+        storeToken: "hashed",
       }),
-      // `Authorization: Bearer <session.token>` → the session cookie, also for
-      // `auth.api.getSession({ headers })` (SessionsLive), so the native app needs no cookie.
-      bearer(),
+      // `Authorization: Bearer <token>.<signature>` (the signed cookie value Better Auth hands out
+      // as `set-auth-token`) → the session cookie, also for `auth.api.getSession({ headers })`
+      // (SessionsLive). SEC-A2 (A5): `requireSignature` refuses a bare `session.token`, so a leaked
+      // DB row is not a credential; the native app sends the app JWT, which SessionsLive checks first.
+      bearer({ requireSignature: true }),
       // The native code's one-time half: single use, 5 min, stored hashed in `verification`.
       // Generated and consumed only through `auth.api.*` (see `disabledPaths`).
       oneTimeToken({

@@ -4,7 +4,7 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test"
 import { env } from "cloudflare:workers"
-import { afterAll, describe, expect, it } from "@effect/vitest"
+import { afterAll, describe, expect, it, vi } from "@effect/vitest"
 import { ActivityExportRepo, SealedToken as DbSealedToken, IntegrationRepo } from "@tanren/db"
 import { Exercise, IdGenerator, PullResponse, PushResponse, UserId, Uuid } from "@tanren/shared"
 import { Array as Arr, Clock, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect"
@@ -45,26 +45,28 @@ const json = (cookie: string, method: string, body: unknown): RequestInit => ({
 })
 
 const WireRow = Schema.Record(Schema.String, Schema.Unknown)
-const VerificationRow = Schema.Struct({ identifier: Schema.String })
 const SessionBody = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) })
 
+const MAILED_TOKEN = /\/api\/auth\/magic-link\/verify\?token=([^&\s"]+)/
+
 /**
- * Real Better Auth session: POST /api/auth/sign-in/magic-link → the token from the D1
- * `verification` row (`identifier = "magic-link:<token>"`, plain storage) → GET
+ * Real Better Auth session: POST /api/auth/sign-in/magic-link → the token from the link the
+ * console sender logs (`EMAIL_MODE=console`; D1 holds only its hash since SEC-A2) → GET
  * /api/auth/magic-link/verify → `better-auth.session_token` cookie. The dev email maps to DEV_USER_ID.
  */
 const signIn = async (email: string = DEV_USER_EMAIL): Promise<string> => {
+  const logged = [vi.spyOn(console, "log"), vi.spyOn(console, "info")]
   const sent = await call(
     "/api/auth/sign-in/magic-link",
     json("", "POST", { email, callbackURL: "/" }),
   )
+  const lines = logged.flatMap((spy) => spy.mock.calls.flat().map(String))
+  logged.forEach((spy) => {
+    spy.mockRestore()
+  })
   expect(sent.status).toBe(200)
-  const row = Schema.decodeUnknownSync(VerificationRow)(
-    await env.DB.prepare(
-      "SELECT identifier FROM verification WHERE identifier LIKE 'magic-link:%' ORDER BY createdAt DESC",
-    ).first(),
-  )
-  const token = row.identifier.slice("magic-link:".length)
+  const token = lines.map((line) => MAILED_TOKEN.exec(line)?.[1] ?? "").find((t) => t !== "") ?? ""
+  expect(token).not.toBe("")
   const verified = await call(
     `/api/auth/magic-link/verify?token=${encodeURIComponent(token)}&callbackURL=%2F`,
   )
