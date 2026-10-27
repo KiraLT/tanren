@@ -33,6 +33,47 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
+## Live at hand-off (2026-10-27 15:36, written for a context compaction; agent ids in the scratchpad `live-agents.txt`)
+**Production = `bdf7da1` (DEPLOY-15 15:31).** Live today, in order: DEPLOY-9 stateless auth + legal pages + account delete, DEPLOY-10/11 consent pages in Forge + auth hardening + display font, DEPLOY-12 Garmin import (migration 0007) + seal binding + the 12-Week Lean Build data, DEPLOY-13 Garmin pull sized for the Free plan, DEPLOY-14 remaining security items, DEPLOY-15 slim cron runtime. HEAD = production + docs. The WORKING TREE holds the uncommitted v6 work of four teams (see 1).
+**Owner rules in force:** every ask in its own bold line; NEVER mention the Resend or Garmin key rotation; no legacy (Amendment 23); breaking changes = migrate live D1 first; the owner wants to reload VS Code — only at a checkpoint with no live agents.
+
+**Resume checklist (in order):**
+1. **Combined v6 commit** the moment the programs TL reports "P-S1 landed" (migration 0009; it turns the tree green — today the only reds are `program` in `SyncTable` before its table): run `pnpm check` from the tree; if green, `git add -A` EXCEPT files no team listed (none expected) and commit ONE "v6 nutrition + programs foundation" commit: N-F0 (shared nutrition, sync members, mobile v5), nutri-server (0008, FoodEntryRepo, 4 MCP tools, time/localDate), nutri-today W1 (FoodEntryRepo/NutritionRepo/hooks, NutritionStrip), nutri-food W1+W2 (quick-add, FoodLog, settings nutrition; their FIX-1 may still be in flight — ask the TL first), programs P-F0/P-M1/P-S1 (program table, swaps, usePrograms, migration 0009). Before `git add`, re-check with each live TL that nothing of theirs is mid-edit (playbook (6)/(8); two leaks today came from staging a file a live team was editing). Then DEPLOY-16 with `MIGRATE=1 scratchpad/deploy.sh` (0008 + 0009 add only), verify `/mcp` tools/list = 13 (+9 after P-S2), `/health`, then a bold line to the owner: nutrition tools are live in the Claude connector.
+2. **Teams still running** (ids in `live-agents.txt`): nutri-today W2 (N-M3 `/health` + REV-1, then designer N-MD + captures → commit), nutri-food (FIX-1 → REV-2 → commit; it owns `app/health/add.tsx`, `settings/nutrition.tsx`, `components/health/{QuickAddSheet,FoodLog,...}`), programs (P-S2 MCP program tools after P-S1 → P-M3 editor → P-M4 swap sheet → P-R → P-Q). Accept each final report, commit per team (hunk-stage shared files), deploy, publish the gallery (`node docs/design/gallery.mjs docs/design/screens/tanren-screens.html --write`, Artifact URL in memory `tanren-review-gallery`, sections `nutrition` N1–N24 and `programs` PG*). Then INT-N (the v6 sheet's integration task incl. the `## INT-N addenda` doc truth-ups), INT-R ∥ N-QA, and the owner-facing e2e (photo → `log_food` → Today strip).
+3. **Cron CPU question (owner asked twice):** facts in `docs/research/2026-10-27-cron-tick-cpu.md`; idle tick 28–30 ms before GM-F2, outcome ok; the tail `$S/tail-cron2.json` (15:35/15:40 ticks, post-diet) was running at compaction — parse it as concatenated pretty JSON (not JSONL) and report before/after to the owner; recommendation on file: accept the soft limit, Workers Paid ($5) only if `exceededCpu` ever appears. SEC-1c (native Strava interstitial) and STLS-F5 (refresh rotation) are open follow-ups in `docs/tasks/v5-security.md`; A9 (sign-up policy) awaits the owner.
+4. **EM** batch 14 is running (ids above); apply its P-items to the playbook, mark incidents fixed-where, commit; EM batch 15 after the v6 teams land.
+5. Later: LEGAL-Q, polish nits, Apple Health, `eas update:configure`, G-F1 (Garmin UTC-day gap via `time/localDate`), P-S2's `tools/list` 22.
+
+## Where we are (2026-10-27 10:05)
+**Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
+mcp.tanren.me (MCP). Production = commit `25a0b64`, deployed 13:52 (DEPLOY-9: stateless auth ADR-0022 + migration 0006, legal pages, account-delete endpoint, Garmin schemas) from a clean worktree
+whose root gate was green (159 files, 2002 tests); D1 at migration 0005 (applied by DEPLOY-5); the `*/5`
+Strava-drain cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: Plan week
+"Logged N sets · volume" line (PLAN-LOG), W1 wordmark + the T mark as app/PWA icons (plan Amendment 15), OG
+image + metas, polish round 5, Forge design, designed magic-link email,
+sign-in gate (ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated
+illustrations), Feed tab + activity detail + `/progress` (ADR-0017), guided programs with rep-count items
+(ADR-0020: 15 of 24 Core 30 moves count reps), **Finish workout** on Today (inline after the set list on
+phones since FIN-LAYOUT) plus auto-finish of stale sessions after a complete pull, Settings → Integrations
+with Strava in **console mode** (ADR-0018; real export waits for the owner's Strava app keys), final 力
+app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandbook artifact v3.
+
+## Verified today (evidence in docs/tasks/step-2.md Log)
+- Root `pnpm check` green at every deploy; DEPLOY-4 worktree run 156 files / 1948 tests (09:49).
+- Live chunk check 09:55 (DEPLOY-4): root `_layout-d3f87cf8….js` carries the landing (`assets/landing` ×5,
+  all five webps HTTP 200, "Sign in with a magic link"); `today-2b4c0ecf….js` carries "Finish workout" and
+  the FIN-LAYOUT footer margin; `plan-570b4dd8….js` carries "Up next"; `__common-….js` carries the r4
+  ListRow props and `finishStaleSessions`; `/health` → `{"ok":true}`. Route chunk names are listed inside
+  the `entry-*.js` script that index.html names (not `index-*.js`); two `_layout-*` chunks exist and the
+  landing is in the larger one.
+- Designer verdicts: mobile-A r3 PASS, mobile-B r2 PASS, landing LAND-R PASS, desktop r4 PASS (all seven
+  screens 4 at 1280/900). Code reviews: REV-PL (PROG-1/2, LOGO-2, FEED-7), PROG-R (PROG-3), REV-TF (Finish
+  workout), REV-3 (Strava), REV-AF r2 (auto-finish), REV-POLISH (mobile pairs) all APPROVE; fixes landed,
+  REV-POLISH should-fixes queued into polish round 5.
+- Gallery https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ v11 (14 sections, `desktop-r4` K1–K62; source tracked at
+  `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
+  Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
+
 ## Live at hand-off (2026-10-27 14:14; agent ids in the scratchpad `live-agents.txt` and the step-2 Log)
 **Production = `bdf7da1` (DEPLOY-15 15:31: slim cron runtime; DEPLOY-14 15:25 `954feb0`: SEC-1b security items; DEPLOY-13 15:12 `8493118`: Garmin pull sized for the Free plan; DEPLOY-12 15:02 `87d056a`: Garmin import + migration 0007 + SEC-1a seal binding + '12-Week Lean Build' data; DEPLOY-11 14:33 `761004b`; DEPLOY-10 14:22 `4be4770`; DEPLOY-9 13:52 `25a0b64`):** stateless auth (ADR-0022, migration 0006, no KV),
 legal pages, account deletion end to end (LEGAL-2a/2b), write-path user-row checks (STLS-F3/F4), Garmin shared schemas, the
