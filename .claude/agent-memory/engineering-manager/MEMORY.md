@@ -10,4 +10,5 @@
 - [EM batch watchlist 2026-10-27g](project_em-batch-watchlist-2026-10-27g.md) — items 70–74: one-task synced tables, port signatures in sheets, HOLD defaults + GO→child ≤ 2 min, multi-run pagination tests, scripted-rewrite slips
 - [EM batch watchlist 2026-10-27h](project_em-batch-watchlist-2026-10-27h.md) — items 75–79: optional-key contract defects, contracts board vs Lead relays, spike-before-fix, live-team hunk staging, designer FIXes from spec gaps
 - [EM batch watchlist 2026-10-27i](project_em-batch-watchlist-2026-10-27i.md) — items 80–85: untested failure-path claims, runFork build errors, after-paint captures, no reference app in designer briefs, copy truth, unowned stubs
+- [EM batch watchlist 2026-10-27k](project_em-batch-watchlist-2026-10-27k.md) — retro v6 items 91–96: commit-as-gate ×3 (77 min), HM set unreviewed, direction sheet first, reload windows, connector tool count, long-resume tokens
 - [EM batch watchlist 2026-10-27j](project_em-batch-watchlist-2026-10-27j.md) — items 86–90: spec-vs-rule/self conflicts, HM fast pattern, ledger skew + post-revoke truth table, skill recipe fix in-task, Committable-now lines

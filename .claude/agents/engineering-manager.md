@@ -54,7 +54,11 @@ assistant message ids = turns, `tool_use` blocks, usage deduped per message
 id; transcript timestamps are UTC, the Log is Europe/Vilnius) and the task
 sheet Log, compute wall-clock, active time per agent and fix-round wait
 (never bare spans), agent-time, tokens, review rounds, gate
-failures, incidents and the critical-path ratio; name the top three wastes
+failures, incidents and the critical-path ratio, plus (retro v6, 2026-10-27)
+commit-gated idle minutes per stream (chain idle where the only pending input
+was a commit or an already-landed report), HOLD→GO minutes per team-lead, and
+the Lead-latency distribution (transcript end → dependent dispatch start, as
+median / p90 / max, never a mean); name the top three wastes
 with evidence; apply the system edits you can make yourself (as in Mode 1)
 and propose the rest (.claude/settings.json, hooks, docs/dev-system.md, root CLAUDE.md, this file, gate) to the Lead as exact old→new text; set one
 measurable experiment for the next step. Write

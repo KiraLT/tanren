@@ -328,7 +328,7 @@ Recorded 2026-10-19, from the owner's kickoff message:
    any leftover as a should); a schema or wire change that the running
    Worker cannot serve is split expand → migrate live D1 → deploy → contract,
    and every deploy applies pending migrations to production before the
-   Worker upload (`scratchpad/deploy.sh` `MIGRATE=1`, `docs/design/deploy.md`).
+   Worker upload (`scripts/deploy.sh` `MIGRATE=1`, `docs/design/deploy.md`).
 24. **MCP reads everything, integrations included** (2026-10-27 16:09, owner,
    verbatim, after reading the Garmin copy "never shared with third parties
    or used by the AI planning tools" and asking "You mean MCP cant access this

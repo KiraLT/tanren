@@ -200,7 +200,7 @@ Rollback: `pnpm exec wrangler rollback --env production` (Workers keeps previous
 migrations are forward-only, so a schema rollback is a new migration.
 
 **Deploy order for breaking changes.** Pending migrations apply to the live D1 *before* the Worker
-upload (`MIGRATE=1 scratchpad/deploy.sh`, and the manual order above), so for a few seconds — and for
+upload (`MIGRATE=1 scripts/deploy.sh`, and the manual order above), so for a few seconds — and for
 as long as a rollback keeps the old version — the previously deployed Worker serves against the new
 schema. Every migration must therefore be servable by the previous Worker: add columns nullable or
 with a default, add tables freely, never rename or drop in the same release that stops using the old
@@ -208,6 +208,10 @@ name. A rename or drop is split across releases: expand (migration adds the new 
 both / reads the new) → migrate (backfill) → deploy (Worker uses only the new shape) → contract (a
 later migration drops the old column or table). Token or seal format changes follow the same rule:
 the new Worker reads both formats until no old value can exist.
+
+Commit gate: `scripts/deploy.sh` deploys a clean worktree of HEAD, so before committing while other
+agents edit the tree, `scripts/index-check.sh` typechecks exactly the staged content (a copy of the
+git index with the real `node_modules` linked in, about 2 s) and exits non-zero on a red index.
 
 ## 5. Claude app custom connector (after §4 is green)
 

@@ -236,6 +236,15 @@ Lead had to route it back through the team-lead, one extra turn each way).
    (OAUTH-FONT's `apps/worker/CLAUDE.md` line was deferred to another
    stream's commit because it was interleaved with Garmin lines).
 
+## Resume after a kill
+
+A brief marked `resume after a kill` means a previous agent on this task was
+stopped mid-edit (an owner reload killed three agents at 17:22 on
+2026-10-27). Start with `git status --short` and `git diff -- <your In
+files>`, keep every finished hunk, finish the half-edit, then continue from
+the brief's Done list; never redo work that is already in the tree, and say
+in Decisions which hunks you inherited.
+
 ## Kaizen
 
 If a brief, rule, skill or tool cost you time or led you astray, say so in

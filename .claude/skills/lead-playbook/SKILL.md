@@ -29,6 +29,15 @@ command (EM batch 7, P1).
 3. If the owner asked for something the plan does not cover and it is
    architectural, ask (owner present) or decide + record a `proposed` ADR
    (autonomous).
+4. Reload windows (retro v6, P5): a VS Code reload kills every live agent.
+   When the owner has asked to reload — or every 60 min while they are at
+   the console — announce in bold at the first moment no writer is mid-edit
+   (reviewers, EMs and read-only spikes do not count): **Safe to reload now;
+   I hold dispatches until HH:MM** (+3 min). After the reload re-read
+   `$S/live-agents.txt` and `git status --short`, and re-dispatch each
+   killed writer with "resume after a kill" (engineer.md). A deploy is NOT
+   the trigger: all 9 deploys of v6 ran with 5–8 live agents; the 17:22
+   reload on 2026-10-27 killed EAS-3 mid-edit, PWA-1 and the EM.
 
 ## What you may write yourself
 
@@ -256,6 +265,12 @@ parallel with each other.
 Continuation: use `SendMessage` to the same engineer for fixes from a review
 (it has the context). Start a fresh agent for a new task.
 
+A new owner-visible surface (card, strip, hero, chart, page) never starts as
+an engineer task: a `fable` architect produces 2 directions + a merge (390 and
+1280, light and dark, in the gallery, ≤ 8 min), the owner is asked in bold,
+and the build starts on the default pick after 10 min without an answer.
+HealthStrip skipped this and cost a 62-agent-min redesign (retro v6, P3).
+
 ## Company mode (big steps)
 
 When the architect's breakdown has two or more independent feature areas,
@@ -264,7 +279,11 @@ a fixable contract: switch to company mode (`docs/dev-system.md` §11).
 
 1. Architect (`fable`) produces contracts, team charters and an integration
    plan. 2. One engineer does the foundation (contracts in `packages/shared`,
-   deps installed, stubs compile). 3. Spawn one `team-lead` per team
+   deps installed, stubs compile). When two streams each add a synced table
+   in the same step, the sheet has ONE foundation task for both (literals,
+   registry fills, migrations numbered in order) or briefs the second F0 as
+   additive on the tree with no wait: v6b P-F0 waited 17 min for N-F0 and
+   then re-edited the same eight registries (retro v6, P1). 3. Spawn one `team-lead` per team
    (`opus`; `fable` for the hardest contract) in a single message, each with
    its charter. 4. Read team reports, not diffs (at a sonnet team-lead's first interim, check
 its sheet Log has a line per dispatch; empty → send it back for the Log before
@@ -489,7 +508,8 @@ markers and run `git status --short` on every path the file imports before
 `git add` (settings.tsx was committed with one stream's row importing the
 strava team's untracked `IntegrationsSection`; HEAD did not build for an
 hour). A deploy always builds from a fresh `git worktree add --detach … HEAD`,
-never from the dirty tree (`scratchpad/deploy.sh` is the recipe).
+never from the dirty tree (`scripts/deploy.sh` is the recipe; it was
+`$S/deploy.sh` in the purgeable session scratchpad until GATE-IDX).
 (7) **Queued rows and background deploys** (retro 2026-10-26-v4-evening): a
 task the Lead defers ("REV-POLISH when the desktop pair ends") is a `queued`
 row in the task sheet, re-read at every acceptance — REV-POLISH sat in a Log
@@ -515,6 +535,11 @@ checked at 14:46:36 and added at 14:47:50; N-F0 edited `common.ts` at
 (2026-10-27).
 Repair without touching the tree: `git show HEAD:<f> | <fix> > $S/f; git
 update-index --cacheinfo 100644,$(git hash-object -w $S/f),<f>; git commit`.
+Before any commit while a team is live, run `scripts/index-check.sh` (it
+typechecks the INDEX in a temp checkout, ≈ 1 min; GATE-IDX, retro v6 P2):
+red → fix the index with the `update-index` recipe, never commit. This
+replaces the mtime arithmetic above as the gate (two leaks on 2026-10-27);
+the mtime check stays as the way to find which hunks to drop.
 
 ## Big diffs: fan the review out
 
@@ -548,6 +573,12 @@ its test passing or listed as not fixed. `should` findings go to the
 task sheet as follow-ups unless trivial. Re-review only the blocking ones.
 Two rounds without convergence → escalate the engineer's model, or spawn the
 architect to decide the contested point.
+
+A designer verdict or a QA matrix never replaces the code review: every set
+of engineer tasks has an R line (a `reviewer`) before its commit. v6c
+HM-1…HM-3 reached DEPLOY-17 with the designer round and QA only; REV-HM run
+afterwards found a false "No tracker connected" state and two Amendment-23
+leftovers (retro v6, P4).
 
 ## Bookkeeping
 
@@ -629,7 +660,10 @@ any file a live team also edits, playbook (8)). Before any deploy that changes
 `apps/mobile`, the QA or ui-check run includes the two checks the `ui-check`
 skill added after BS-1 and the white flash: the mid-navigation ancestor-chain
 background read in dark mode, and the second-tab blank-page check (EM batch
-15, P1–P2).
+15, P1–P2). After a deploy that changes `MCP_TOOLS`, read the tool count from
+the Lead's own Tanren connector listing in the tool list (it must equal
+`MCP_TOOLS.length`; 23 after DEPLOY-17): no agent and no call needed (retro
+v6, P6).
 
 ## Reporting to the owner
 

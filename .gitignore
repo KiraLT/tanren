@@ -12,6 +12,9 @@ coverage
 .dev.vars*
 .env*
 
+# production deploy worktree and logs (scripts/deploy.sh)
+.deploy/
+
 # OS
 .DS_Store
 

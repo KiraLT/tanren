@@ -209,6 +209,13 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   designer you score a text-row strip FIX regardless of its typography: the
   Garmin `HealthStrip` passed two designer rounds and the owner's verdict was
   "Looks terrible, where is the designer?" (2026-10-27).
+- Direction sheet before the build: a new owner-visible surface (card, strip,
+  hero, chart, page) is designed first as two directions + a merge (390/1280,
+  light/dark PNGs in the gallery, ≤ 8 min — HM-D did it in 6.5), the owner is
+  asked in bold, and the engineer brief names the default pick; the build
+  starts after the owner's window, never before the sheet. HealthStrip went
+  straight to an engineer, passed two designer rounds and was rejected; the
+  redesign chain cost 62 agent-min (2026-10-27).
 - Copy truth: a design that gives a new reader (MCP tool, export, feed)
   access to a table lists the user-facing statements about that data (grep
   `*Copy.ts`, `legalCopy.ts`, the privacy page, `docs/design/*.md`) and
@@ -256,6 +263,15 @@ nutri-today froze the repo at minute 13 and the Lead relayed it to nutri-food
 and asked N-F0 for `buildDayTotals` mid-run. A foundation task's Done line
 says "report ends with an `## Exports` list of exact symbol names", and the
 sheet names that list as the GO payload for the waiting team-leads.
+When two streams each add a synced table in the same step, the sheet has ONE
+foundation task for both (both literals, every registry fill, migrations
+numbered in order) or briefs the second F0 as additive on the tree with no
+wait: v6b's P-F0 waited 17 min for N-F0 (14:50 → 15:07) and then re-edited
+the same eight registries (2026-10-27).
+Every set of engineer tasks has a reviewer task (R) before its commit line; a
+designer verdict or a QA matrix never replaces the code review — v6c's
+HM-1…HM-3 (three opus tasks, new UI + math) reached DEPLOY-17 with HM-DR +
+HM-4 only (2026-10-27).
 Every optional-key schema in a design (profile, patch, tool input) states
 the minimal valid input in the contract block (`{goal, bodyWeightKg,
 activityLevel}` decodes) and the foundation task's Done line requires that
