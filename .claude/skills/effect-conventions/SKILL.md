@@ -244,6 +244,10 @@ id. Seed: `effect.pipe(Random.withSeed(42))`.
 
 ## 7. HttpApi (`apps/worker`, step 3)
 
+`HttpRouter` serves HEAD through the GET handler: a hand-rolled gate `request.method === "GET"`
+also admits HEAD, so a confirm or consent step gates on `request.method !== "POST"` (H2-A,
+2026-10-27); `oauth/fontRoute.ts` and `oauth/provider.ts` spell `GET || HEAD` on purpose.
+
 ```ts
 export class SetsApi extends HttpApiGroup.make("sets").add(
   HttpApiEndpoint.get("byId", "/sets/:id", {

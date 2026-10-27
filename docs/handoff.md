@@ -1,70 +1,74 @@
-# Handoff — 2026-10-27 21:46
+# Handoff — 2026-10-27 22:47
 
 ## Where we are
-Production = 4005455 (DEPLOY-25 21:27, QA-24 PASS 21:31: routes, API, bundle `entry-41de6edc…` with the DESK-1
-strings in the lazy `home-…` chunk, signed-out visit = one `get-session`, SW). Before it: DEPLOY-24 8d202af 20:57,
-DEPLOY-23 2fa8713 20:39, DEPLOY-22 fd7902d 19:59. HEAD = the retro commit on top of 14b1802 (GAL-8). Since 20:14,
-31 commits, none reworked: PROG-2 resume + PROG-2b · NAV-1b You card + Start failure line · PROG-4 dynamic schedule +
-NAV-3e "Continue day N" · WT-1/WT-2 weight entry (tap to type, step by equipment, per-exercise override, store v9) ·
-NAV-F2 no API calls signed out · PROG-F2 · DESK-0/1/2 + fixes (aside frame owned by `Page`, Home recent activity +
-week chart, You columns balanced) · tooling (`sign-push.sh`, `claude-md-check.sh` in the gate, subagent index hook) ·
-EM batches 20–24 + the evening retro · gallery v22 (NV, PV, WT, DF sections; 74 v6b shots at `shots/v6b/`).
-**Commits are unsigned by owner decision (20:27)**: `.git/config` `commit.gpgsign=false`; the owner pushes with
-`./scripts/sign-push.sh` (one 1Password unlock signs every unpushed commit, then pushes); the Lead never runs it.
-No live agents. Owner asks today = plan Amendments 24–34, all built and deployed. Every event: `docs/tasks/step-2.md`
-Log; retro: `docs/retro/2026-10-27-evening.md`.
+Production = 3176a11 (DEPLOY-26 22:42, H2-Q PASS 22:44: routes/health 200, new strings in the `_layout-…` and
+`__common-…` chunks, push 401/401, Strava callback POST/HEAD with a bad state 400, signed-out visit = one
+`get-session`, MCP 401). Before it: 4005455 (21:27), 8d202af, 2fa8713, fd7902d. HEAD = the Hardening-2 docs commit
+on top of 3176a11. **Hardening 2 (owner 21:50 "Finish Hardening backlog and Program editor steppers") is DONE**
+(`docs/tasks/hardening-2.md`): STLS-F7 generation check on app-token writes · SEC-1c native Strava confirm page
+(email, Continue/Cancel, POST-only exchange, HEAD-safe) · G-F1b one profile-timezone rule (`time/profileZone.ts`)
+for Garmin pull, nutrition and program tools · `get_overview` best set via shared `bestSet` · second-tab notice
+within 1 s with self-recovery (`Waiting for another Tanren tab`) · `html[data-theme]` set on in-app switch ·
+program editor steppers tap-to-type with one shared `ui/inlineEdit.ts` (accent ring, native Done). Four tasks, four
+one-round APPROVEs, four 1-min fold-ins, ONE land-point commit. Still parked: Apple Health / Live Activities (paid
+Apple program). **Commits are unsigned by owner decision (20:27)**: the owner pushes with `./scripts/sign-push.sh`;
+the Lead never runs it. No live agents. Every event: `docs/tasks/hardening-2.md` and `step-2.md` Logs.
 
 ## Verified
-- Gate green at 242 files / 3166 tests on 4005455 (engineer 21:24); every commit passed `scripts/index-check.sh`,
-  `scripts/claude-md-check.sh` (5 × ok) and the forbidden-strings line on added lines.
-- Desktop fill measured at 1280 × 900 seeded: Home column bottom 1135 / aside 761 (was 531 / 411); You columns 655 /
-  708 (was 587 / 596); every aside's first card level with its column; phone unchanged (390 Activity header at 80).
-- `scripts/sign-push.sh` on a scratch clone (Lead, 20:39): `N N N` → `G G G`, dirty/staged state byte-identical.
-  `.claude/hooks/deny-index-ops.sh`: 11 cases pass incl. heredoc/quoted text; 0 real denials in hours 2–3.
-- Gallery script plain run on HEAD: missing 0, duplicates 0, exit 0 (GAL-8); Artifact v22 serves the 74 v6b shots.
+- Gate green inside `scripts/deploy.sh` for 3176a11 (deploy26.log); engineers' package checks: worker 909 tests,
+  mobile 1488, root 3202 before the fold-ins; `scripts/index-check.sh` green at the commit.
+- Second tab: notice at 409–811 ms, self-open 234 ms after the holder closes, timeout copy unchanged (H2-C ui-check,
+  same-session tabs). bfcache return (external page and back): no notice, Ready at 527 ms.
+- Editor field: open field 77,428,145,464 inside the 44-px row, ± boxes unchanged, accent ring `rgb(194,65,12)`.
+- STLS-F7: gen-behind token → 401 on writes, equal → 200, stale-gen GET → 200 (tests); SEC-1c: 8 tests incl. HEAD.
+- Experiment data point 1 (EM-25): Lead latency median 0.85 / p90 1.5 min (was 2 / 6), 4 commits/h (was 18),
+  0 engineers parked on the Lead, no box overrun.
 
 ## Not verified / known broken
+- Native (Expo Go) branches of H2-D (check-icon Done) and H2-A confirm page render: not driven; web proofs only.
 - Expo Go crash (EG-1, `PushNotificationIOS`): needs the owner's red-screen shot or a tunnel session; PWA is the route.
 - Home-screen app: tab labels clipped on the owner's phone (18:08 shot); asked to remove and re-add.
 - `useProgramDetail` has no refocus re-read (detail left open across midnight keeps "Done today" until a write).
 - You 1280 still has room below both columns (design §3: needs an all-time-totals surface, deferred).
-- WT-1: phone keyboard overlap of the inline field not verifiable headless; web focus outline kept while editing.
 - Gate log prints vitest's fork-pool `MaxListenersExceededWarning` (upstream, exit 0, known noise, SPK-ML).
-- The gallery Artifact sits at its 511-file cap: every new section needs a same-publish removal until GAL-9.
+- The gallery Artifact sits at its 511-file cap; five new captures wait for GAL-9: `H2C-waiting-390-dark`,
+  `H2C-waiting-1280-light`, `H2D-editor-input-open-390-light/-dark`, `H2D-editor-after-commit-390-light`.
 
 ## Next actions (in order)
-1. **Speed experiment (retro 2026-10-27 evening, playbook tactic 11): commit at land points only** — a deploy base,
-   a shared-file release a live task waits for, or the hour mark; Log/handoff/gallery edits ride with the next
-   land-point commit; an APPROVE's shoulds ride with the next task on those files (or one sweep per hour); the
-   reviewer dispatch precedes any commit. Metric: Lead commits/h ≤ 8 (was 18) AND report → dependent-dispatch p90
-   ≤ 2 min (was 6), from the main-session `.jsonl` + task transcripts; guard: rounds > 1 and leak incidents
-   unchanged (0 leaks this evening). If it holds one step, append the retro's P2 paragraph to `docs/dev-system.md`.
-2. GAL-9 (sonnet, box 8): a second private "Tanren screens — archive" Artifact with the superseded sections
-   (v1–v3 Forge rounds, the 60 store-only v1 shots copied server-side via `files: {artifact, path}`), then drop them
-   from the live gallery; both URLs in this file and in memory `tanren-review-gallery`.
-3. Candidates: `loadGarminConnected` direct test, `useStep` `catchTag`, `useProgramDetail` refocus, You all-time-totals
-   card (design first), EG-1 if the owner sends the shot.
-4. Parked: STLS-F7, G-F1b, SEC-1c, LOCK_TIMEOUT UX, ThemeProvider `data-theme`, `get_overview` `summarize` via
-   shared `unitOf`/`bestSet`, Apple Health / Live Activities (paid program only).
+1. **Speed experiment continues (playbook tactic 11): commit at land points only**, reviewer dispatch first. After
+   one more batch with latency p90 ≤ 2 min and commits/h ≤ 8, append the retro's P2 paragraph to `docs/dev-system.md`
+   with both batches' numbers (EM-25 proposal, accepted and held).
+2. GAL-9 (sonnet, box 8): archive Artifact for superseded sections (copy the 60 store-only v1 shots server-side via
+   `files: {artifact, path}`), drop them from the live gallery, then publish section `hardening-2` H1–H5 from the
+   five captures above; both URLs here and in memory `tanren-review-gallery`.
+3. Follow-ups from H2 reviews (one brief each, opus): `Sessions.current` returns `{ userId, appGen }` so
+   `Authentication.layer` verifies the JWT once (5 callers, 8 fakes); `accessibilityActions` + `onAccessibilityAction`
+   for `Stepper` and `CompactStepper` (`adjustable` role without actions).
+4. Candidates: `loadGarminConnected` direct test, `useStep` `catchTag`, `useProgramDetail` refocus, You
+   all-time-totals card (design first), EG-1 if the owner sends the shot.
+5. Bigger directions, owner's call: running support (Garmin runs already flow into the feed); Apple Health / Dynamic
+   Island / Lock Screen need the paid Apple Developer Program.
 
 ## Decisions for the owner
-- ADR-0027 styling, ADR-0028 free workout, ADR-0029 navigation v2, ADR-0026 amendment (dynamic schedule) —
-  accepted under Amendment 3; override by message.
-- Weight entry (Amendment 34): inline typing, step by equipment, device-local override (no ADR; a roaming step
-  would be one later). Two-device resume: device-local. Signing: unsigned commits + `sign-push.sh` (owner, 20:27).
-- Desktop fill (`docs/design/desktop-fill.md`): Home recent activity + week chart, You columns; no new tabs/routes.
+- ADR-0022 amended (STLS-F7: writes refused at the next generation bump; reads stateless to expiry; web session has
+  no gen → row check) — accepted under Amendment 3; override by message.
+- `get_overview` best set follows the shared rule: a bodyweight set ranks by reps and never beats a loaded one.
+- Second-tab copy: "Waiting for another Tanren tab / If Tanren is open in another tab, close it to continue here."
+- Weight entry (Amendment 34) now covers the editor too; device-local step override; signing = unsigned commits +
+  `sign-push.sh` (owner, 20:27).
 
 ## Gotchas learned this session
-- Only the Lead commits (hook-enforced for subagents, text-matched with heredoc bodies and quotes stripped). Stage
-  by explicit path list, never by exclusion; read `git diff --cached --name-status`; the ABORT guard
-  (`^apps/|^packages/|^scripts/` in a docs/process batch) is the last check. A side-index snapshot is content,
-  never a tree (COMMIT-BASE). Independent batches behind a blocker go as pathspec commits.
-- A landed report's reviewer is the Lead's next tool call, before any commit, Log line or publish (retro evening).
-- Log appends take `$(date +%H:%M)` in the same shell command; estimated stamps drifted up to 3 min this evening.
-- Deploy cadence: ≤ 1 "reopen the app" ask per hour; QA-light (bundle strings + api request list) for follow-ups;
-  production literals live in the route's lazy chunk, not the entry bundle.
-- A brief that says "phone unchanged" needs a 390 capture of every touched route (DESK-R: an 8 px shift slipped).
-- Nutrition captures need the seeded worker + magic-link sign-in; the demo seed has no food/health rows.
-- Stale Metro: kill the pid and `expo start --clear` after ALL edits; a page reload does not pick up `src/ui` edits.
-- A VS Code reload kills every live agent: announce "Safe to reload now" only when no writer is mid-edit.
-- zsh: `read -a` is bash (`-A`); read a failing loop's error before blaming the known cause.
+- Only the Lead commits (hook-enforced for subagents). Stage by explicit path list; read `git diff --cached
+  --name-status`; ABORT guard (`^apps/|^packages/|^scripts/`) on docs/process batches; a side-index snapshot is
+  content, never a tree (COMMIT-BASE).
+- A landed report's reviewer is the Lead's next tool call; non-blocking shoulds that are owner-visible fold into
+  the same finished engineer by resume (1 min each); pure nits ride with the next task on those files.
+- Brief writing: re-read `Out:` against every Decision; a function's behaviour is a fact only with its body or
+  test line pasted; a no-legacy grep spans `apps packages`, never just the touched files (EM-25).
+- Effect `HttpRouter` serves HEAD through the GET route with `request.method` still "HEAD": method gates are
+  `!== "POST"`. An input state proven on web is not a phone proof (iPhone has no focus ring; `number-pad` no Done).
+- ui-check second tab = `ab tab new` in the SAME session (a second `--session` is a separate browser); close the
+  holder in the same Bash call; the notice copy lives in `app/_layout.tsx`, re-grep before quoting it.
+- Log appends take `$(date +%H:%M)` in the same shell command. Deploy cadence: ≤ 1 "reopen the app" ask per hour;
+  production literals live in the route's lazy chunk, grep every chunk.
+- Stale Metro: kill the pid and `expo start --clear` after ALL edits. A VS Code reload kills every live agent.

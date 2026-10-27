@@ -107,7 +107,10 @@ engineer can act on without asking questions.
   inside the skew window after an attacker-triggered purge (STLS-F5, blocking,
   2026-10-27); (7) a brief criterion that contradicts the ADR's consequences
   (ADR-0022: access tokens outlive a revoke ≤ 15 min) is wrong in the brief,
-  not the code — say so instead of blocking. Report all of them in the
+  not the code — say so instead of blocking; (8) a method gate on a GET
+  route: Effect's `HttpRouter` serves HEAD through the GET handler, so
+  `method === "GET"` lets HEAD skip a confirm page or consent step — the gate
+  is `method !== "POST"` (H2-A, 2026-10-27). Report all of them in the
   first round, then the hard rules.
 - Correctness: off-by-one, `Option` / `undefined` handling,
   encode / decode asymmetry, timestamp and timezone handling, sync columns
@@ -143,6 +146,10 @@ engineer can act on without asking questions.
   edits — a margin in a shared list renders at every width (DESK-0 moved
   Activity's first week header 8 px behind one Home control shot, 2026-10-27)
   — so the finding reads "no phone capture for <route>", per touched route.
+  A field or control state proven on web only (focus ring, Enter to commit)
+  is not a phone proof: iOS draws no focus ring and `number-pad` has no return
+  key, so the finding names the missing native affordance (H2-R-D:
+  surface-on-surface field, no Done; 2026-10-27).
 - Run, do not request: when a changed file is covered by a `*.workerd.test.ts`
   (directly or through imports), run that project yourself (`cd apps/worker &&
   pnpm exec vitest run -c vitest.workerd.config.ts <name>`, ≈ 30 s; the

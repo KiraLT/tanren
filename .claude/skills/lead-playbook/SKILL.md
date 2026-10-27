@@ -448,11 +448,17 @@ Out: <explicitly not this brief; leave notes instead. A question the brief asks 
   follow-up agent is pre-briefed: EAS-1 scoped `apps/worker` out and became EAS-2 + EAS-3, two
   serial opus follow-ups (≈ 10 min on the owner's path, 2026-10-27). When an Out
   folder holds the pure module that owns a rule this brief will need, name it: "shared math lives
-  in `review/reviewMath.ts` — import or extract there (one hunk, `shared with <owner>`), never copy">
+  in `review/reviewMath.ts` — import or extract there (one hunk, `shared with <owner>`), never copy.
+  Read Out against every Decision below once before dispatch: a Decision that places code in a
+  package Out names is a contradiction the engineer must stop on (H2-A: Out `packages/*` ∧ Decision
+  "email read next to tokenGens" in packages/db, EM batch 25)>
 
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
 Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless busy, then a spare.
+A function's behaviour ("`bestSet` returns None for an all-0-kg list") is a fact only with its body or
+test line pasted (`activity.ts:NN`); an outcome you have not read is written as the question the engineer
+answers, never as an `if …` that reads as known (H2-B CONFLICT: `bestSet` scores by reps, EM batch 25).
 Every fact-grep in a brief spans `apps/ packages/` (`grep -rn <symbol> apps packages`), never one
 package: PWA-2's brief pointed at `apps/mobile/src` for the protein-band rule that lived in
 `packages/shared/src/nutrition.ts:379` (CONFLICT, EM batch 18).
@@ -513,7 +519,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       outlive a revoke ≤ 15 min by design); "old access token is 401" (STLS-F5) contradicted the
       ADR and cost the engineer a flagged non-criterion (EM batch 16, P3)
 - [ ] no legacy left behind (plan Amendment 23): the replacement deleted what it replaced — no shim,
-      alias, dual path, `legacy`/`old` name, dead export or "remove later" marker (`grep -rn "deprecated\|legacy\|TODO remove" <paths>` → 0);
+      alias, dual path, `legacy`/`old` name, dead export or "remove later" marker (`grep -rn "deprecated\|legacy\|TODO remove" apps packages` → 0; a "no copy left" grep spans
+      `apps packages`, never the files the brief touched — H2-B's `deletedAt` grep over two files missed a
+      third copy at `programTools.ts:569`, EM batch 25);
       a schema/wire change the running Worker cannot serve is split expand → migrate → deploy → contract a criterion
 - [ ] every proof names output the Lead has seen in this repo (a test name, a preflight line, a `curl` body). Never ask an
       engineer to paste `wrangler deploy --dry-run` or any `wrangler deploy|secret|d1 execute --remote` output: those are

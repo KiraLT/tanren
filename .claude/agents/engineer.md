@@ -241,7 +241,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    screen has a `Columns` layout — pasted in the report. A brief that says
    "390 untouched" means one 390 before/after shot per ROUTE whose file you
    edit, not one control route: a shared component's margin renders at every
-   width (DESK-0 moved Activity's phone header 8 px unseen, 2026-10-27). A snapshot line only
+   width (DESK-0 moved Activity's phone header 8 px unseen, 2026-10-27). An
+   input state proven on web is not a phone proof: iOS draws no focus ring
+   and `number-pad` has no return key, so a field that leans on the browser
+   ring or Enter renders its own ring and a Done control, named in the report
+   (H2-D, 2026-10-27). A snapshot line only
    proves the element exists: TODAY-FIN's button passed its snapshot check
    while floating over Set 2 (FIN-LAYOUT, 2026-10-26). A defect you measured
    inside your own files is fixed in the same round, never offered ("say if
