@@ -39,6 +39,13 @@ an API.
    writer is a gap, not a contract: Today sessions never received
    `finishedAt`, so no session would ever export, and QA found it after
    REV-3 had approved (SV-Q1 → TODAY-FIN, 2026-10-26).
+   Copy that states a consequence of an action ("Imported activities stay",
+   "Already sent activities stay") is such a predicate: the spec row names
+   the handler that performs the action, read at dispatch (`grep -n
+   "disconnect" apps/worker/src/**/*.ts`), never a neighbouring row's copy —
+   CONFIRM-D's Garmin row copied the Strava row while
+   `IntegrationsHandlers.ts:273` soft-deletes every imported Garmin row
+   (CONFIRM-R BLOCKING, 2026-10-27).
    A UI state matrix is the same contract, row by row: each row names the
    data condition that puts a user in it AND the condition that keeps every
    neighbouring row out, each traced to its writer. A row keyed on a derived

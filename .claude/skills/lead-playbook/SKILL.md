@@ -149,7 +149,12 @@ task sheet. Tactics, in order of payoff:
 6. **Right-size models**: sonnet for fully specified work, opus for design-
    heavy code, fable for architecture and the EM. Speed and cost usually agree.
 7. **Nudge at the time box.** An agent past its box gets "deliver what you
-   have" immediately; do not wait for perfection.
+   have" immediately; do not wait for perfection. First check the transcript
+   (`ls -lt <session>/tasks/*.output | head`): a nudge to an agent whose
+   transcript already ended reaches nobody — CONFIRM-1, FREE-D and PROG-D2
+   (2026-10-27 18:20–18:57) hold no nudge message; each had finished 10–27
+   min before its Log acceptance line, so the waste was Lead latency on a
+   finished result, not the box (EM batch 18).
 8. **Spike toolchain proofs off the critical path.** A VERIFY that proves a
    tool works (new test pool, Vitest plugin, build step, codegen) is its own
    ≤ 10-min task run in parallel with the upstream tasks, never bundled into
@@ -211,7 +216,9 @@ task sheet. Tactics, in order of payoff:
   15–20 min only for a task with a runtime proof or a new package/runtime;
   `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a turn is
   one API round, not one tool call; sonnet ≈ 7 turns/min, opus ≈ 6 (EQ-1: 89
-  turns in 14.5 min), so 120 ≈ 17–20 min and **no brief box exceeds 20 min** for
+  turns in 14.5 min; opus with a ui-check proof ≈ 4 — CONFIRM-1: 72 turns, 96 tools,
+  9 shots in 18.3 active min on a 15 box, so an opus build with a ui-check proof gets 20;
+  sonnet with ui-check ≈ 5.6 — CONFIRM-2 10.1 active on 10, so 12), so 120 ≈ 17–20 min and **no brief box exceeds 20 min** for
   dense tool use; a brief that waits on an external run (bulk image generation:
   IMG-4 25 min, IMG-5b 34 min at ≈ 1 turn/min) states the run's expected duration
   and sets box = run + 10 —
@@ -420,6 +427,9 @@ Out: <explicitly not this brief; leave notes instead>
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
 Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless busy, then a spare.
+Every fact-grep in a brief spans `apps/ packages/` (`grep -rn <symbol> apps packages`), never one
+package: PWA-2's brief pointed at `apps/mobile/src` for the protein-band rule that lived in
+`packages/shared/src/nutrition.ts:379` (CONFLICT, EM batch 18).
 A forbidden string (owner: "don't mention X") is written here ONCE and nowhere else in the repo —
 not in the sheet, the Log or a charter (EM batch 13, P3).
 
@@ -592,6 +602,12 @@ afterwards found a false "No tracker connected" state and two Amendment-23
 leftovers (retro v6, P4).
 
 ## Bookkeeping
+
+Every Log line starts with the shell's clock, never an estimate: write it as
+`$(date '+%Y-%m-%d %H:%M')` in an unquoted heredoc or `printf`. On
+2026-10-27 the Lead's estimated stamps ran up to 35 min ahead of the wall
+clock (PROG-1 "dispatched 19:11" started at 18:42 by `date`), which made
+landed reports look like box overruns (EM batch 18).
 
 - `docs/tasks/step-N.md`: update status after every accepted report.
   Statuses: `todo` · `in-progress` · `in-review` · `done` · `blocked`.

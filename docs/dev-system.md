@@ -320,6 +320,11 @@ run read-only or under `permissions.ask`, or it bypasses our wrangler rules.
 
 ## 12. Continuous improvement (Kaizen)
 
+Lead duty (EM batch 18, 2026-10-27): accept landed reports before dispatching
+new design work, and send a nudge only after checking the agent's transcript
+mtime (`ls -lt <session>/tasks/*.output | head`) — four "box overruns" that
+day were Lead latency on reports that had already landed.
+
 The process is a product too, and the owner's standing instruction is Kaizen:
 many small improvements, continuously, from evidence, by every role. Nobody
 waits for a retro to fix a brief, a rule or a skill that just caused friction.
