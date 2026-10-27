@@ -78,7 +78,7 @@ export default function ProgressScreen() {
   const exercises = useExerciseSummaries().state
 
   const goToToday = () => router.navigate("/today")
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/feed"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/activity"))
   const selected = effectiveSelection(exercises._tag === "Ready" ? exercises.value : [], picked)
   const openExercise = (id: ExerciseId) =>
     desktop

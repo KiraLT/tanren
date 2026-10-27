@@ -3,20 +3,14 @@ import { APP_NAV, isActivePath } from "./appNav"
 import { iconPaths } from "./iconPaths"
 
 describe("APP_NAV", () => {
-  it("lists the five destinations in tab order", () => {
-    expect(APP_NAV.map((link) => link.label)).toEqual([
-      "Feed",
-      "Today",
-      "Plan",
-      "Programs",
-      "Library",
-    ])
+  it("lists Home, Train and Activity in tab order", () => {
+    expect(APP_NAV.map((link) => link.label)).toEqual(["Home", "Train", "Activity"])
   })
 })
 
 describe("APP_NAV glyphs", () => {
   it("gives the tabs their glyphs in order, and each route name is its href", () => {
-    expect(APP_NAV.map((link) => link.icon)).toEqual(["flame", "zap", "calendar", "grid", "book"])
+    expect(APP_NAV.map((link) => link.icon)).toEqual(["home", "dumbbell", "flame"])
     expect(APP_NAV.every((link) => link.href === `/${link.name}`)).toBe(true)
   })
 
@@ -27,11 +21,11 @@ describe("APP_NAV glyphs", () => {
 
 describe("isActivePath", () => {
   it("matches the route and its children, not a sibling with the same prefix", () => {
-    expect(isActivePath("/plan", "/plan")).toBe(true)
-    expect(isActivePath("/feed", "/feed")).toBe(true)
-    expect(isActivePath("/feed/x", "/feed")).toBe(true)
-    expect(isActivePath("/feedback", "/feed")).toBe(false)
-    expect(isActivePath("/planner", "/plan")).toBe(false)
-    expect(isActivePath("/today", "/plan")).toBe(false)
+    expect(isActivePath("/train", "/train")).toBe(true)
+    expect(isActivePath("/activity", "/activity")).toBe(true)
+    expect(isActivePath("/activity/x", "/activity")).toBe(true)
+    expect(isActivePath("/activityx", "/activity")).toBe(false)
+    expect(isActivePath("/trainer", "/train")).toBe(false)
+    expect(isActivePath("/today", "/train")).toBe(false)
   })
 })

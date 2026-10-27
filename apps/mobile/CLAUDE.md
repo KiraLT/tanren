@@ -23,14 +23,16 @@ expo-sqlite store with batched push/pull sync. Contracts live in `docs/design/`,
 app/          ROUTE INVENTORY — every route, kept complete by whoever adds one (the task that adds a route
               adds its line); UI specs, QA capture sets and the owner's gallery are built from this list.
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
-  (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
+  (tabs)/_layout.tsx (themed tabs from `APP_NAV`, hidden at desktop), (tabs)/{today,train,activity}.tsx — Train
+  (ADR-0029) = Plan · Programs · Library segments, `?view=plan|programs|library` is the source of truth (in-app links use
+  `/train?view=…`; `/plan`, `/programs`, `/library`, `/feed` are NotFound by design), bodies in `src/components/train/`
   root Stack: activity/[sessionId].tsx, activity/imported/[id].tsx, library/[catalogId].tsx, programs/play.tsx (Player,
   `nav={false}`, `?enrollmentId=` REQUIRED, only an `active` one opens), programs/[programId].tsx (detail),
   programs/[programId]/day/[n].tsx (read-only day preview; folder beside `[programId].tsx`, both resolve),
   programs/new.tsx (blank or `?from=` duplicate), programs/edit/[programId].tsx (program editor),
   programs/edit/[programId]/day/[n].tsx (day editor), programs/pick.tsx (`?pickFor=<programId>/<day>`
   exercise picker), programs/swap.tsx (`?enrollmentId=&from=` swap sheet) — team programs v6b,
-  progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
+  progress/{index,[exerciseId]}.tsx, review.tsx (Weekly review, `WeekReviewRepo` + `useWeekReview`, ADR-0029), settings.tsx, settings/location/[id].tsx,
   settings/integrations/{index,[provider]}.tsx, settings/nutrition.tsx, health/index.tsx (Health),
   health/add.tsx (quick-add modal; the one `Stack.Screen` child in `_layout.tsx`) — v6 nutrition, privacy.tsx +
   terms.tsx (public legal pages, ADR-0024: `isPublicRoute` in `authGate.ts` lets a signed-out device open them; both render `LegalPage`)
@@ -132,7 +134,7 @@ public/_headers (COOP/COEP, copied into dist/) · public/manifest.json + icons/ 
 
 ## Feed, Progress, Garmin (feed.md, v2-extras.md, garmin.md)
 
-- Tabs: Feed · Today · Plan · Programs · Library. `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`;
+- Tabs: Home (`/today`) · Train · Activity (the feed, route `/activity`). `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`;
   `activity(id)` is session-only, so an imported card opens `/activity/imported/[id]` (one 600 column at every width). Feed desktop
   aside is built only when Ready with items. `HistoryRepo` serves only Progress (a PR strictly beats every earlier set).
 - Garmin (`GarminCard`): the token is component state, cleared after every attempt; Connect has its own 30 s timeout

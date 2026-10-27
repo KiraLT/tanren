@@ -11,7 +11,7 @@ export default function CatalogEntryScreen() {
   const wide = useBreakpoint() === "desktop"
   const { catalogId } = useLocalSearchParams<{ catalogId: string }>()
   // A direct load has no history to go back to: fall back to the list.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/library"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/train?view=library"))
   const entry = Schema.decodeUnknownOption(CatalogId)(catalogId).pipe(
     Option.flatMap(findCatalogExercise),
   )

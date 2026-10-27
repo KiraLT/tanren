@@ -1,44 +1,25 @@
 import { Match } from "effect"
 import { useRouter } from "expo-router"
+import type { ReactNode } from "react"
 import { View } from "react-native"
-import {
-  ActiveSection,
-  NoActiveCard,
-  ProgramsSection,
-} from "../../src/player/components/ProgramList"
-import { type ProgramsState, usePrograms } from "../../src/player/usePrograms"
-import {
-  AppBar,
-  Banner,
-  Columns,
-  IconButton,
-  Page,
-  Skeleton,
-  space,
-  useBreakpoint,
-} from "../../src/ui"
+import { ActiveSection, NoActiveCard, ProgramsSection } from "../../player/components/ProgramList"
+import { type ProgramsState, usePrograms } from "../../player/usePrograms"
+import { Banner, Columns, IconButton, Page, Skeleton, space, useBreakpoint } from "../../ui"
 
-function ProgramsBar({ onNew }: { readonly onNew?: () => void }) {
-  return (
-    <AppBar
-      title="Programs"
-      {...(onNew === undefined
-        ? {}
-        : {
-            trailing: <IconButton icon="plus" accessibilityLabel="New program" onPress={onNew} />,
-          })}
-    />
-  )
+export interface ProgramsViewProps {
+  /** The Train hub's bar and segment row; `trailing` is the bar's one action ("New program" when Ready). */
+  readonly header: (trailing: ReactNode) => ReactNode
 }
 
-export default function ProgramsScreen() {
+/** Train's Programs segment (the former Programs tab, ADR-0029): running programs and the list. */
+export function ProgramsView({ header }: ProgramsViewProps) {
   const router = useRouter()
   const wide = useBreakpoint() === "desktop"
   const { state, setStatus } = usePrograms()
   return Match.value<ProgramsState>(state).pipe(
     Match.tagsExhaustive({
       Loading: () => (
-        <Page header={<ProgramsBar />}>
+        <Page header={header(null)}>
           <View accessible accessibilityLabel="Loading programs" style={{ gap: space.lg }}>
             <Skeleton width="100%" height={136} />
             <Skeleton width="100%" height={220} />
@@ -46,7 +27,7 @@ export default function ProgramsScreen() {
         </Page>
       ),
       Failed: ({ message }) => (
-        <Page header={<ProgramsBar />}>
+        <Page header={header(null)}>
           <Banner tone="danger" title="Could not load programs" body={message} />
         </Page>
       ),
@@ -85,17 +66,16 @@ export default function ProgramsScreen() {
             }
           />
         )
+        const newProgram = (
+          <IconButton
+            icon="plus"
+            accessibilityLabel="New program"
+            // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+            onPress={() => router.push("/programs/new")}
+          />
+        )
         return (
-          <Page
-            header={
-              <ProgramsBar
-                // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-                onNew={() => router.push("/programs/new")}
-              />
-            }
-            scroll
-            wide
-          >
+          <Page header={header(newProgram)} scroll wide>
             {/* Desktop: running programs left, the full list right; a phone stacks them. */}
             <Columns
               split="6/6"

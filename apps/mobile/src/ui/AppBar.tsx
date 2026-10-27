@@ -32,8 +32,8 @@ export interface AppBarProps {
   /** Right slot: a counter + segment bar, or a 24 px `more` glyph. */
   readonly trailing?: ReactNode
   /**
-   * Show the top-level links at `desktop` (where the tab bar is hidden): the app's five
-   * destinations (`APP_NAV`) with the active one taken from the current path. Default true;
+   * Show the top-level links at `desktop` (where the tab bar is hidden): the tab routes in
+   * `APP_NAV`, with the active one taken from the current path. Default true;
    * the player passes false.
    */
   readonly nav?: boolean

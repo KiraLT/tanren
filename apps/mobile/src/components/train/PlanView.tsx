@@ -1,28 +1,15 @@
 import type { LocalDate, PlannedSessionId } from "@tanren/shared"
 import { Match, Option } from "effect"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
-import { PlannedSessionCard } from "../../src/components/PlannedSessionCard"
-import { PlanWeek, WeekStats } from "../../src/components/PlanWeek"
-import { localDateOf } from "../../src/components/planFormat"
-import { selectedSession } from "../../src/components/planSelection"
-import { nextUpcoming, upNextDate, upNextLines } from "../../src/components/planUpNext"
-import { useLayoutMode } from "../../src/hooks/useLayoutMode"
-import { type PlanWeekState, type PlanWeekView, usePlanWeek } from "../../src/hooks/usePlanWeek"
-import {
-  AppBar,
-  Card,
-  EmptyState,
-  gutter,
-  Page,
-  rhythm,
-  Skeleton,
-  sizes,
-  space,
-  Text,
-} from "../../src/ui"
-
-const PLAN_BAR = <AppBar title="Plan" />
+import { useLayoutMode } from "../../hooks/useLayoutMode"
+import type { PlanWeekState, PlanWeekView } from "../../hooks/usePlanWeek"
+import { Card, EmptyState, gutter, Page, rhythm, Skeleton, sizes, space, Text } from "../../ui"
+import { PlannedSessionCard } from "../PlannedSessionCard"
+import { PlanWeek, WeekStats } from "../PlanWeek"
+import { localDateOf } from "../planFormat"
+import { selectedSession } from "../planSelection"
+import { nextUpcoming, upNextDate, upNextLines } from "../planUpNext"
 
 /** Loading layout: a header block and five day rows; the container carries the accessible label. */
 function PlanSkeleton() {
@@ -97,19 +84,26 @@ function UpNextCard({ view, today }: { readonly view: PlanWeekView; readonly tod
 
 interface PlanReadyProps {
   readonly view: PlanWeekView
+  readonly header: ReactNode
 }
 
 /**
  * The week. Wide: cards are pressable and compact, and the aside shows the selected session's
  * blocks (default today's, else the next upcoming, else the first). Phone: cards show their blocks.
  */
-function PlanReady({ view }: PlanReadyProps) {
+function PlanReady({ view, header }: PlanReadyProps) {
   const today = localDateOf(new Date())
   const wide = useLayoutMode() === "two-column"
   const [selectedId, setSelectedId] = useState<Option.Option<PlannedSessionId>>(Option.none())
   const selected = selectedSession(view, today, selectedId)
   const aside = Option.match(selected, {
-    onNone: () => <EmptyState title="No sessions" body="This week has no planned sessions yet." />,
+    onNone: () => (
+      <EmptyState
+        headingLevel={2}
+        title="No sessions"
+        body="This week has no planned sessions yet."
+      />
+    ),
     onSome: (item) => (
       <ScrollView
         contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg, gap: space.lg }}
@@ -128,13 +122,13 @@ function PlanReady({ view }: PlanReadyProps) {
   })
   if (!wide) {
     return (
-      <Page scroll header={PLAN_BAR}>
+      <Page scroll header={header}>
         <PlanWeek view={view} today={today} />
       </Page>
     )
   }
   return (
-    <Page scroll header={PLAN_BAR} aside={aside}>
+    <Page scroll header={header} aside={aside}>
       <PlanWeek
         view={view}
         today={today}
@@ -149,31 +143,41 @@ function PlanReady({ view }: PlanReadyProps) {
   )
 }
 
-const renderState = Match.type<PlanWeekState>().pipe(
-  Match.tagsExhaustive({
-    Loading: () => (
-      <Page header={PLAN_BAR}>
-        <PlanSkeleton />
-      </Page>
-    ),
-    Empty: () => (
-      <Page header={PLAN_BAR}>
-        <EmptyState
-          title="No plan this week"
-          body="Ask Claude to write your plan. It shows up here."
-        />
-      </Page>
-    ),
-    Failed: ({ message }) => (
-      <Page header={PLAN_BAR}>
-        <EmptyState icon="warning" title="Could not load the plan" body={message} />
-      </Page>
-    ),
-    Ready: ({ view }) => <PlanReady view={view} />,
-  }),
-)
+export interface PlanViewProps {
+  readonly state: PlanWeekState
+  /** The Train hub's bar and segment row. */
+  readonly header: ReactNode
+}
 
-export default function PlanScreen() {
-  const { state } = usePlanWeek()
-  return renderState(state)
+/** Train's Plan segment: the current week (the former Plan tab, ADR-0029). */
+export function PlanView({ state, header }: PlanViewProps) {
+  return Match.value<PlanWeekState>(state).pipe(
+    Match.tagsExhaustive({
+      Loading: () => (
+        <Page header={header}>
+          <PlanSkeleton />
+        </Page>
+      ),
+      Empty: () => (
+        <Page header={header}>
+          <EmptyState
+            headingLevel={2}
+            title="No plan this week"
+            body="Ask Claude to write your plan. It shows up here."
+          />
+        </Page>
+      ),
+      Failed: ({ message }) => (
+        <Page header={header}>
+          <EmptyState
+            icon="warning"
+            headingLevel={2}
+            title="Could not load the plan"
+            body={message}
+          />
+        </Page>
+      ),
+      Ready: ({ view }) => <PlanReady view={view} header={header} />,
+    }),
+  )
 }

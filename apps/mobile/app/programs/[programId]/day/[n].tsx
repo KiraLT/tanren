@@ -133,7 +133,7 @@ export default function ProgramDayScreen() {
   // Once per focus; a direct load has no history: fall back to the program's detail.
   const back = useGoBack(
     Option.match(id, {
-      onNone: (): Href => "/programs",
+      onNone: (): Href => "/train?view=programs",
       onSome: (value): Href => ({
         pathname: "/programs/[programId]",
         params: { programId: value },

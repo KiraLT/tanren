@@ -42,7 +42,7 @@ function FormSkeleton() {
 
 function EditPage({ programId }: { readonly programId: ProgramId }) {
   const router = useRouter()
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { state } = useProgramDetail(programId)
   const { update, updateOnce, observe, busy, error } = useProgramUpdate()
   // A saved move/remove keeps the gate shut until this screen has rendered the reloaded version.
@@ -112,7 +112,7 @@ function EditPage({ programId }: { readonly programId: ProgramId }) {
 }
 
 export default function EditProgramScreen() {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { programId } = useLocalSearchParams<{ programId: string }>()
   return Option.match(Schema.decodeUnknownOption(ProgramId)(programId), {
     onNone: () => (

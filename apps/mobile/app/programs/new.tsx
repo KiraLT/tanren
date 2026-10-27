@@ -64,7 +64,7 @@ function useStartProgram(from: Option.Option<ProgramId>) {
 }
 
 export default function NewProgramScreen() {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const params = useLocalSearchParams<{ from?: string }>()
   const from = Option.flatMap(Option.fromNullishOr(params.from), (raw) =>
     Schema.decodeUnknownOption(ProgramId)(raw),

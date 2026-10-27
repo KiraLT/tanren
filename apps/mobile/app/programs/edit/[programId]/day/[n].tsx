@@ -129,7 +129,7 @@ function DayPage({
 }
 
 export default function EditDayScreen() {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { programId, n } = useLocalSearchParams<{ programId: string; n: string }>()
   const id = Schema.decodeUnknownOption(ProgramId)(programId)
   const dayNumber = Number(n)

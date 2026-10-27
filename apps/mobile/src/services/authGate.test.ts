@@ -9,7 +9,7 @@ const none = Option.none<UserId>()
 
 describe("gateFor", () => {
   it("gates a device with no account and no sets", () => {
-    const routes = ["/", "/today", "/feed", "/settings", "/library", "/programs/play"]
+    const routes = ["/", "/today", "/activity", "/settings", "/train", "/programs/play"]
     expect(routes.map((route) => gateFor({ account: none, localSets: 0, route }))).toEqual(
       routes.map(() => "sign-in"),
     )
@@ -24,7 +24,7 @@ describe("gateFor", () => {
   })
 
   it("allows an account with sets", () => {
-    expect(gateFor({ account: Option.some(USER), localSets: 3, route: "/feed" })).toBe("allow")
+    expect(gateFor({ account: Option.some(USER), localSets: 3, route: "/activity" })).toBe("allow")
   })
 
   it("always allows the sign-in flow", () => {

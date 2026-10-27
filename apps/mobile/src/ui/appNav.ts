@@ -10,15 +10,16 @@ export interface AppNavLink {
   readonly icon: IconName
 }
 
-/** The five top-level destinations, in tab order; the tab bar and `AppBar` (at `desktop`) render them. */
+/**
+ * The top-level destinations, in tab order (ADR-0029); the tab bar and `AppBar` (at `desktop`)
+ * render them. Plan, Programs and Library are segments of Train (`/train?view=`), not tabs.
+ */
 export const APP_NAV: ReadonlyArray<AppNavLink> = [
-  { name: "feed", href: "/feed", label: "Feed", icon: "flame" },
-  { name: "today", href: "/today", label: "Today", icon: "zap" },
-  { name: "plan", href: "/plan", label: "Plan", icon: "calendar" },
-  { name: "programs", href: "/programs", label: "Programs", icon: "grid" },
-  { name: "library", href: "/library", label: "Library", icon: "book" },
+  { name: "today", href: "/today", label: "Home", icon: "home" },
+  { name: "train", href: "/train", label: "Train", icon: "dumbbell" },
+  { name: "activity", href: "/activity", label: "Activity", icon: "flame" },
 ]
 
-/** `/plan` and `/plan/anything` are the Plan destination; `/planner` is not. */
+/** `/train` and `/train/anything` are the Train destination; `/trainer` is not. */
 export const isActivePath = (pathname: string, href: string): boolean =>
   pathname === href || pathname.startsWith(`${href}/`)

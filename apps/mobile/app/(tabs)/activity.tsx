@@ -36,7 +36,7 @@ const CARD_SKELETON_HEIGHT = 196
 
 function FeedSkeleton() {
   return (
-    <View accessible accessibilityLabel="Loading feed" style={{ gap: space.md }}>
+    <View accessible accessibilityLabel="Loading activity" style={{ gap: space.md }}>
       <Skeleton width="100%" height={HEADER_HEIGHT} />
       {Arr.map([0, 1, 2], (card) => (
         <Skeleton key={card} width="100%" height={CARD_SKELETON_HEIGHT} radius={radius.lg} />
@@ -122,7 +122,7 @@ function FeedList({ items, limit, selected, onOpen, onOpenImported, onLoadMore }
   )
 }
 
-export default function FeedScreen() {
+export default function ActivityScreen() {
   const router = useRouter()
   const desktop = useBreakpoint() === "desktop"
   const [limit, setLimit] = useState(FEED_PAGE)
@@ -163,7 +163,7 @@ export default function FeedScreen() {
     <Page
       header={
         <AppBar
-          title="Feed"
+          title="Activity"
           trailing={
             <View style={{ flexDirection: "row", gap: space.sm }}>
               <IconButton
@@ -187,15 +187,21 @@ export default function FeedScreen() {
         Match.tagsExhaustive({
           Loading: () => <FeedSkeleton />,
           Failed: ({ message }) => (
-            <EmptyState icon="warning" title="Could not load the feed" body={message} />
+            <EmptyState
+              icon="warning"
+              headingLevel={2}
+              title="Could not load your activity"
+              body={message}
+            />
           ),
           Ready: ({ value }) =>
             value.length === 0 ? (
               <EmptyState
                 icon="flame"
+                headingLevel={2}
                 title="No workouts yet"
-                body="Log a set on Today or finish a program day and it shows up here."
-                action={{ label: "Go to Today", onPress: () => router.navigate("/today") }}
+                body="Log a set on Home or finish a program day and it shows up here."
+                action={{ label: "Go to Home", onPress: () => router.navigate("/today") }}
               />
             ) : (
               <FeedList

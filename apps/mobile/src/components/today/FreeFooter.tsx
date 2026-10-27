@@ -26,7 +26,7 @@ export function FreeFooter({ session }: FreeFooterProps) {
         variant="secondary"
         size="lg"
         icon="plus"
-        onPress={() => router.navigate("/library")}
+        onPress={() => router.navigate("/train?view=library")}
         style={{ marginHorizontal: gutter[breakpoint], alignSelf: "stretch" }}
       />
       <FinishWorkout session={session} />

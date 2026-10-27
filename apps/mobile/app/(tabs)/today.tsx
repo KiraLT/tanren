@@ -184,7 +184,7 @@ function TodayFreeEmpty() {
           compact
           action={{
             label: ADD_EXERCISE_LABEL,
-            onPress: () => router.navigate("/library"),
+            onPress: () => router.navigate("/train?view=library"),
             variant: "primary",
           }}
         />

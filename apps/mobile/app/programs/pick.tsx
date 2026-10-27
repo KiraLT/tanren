@@ -153,7 +153,7 @@ function Picker({ programId, dayNumber }: PickerProps) {
 }
 
 export default function PickExerciseScreen() {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { pickFor } = useLocalSearchParams<{ pickFor: string }>()
   return Option.match(parsePickFor(pickFor), {
     onSome: ({ programId, dayNumber }) => <Picker programId={programId} dayNumber={dayNumber} />,

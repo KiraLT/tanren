@@ -1,20 +1,23 @@
 import { type CatalogId, findCatalogExercise } from "@tanren/shared"
 import { Option } from "effect"
 import { useRouter } from "expo-router"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { View } from "react-native"
-import { useCatalogSearch } from "../../src/hooks/useCatalogSearch"
-import { LIBRARY_ROLE } from "../../src/library/addToToday"
-import { CatalogDetail } from "../../src/library/CatalogDetail"
-import { CatalogFilterBar } from "../../src/library/CatalogFilterBar"
-import { CatalogList } from "../../src/library/CatalogList"
-import { AppBar, EmptyState, gutter, Page, useBreakpoint, useColumns } from "../../src/ui"
+import { useCatalogSearch } from "../../hooks/useCatalogSearch"
+import { LIBRARY_ROLE } from "../../library/addToToday"
+import { CatalogDetail } from "../../library/CatalogDetail"
+import { CatalogFilterBar } from "../../library/CatalogFilterBar"
+import { CatalogList } from "../../library/CatalogList"
+import { EmptyState, gutter, Page, useBreakpoint, useColumns } from "../../ui"
 
 /** Inner aside width at which the illustration, map and meta column sit side by side. */
 const INLINE_HERO_MIN_WIDTH = 584
 
-/** Library: offline catalog search; detail pushes on phone, sits in the aside at desktop. */
-export default function LibraryScreen() {
+/**
+ * Train's Library segment (the former Library tab, ADR-0029): offline catalog search; detail
+ * pushes on phone, sits in the aside at desktop.
+ */
+export function LibraryView({ header }: { readonly header: ReactNode }) {
   const router = useRouter()
   const breakpoint = useBreakpoint()
   const wide = breakpoint === "desktop"
@@ -31,7 +34,9 @@ export default function LibraryScreen() {
     router.push({ pathname: "/library/[catalogId]", params: { catalogId: id } })
   }
   const aside = Option.match(Option.flatMap(selected, findCatalogExercise), {
-    onNone: () => <EmptyState icon="dumbbell" title="Pick an exercise" body={LIBRARY_ROLE} />,
+    onNone: () => (
+      <EmptyState icon="dumbbell" headingLevel={2} title="Pick an exercise" body={LIBRARY_ROLE} />
+    ),
     onSome: (entry) => (
       <View style={{ flex: 1, paddingHorizontal: gutter.desktop }}>
         <CatalogDetail key={entry.catalogId} entry={entry} inline={inline} />
@@ -39,7 +44,7 @@ export default function LibraryScreen() {
     ),
   })
   return (
-    <Page header={<AppBar title="Library" />} aside={aside} split="5/7">
+    <Page header={header} aside={aside} split="5/7">
       <CatalogList
         entries={results}
         selected={wide ? selected : Option.none()}

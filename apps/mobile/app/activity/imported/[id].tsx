@@ -103,7 +103,7 @@ export default function ImportedActivityScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   // A direct load has no history to go back to: fall back to the feed.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/feed"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/activity"))
   return Option.match(Schema.decodeUnknownOption(ImportedActivityId)(id), {
     onNone: () => (
       <Page

@@ -36,7 +36,7 @@ export default function TabsLayout() {
             },
       }}
     >
-      {/* The five routes and their glyphs come from `APP_NAV` (ADR-0014, ui-direction-final §6). */}
+      {/* The tab routes in `APP_NAV` and their glyphs (ADR-0014, ADR-0029, ui-direction-final §6). */}
       {APP_NAV.map((tab) => (
         <Tabs.Screen
           key={tab.name}

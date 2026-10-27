@@ -147,7 +147,7 @@ function ProgramPage({
                   if (Option.isSome(id)) {
                     remove(id.value).then((deleted) => {
                       if (deleted) {
-                        router.replace("/programs")
+                        router.replace("/train?view=programs")
                       }
                     })
                   }
@@ -193,8 +193,8 @@ function ProgramPage({
 export default function ProgramScreen() {
   const router = useRouter()
   const { programId } = useLocalSearchParams<{ programId: string }>()
-  // A direct load has no history to go back to: fall back to the Programs tab.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/programs"))
+  // A direct load has no history to go back to: fall back to Train's Programs segment.
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/train?view=programs"))
   return Option.match(Schema.decodeUnknownOption(ProgramId)(programId), {
     onNone: () => (
       <Page
