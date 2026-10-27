@@ -224,7 +224,9 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    building until SV-6 landed; a shared file is committed only with both
    streams' pieces, so both team-leads say when theirs is ready. Every
    interim and the final carry a `Committable now:` line — the files whose
-   hunks are final AND import nothing still in flight — and a `Hold:` line
+   hunks are final, import nothing still in flight AND passed a reviewer
+   (name it: `Committable now: … (R-2 approved 17:04)`; HM-1…HM-3 reached
+   production on a designer verdict + QA alone, 2026-10-27) — and a `Hold:` line
    for the rest with the dependency named (`mcp.ts MCP_TOOLS names ← worker
    mcp/* half`), so the Lead's path-filtered commit never has to guess: the
    17:02 commit attempt (2026-10-27) pulled N-S4's shared/db halves without

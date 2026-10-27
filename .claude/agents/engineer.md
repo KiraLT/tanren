@@ -135,6 +135,19 @@ Lead had to route it back through the team-lead, one extra turn each way).
    `mktemp -d`, not copy + `rm -rf`); put probe files in `$S`, not in the
    repo; delete single files with plain `rm <file>`. Before any Bash call
    with `&&`/`;`, scan every sub-command against that list.
+   A copy, worktree or checkout-index tree that links the real `node_modules`
+   is off-limits to package managers, installers and codegen: never run
+   `pnpm`/`npm`/`npx`/`drizzle-kit generate`/`expo install` inside it — with
+   no install state in the copy pnpm "installs" and rewrote 27 of the REAL
+   tree's `.bin` shims to a deleted tmpdir (GATE-IDX first draft, 2026-10-27,
+   1 min of red typecheck for a live engineer; repaired with `pnpm install
+   --force --offline`). Run binaries by absolute path from the real tree
+   (`$R/node_modules/.bin/tsc -p <copy>/<pkg>`) or give the copy its own
+   install (`scripts/deploy.sh` does). A script that must leave the tree
+   alone proves it with `git status --short` AND `find node_modules
+   */node_modules -maxdepth 2 -newer $S/<task>-stamp` printing nothing
+   (`touch` the stamp before the run; `git status` ignores `node_modules`,
+   so the brief's status check passed while the shims were broken).
    Three clarifications (SF-1, WD-1, 2026-10-27): (a) `pnpm db:reset` IS
    allowed — its `rm -rf .wrangler/state` runs inside the script and the ask
    list matches only commands you emit — but it wipes the local D1 every

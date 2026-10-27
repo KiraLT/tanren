@@ -39,6 +39,16 @@ an API.
    writer is a gap, not a contract: Today sessions never received
    `finishedAt`, so no session would ever export, and QA found it after
    REV-3 had approved (SV-Q1 → TODAY-FIN, 2026-10-26).
+   A UI state matrix is the same contract, row by row: each row names the
+   data condition that puts a user in it AND the condition that keeps every
+   neighbouring row out, each traced to its writer. A row keyed on a derived
+   value with two producers is two states wearing one copy: health-module §6
+   keyed "Garmin off / No tracker connected" on `burned` None, which a
+   connected user also has before the day's first pull, and its "stale" row
+   had no writer at all (needs device and Garmin zones to differ); both
+   shipped to production and REV-HM found them afterwards (2026-10-27).
+   Before handing over, write the one-line condition for every row and
+   grep the producer of each value it names (`grep -rn "burned" apps/mobile/src/hooks`).
    An amendment section that changes data lists every assertion the
    existing tests pin on that data (`grep -n "toEqual\|toBe\|minutes\|
    seconds" <test file>`) with its new value, and names the number in an

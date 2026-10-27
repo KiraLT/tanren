@@ -175,6 +175,8 @@ vitest run --root ../.. --project @tanren/<name>      # the file list shows whic
 biome ci --error-on-warnings <path>                   # one file or folder, same config as the gate
 ```
 
+Before committing during parallel edits run `scripts/index-check.sh` (≈ 2 s, staged content only; `scripts/deploy.sh` then deploys a clean worktree of HEAD). Never run pnpm inside a copy that links the real `node_modules`: with no install state in the copy, pnpm "installs" and rewrites the REAL tree's `.bin` shims to point at the copy (GATE-IDX, 2026-10-27, 1 min of red typecheck for a live engineer).
+
 ## Adding things
 
 - **A dependency**: check `npm view <pkg> dist-tags` and its peers. Add the exact version to

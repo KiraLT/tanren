@@ -35,7 +35,10 @@ command (EM batch 7, P1).
    (reviewers, EMs and read-only spikes do not count): **Safe to reload now;
    I hold dispatches until HH:MM** (+3 min). After the reload re-read
    `$S/live-agents.txt` and `git status --short`, and re-dispatch each
-   killed writer with "resume after a kill" (engineer.md). A deploy is NOT
+   killed writer with "resume after a kill" (engineer.md). That file is
+   the Lead's: every Agent dispatch appends `<task> <role> <id>
+   writer|reader HH:MM box-end` to `$S/live-agents.txt` in the same turn,
+   and acceptance removes the line (EM batch 17, P3). A deploy is NOT
    the trigger: all 9 deploys of v6 ran with 5–8 live agents; the 17:22
    reload on 2026-10-27 killed EAS-3 mid-edit, PWA-1 and the EM.
 
@@ -423,6 +426,13 @@ not in the sheet, the Log or a charter (EM batch 13, P3).
 Security (auth / redirect / token work only): design §<n> + architect.md "Auth /
 redirect design checklist" line by line; paste the bypass tests you ran (`../`,
 `%2e%2e`, look-alike host, sibling tenant) — native-auth ran 4 rounds without it.
+
+Tree safety (scripts, worktrees, copies of the tree): state what the script may
+write; everything else is read-only, proven by `git status --short` AND
+`touch $S/<task>-stamp` → `find node_modules */node_modules -maxdepth 2 -newer
+$S/<task>-stamp` empty (`git status` ignores node_modules). Never prescribe a
+package manager inside a copy that links the real `node_modules`: GATE-IDX's
+brief did, and pnpm rewrote 27 real `.bin` shims (2026-10-27, EM batch 17 P1).
 After every batch that touches auth, OAuth, tokens, sync or integrations, the Lead
 dispatches two read-only fable security reviews in parallel (A: auth/OAuth/MCP;
 B: REST/repos/sync/integrations/mobile client), 10-min boxes, whole codebase at
@@ -536,7 +546,8 @@ checked at 14:46:36 and added at 14:47:50; N-F0 edited `common.ts` at
 Repair without touching the tree: `git show HEAD:<f> | <fix> > $S/f; git
 update-index --cacheinfo 100644,$(git hash-object -w $S/f),<f>; git commit`.
 Before any commit while a team is live, run `scripts/index-check.sh` (it
-typechecks the INDEX in a temp checkout, ≈ 1 min; GATE-IDX, retro v6 P2):
+typechecks the INDEX in a temp checkout, ≈ 2 s on this machine, 1.6 s
+measured by GATE-IDX; retro v6 P2):
 red → fix the index with the `update-index` recipe, never commit. This
 replaces the mtime arithmetic above as the gate (two leaks on 2026-10-27);
 the mtime check stays as the way to find which hunks to drop.
