@@ -111,7 +111,6 @@ export const EntityName = Schema.Literals([
   "programDayCompletion",
   "importedActivity",
   "dailyHealth",
-  "foodEntry",
   /** A profile location (not a table): `search_exercises availableAt` with an unknown id. */
   "location",
   /** An outbound activity export (not a synced table): `POST /integrations/strava/exports/retry`. */
@@ -132,7 +131,6 @@ export const SyncTable = EntityName.pick([
   "programDayCompletion",
   "importedActivity",
   "dailyHealth",
-  "foodEntry",
 ])
 export type SyncTable = typeof SyncTable.Type
 
