@@ -23,7 +23,7 @@ condition, not a commit).
    review, nutrition goals, equipment, integrations, settings, legal) — with the fifth slot reserved; a new feature
    is a card on Home, a row in You or a segment in Train, never a tab; desktop renders the same four links plus a
    Start button in the AppBar (research `docs/research/2026-10-27-navigation-ia.md`, `docs/design/navigation-v2.md`,
-   `docs/tasks/navigation-briefs.md`; pick: Merge (Lead default 19:00, ADR-0029; the owner can override by message)).
+   `docs/tasks/navigation-briefs.md`; pick: Merge, confirmed by the owner 19:07 with "Call Activity" (the Feed tab is renamed) and "weekly review - yeah"; ADR-0029).
 
 ## NAV-0 — ADR + pick (architect, fable, 5 min)
 After the owner's word: `docs/adr/0029-navigation-hubs.md` (accepted, Lead delegation) recording the pick, the
@@ -37,9 +37,10 @@ Files: `apps/mobile/src/ui/appNav.ts`, `app/(tabs)/_layout.tsx`, `app/(tabs)/you
   `you` (icon `user`) as the fourth and last entry. Four tabs from here on; NAV-3 only renames `today` → `home`.
 - You: AppBar "You" trailing gear → `/settings`; profile header card; three `StatRow variant="tile"` tiles (sessions
   done/planned, volume, streak — data from `HistoryRepo`, grep `weekStartOf`); `ListGroup`s Insights / Setup /
-  About exactly as the merge table; no "Weekly review" row unless NAV-4 is in the step (no placeholders).
+  About exactly as the merge table; "Weekly review" row → `/review` ships with NAV-4 in the same round (add the row in NAV-4, not before the page exists).
 - Feed AppBar: remove the gear and chart `IconButton`s (`grep -n "settings\|chart" app/(tabs)/feed.tsx`).
-- Done: 390/1280 light/dark shots of `/you` and `/feed`; `document.querySelectorAll("h1").length === 1` on `/you`;
+- Rename Feed to Activity (ADR-0029): `git mv app/(tabs)/feed.tsx app/(tabs)/activity.tsx`; `APP_NAV` entry `{name: "activity", href: "/activity", label: "Activity", icon: "flame"}`; AppBar title and desktop link say Activity; `app/activity/[sessionId].tsx` and `activity/imported` stay (VERIFY no route clash). Files: `grep -rniE "feed" apps/mobile/app apps/mobile/src --include=*.tsx -l`; rename only the tab, route and visible labels, not `FeedRepo` or feed domain code. No redirect from `/feed` (Worker emits none).
+- Done: 390/1280 light/dark shots of `/you` and `/activity`; `grep -rn '"/feed"' apps/mobile/app apps/mobile/src` is empty; `document.querySelectorAll("h1").length === 1` on `/you`;
   every `ListRow` hit box ≥ 44 (`getBoundingClientRect`); `pnpm check` green.
 Time box: 25 min.
 
@@ -54,6 +55,7 @@ entry → `train` with icon `dumbbell`, `programs` and `library` entries deleted
 - Bodies are the existing `PlanWeek`, `ProgramHome`, `CatalogList` components unchanged; AppBar "Train" trailing
   primary "Start" (`Button size="sm"`) → FREE-D's start flow if landed, else omitted (named in the report).
 - No redirect files for the deleted routes (navigation-v2.md §5: no external links; Amendment 23).
+- If NAV-2 runs first it renames the tab and route too (the rename above, once; whichever of NAV-1/NAV-2 runs first does it, the other verifies).
 - Done: `/train`, `/train?view=programs`, `/train?view=library` open; `programs/[programId]` detail still reachable
   from the Programs segment; shots 390/1280 light/dark; `pnpm check` green.
 Time box: 25 min.
@@ -64,13 +66,13 @@ Files: rename `app/(tabs)/today.tsx` → `app/(tabs)/home.tsx`; `src/components/
 `expo-types.d.ts`; `src/ui/AppBar.tsx` (desktop trailing Start button, hidden on `/train`).
 - State matrix navigation-v2.md §6 row by row; Up-next card = planned session (TodayReady summary + Start pill →
   the existing exercise pager) | due program day (→ `programs/play`) | FREE-D start card; then `HealthModule`,
-  "This week" strip (same `HistoryRepo` numbers as You), latest feed card teaser (`FeedRepo`, first item, "See all" →
-  `/feed`).
+  "This week" strip (same `HistoryRepo` numbers as You), latest activity card teaser (`FeedRepo`, first item, "See all" →
+  `/activity`).
 - Done: one shot per §6 row (seed via `src/store/seed.ts` states named in the report); 1280 shows column + aside as
   §3; `pnpm check` green.
 Time box: 30 min.
 
-## NAV-4 — Weekly review page (engineer, sonnet, 25 min) — only if the Lead includes it in this step
+## NAV-4 — Weekly review page (engineer, sonnet, 25 min) — IN this round (owner 19:07)
 Files: `app/review.tsx`, `src/components/review/*`, You row "Weekly review". Data: `get_week_review`'s shared
 schema (`grep -n "export const WeekReview" packages/shared/src/*.ts`) through the local store — VERIFY the mobile
 read path exists; if not, this is a design question for the Lead, not an engineer guess.

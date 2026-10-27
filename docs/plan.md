@@ -399,8 +399,22 @@ Recorded 2026-10-19, from the owner's kickoff message:
    `docs/design/navigation-v2.md`, NAV-D). Pick: the owner was asked at
    18:50 (A / B / Merge); with no answer by 19:00 the Lead took the
    architect's recommendation, Merge — Home · Train · Feed · You, Start as the
-   hero pill, fifth slot reserved — under Amendment 3 (ADR-0029); the owner
-   overrides by message.
+   hero pill, fifth slot reserved — under Amendment 3 (ADR-0029). Owner,
+   19:07, verbatim: "I like Merge / Start button does not make sense. /
+   weekly review - yeah / Call Activity." → Merge confirmed; no Start button
+   in the tab bar (Start stays inside the Up-next card and the Train hub);
+   the weekly review page is in this round (NAV-4); the Feed tab is named
+   "Activity" (ADR-0029 amended).
+32. **Programs are a sequence, not a calendar** (2026-10-27 19:07, owner,
+   verbatim): "let's say I start the program. And I miss first day. I want
+   next day to see start day 1, not day 2 and skip day 1. Program should not
+   be tied exactly to the day. It should be dynamic, do you get?" Lead
+   reading: an enrollment's current day is the first day not yet completed,
+   whatever the calendar says; a missed day is simply still due; Today, the
+   program detail, the day preview and `get_program_progress` all show that
+   day; at most one program day is completed per calendar day per enrollment
+   (the next one becomes due the following day). Recorded in
+   `docs/design/programs-player-v2.md` (PROG-D2 §d) and ADR-0026 amended.
 31. **Program player: preview on press, weights per set, resume** (2026-10-27
    18:41, owner, verbatim): "More feedback: when I click on active program
    name I expect go to preview. / There is no ability to track weights for
