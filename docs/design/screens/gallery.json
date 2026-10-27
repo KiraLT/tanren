@@ -15,16 +15,46 @@
       ],
       "id": "light",
       "shots": [
-        "today-390-light.png",
-        "library-390-light.png",
-        "library-back-squat-390-light.png",
-        "programs-390-light.png",
-        "player-390-light.png",
-        "plan-390-light.png",
-        "progress-390-light.png",
-        "progress-back-squat-390-light.png",
-        "settings-390-light.png",
-        "settings-edit-home-390-light.png"
+        {
+          "file": "today-390-light.png",
+          "store": true
+        },
+        {
+          "file": "library-390-light.png",
+          "store": true
+        },
+        {
+          "file": "library-back-squat-390-light.png",
+          "store": true
+        },
+        {
+          "file": "programs-390-light.png",
+          "store": true
+        },
+        {
+          "file": "player-390-light.png",
+          "store": true
+        },
+        {
+          "file": "plan-390-light.png",
+          "store": true
+        },
+        {
+          "file": "progress-390-light.png",
+          "store": true
+        },
+        {
+          "file": "progress-back-squat-390-light.png",
+          "store": true
+        },
+        {
+          "file": "settings-390-light.png",
+          "store": true
+        },
+        {
+          "file": "settings-edit-home-390-light.png",
+          "store": true
+        }
       ],
       "title": "Phone, light"
     },
@@ -43,16 +73,46 @@
       ],
       "id": "dark",
       "shots": [
-        "today-390-dark.png",
-        "library-390-dark.png",
-        "library-back-squat-390-dark.png",
-        "programs-390-dark.png",
-        "player-390-dark.png",
-        "plan-390-dark.png",
-        "progress-390-dark.png",
-        "progress-back-squat-390-dark.png",
-        "settings-390-dark.png",
-        "settings-edit-home-390-dark.png"
+        {
+          "file": "today-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "library-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "library-back-squat-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "programs-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "player-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "plan-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "progress-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "progress-back-squat-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "settings-390-dark.png",
+          "store": true
+        },
+        {
+          "file": "settings-edit-home-390-dark.png",
+          "store": true
+        }
       ],
       "title": "Phone, dark"
     },
@@ -68,13 +128,34 @@
       ],
       "id": "desktop",
       "shots": [
-        "today-1280-light.png",
-        "library-back-squat-1280-light.png",
-        "programs-1280-light.png",
-        "progress-back-squat-1280-light.png",
-        "settings-1280-light.png",
-        "today-1280-dark.png",
-        "library-back-squat-1280-dark.png"
+        {
+          "file": "today-1280-light.png",
+          "store": true
+        },
+        {
+          "file": "library-back-squat-1280-light.png",
+          "store": true
+        },
+        {
+          "file": "programs-1280-light.png",
+          "store": true
+        },
+        {
+          "file": "progress-back-squat-1280-light.png",
+          "store": true
+        },
+        {
+          "file": "settings-1280-light.png",
+          "store": true
+        },
+        {
+          "file": "today-1280-dark.png",
+          "store": true
+        },
+        {
+          "file": "library-back-squat-1280-dark.png",
+          "store": true
+        }
       ],
       "title": "Desktop, 1280"
     },
@@ -94,17 +175,50 @@
       ],
       "id": "desktop2",
       "shots": [
-        "dx-today-1280.png",
-        "dx-library-1280.png",
-        "dx-library-goblet-squat-1280.png",
-        "dx-programs-1280.png",
-        "dx-programs-enrolled-1280.png",
-        "dx-player-1280.png",
-        "dx-plan-1280.png",
-        "dx-progress-1280.png",
-        "dx-progress-back-squat-1280.png",
-        "dx-settings-1280.png",
-        "dx-settings-edit-home-1280.png"
+        {
+          "file": "dx-today-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-library-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-library-goblet-squat-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-programs-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-programs-enrolled-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-player-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-plan-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-progress-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-progress-back-squat-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-settings-1280.png",
+          "store": true
+        },
+        {
+          "file": "dx-settings-edit-home-1280.png",
+          "store": true
+        }
       ],
       "title": "Desktop, two columns (1280)"
     },
@@ -125,18 +239,54 @@
       ],
       "id": "polish-a1",
       "shots": [
-        "pa2-today-light.png",
-        "pa2-plan-light.png",
-        "pa2-player-light.png",
-        "pa2-player-rest-light.png",
-        "pa2-programs-light.png",
-        "pa2-programs-enrolled-light.png",
-        "pa2-today-dark.png",
-        "pa2-plan-dark.png",
-        "pa2-player-dark.png",
-        "pa2-player-rest-dark.png",
-        "pa2-programs-dark.png",
-        "pa2-programs-enrolled-dark.png"
+        {
+          "file": "pa2-today-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-plan-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-player-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-player-rest-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-programs-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-programs-enrolled-light.png",
+          "store": true
+        },
+        {
+          "file": "pa2-today-dark.png",
+          "store": true
+        },
+        {
+          "file": "pa2-plan-dark.png",
+          "store": true
+        },
+        {
+          "file": "pa2-player-dark.png",
+          "store": true
+        },
+        {
+          "file": "pa2-player-rest-dark.png",
+          "store": true
+        },
+        {
+          "file": "pa2-programs-dark.png",
+          "store": true
+        },
+        {
+          "file": "pa2-programs-enrolled-dark.png",
+          "store": true
+        }
       ],
       "title": "Polish, mobile-A, round 2 (designer pass)"
     },
@@ -155,16 +305,46 @@
       ],
       "id": "polish-d1",
       "shots": [
-        "pd1-today.png",
-        "pd1-library.png",
-        "pd1-library-detail.png",
-        "pd1-programs.png",
-        "pd1-player.png",
-        "pd1-plan.png",
-        "pd1-progress.png",
-        "pd1-progress-detail.png",
-        "pd1-settings.png",
-        "pd1-location.png"
+        {
+          "file": "pd1-today.png",
+          "store": true
+        },
+        {
+          "file": "pd1-library.png",
+          "store": true
+        },
+        {
+          "file": "pd1-library-detail.png",
+          "store": true
+        },
+        {
+          "file": "pd1-programs.png",
+          "store": true
+        },
+        {
+          "file": "pd1-player.png",
+          "store": true
+        },
+        {
+          "file": "pd1-plan.png",
+          "store": true
+        },
+        {
+          "file": "pd1-progress.png",
+          "store": true
+        },
+        {
+          "file": "pd1-progress-detail.png",
+          "store": true
+        },
+        {
+          "file": "pd1-settings.png",
+          "store": true
+        },
+        {
+          "file": "pd1-location.png",
+          "store": true
+        }
       ],
       "title": "Polish, desktop, round 1 (1280)"
     },
