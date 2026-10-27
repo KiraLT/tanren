@@ -42,6 +42,8 @@ interface TodayReadyProps {
    * banner brings its own gutter and top margin: it may render nothing, and must then take no space.
    */
   readonly banner?: ReactNode
+  /** Two-column layout only: the aside's first card (the health module, which moves there from the banner). */
+  readonly asideTop?: ReactNode
 }
 
 interface ExerciseCounterProps {
@@ -84,13 +86,15 @@ interface TodayAsideProps {
   readonly onSelect: (index: number) => void
   readonly current: Option.Option<TodayExercise>
   readonly rest: ReactNode
+  /** First card of the column (the health module); renders nothing or a node that may be null. */
+  readonly top: ReactNode
 }
 
 /**
- * Wide layout only: the session's exercises (press opens one in the pager), then the current
- * exercise's sets and the rest ring. Read-only, no log button.
+ * Wide layout only: the health module, the session's exercises (press opens one in the pager), then
+ * the current exercise's sets and the rest ring. Read-only, no log button.
  */
-function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsideProps) {
+function TodayAside({ exercises, index, onSelect, current, rest, top }: TodayAsideProps) {
   const breakpoint = useBreakpoint()
   return (
     <View style={{ flex: 1 }}>
@@ -101,6 +105,7 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
           gap: space.md,
         }}
       >
+        {top}
         {exercises.length === 0 ? null : (
           <View style={{ gap: space.sm }}>
             <Text variant="subhead" tone="muted">
@@ -164,7 +169,14 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
  * pager, store errors, and the rest timer. In the two-column layout the rest timer becomes a
  * ring in the aside, next to the current exercise's sets.
  */
-export function TodayReady({ title, accessory, exercises, footer, banner }: TodayReadyProps) {
+export function TodayReady({
+  title,
+  accessory,
+  exercises,
+  footer,
+  banner,
+  asideTop,
+}: TodayReadyProps) {
   const { logSet, pending, error } = useLogSet()
   const { remaining, start, stop } = useRestTimer()
   const [page, setPage] = useState(0)
@@ -211,6 +223,7 @@ export function TodayReady({ title, accessory, exercises, footer, banner }: Toda
           onSelect={setPage}
           current={current}
           rest={rest("ring")}
+          top={asideTop}
         />
       }
     >

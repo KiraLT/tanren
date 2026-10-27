@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { OAuthCodeUseRepo, UserTokens } from "@tanren/db"
 import { UserId } from "@tanren/shared"
-import { Effect, HashSet, Layer, Redacted, Ref } from "effect"
+import { Context, Effect, HashSet, Layer, Redacted, Ref } from "effect"
 import { TestClock } from "effect/testing"
 import { Tokens } from "../auth/Tokens"
+import { MemoryTokens } from "../repos/MemoryTokens"
 import { s256, tokenEndpoint } from "./token"
 
 const CONFIG = {
@@ -22,9 +23,13 @@ const harness = Effect.gen(function* () {
   const mcpGen = yield* Ref.make(0)
   const burned = yield* Ref.make(HashSet.empty<string>())
   const burnCalls = yield* Ref.make(0)
+  // The refresh burn ledger is the real in-memory one (burnedAt + expiry purge); the generation is
+  // a Ref the tests read and bump.
+  const memory = Context.get(yield* Layer.build(MemoryTokens.layer), UserTokens)
   const users = Layer.succeed(
     UserTokens,
     UserTokens.of({
+      ...memory,
       tokenGens: () => Effect.map(Ref.get(mcpGen), (mcp) => ({ app: 0, mcp })),
       bumpAppTokenGen: () => Effect.void,
       bumpMcpTokenGen: () => Ref.update(mcpGen, (n) => n + 1),
@@ -230,6 +235,82 @@ describe("POST /oauth/token refresh_token", () => {
           yield* refreshWith(String(narrowed.refresh_token), { scope: "tanren:write" }),
         )
         expect(widened).toMatchObject({ error: "invalid_scope" })
+      }),
+    ),
+  )
+
+  it.effect("refresh rotates: the new refresh token differs and refreshes again", () =>
+    withCode(({ exchange }) =>
+      Effect.gen(function* () {
+        const first = yield* bodyOf(yield* exchange())
+        const second = yield* bodyOf(yield* refreshWith(String(first.refresh_token)))
+        expect(second.refresh_token).not.toBe(first.refresh_token)
+        const third = yield* refreshWith(String(second.refresh_token))
+        expect(third.status).toBe(200)
+      }),
+    ),
+  )
+
+  it.effect("a burned refresh token re-sent 10 s later gets a fresh pair and no bump (grace)", () =>
+    withCode(({ exchange, mcpGen }) =>
+      Effect.gen(function* () {
+        const first = yield* bodyOf(yield* exchange())
+        yield* refreshWith(String(first.refresh_token))
+        yield* TestClock.adjust("10 seconds")
+        const resent = yield* refreshWith(String(first.refresh_token))
+        expect(resent.status).toBe(200)
+        expect(yield* bodyOf(resent)).toMatchObject({ token_type: "Bearer" })
+        expect(yield* Ref.get(mcpGen)).toBe(0)
+      }),
+    ),
+  )
+
+  it.effect("a burned refresh token presented after a purge inside the skew window is reuse", () =>
+    withCode(({ exchange, mcpGen }) =>
+      Effect.gen(function* () {
+        const first = yield* bodyOf(yield* exchange())
+        const second = yield* bodyOf(yield* refreshWith(String(first.refresh_token)))
+        // 30 d + 30 s: both refresh tokens are past `exp` but still verify (60 s skew).
+        yield* TestClock.adjust("2592030 seconds")
+        // A legitimate refresh runs the global purge; the first token's row must survive it.
+        expect((yield* refreshWith(String(second.refresh_token))).status).toBe(200)
+        const replay = yield* refreshWith(String(first.refresh_token))
+        expect(yield* bodyOf(replay)).toMatchObject({ error: "invalid_grant" })
+        expect(yield* Ref.get(mcpGen)).toBe(1)
+      }),
+    ),
+  )
+
+  it.effect(
+    "a reused refresh token 31 s later → invalid_grant and the mcp generation is bumped",
+    () =>
+      withCode(({ exchange, mcpGen }) =>
+        Effect.gen(function* () {
+          const first = yield* bodyOf(yield* exchange())
+          const second = yield* bodyOf(yield* refreshWith(String(first.refresh_token)))
+          yield* TestClock.adjust("31 seconds")
+          const reuse = yield* refreshWith(String(first.refresh_token))
+          expect(reuse.status).toBe(400)
+          expect(yield* bodyOf(reuse)).toMatchObject({ error: "invalid_grant" })
+          expect(yield* Ref.get(mcpGen)).toBe(1)
+          // The rotated token was issued at the old generation, so it dies with the bump.
+          const afterBump = yield* bodyOf(yield* refreshWith(String(second.refresh_token)))
+          expect(afterBump).toMatchObject({ error: "invalid_grant" })
+        }),
+      ),
+  )
+
+  it.effect("a refused scope does not burn the refresh token", () =>
+    withCode(({ exchange, mcpGen }) =>
+      Effect.gen(function* () {
+        const first = yield* bodyOf(yield* exchange())
+        const narrowed = yield* bodyOf(
+          yield* refreshWith(String(first.refresh_token), { scope: "tanren:read" }),
+        )
+        yield* refreshWith(String(narrowed.refresh_token), { scope: "tanren:write" })
+        const retry = yield* refreshWith(String(narrowed.refresh_token))
+        expect(retry.status).toBe(200)
+        expect(yield* Ref.get(mcpGen)).toBe(0)
       }),
     ),
   )

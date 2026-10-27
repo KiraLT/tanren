@@ -1,13 +1,14 @@
 import { type StyleProp, View, type ViewStyle } from "react-native"
-import { pillForeground } from "./controls"
+import { type PillTone, pillBackground, pillForeground } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { Text } from "./Text"
 import { useTheme } from "./theme"
-import { radius, sizes, space, type Tone } from "./tokens"
+import { radius, sizes, space } from "./tokens"
 
 export interface StatusPillProps {
   readonly label: string
-  readonly tone: Tone
+  /** `muted` = `textMuted` text on a `surfaceRaised` capsule (a paused program); `neutral` stays on `surface`. */
+  readonly tone: PillTone
   /** Leading 16 px glyph, e.g. `check` on "Available at Home". */
   readonly icon?: IconName
   /**
@@ -36,7 +37,7 @@ export function StatusPill({ label, tone, icon, align = "start", style }: Status
           gap: space.xs,
           paddingHorizontal: space.sm,
           borderRadius: radius.full,
-          backgroundColor: colors.surface,
+          backgroundColor: colors[pillBackground[tone]],
           ...placement,
         },
         style,

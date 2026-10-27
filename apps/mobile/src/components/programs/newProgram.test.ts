@@ -8,7 +8,7 @@ import {
   UserProgram,
 } from "@tanren/shared"
 import { Effect, Option, Random, Schema } from "effect"
-import { blankContent, droppedDays, duplicateContent, newProgramRow } from "./newProgram"
+import { blankContent, duplicateContent, newProgramRow } from "./newProgram"
 
 const builtinSummary = (program: typeof CORE30): ProgramSummary =>
   summarize(program, { source: "builtin", version: 1, schedule: Option.none() }, Option.none())
@@ -52,17 +52,15 @@ describe("newProgramRow", () => {
     }),
   )
 
-  it.effect("a duplicate keeps the schedule of a row and at most 60 days", () =>
+  it.effect("a duplicate of the 84-day built-in keeps 84 days and a row's schedule", () =>
     Effect.gen(function* () {
       const schedule = { kind: "weekdays", weekdays: ["mon", "thu"] } as const
       const summary = { ...builtinSummary(LEAN_BUILD_12), schedule: Option.some(schedule) }
       const content = duplicateContent(LEAN_BUILD_12, summary)
       expect(content.schedule).toEqual(schedule)
-      expect(content.days).toHaveLength(60)
-      expect(droppedDays(LEAN_BUILD_12.days.length)).toBe(LEAN_BUILD_12.days.length - 60)
-      expect(droppedDays(30)).toBe(0)
+      expect(content.days).toHaveLength(84)
       const row = yield* build(content)
-      expect(row.days).toHaveLength(60)
+      expect(row.days).toHaveLength(84)
     }),
   )
 })

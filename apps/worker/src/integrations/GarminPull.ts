@@ -4,6 +4,7 @@ import {
   IntegrationRepo,
   type IntegrationRow,
   type PersistenceError,
+  ProfileRepo,
 } from "@tanren/db"
 import {
   type DailyHealthInsert,
@@ -28,6 +29,7 @@ import {
   Ref,
   Schema,
 } from "effect"
+import { addDays, localDayOf } from "../time/localDate"
 import { REFRESH_MARGIN } from "./ExportQueue"
 import {
   GARMIN_PAGE_SIZE,
@@ -97,10 +99,13 @@ const localDate = (dt: DateTime.Utc): Effect.Effect<LocalDate> =>
 export const readCursor = (scope: string): Option.Option<GarminCursor> =>
   Schema.decodeUnknownOption(GarminCursorJson)(scope)
 
-/** The window a cursor-less user starts from: activities since today − 30 d, health after today − 7 d. */
-export const freshCursor = (now: DateTime.Utc): Effect.Effect<GarminCursor> =>
+/**
+ * The window a cursor-less user starts from: activities since today − 30 d (UTC), health after
+ * the user's local `today` − 7 d.
+ */
+const freshCursor = (now: DateTime.Utc, today: LocalDate): Effect.Effect<GarminCursor> =>
   Effect.map(
-    localDate(DateTime.subtract(now, { days: GARMIN_MAX_DAYS })),
+    addDays(today, -GARMIN_MAX_DAYS),
     (healthThrough): GarminCursor => ({
       activitiesSince: DateTime.subtract(DateTime.startOf(now, "day"), {
         days: GARMIN_BACKFILL_DAYS,
@@ -116,22 +121,29 @@ const pendingDays = (
   healthThrough: LocalDate,
   today: LocalDate,
 ): Effect.Effect<ReadonlyArray<LocalDate>> =>
-  Option.match(DateTime.make(`${healthThrough}T00:00:00.000Z`), {
-    onNone: () => Effect.succeed([]),
-    onSome: (from) =>
-      Effect.map(
-        Effect.forEach(Arr.range(1, GARMIN_MAX_DAYS), (offset) =>
-          localDate(DateTime.add(from, { days: offset })),
-        ),
-        Arr.filter((day) => day <= today),
-      ),
-  })
+  Effect.map(
+    Effect.forEach(Arr.range(1, GARMIN_MAX_DAYS), (offset) => addDays(healthThrough, offset)),
+    Arr.filter((day) => day <= today),
+  )
+
+/** No profile (or a deleted one) means UTC: the nutrition tools' rule (`nutritionTools.ts`). */
+const UTC = "UTC"
 
 const make = Effect.gen(function* () {
   const integrations = yield* IntegrationRepo
   const imports = yield* GarminImportRepo
   const api = yield* GarminApi
   const seal = yield* TokenSeal
+  const profiles = yield* ProfileRepo
+
+  /** The user's live profile zone; no profile, or a deleted one, → UTC. */
+  const timezoneOf = (userId: UserId): Effect.Effect<string, PersistenceError> =>
+    Effect.map(profiles.get(userId), (stored) =>
+      Option.match(
+        Option.filter(stored, (profile) => Option.isNone(profile.deletedAt)),
+        { onNone: () => UTC, onSome: (profile) => profile.timezone },
+      ),
+    )
 
   const writeCursor = (row: IntegrationRow, cursor: GarminCursor) =>
     Schema.encodeEffect(GarminCursorJson)(cursor).pipe(
@@ -141,11 +153,15 @@ const make = Effect.gen(function* () {
     )
 
   /** One user's pull (garmin.md §3). Fails only with `PersistenceError` or a defect. */
-  const pullRow = Effect.fn("GarminPull.pullRow")(function* (row: IntegrationRow) {
+  const pullRow = Effect.fn("GarminPull.pullRow")(function* (
+    row: IntegrationRow,
+    timezone: string,
+  ) {
     const now = yield* DateTime.now
-    const today = yield* localDate(now)
+    // The user's local day, not the UTC one (G-F1): Garmin's `calendarDate` is a local date.
+    const today = yield* localDayOf(now, timezone)
     const stored = readCursor(row.scope)
-    const cursor = Option.isSome(stored) ? stored.value : yield* freshCursor(now)
+    const cursor = Option.isSome(stored) ? stored.value : yield* freshCursor(now, today)
     const budget = yield* Ref.make(GARMIN_CALL_BUDGET)
     const spend = Ref.modify(budget, (left): readonly [boolean, number] => [
       left > 0,
@@ -265,8 +281,9 @@ const make = Effect.gen(function* () {
     yield* imports.upsertDays(row.userId, Arr.getSomes(Arr.map(fetched, (f) => f.summary)))
 
     const yesterday = DateTime.subtract(DateTime.startOf(now, "day"), { days: 1 })
-    const lastFinal = yield* localDate(yesterday)
-    // Today is re-read every run: `healthThrough` never passes yesterday.
+    const lastFinal = yield* addDays(today, -2)
+    // Yesterday and today (local) are re-read every run, so the evening's final numbers for
+    // yesterday land after local midnight: `healthThrough` never passes the day before yesterday.
     const healthThrough = Option.match(Arr.last(fetched), {
       onNone: () => cursor.healthThrough,
       onSome: ({ day }) => (day < lastFinal ? day : lastFinal),
@@ -287,7 +304,10 @@ const make = Effect.gen(function* () {
   })
 
   /** `pullRow` with its stop reasons settled: revoke, or keep the cursor and record `lastError`. */
-  const pullUser = (row: IntegrationRow): Effect.Effect<void, PersistenceError> => {
+  const pullUser = (
+    row: IntegrationRow,
+    timezone: string,
+  ): Effect.Effect<void, PersistenceError> => {
     /**
      * A failed or skipped attempt stamps `lastAttemptAt` (so `listActive` rotates the cron's users)
      * and leaves `lastPullAt` (last success, shown as "Last import") and the data window as stored;
@@ -299,7 +319,9 @@ const make = Effect.gen(function* () {
       const cursor = readCursor(row.scope)
       return Effect.gen(function* () {
         const now = yield* DateTime.now
-        const base = Option.isSome(cursor) ? cursor.value : yield* freshCursor(now)
+        const base = Option.isSome(cursor)
+          ? cursor.value
+          : yield* freshCursor(now, yield* localDayOf(now, timezone))
         yield* writeCursor(row, {
           ...base,
           lastError: lastError(base.lastError),
@@ -308,7 +330,7 @@ const make = Effect.gen(function* () {
       })
     }
     const stopped = (reason: ExportFailureReason) => attempted(() => Option.some(reason))
-    return pullRow(row).pipe(
+    return pullRow(row, timezone).pipe(
       Effect.catchTags({
         GarminRevoked: ({ seen }) =>
           Effect.gen(function* () {
@@ -339,7 +361,8 @@ const make = Effect.gen(function* () {
 
   /** A failed user is logged and skipped: one user never blocks the others. */
   const pullLogged = (row: IntegrationRow) =>
-    pullUser(row).pipe(
+    timezoneOf(row.userId).pipe(
+      Effect.flatMap((timezone) => pullUser(row, timezone)),
       Effect.catchCause((cause) =>
         Effect.logWarning(`[garmin] pull failed userId=${row.userId}`, cause),
       ),

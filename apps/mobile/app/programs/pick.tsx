@@ -46,11 +46,12 @@ function Picker({ programId, dayNumber }: PickerProps) {
   const { colors } = useTheme()
   const back = useGoBack({ pathname: "/programs/edit/[programId]", params: { programId } })
   const { state, dispatch, results, location } = useCatalogSearch()
-  const { update, error } = useProgramUpdate()
+  const { updateAndLeave, busy, error } = useProgramUpdate()
   const phone = useBreakpoint() === "phone"
   const { width } = useWindowDimensions()
   const choose = (entry: CatalogExercise) =>
-    update(programId, (draft) => ({
+    // Leave: once saved the picker ignores every tap until it is gone (no second exercise).
+    updateAndLeave(programId, (draft) => ({
       ...draft,
       days: updateDay(draft.days, dayNumber, (day) => appendItem(day, itemFromCatalog(entry))),
     })).then((saved) => {
@@ -121,6 +122,7 @@ function Picker({ programId, dayNumber }: PickerProps) {
         ListEmptyComponent={
           <EmptyState
             icon="search"
+            headingLevel={2}
             title="No exercises found"
             body="Try another name or turn off the location filter."
           />
@@ -141,6 +143,7 @@ function Picker({ programId, dayNumber }: PickerProps) {
                 : entrySubtitle(item)
             }
             accessibilityLabel={`Add ${item.name}`}
+            disabled={busy}
             onPress={() => choose(item)}
           />
         )}
@@ -163,7 +166,12 @@ export default function PickExerciseScreen() {
           />
         }
       >
-        <Banner tone="danger" title="No day to add to" body="Open this from a day in the editor." />
+        <EmptyState
+          icon="warning"
+          headingLevel={2}
+          title="No day to add to"
+          body="Open this from a day in the editor."
+        />
       </Page>
     ),
   })

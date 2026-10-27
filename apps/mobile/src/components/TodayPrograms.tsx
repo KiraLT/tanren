@@ -6,7 +6,7 @@ import { dayMinutes } from "../player/programDays"
 import { useStoreVersion } from "../player/usePrograms"
 import { type ActiveProgram, ProgramRepo } from "../services/ProgramRepo"
 import { runtime } from "../services/runtime"
-import { Button, ListGroup, ListRow, rhythm, sizes, space, Text } from "../ui"
+import { Button, ListGroup, ListRow, rhythm, space, Text } from "../ui"
 
 /** Active programs whose next day is not yet done today; empty while loading or on a read failure. */
 export const useDueToday = (): ReadonlyArray<ActiveProgram> => {
@@ -60,10 +60,8 @@ export function TodayPrograms() {
             accessibilityLabel={`${entry.program.name}, ${dueSubtitle(entry)}`}
             trailing={
               <Button
-                size="md"
-                variant="text"
-                // No `sm` size in `src/ui`: a 44-px pill (`sizes.tap`) keeps the row at 60.
-                style={{ height: sizes.tap, minHeight: sizes.tap }}
+                size="sm"
+                variant="primary"
                 label="Start"
                 accessibilityLabel={`Start ${entry.program.name}`}
                 onPress={() =>

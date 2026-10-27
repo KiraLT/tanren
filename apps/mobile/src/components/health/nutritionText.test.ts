@@ -1,17 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
-import { type DayTotals, type Insight, LocalDate } from "@tanren/shared"
+import { type DayTotals, LocalDate } from "@tanren/shared"
 import { DateTime, Option } from "effect"
-import type { NutritionDay } from "../../services/NutritionRepo"
-import { asOfText, burnedText, kcalText, stripLines } from "./nutritionText"
+import { kcalText, moduleHidden, moduleLabel, moduleStats } from "./nutritionText"
 
-const VILNIUS = DateTime.zoneMakeNamedUnsafe("Europe/Vilnius")
 /** 14:05 in Vilnius (EET, UTC+2 on 2026-10-27). */
 const AS_OF = DateTime.makeUnsafe("2026-10-27T12:05:00.000Z")
-
-const PROTEIN_SHORT: Insight = {
-  rule: "protein_short",
-  text: "Protein 75 g short — a shake covers it",
-}
 
 /** Owner day: 2,040 target, 1,420 eaten, Garmin 1,840 burned, protein 96/170 g. */
 const baseDay: DayTotals = {
@@ -27,11 +20,6 @@ const baseDay: DayTotals = {
   proteinLeftG: Option.some(74),
   entries: [],
 }
-
-const nd = (
-  day: Partial<DayTotals> = {},
-  insights: ReadonlyArray<Insight> = [PROTEIN_SHORT],
-): NutritionDay => ({ day: { ...baseDay, ...day }, insights })
 
 /** A day with no `daily_health` row. */
 const noHealth: Partial<DayTotals> = {
@@ -49,6 +37,8 @@ const noTargets: Partial<DayTotals> = {
   proteinLeftG: Option.none(),
 }
 
+const day = (patch: Partial<DayTotals> = {}): DayTotals => ({ ...baseDay, ...patch })
+
 describe("kcalText", () => {
   it("groups thousands with commas and rounds", () => {
     expect(kcalText(1420)).toBe("1,420")
@@ -58,81 +48,79 @@ describe("kcalText", () => {
   })
 })
 
-describe("asOfText", () => {
-  it("prints the 24-h clock in the given zone", () => {
-    expect(asOfText(AS_OF, VILNIUS)).toBe("as of 14:05")
-    expect(asOfText(DateTime.makeUnsafe("2026-10-27T22:07:00.000Z"), VILNIUS)).toBe("as of 00:07")
+describe("moduleStats", () => {
+  it("reads Eaten, Burned and Protein against the target with the two dots", () => {
+    const [eaten, burned, protein] = moduleStats(baseDay, false)
+    expect(eaten).toMatchObject({
+      label: "Eaten",
+      value: "1,420",
+      dot: "accent",
+      valueTone: "neutral",
+    })
+    expect(burned).toMatchObject({ label: "Burned", value: "1,840", valueTone: "neutral" })
+    expect(burned.dot).toBeUndefined()
+    expect(protein).toMatchObject({
+      label: "Protein",
+      value: "96",
+      unit: "/ 170 g",
+      dot: "success",
+    })
+  })
+
+  it("turns Eaten danger over the budget", () => {
+    const [eaten] = moduleStats(day({ kcalLeft: Option.some(-120) }), false)
+    expect(eaten.valueTone).toBe("danger")
+  })
+
+  it("mutes a stale burned value", () => {
+    expect(moduleStats(baseDay, true)[1].valueTone).toBe("muted")
+  })
+
+  it("shows a dash without a Garmin total", () => {
+    expect(moduleStats(day(noHealth), false)[1].value).toBe("—")
+  })
+
+  it("shows bare grams of protein without targets", () => {
+    expect(moduleStats(day(noTargets), false)[2].unit).toBe("g")
   })
 })
 
-describe("burnedText", () => {
-  it("reads the Garmin total, or says there is no data", () => {
-    expect(burnedText(baseDay)).toBe("Burned 1,840")
-    expect(burnedText({ ...baseDay, ...noHealth })).toBe("Burned: no data")
+describe("moduleHidden", () => {
+  it("hides the module with no targets, no burned total and nothing logged", () => {
+    expect(moduleHidden(day({ ...noTargets, ...noHealth }))).toBe(true)
+  })
+
+  it("shows it when only Garmin has a total", () => {
+    expect(moduleHidden(day(noTargets))).toBe(false)
+  })
+
+  it("shows it when only targets are set", () => {
+    expect(moduleHidden(day(noHealth))).toBe(false)
   })
 })
 
-describe("stripLines", () => {
-  it("(a) targets and burned: kcal left, full detail, first insight", () => {
-    const lines = stripLines(nd(), VILNIUS)
-    expect(lines.value).toBe("620 kcal left")
-    expect(lines.detail).toBe("Eaten 1,420 · Burned 1,840 · Protein 96/170 g")
-    expect(lines.insight).toEqual(Option.some("Protein 75 g short — a shake covers it"))
-  })
+describe("moduleLabel", () => {
+  const hero = { label: "Left today", value: "620" }
 
-  it("(b) no daily_health row: Burned: no data", () => {
-    const lines = stripLines(nd(noHealth), VILNIUS)
-    expect(lines.value).toBe("620 kcal left")
-    expect(lines.detail).toBe("Eaten 1,420 · Burned: no data · Protein 96/170 g")
-  })
-
-  it("(c) targets None: kcal eaten and bare protein", () => {
-    const lines = stripLines(nd(noTargets, []), VILNIUS)
-    expect(lines.value).toBe("1,420 kcal eaten")
-    expect(lines.detail).toBe("Eaten 1,420 · Burned 1,840 · Protein 96 g")
-  })
-
-  it("(d) over the budget: kcal over", () => {
-    const lines = stripLines(
-      nd({ eaten: { ...baseDay.eaten, kcal: 2160 }, kcalLeft: Option.some(-120) }),
-      VILNIUS,
-    )
-    expect(lines.value).toBe("120 kcal over")
-    expect(lines.detail).toBe("Eaten 2,160 · Burned 1,840 · Protein 96/170 g")
-  })
-
-  it("(e) no insight: insight None and the label has two lines", () => {
-    const lines = stripLines(nd({}, []), VILNIUS)
-    expect(Option.isNone(lines.insight)).toBe(true)
-    expect(lines.accessibilityLabel).toBe(
-      "Nutrition, 620 kcal left, Eaten 1,420 · Burned 1,840 as of 14:05 · Protein 96/170 g",
+  it("speaks the numeral, the three stats, the meta line and the insight", () => {
+    expect(
+      moduleLabel(
+        baseDay,
+        hero,
+        "as of 14:05 · 8,420 steps",
+        Option.some("Protein 75 g short — a shake covers it"),
+      ),
+    ).toBe(
+      "Health today: Left today 620; eaten 1,420; burned 1,840; protein 96 of 170 g; " +
+        "as of 14:05 · 8,420 steps; Protein 75 g short — a shake covers it",
     )
   })
 
-  it("speaks the three lines with as of after the burned part", () => {
-    expect(stripLines(nd(), VILNIUS).accessibilityLabel).toBe(
-      "Nutrition, 620 kcal left, Eaten 1,420 · Burned 1,840 as of 14:05 · Protein 96/170 g, " +
-        "Protein 75 g short — a shake covers it",
+  it("says no data without a Garmin total and bare grams without targets", () => {
+    expect(
+      moduleLabel(day({ ...noHealth, ...noTargets }), hero, "No tracker connected", Option.none()),
+    ).toBe(
+      "Health today: Left today 620; eaten 1,420; burned no data; protein 96 g; No tracker connected",
     )
-  })
-
-  it("says no as of without a Garmin total", () => {
-    const label = stripLines(nd(noHealth, []), VILNIUS).accessibilityLabel
-    expect(label).toBe("Nutrition, 620 kcal left, Eaten 1,420 · Burned: no data · Protein 96/170 g")
-    expect(label).not.toContain("as of")
-  })
-
-  it("keeps the worst-case detail within 50 characters (one caption line at 358)", () => {
-    const detail = stripLines(
-      nd({
-        ...noHealth,
-        eaten: { kcal: 10_000, proteinG: 500, carbsG: 0, fatG: 0 },
-        targets: Option.some({ kcal: 10_000, proteinG: 500, goal: "gain_muscle" }),
-        kcalLeft: Option.some(0),
-      }),
-      VILNIUS,
-    ).detail
-    expect(detail).toBe("Eaten 10,000 · Burned: no data · Protein 500/500 g")
-    expect(detail.length).toBeLessThanOrEqual(50)
   })
 })

@@ -141,6 +141,8 @@ export interface AppIdentity {
   readonly gen: number
   /** Log `jti.slice(0, 8)` only. */
   readonly jti: string
+  /** `exp` claim, epoch seconds (a burned refresh token's ledger retention). */
+  readonly exp: number
 }
 
 export interface McpGrant {
@@ -154,6 +156,8 @@ export type McpIdentity = McpPrincipal & {
   readonly gen: number
   readonly clientId: string
   readonly jti: string
+  /** `exp` claim, epoch seconds. */
+  readonly exp: number
 }
 
 /** The fields of an OAuth token response (RFC 6749 §5.1) the token endpoint renders. */
@@ -313,6 +317,7 @@ export const makeTokens = (config: TokensConfig): Effect.Effect<TokensShape> =>
       userId: claims.sub,
       gen: claims.gen,
       jti: claims.jti,
+      exp: claims.exp,
     })
 
     const verifyAppAt = (audience: string) => (token: string) =>
@@ -332,6 +337,7 @@ export const makeTokens = (config: TokensConfig): Effect.Effect<TokensShape> =>
           clientId: claims.client_id,
           gen: claims.gen,
           jti: claims.jti,
+          exp: claims.exp,
         }
         return identity
       })

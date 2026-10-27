@@ -10,51 +10,52 @@ import {
   itemFromCatalog,
   MAX_DAYS,
   MAX_ITEMS,
+  mapItem,
   moveDay,
   moveItem,
   parsePickFor,
   pickForParam,
-  RANGES,
   removeDay,
   removeItem,
-  renumber,
-  slugify,
+  scheduleCaption,
   slugWithSuffix,
-  stepValue,
+  stepRest,
+  stepRestBetweenRounds,
+  stepRounds,
+  stepWork,
   toggleWeekday,
   updateDay,
   withKind,
-  withWorkValue,
   workText,
 } from "./programEdit"
+import { begin, finish, OPEN_GATE, observed } from "./writeGate"
 
 const isSlug = (text: string) => Option.isSome(Schema.decodeUnknownOption(Slug)(text))
 
 const days = CORE30.days
 
-describe("slugify", () => {
+describe("slugWithSuffix (slugify + a random suffix)", () => {
   it("lower-cases and joins words with one hyphen", () => {
-    expect(slugify("Push  Pull   Legs")).toBe("push-pull-legs")
+    expect(slugWithSuffix("Push  Pull   Legs", "ab12")).toBe("push-pull-legs-ab12")
   })
 
   it("folds accents", () => {
-    expect(slugify("Évening Crème brûlée")).toBe("evening-creme-brulee")
+    expect(slugWithSuffix("Évening Crème brûlée", "ab12")).toBe("evening-creme-brulee-ab12")
   })
 
   it("drops symbols and edge hyphens", () => {
-    expect(slugify("  --My 5x5 (heavy!) -- ")).toBe("my-5x5-heavy")
+    expect(slugWithSuffix("  --My 5x5 (heavy!) -- ", "ab12")).toBe("my-5x5-heavy-ab12")
   })
 
   it("falls back for text with no letters or digits", () => {
-    expect(slugify("鍛錬 !!!")).toBe("program")
-    expect(isSlug(slugify(""))).toBe(true)
+    expect(slugWithSuffix("鍛錬 !!!", "ab12")).toBe("program-ab12")
+    expect(isSlug(slugWithSuffix("", "ab12"))).toBe(true)
   })
 
-  it("is at most 64 characters, never ends in a hyphen and satisfies Slug", () => {
-    const long = `${"abcd ".repeat(30)}tail`
-    const slug = slugify(long)
+  it("never ends the base in a hyphen and satisfies Slug at the length cut", () => {
+    const slug = slugWithSuffix(`${"abcd ".repeat(30)}tail`, "ab12")
     expect(slug.length).toBeLessThanOrEqual(64)
-    expect(slug.endsWith("-")).toBe(false)
+    expect(slug).not.toContain("--")
     expect(isSlug(slug)).toBe(true)
   })
 
@@ -84,37 +85,29 @@ describe("moveItem", () => {
   })
 })
 
-describe("stepValue", () => {
-  it("steps and clamps into the range", () => {
-    expect(stepValue(30, 1, RANGES.seconds)).toBe(35)
-    expect(stepValue(10, -1, RANGES.seconds)).toBe(10)
-    expect(stepValue(600, 1, RANGES.seconds)).toBe(600)
-    expect(stepValue(0, -1, RANGES.restBetweenRounds)).toBe(0)
-    expect(stepValue(295, 1, RANGES.rest)).toBe(300)
-  })
-})
-
 describe("days", () => {
-  it("renumber follows the order and a leading 'Day N' in the title", () => {
+  it("moveDay swaps two days, renumbers, and a leading 'Day N' in a title follows its place", () => {
     const [first, second] = days
     expect(first).toBeDefined()
     expect(second).toBeDefined()
     if (first === undefined || second === undefined) {
       return
     }
-    const moved = renumber([
-      { ...second, title: "Day 2 · Build" },
-      { ...first, title: "Warm-up" },
-    ])
+    const moved = moveDay(
+      [
+        { ...first, title: "Day 1 · Warm-up" },
+        { ...second, title: "Day 2 · Build" },
+      ],
+      0,
+      1,
+    )
     expect(Arr.map(moved, (day) => day.dayNumber)).toEqual([1, 2])
-    expect(Arr.map(moved, (day) => day.title)).toEqual(["Day 1 · Build", "Warm-up"])
+    expect(Arr.map(moved, (day) => day.title)).toEqual(["Day 1 · Build", "Day 2 · Warm-up"])
+    expect(moved[0]?.items).toEqual(second.items)
   })
 
-  it("moveDay swaps two days and renumbers", () => {
-    const moved = moveDay(days, 0, 1)
-    expect(Arr.map(Arr.take(moved, 2), (day) => day.dayNumber)).toEqual([1, 2])
-    expect(moved[0]?.items).toEqual(days[1]?.items)
-    expect(moveDay(days, 0, -1)).toEqual(renumber(days))
+  it("moveDay up at the first day is a no-op", () => {
+    expect(moveDay(days, 0, -1)).toEqual(days)
   })
 
   it("addDay duplicates the last day at the end and stops at the cap", () => {
@@ -180,10 +173,13 @@ describe("items", () => {
     expect(withKind(reps, "reps")).toBe(reps)
   })
 
-  it("withWorkValue and workText follow the kind", () => {
-    expect(workText(withWorkValue(BLANK_ITEM, 45))).toBe("45 s")
-    expect(workText(withWorkValue(withKind(BLANK_ITEM, "reps"), 1))).toBe("1 rep")
-    expect(workText(withWorkValue(withKind(BLANK_ITEM, "reps"), 12))).toBe("12 reps")
+  it("stepWork and workText follow the kind", () => {
+    const reps = withKind(BLANK_ITEM, "reps")
+    expect(workText(Arr.reduce(Arr.range(1, 3), BLANK_ITEM, (item) => stepWork(item, 1)))).toBe(
+      "45 s",
+    )
+    expect(workText(Arr.reduce(Arr.range(1, 9), reps, (item) => stepWork(item, -1)))).toBe("1 rep")
+    expect(workText(Arr.reduce(Arr.range(1, 2), reps, (item) => stepWork(item, 1)))).toBe("12 reps")
   })
 
   it("removeItem keeps the only item; appendItem stops at the cap", () => {
@@ -225,5 +221,60 @@ describe("pickFor param", () => {
     expect(Arr.map(bad, (text) => Option.isNone(parsePickFor(text)))).toEqual(
       Arr.map(bad, () => true),
     )
+  })
+})
+
+describe("queued steps", () => {
+  const day: ProgramDay = {
+    dayNumber: 1,
+    title: "Day 1",
+    rounds: 2,
+    items: [withKind(BLANK_ITEM, "reps"), BLANK_ITEM],
+    restBetweenRoundsSeconds: 60,
+  }
+  const twice = <A>(start: A, change: (value: A) => A): A => change(change(start))
+
+  it("two work-value taps on the same stored row give +2, not +1", () => {
+    const stored = twice(day, (current) => mapItem(current, 0, (item) => stepWork(item, 1)))
+    expect(stored.items[0]).toMatchObject({ kind: "reps", reps: 12 })
+  })
+
+  it("a tap after a reorder began is DROPPED by the gate, not applied to a stale index", () => {
+    // moveItem addresses positions; while its write is pending the rendered index is about to shift.
+    const reorderPending = Option.getOrThrow(begin(OPEN_GATE, "positional"))
+    expect(Option.isNone(begin(reorderPending, "queued"))).toBe(true)
+    // once the reorder landed, the tap applies to the item now at that position
+    const moved = { ...day, items: moveItem(day.items, 0, 1) }
+    const settled = observed(finish(reorderPending, "positional", Option.some(2)), 2)
+    expect(Option.isSome(begin(settled, "queued"))).toBe(true)
+    expect(mapItem(moved, 0, (item) => stepWork(item, 1)).items[0]).toMatchObject({
+      kind: "timed",
+      seconds: 35,
+    })
+  })
+
+  it("steps clamp at the ends of their ranges", () => {
+    expect(twice(day, (current) => stepRounds(current, 1)).rounds).toBe(4)
+    expect(twice({ ...day, rounds: 5 }, (current) => stepRounds(current, 1)).rounds).toBe(5)
+    expect(stepRestBetweenRounds(day, 1).restBetweenRoundsSeconds).toBe(75)
+    expect(stepRest(BLANK_ITEM, -1).restSeconds).toBe(25)
+    const floor = Arr.reduce(Arr.range(1, 10), BLANK_ITEM, (item) => stepWork(item, -1))
+    expect(floor).toMatchObject({ kind: "timed", seconds: 10 })
+    const top = Arr.reduce(Arr.range(1, 120), BLANK_ITEM, (item) => stepWork(item, 1))
+    expect(top).toMatchObject({ kind: "timed", seconds: 600 })
+    expect(Arr.reduce(Arr.range(1, 70), BLANK_ITEM, (item) => stepRest(item, 1)).restSeconds).toBe(
+      300,
+    )
+    expect(stepRestBetweenRounds({ ...day, restBetweenRoundsSeconds: 0 }, -1)).toMatchObject({
+      restBetweenRoundsSeconds: 0,
+    })
+  })
+
+  it("scheduleCaption names a schedule no segment shows, and is silent otherwise", () => {
+    expect(scheduleCaption({ kind: "daysPerWeek", days: 4 })).toEqual(Option.none())
+    expect(scheduleCaption({ kind: "weekdays", weekdays: ["mon"] })).toEqual(Option.none())
+    expect(scheduleCaption({ kind: "daysPerWeek", days: 7 })).toEqual(Option.some("Every day"))
+    expect(scheduleCaption({ kind: "daysPerWeek", days: 2 })).toEqual(Option.some("2 days a week"))
+    expect(scheduleCaption({ kind: "daysPerWeek", days: 1 })).toEqual(Option.some("1 day a week"))
   })
 })

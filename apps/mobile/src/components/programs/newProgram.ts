@@ -9,7 +9,7 @@ import {
 } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Option, Random } from "effect"
 import { LOCAL_USER_ID } from "../../store/localUser"
-import { BLANK_ITEM, defaultSchedule, MAX_DAYS, slugWithSuffix } from "./programEdit"
+import { BLANK_ITEM, defaultSchedule, slugWithSuffix } from "./programEdit"
 
 /** What a new program starts from: the content a blank or duplicated program carries. */
 export interface ProgramContent {
@@ -19,7 +19,7 @@ export interface ProgramContent {
   readonly days: ReadonlyArray<ProgramDay>
 }
 
-export const BLANK_TITLE = "New program"
+const BLANK_TITLE = "New program"
 
 /** One day with one exercise (a day needs at least one), three days a week. */
 export const blankContent: ProgramContent = {
@@ -34,18 +34,15 @@ export const blankContent: ProgramContent = {
 const MAX_TITLE = 80
 
 /**
- * A copy of any program, built-ins included: the days as they are (the first `MAX_DAYS`, a row holds
- * no more), the schedule of the original or, for a built-in, one derived from its day count.
+ * A copy of any program, built-ins included: every day as it is, the schedule of the original or,
+ * for a built-in, one derived from its day count.
  */
 export const duplicateContent = (program: Program, summary: ProgramSummary): ProgramContent => ({
   title: `${program.name} copy`.slice(0, MAX_TITLE).trim(),
   summary: program.tagline,
   schedule: Option.getOrElse(summary.schedule, () => defaultSchedule(program.days.length)),
-  days: Arr.take(program.days, MAX_DAYS),
+  days: program.days,
 })
-
-/** How many days a duplicate drops (the 12-week built-in has 84; a row holds 60). */
-export const droppedDays = (dayCount: number): number => Math.max(0, dayCount - MAX_DAYS)
 
 const SUFFIX_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 

@@ -1,4 +1,11 @@
-import type { DayTotals, ImportedActivity, Insight, LocalDate, WeekReview } from "@tanren/shared"
+import {
+  type DayTotals,
+  formatInt,
+  type ImportedActivity,
+  type Insight,
+  type LocalDate,
+  type WeekReview,
+} from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import { useRouter } from "expo-router"
 import type { ReactNode } from "react"
@@ -7,10 +14,17 @@ import { ImportedCard } from "../../src/components/feed/ImportedCard"
 import { DAY_BARS_HEIGHT, DayBars } from "../../src/components/health/DayBars"
 import { WEEK_DAYS, weekStartFor } from "../../src/components/health/dayBarMath"
 import { FoodLog } from "../../src/components/health/FoodLog"
-import { HealthHero } from "../../src/components/health/HealthHero"
+import { HERO_HEIGHT, HealthHero, heroIsRow } from "../../src/components/health/HealthHero"
+import { HealthStat } from "../../src/components/health/HealthStats"
+import {
+  restingHrText,
+  restingHrWeak,
+  restingHrWeek,
+} from "../../src/components/health/healthWeekMath"
 import { InsightList } from "../../src/components/health/InsightList"
 import { WeekReviewCard } from "../../src/components/health/WeekReviewCard"
 import { localDateOf } from "../../src/components/planFormat"
+import { freshnessLine } from "../../src/components/today/healthModuleMath"
 import { useFoodEntryActions } from "../../src/hooks/useFoodEntryActions"
 import type { HistoryState } from "../../src/hooks/useHistory"
 import { type NutritionDay, useNutritionDay } from "../../src/hooks/useNutritionDay"
@@ -26,18 +40,61 @@ import {
   rhythm,
   SegmentBar,
   Skeleton,
-  sizes,
   space,
   Text,
   useBreakpoint,
+  useColumns,
 } from "../../src/ui"
 
 function HealthSkeleton() {
+  const heroHeight = heroIsRow(useColumns("7/5").main) ? HERO_HEIGHT.row : HERO_HEIGHT.column
   return (
     <View accessible accessibilityLabel="Loading health" style={{ gap: space.xl }}>
-      <Skeleton width="100%" height={sizes.statTile} radius={radius.md} />
+      <Skeleton width="100%" height={heroHeight} radius={radius.md} />
       <Skeleton width="100%" height={DAY_BARS_HEIGHT} radius={radius.md} />
       <Skeleton width="100%" height={86} radius={radius.lg} />
+    </View>
+  )
+}
+
+/**
+ * The week's bars, the Garmin freshness caption ("as of 14:05"), and a card of two small stats:
+ * today's steps and the week's resting heart rate (plan Amendment 26: it left Today), muted under
+ * 3 days of data (designer UI-HM-r1 F2).
+ */
+function WeekBars({
+  day,
+  week,
+  today,
+}: {
+  readonly day: DayTotals
+  readonly week: HealthWeek
+  readonly today: LocalDate
+}) {
+  const restingHr = restingHrWeek(week.health)
+  return (
+    <View style={{ gap: space.sm }}>
+      <DayBars days={week.review.days} today={today} />
+      <Text variant="caption" tone="muted">
+        {freshnessLine(day, new Date())}
+      </Text>
+      <Card padding={rhythm.cardPadding} style={{ marginTop: space.sm }}>
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          <HealthStat
+            label="Steps today"
+            value={Option.match(day.steps, { onNone: () => "—", onSome: formatInt })}
+            valueVariant="title"
+            valueTone="neutral"
+          />
+          <HealthStat
+            label="Resting HR · 7 days"
+            value={restingHrText(restingHr)}
+            unit={Option.isSome(restingHr.averageBpm) ? "bpm" : undefined}
+            valueVariant="title"
+            valueTone={restingHrWeak(restingHr) ? "muted" : "neutral"}
+          />
+        </View>
+      </Card>
     </View>
   )
 }
@@ -91,7 +148,10 @@ interface ReadyProps {
   readonly open: (activity: ImportedActivity) => void
 }
 
-/** Ready (nutrition.md §6): one column at phone/tablet; desktop `Columns 7/5` like the activity detail. */
+/**
+ * Ready (nutrition.md §6, designer UI-HM-r1 F1): one column at phone/tablet; desktop `Columns 7/5`,
+ * main = hero, protein, food log; side = insights, week review, week chart, activities.
+ */
 function HealthReady({ day, insights, week, today, open }: ReadyProps) {
   const desktop = useBreakpoint() === "desktop"
   const actions = useFoodEntryActions()
@@ -104,21 +164,22 @@ function HealthReady({ day, insights, week, today, open }: ReadyProps) {
       onRestore={actions.restore}
     />
   )
-  const main = [
-    <HealthHero key="hero" day={day} />,
-    <DayBars key="bars" days={week.review.days} today={today} barWidth={desktop ? 28 : 18} />,
-    <ProteinDays key="protein" review={week.review} />,
-  ]
-  const side = [
-    <InsightList key="insights" insights={insights} />,
-    <WeekReviewCard key="review" review={week.review} />,
-    <Activities key="activities" activities={week.activities} open={open} />,
-  ]
+  const hero = <HealthHero key="hero" day={day} />
+  const bars = <WeekBars key="bars" day={day} week={week} today={today} />
+  const protein = <ProteinDays key="protein" review={week.review} />
+  const insightList = <InsightList key="insights" insights={insights} />
+  const review = <WeekReviewCard key="review" review={week.review} />
+  const activities = <Activities key="activities" activities={week.activities} open={open} />
   const stack = (nodes: ReadonlyArray<ReactNode>) => <View style={{ gap: space.xl }}>{nodes}</View>
+  // Desktop: the week chart joins the side column (designer UI-HM-r1 F1), the hero leads main.
   return desktop ? (
-    <Columns split="7/5" main={stack([...main, foodLog])} side={stack(side)} />
+    <Columns
+      split="7/5"
+      main={stack([hero, protein, foodLog])}
+      side={stack([insightList, review, bars, activities])}
+    />
   ) : (
-    stack([...main, ...side, foodLog])
+    stack([hero, bars, protein, insightList, review, activities, foodLog])
   )
 }
 

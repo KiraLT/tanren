@@ -7,8 +7,9 @@ import {
   TokenRejected,
   type UserId,
 } from "@tanren/shared"
-import { Effect, Layer, Option, Schema } from "effect"
+import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, type HttpServerRequest, HttpServerResponse } from "effect/http"
+import { retainUntil, verdictOf } from "./refreshRotation"
 import { Sessions } from "./Sessions"
 import { bearerJwt } from "./SessionsLive"
 import { Tokens } from "./Tokens"
@@ -48,7 +49,9 @@ const done = HttpServerResponse.empty({ status: 204, headers: noStore })
 /**
  * The stateless app token endpoints (ADR-0022, auth-v2.md §4):
  * - `POST /api/token/refresh` — body `RefreshRequest`, no cookie read → a new `AppTokenPair` while the
- *   refresh token's `gen` equals `user.appTokenGen`, else 401 `revoked`.
+ *   refresh token's `gen` equals `user.appTokenGen`, else 401 `revoked`. The presented refresh token
+ *   is burned (`refresh_token_burn`); presenting it again within 30 s answers a fresh pair, later
+ *   it bumps `appTokenGen` → 401 `revoked`.
  * - `POST /api/token/revoke` — `Authorization: Bearer <app access JWT>` only → bumps `appTokenGen`
  *   (native sign-out: every app token of the user dies) → 204.
  * - `POST /api/token/revoke-mcp` — app access JWT or the web cookie session (`Sessions.current`) →
@@ -82,6 +85,36 @@ export const tokenRoutes = Layer.unwrap(
         if (identity.gen !== gens.app) {
           return yield* revoked
         }
+        // Rotation (ADR-0022 amendment, STLS-F5, `refreshRotation.ts`): burn the presented jti, then
+        // mint a new pair. A burned jti re-sent within `REUSE_GRACE` gets a fresh pair (a client
+        // that lost the rotated one); later it is a replayed (stolen or leaked) refresh token and
+        // every app token of the user dies with one generation bump.
+        const now = yield* DateTime.now
+        const expiresAt = yield* Option.match(retainUntil(identity.exp), {
+          onNone: () => Effect.fail(invalid),
+          onSome: Effect.succeed,
+        })
+        const outcome = yield* users.burnRefresh({
+          userId: identity.userId,
+          jti: identity.jti,
+          expiresAt,
+          burnedAt: now,
+        })
+        const verdict = verdictOf(outcome, now)
+        if (verdict === "reuse") {
+          yield* users.bumpAppTokenGen(identity.userId).pipe(notFoundIsInvalid)
+          yield* Effect.logWarning("app refresh token reused: every app token revoked", {
+            userId: identity.userId,
+            jti: identity.jti.slice(0, 8),
+          })
+          return yield* revoked
+        }
+        if (verdict === "grace") {
+          yield* Effect.logInfo("app refresh token re-sent within the reuse grace", {
+            jti: identity.jti.slice(0, 8),
+          })
+        }
+        yield* users.purgeBurnedRefresh(now).pipe(Effect.ignore)
         const pair = yield* tokens.issueAppPair(identity.userId, gens.app)
         return yield* HttpServerResponse.schemaJson(AppTokenPair)(pair, { headers: noStore })
       }).pipe(

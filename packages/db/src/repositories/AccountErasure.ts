@@ -32,6 +32,7 @@ export const ERASED_TABLES = [
   "verification",
   "session",
   "account",
+  "refresh_token_burn",
   "user",
 ] as const
 export type ErasedTable = (typeof ERASED_TABLES)[number]
@@ -78,6 +79,8 @@ export class AccountErasure extends Context.Service<AccountErasure, AccountErasu
               sql`DELETE FROM verification WHERE lower(CASE WHEN json_valid(value) THEN json_extract(value, '$.email') END) = (SELECT lower(email) FROM "user" WHERE id = ${userId}) OR value IN (SELECT token FROM "session" WHERE "userId" = ${userId})`,
               sql`DELETE FROM "session" WHERE "userId" = ${userId}`,
               sql`DELETE FROM account WHERE "userId" = ${userId}`,
+              // Refresh-token rotation ledger (STLS-F5, migration 0010).
+              sql`DELETE FROM refresh_token_burn WHERE "userId" = ${userId}`,
               sql`DELETE FROM "user" WHERE id = ${userId}`,
             ])
             .pipe(Effect.asVoid, Effect.mapError(persistenceError("account.deleteUser"))),

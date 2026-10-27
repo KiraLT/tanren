@@ -3,6 +3,7 @@ import { GarminImportRepo, IntegrationRepo, SealedToken } from "@tanren/db"
 import {
   DailyHealth,
   IdGenerator,
+  ImportedActivity,
   ImportedActivityInsert,
   LocalDate,
   UserId,
@@ -97,6 +98,60 @@ describe("MemoryGarminImport.listDays", () => {
         LocalDate.make("2026-10-27"),
       )
       expect(days.map((d) => d.date)).toEqual(["2026-10-22", "2026-10-27"])
+    }).pipe(
+      Effect.provide(
+        MemoryGarminImport.layer.pipe(
+          Layer.provide(IdGenerator.layerTest),
+          Layer.provide(MemoryIntegrations.layer),
+          Layer.provideMerge(MemoryStore.layer),
+        ),
+      ),
+    ),
+  )
+})
+
+const stored = (n: number, startedAt: string, deletedAt: string | null = null) =>
+  Schema.decodeUnknownSync(ImportedActivity)({
+    id: `74100000-0000-4000-8000-${n.toString().padStart(12, "0")}`,
+    userId: user,
+    createdAt: "2026-10-27T08:00:00.000Z",
+    updatedAt: "2026-10-27T08:00:00.000Z",
+    deletedAt,
+    provider: "garmin",
+    externalId: `ext-${n}`,
+    sport: "running",
+    title: `Run ${n}`,
+    startedAt,
+    durationSeconds: 1800,
+    distanceMeters: null,
+    calories: null,
+    avgHeartRate: null,
+    maxHeartRate: null,
+  })
+
+describe("MemoryGarminImport.listActivities", () => {
+  it.effect("returns live activities with from <= startedAt < to, newest first, capped", () =>
+    Effect.gen(function* () {
+      const store = yield* MemoryStore
+      yield* store.put("importedActivity", user, [
+        stored(1, "2026-10-10T07:00:00.000Z"),
+        stored(2, "2026-10-18T06:00:00.000Z"),
+        stored(3, "2026-10-01T00:00:00.000Z"),
+        stored(4, "2026-10-20T00:00:00.000Z"),
+        stored(5, "2026-09-30T23:59:59.000Z"),
+        stored(6, "2026-10-12T07:00:00.000Z", "2026-10-13T00:00:00.000Z"),
+      ])
+      const repo = yield* GarminImportRepo
+      const range = { from: at("2026-10-01T00:00:00.000Z"), to: at("2026-10-20T00:00:00.000Z") }
+      expect((yield* repo.listActivities(user, range, 200)).map((r) => r.externalId)).toEqual([
+        "ext-2",
+        "ext-1",
+        "ext-3",
+      ])
+      expect((yield* repo.listActivities(user, range, 2)).map((r) => r.externalId)).toEqual([
+        "ext-2",
+        "ext-1",
+      ])
     }).pipe(
       Effect.provide(
         MemoryGarminImport.layer.pipe(

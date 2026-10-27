@@ -39,7 +39,7 @@ swap inside the player and a second default 12-week program.
    `enroll_program`, `set_enrollment_status`, `swap_exercise` (write). Descriptions teach Claude to build a program
    from the catalog (ids via `search_exercises`, timed vs reps per ADR-0020, rest defaults, week structure,
    progression) and name the errors; soft problems come back as `warnings`, never as failures.
-6. **Validation at the boundary**, in Schema: 1–60 days, 1–12 items per day (the existing `ProgramDay` cap the day
+6. **Validation at the boundary**, in Schema: 1–84 days (was 60; raised 16:19 so the 84-day built-in can be duplicated), 1–12 items per day (the existing `ProgramDay` cap the day
    screen is laid out for; the brief's 20 is deferred), timed 10–600 s, reps 1–100, rest 0–300 s, rounds 1–5. Catalog
    ids are checked with the shared, pure `findCatalogExercise` — no DB read.
 7. **In-app authoring (Forge)**: Programs tab "+" → New (blank or duplicate any program, built-ins included, as a
@@ -76,3 +76,5 @@ swap inside the player and a second default 12-week program.
   (similar by muscle, `kind`, location equipment; stored per enrollment; revert), and a second default 12-week
   lean-build program (neutral name). Changed: decisions 3, 4, 7, 8; tools 7 → 9; design §4 editor/swap/Today rows,
   §7 program table; sheet tasks P-D1, P-M3, P-M4.
+- 2026-10-27 16:11, Lead: `EntityName` gains `"catalogExercise"` and `NotFound.id` widens from `Uuid` to `String` (catalog ids and built-in program ids are slugs; wire shape unchanged, REST still emits UUIDs).
+- 2026-10-27 16:19, Lead: `ProgramDays` / the MCP days array go from 1–60 to 1–84 (the 12-week default is 84 days; duplicating it must not truncate).

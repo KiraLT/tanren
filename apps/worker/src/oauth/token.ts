@@ -2,11 +2,14 @@ import { OAuthCodeUseRepo, UserTokens } from "@tanren/db"
 import { MCP_SCOPES, type McpScope } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Option } from "effect"
 import { Base64Url } from "effect/encoding"
+import { retainUntil, verdictOf } from "../auth/refreshRotation"
 import { type McpTokenPair, Tokens } from "../auth/Tokens"
 
 // `POST /oauth/token` (docs/design/auth-v2.md §5, §7): stateless code exchange and refresh.
 // Order for a code: signature/exp/aud → client_id and redirect_uri → PKCE → generation → burn LAST,
-// so a failed check never consumes the code. Never log a code or token: `jti.slice(0, 8)` only.
+// so a failed check never consumes the code. A refresh token is rotated: client → generation →
+// scope → burn its jti in `refresh_token_burn` LAST; a burned jti presented again bumps
+// `mcpTokenGen`. Never log a code or token: `jti.slice(0, 8)` only.
 
 type TokenDeps = Tokens | UserTokens | OAuthCodeUseRepo
 
@@ -95,9 +98,10 @@ const exchangeCode = (form: URLSearchParams) =>
     if ((yield* currentGen(code.userId)) !== code.gen) {
       return yield* fail("invalid_grant", "grant revoked")
     }
-    const expiresAt = yield* Option.match(DateTime.make(code.exp * 1000), {
+    // Retained until the code can no longer verify (exp + clock skew), so a purge never forgets it.
+    const expiresAt = yield* Option.match(retainUntil(code.exp), {
       onNone: () => fail("invalid_grant", "invalid code"),
-      onSome: (at) => Effect.succeed(DateTime.toUtc(at)),
+      onSome: Effect.succeed,
     })
     // Burn last: only a fully valid code reaches the ledger.
     const first = yield* codeUse
@@ -144,6 +148,38 @@ const refresh = (form: URLSearchParams) =>
           ? Effect.succeed(Arr.filter(identity.scopes, (s) => asked.includes(s)))
           : fail("invalid_scope", "scope exceeds the grant"),
     })
+    // Rotation (ADR-0022 amendment, STLS-F5, `auth/refreshRotation.ts`), burned after every other
+    // check: a jti re-sent within `REUSE_GRACE` gets a fresh pair; later it is a replayed refresh
+    // token, so the user's MCP generation is bumped (every MCP token and code dies) and it fails.
+    const users = yield* UserTokens
+    const now = yield* DateTime.now
+    const expiresAt = yield* Option.match(retainUntil(identity.exp), {
+      onNone: () => fail("invalid_grant", "invalid or expired refresh token"),
+      onSome: Effect.succeed,
+    })
+    const outcome = yield* users
+      .burnRefresh({ userId: identity.userId, jti: identity.jti, expiresAt, burnedAt: now })
+      .pipe(Effect.catchTag("PersistenceError", () => fail("server_error", "storage unavailable")))
+    const verdict = verdictOf(outcome, now)
+    if (verdict === "grace") {
+      yield* Effect.logInfo("oauth refresh token re-sent within the reuse grace", {
+        jti: identity.jti.slice(0, 8),
+      })
+    }
+    if (verdict === "reuse") {
+      yield* users.bumpMcpTokenGen(identity.userId).pipe(
+        Effect.catchTags({
+          UserNotFound: () => fail("invalid_grant", "unknown user"),
+          PersistenceError: () => fail("server_error", "storage unavailable"),
+        }),
+      )
+      yield* Effect.logWarning("oauth refresh token reused: every MCP token revoked", {
+        userId: identity.userId,
+        jti: identity.jti.slice(0, 8),
+      })
+      return yield* fail("invalid_grant", "refresh token already used; grant revoked")
+    }
+    yield* users.purgeBurnedRefresh(now).pipe(Effect.ignore)
     yield* Effect.logInfo("oauth refresh", identity.jti.slice(0, 8))
     return yield* tokens.issueMcpPair({
       userId: identity.userId,

@@ -5,6 +5,8 @@ import {
   ACTIVITY_LABELS,
   ACTIVITY_ORDER,
   ageLabel,
+  EAT_BACK_SUBTITLE,
+  EAT_BACK_TITLE,
   GOAL_LABELS,
   nutritionSubtitle,
   showTargetsHint,
@@ -89,5 +91,14 @@ describe("showTargetsHint", () => {
 describe("ageLabel", () => {
   it("reads the age in the year of today", () => {
     expect(ageLabel(1990, today)).toBe("age 36")
+  })
+})
+
+describe("eat-back copy", () => {
+  it("names the setting in plain words and explains off and on", () => {
+    expect(EAT_BACK_TITLE).toBe("Add exercise calories to the budget")
+    expect(EAT_BACK_SUBTITLE).toBe(
+      "Off: the budget stays at your daily target. On: calories Garmin records as active are added to today's budget. Trackers overestimate, so off is the safer default.",
+    )
   })
 })

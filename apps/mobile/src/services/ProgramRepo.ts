@@ -64,6 +64,13 @@ export interface CompletionInput {
    * phase. Only those are logged as sets (clamped to 0..total); 0 logs no session.
    */
   readonly performedItems: number
+  /**
+   * The exercise each performed item-round actually ran, in the same order as `performedItems`
+   * (what the player showed, so rounds done before a mid-workout swap stay the old exercise).
+   * Position k names the exercise of item-round k; a position past its length (or an empty list)
+   * takes the day's own item with the enrollment's swaps as stored.
+   */
+  readonly performedIds: ReadonlyArray<CatalogId>
 }
 
 /** Internal: `complete` on an enrollment that is not `active`. Carried as `StoreError.cause`. */
@@ -152,6 +159,11 @@ export interface ProgramRepoShape {
   readonly todayFor: (
     enrollment: ProgramEnrollment,
   ) => Effect.Effect<Option.Option<ProgramDay>, StoreError>
+  /**
+   * The owner's live `program` row for `id`, matched case-insensitively (the editor reads it to
+   * rebuild the full row, `description` included); `None` for an unknown or tombstoned id.
+   */
+  readonly findRow: (id: UserProgramId) => Effect.Effect<Option.Option<UserProgram>, StoreError>
   /**
    * Writes a user program (dirty): a new id is inserted as given; an existing live row keeps its
    * `createdAt`, immutable `slug` / `source`, and gets `version + 1`. `updatedAt` is now.
@@ -473,12 +485,17 @@ const make = (find: ProgramFinder) =>
       updateEnrollment(id, (enrollment) => {
         const kept = Arr.filter(enrollment.swaps, (swap) => swap.from !== from)
         const target = Option.filter(to, (catalogId) => catalogId !== from)
-        return Option.some({
-          swaps: Option.match(target, {
-            onNone: () => kept,
-            onSome: (catalogId) => [...kept, { from, to: catalogId }],
-          }),
+        const swaps = Option.match(target, {
+          onNone: () => kept,
+          onSome: (catalogId) => [...kept, { from, to: catalogId }],
         })
+        // Same pairs as before (a revert of a never-swapped id, the same from → to again): no write.
+        const unchanged =
+          swaps.length === enrollment.swaps.length &&
+          Arr.every(swaps, (next) =>
+            Arr.some(enrollment.swaps, (swap) => swap.from === next.from && swap.to === next.to),
+          )
+        return unchanged ? Option.none() : Option.some({ swaps })
       })
 
     const programRow = (id: UserProgramId) =>
@@ -486,9 +503,9 @@ const make = (find: ProgramFinder) =>
         Effect.flatMap((userId) =>
           store.all(
             q(
-              `SELECT * FROM "program" WHERE "userId" = ? AND "id" = ? AND "deletedAt" IS NULL`,
+              `SELECT * FROM "program" WHERE "userId" = ? AND lower("id") = ? AND "deletedAt" IS NULL`,
               userId,
-              id,
+              id.toLowerCase(),
             ),
           ),
         ),
@@ -507,6 +524,8 @@ const make = (find: ProgramFinder) =>
               onNone: () => ({ ...row, userId, updatedAt: now, deletedAt: Option.none() }),
               onSome: (prev) => ({
                 ...row,
+                // The stored spelling of the id (a row written elsewhere may be upper-case).
+                id: prev.id,
                 userId,
                 createdAt: prev.createdAt,
                 updatedAt: now,
@@ -532,7 +551,7 @@ const make = (find: ProgramFinder) =>
           const inUse = Arr.head(
             yield* enrollmentsWhere(
               `AND "status" IN ('active', 'paused') AND "programId" = ?`,
-              programIdOfRow(id),
+              programIdOfRow(found.value.id),
             ),
           )
           if (Option.isSome(inUse)) {
@@ -597,11 +616,18 @@ const make = (find: ProgramFinder) =>
         const { program, day } = found.value
         const all = plannedItems(day)
         /** Only item-rounds whose work phase finished are logged (an early Finish logs fewer). */
-        const performed = Arr.take(
-          all,
-          Math.min(Math.max(Math.floor(input.performedItems), 0), all.length),
+        const performed = Arr.map(
+          Arr.take(all, Math.min(Math.max(Math.floor(input.performedItems), 0), all.length)),
+          (planned, position) => ({
+            ...planned,
+            // What the player ran in this item-round (a mid-workout swap changes later rounds only).
+            catalogId: Option.getOrElse(
+              Arr.get(input.performedIds, position),
+              () => planned.item.catalogId,
+            ),
+          }),
         )
-        const catalogIds = Arr.dedupe(Arr.map(performed, (planned) => planned.item.catalogId))
+        const catalogIds = Arr.dedupe(Arr.map(performed, (planned) => planned.catalogId))
         const links = yield* Effect.forEach(catalogIds, (catalogId) =>
           Effect.map(linkOrSkip(catalogId), (exerciseId) => ({ catalogId, exerciseId })),
         )
@@ -611,7 +637,7 @@ const make = (find: ProgramFinder) =>
           )
         const kept = Arr.getSomes(
           Arr.map(performed, (planned) =>
-            Option.map(exerciseFor(planned.item.catalogId), (exerciseId) => ({
+            Option.map(exerciseFor(planned.catalogId), (exerciseId) => ({
               ...planned,
               exerciseId,
             })),
@@ -754,6 +780,7 @@ const make = (find: ProgramFinder) =>
       setStatus,
       setSwap,
       todayFor,
+      findRow: programRow,
       save,
       deleteProgram,
       complete,

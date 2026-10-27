@@ -111,16 +111,16 @@ const body = {
 }
 
 describe("program tools over /mcp in workerd", () => {
-  it("lists all twenty-two tools for a read + write principal", async () => {
+  it("lists all twenty-three tools for a read + write principal", async () => {
     const names = await toolNames(writer)
-    expect(names).toHaveLength(22)
+    expect(names).toHaveLength(23)
     expect(names).toEqual([...MCP_TOOLS])
     expect(names).toEqual(expect.arrayContaining([...PROGRAM_READS, ...PROGRAM_WRITES]))
   })
 
   it("a read-only principal sees the three program reads and no program write", async () => {
     const names = await toolNames(reader)
-    expect(names).toEqual(MCP_TOOLS.slice(0, 11))
+    expect(names).toEqual(MCP_TOOLS.slice(0, 12))
     expect(names).toEqual(expect.arrayContaining(PROGRAM_READS))
     PROGRAM_WRITES.forEach((name) => {
       expect(names).not.toContain(name)

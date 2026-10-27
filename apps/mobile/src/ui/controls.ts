@@ -71,14 +71,33 @@ export const stepGlyphColor = (disabled: boolean, colors: ColorRoles): string =>
 
 // Button --------------------------------------------------------------------------------------
 
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "text"
-export type ButtonSize = "md" | "lg" | "xl"
+export type ButtonVariant = "primary" | "secondary" | "raised" | "destructive" | "text"
+export type ButtonSize = "sm" | "md" | "lg" | "xl"
 
+/** `sm` is the 36 px visible pill; its touch area is `buttonTouchHeight` (44). */
 export const buttonHeights: { readonly [S in ButtonSize]: number } = {
+  sm: 36,
   md: sizes.control,
   lg: sizes.controlLg,
   xl: sizes.logButton,
 }
+
+/** Horizontal padding of the pill: 12 at `sm`, `space.xl` otherwise. */
+export const buttonPaddingX = (size: ButtonSize): number => (size === "sm" ? space.md : space.xl)
+
+/**
+ * Touch area of a button: `sizes.tap` (44) at `sm`, whose pill is only 36 high. react-native-web
+ * ignores `hitSlop`, so `Button` wraps the `sm` pill in a 44 px Pressable (as `chipPressableStyle`
+ * does) instead of relying on it. Larger sizes are their own touch area.
+ */
+export const buttonTouchHeight = (size: ButtonSize): number =>
+  Math.max(buttonHeights[size], sizes.tap)
+
+/** Label ramp of a button: `headline` 17/22/600, or 15/20/600 (`subhead` + weight) at `sm`. */
+export const buttonLabel = (
+  size: ButtonSize,
+): { readonly variant: "headline" | "subhead"; readonly fontWeight?: "600" } =>
+  size === "sm" ? { variant: "subhead", fontWeight: "600" } : { variant: "headline" }
 
 export interface ButtonColors {
   readonly background: keyof ColorRoles | "transparent"
@@ -88,11 +107,16 @@ export interface ButtonColors {
 export const buttonVariants: { readonly [V in ButtonVariant]: ButtonColors } = {
   primary: { background: "accent", foreground: "onAccent" },
   secondary: { background: "surface", foreground: "text" },
+  raised: { background: "surfaceRaised", foreground: "text" },
   destructive: { background: "dangerSoft", foreground: "danger" },
   text: { background: "transparent", foreground: "accent" },
 }
 
-/** Pill (`radius.full`), height per size; the dark primary pill carries the `glow` shadow. */
+/**
+ * Pill (`radius.full`), height per size; the dark primary pill carries the `glow` shadow. `raised`
+ * (a button inside a `Card`, where `secondary` has the card's own fill) draws a 1 px `border`
+ * outline in both schemes.
+ */
 export const buttonStyle = (
   variant: ButtonVariant,
   size: ButtonSize,
@@ -103,22 +127,28 @@ export const buttonStyle = (
   return {
     minHeight: buttonHeights[size],
     minWidth: sizes.tap,
-    paddingHorizontal: space.xl,
+    paddingHorizontal: buttonPaddingX(size),
     borderRadius: radius.full,
     backgroundColor: spec.background === "transparent" ? "transparent" : colors[spec.background],
     alignItems: "center",
     justifyContent: "center",
+    ...(variant === "raised" ? { borderWidth: stroke.hairline, borderColor: colors.border } : {}),
     ...(variant === "primary" && scheme === "dark"
       ? { boxShadow: elevation.glow(colors.glow) }
       : {}),
   }
 }
 
-/** Web hover: filled variants dim a touch, the text variants take the `surface` tint. */
+/**
+ * Web hover: `raised` darkens its outline to `textMuted` (fill unchanged), filled variants dim a
+ * touch, the text variants take the `surface` tint.
+ */
 export const buttonHoverStyle = (variant: ButtonVariant, colors: ColorRoles): ViewStyle =>
-  buttonVariants[variant].background === "transparent"
-    ? { backgroundColor: colors.surface }
-    : { opacity: 0.92 }
+  variant === "raised"
+    ? { borderColor: colors.textMuted }
+    : buttonVariants[variant].background === "transparent"
+      ? { backgroundColor: colors.surface }
+      : { opacity: 0.92 }
 
 // Card ----------------------------------------------------------------------------------------
 
@@ -299,6 +329,11 @@ export const listSeparatorStyle = (
 /** Row with a 56 thumb: 64 high, vertical padding 4 (the thumb sets the height). */
 export const THUMB_ROW_MIN_HEIGHT = 64
 
+// EmptyState ----------------------------------------------------------------------------------
+
+/** Heading level of an `EmptyState` title: 1 (the page title) unless a route with an `h1` says 2 or 3. */
+export const emptyStateHeadingLevel = (level: 1 | 2 | 3 | undefined): 1 | 2 | 3 => level ?? 1
+
 // Chips and pills -----------------------------------------------------------------------------
 
 /** On: `text`/`bg` in light, `accent`/`onAccent` in dark (§2); off: 1 px `border` outline. */
@@ -350,7 +385,7 @@ export const chipPressableStyle = (compact: boolean): ViewStyle => ({
 export const rowLinesProps = (lines: number | undefined): { readonly numberOfLines?: number } =>
   lines === undefined ? {} : { numberOfLines: lines }
 
-export type PillTone = "neutral" | "accent" | "success" | "danger"
+export type PillTone = "neutral" | "accent" | "success" | "danger" | "muted"
 
 /** Status pills are tone-coloured text (and glyph) on `surface` (§2 "Available at Home"). */
 export const pillForeground: { readonly [T in PillTone]: keyof ColorRoles } = {
@@ -358,6 +393,19 @@ export const pillForeground: { readonly [T in PillTone]: keyof ColorRoles } = {
   accent: "accent",
   success: "success",
   danger: "danger",
+  muted: "textMuted",
+}
+
+/**
+ * Capsule fill: `surface`, except `muted`, which sits on `surfaceRaised` so a quiet label (a paused
+ * program) reads as a chip of its own on a `surface` card (white on #F6F6F7, #23272D on #181B1F).
+ */
+export const pillBackground: { readonly [T in PillTone]: keyof ColorRoles } = {
+  neutral: "surface",
+  accent: "surface",
+  success: "surface",
+  danger: "surface",
+  muted: "surfaceRaised",
 }
 
 // Progress marks ------------------------------------------------------------------------------

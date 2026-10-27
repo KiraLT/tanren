@@ -2,6 +2,7 @@ import { ProgramId } from "@tanren/shared"
 import { Match, Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { View } from "react-native"
+import { useNavGuard } from "../../src/components/programs/useGoBack"
 import { ProgramActions } from "../../src/player/components/ProgramActions"
 import {
   DayCard,
@@ -10,7 +11,6 @@ import {
   DayStats,
   EnrolCard,
   ProgramFinished,
-  ProgramInside,
 } from "../../src/player/components/ProgramHome"
 import { enrolLabel, summarySubtitle, userProgramIdOf } from "../../src/player/programList"
 import { useProgramDetail } from "../../src/player/usePrograms"
@@ -19,6 +19,7 @@ import {
   AppBar,
   Banner,
   Columns,
+  EmptyState,
   IconButton,
   Page,
   radius,
@@ -27,10 +28,11 @@ import {
   useBreakpoint,
 } from "../../src/ui"
 
-// A `Banner`, not `EmptyState`: the empty state's title is an `h1`, and the AppBar owns the page's.
+// Level 2: the AppBar owns the page's one `h1`.
 const NOT_FOUND = (
-  <Banner
-    tone="danger"
+  <EmptyState
+    icon="warning"
+    headingLevel={2}
     title="Program not found"
     body="It may have been deleted on another device."
   />
@@ -53,6 +55,7 @@ function ProgramPage({
   readonly back: () => void
 }) {
   const router = useRouter()
+  const navOnce = useNavGuard()
   const desktop = useBreakpoint() === "desktop"
   const { state, enroll, setStatus, remove, busy, error } = useProgramDetail(programId)
   const ready = state._tag === "Ready"
@@ -150,16 +153,29 @@ function ProgramPage({
                 }}
               />
             )
-            const days = <DayList program={program} currentDay={currentDay} />
+            const days = (
+              <DayList
+                program={program}
+                currentDay={currentDay}
+                enrolled={Option.isSome(running)}
+                onPreview={(n) =>
+                  navOnce(() =>
+                    // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+                    router.push({
+                      pathname: "/programs/[programId]/day/[n]",
+                      params: { programId: summary.programId, n: String(n) },
+                    }),
+                  )
+                }
+              />
+            )
             return (
               <Columns
                 split="6/6"
                 main={
                   <View style={{ gap: space.lg }}>
                     {hero}
-                    {Option.isNone(running) && !desktop ? (
-                      <ProgramInside program={program} />
-                    ) : null}
+                    {desktop ? null : days}
                     {actions}
                   </View>
                 }

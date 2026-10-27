@@ -177,7 +177,7 @@ height → 1 540 × 1.2 = 1 848 → **1 850**; protein **110** (112 → 110). Fl
 `workoutsDone/Planned`. Copy is exact; numbers formatted with a thin space thousands separator ("1 420").
 | id | when (today unless said) | text |
 | --- | --- | --- |
-| `protein_short` | targets Some, `proteinLeftG ≥ 30` and local hour ≥ 15 | "Protein {n} g short — a shake covers it" (n = proteinLeftG rounded to 5) |
+| `protein_short` | targets Some, `proteinLeftG ≥ 30` and local hour ≥ 15 | "Protein {n} g short — a shake covers it" (n = proteinLeftG rounded to the gram) |
 | `protein_hit` | `proteinLeftG ≤ 0` | "Protein target hit" |
 | `kcal_over` | `kcalLeft < −100` | "{n} kcal over target today" (n = −kcalLeft) |
 | `kcal_under_lose` | goal lose, hour ≥ 20, `kcalLeft > 300` | "{n} kcal under — on track for the deficit" |
@@ -304,7 +304,8 @@ Mifflin pin); MCP Inspector or the
 portion: "1 bowl", kcal: 650, proteinG: 45, carbsG: 70, fatG: 15 }] }` → `day.kcalLeft = 2420` (Mifflin; 2540 on the
 fallback; eat-back off); app sync → Today strip "2,420 kcal left · Eaten 650"; Health hero and food log show the entry;
 quick-add Whey ×1 (106 kcal, §7) → strip 2,314 left; delete the bowl from the log → Undo → still there; with
-Garmin connected (`GARMIN_MODE=console`, or the month seed's 7 `daily_health` rows) the Health burned bars show; `get_week_review` →
+Garmin connected (`GARMIN_MODE=console`, or the month seed's 7 `daily_health` rows) the Health burned bars show (the bars are the calendar week Mon–Sun:
+up to today only, all 7 with `--end` on a Sunday and the browser date on it — INT-N); `get_week_review` →
 `daysLogged = 1`, `workoutsPlanned` = this week's plan count. Production (owner): Claude app → photo of a meal →
 "log it" → Claude calls `log_food` → Today strip updates after the next sync (≤ 1 min foreground). Screenshots
 N1–N6 both themes, both widths.

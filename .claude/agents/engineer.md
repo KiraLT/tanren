@@ -241,6 +241,12 @@ Lead had to route it back through the team-lead, one extra turn each way).
 If a brief, rule, skill or tool cost you time or led you astray, say so in
 your report under `## Suggested follow-up` with the exact file and the fix you
 would make. The Engineering Manager applies it. Small, specific, every time.
+A skill RECIPE step that fails under you (a grep returns empty, a captured
+screen is the wrong one) is fixed in the skill file in the same task, with
+the fixed line in your report's first paragraph — not only in follow-up:
+the `ui-check` magic-link grep went stale with the v5 email subject and
+three agents (HOTFIX-1, INT-N, HM-3) each lost a round trip on it before
+the Lead fixed the line at 16:38 (2026-10-27).
 
 ## Report (your final message, exactly these sections)
 
@@ -255,7 +261,12 @@ would make. The Engineering Manager applies it. Small, specific, every time.
   HEAD did not build for ~1 h). One `git status --short` over your added
   files before the report is the whole check.
 - `## Decisions` — anything you chose that the brief left open, with the
-  reason. Flag the ones the Lead should ratify.
+  reason. Flag the ones the Lead should ratify. When the brief, the design
+  spec and a rule disagree (or the spec contradicts itself), the first
+  Decision line starts `CONFLICT:` and names both texts and which you
+  followed, so the Lead rules before the designer round: HM-3 kept the old
+  route order against spec §4 as a plain Decision 4, nobody read it, and the
+  designer's F1 re-applied the spec one round later (2026-10-27).
 - `## Verification` — each command you ran, with trimmed real output (keep
   the pass/fail lines and any error text verbatim).
 - `## Scope deviations / open questions` — or "none".

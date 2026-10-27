@@ -15,9 +15,13 @@ export interface DayBarsProps {
   /** Mon–Sun of the shown week (`WeekReview.days`). */
   readonly days: ReadonlyArray<DayTotals>
   readonly today: LocalDate
-  /** 18 at phone/tablet (two bars + 4 gap = 40 in a 44 column at 390), 28 at desktop. */
-  readonly barWidth?: 18 | 28
 }
+
+/**
+ * 18 everywhere: two bars + 4 gap = 40 fits a 44 column at 390 and a 54 column in the 1280 side
+ * card (431 inner); 28 would need 60 (designer UI-HM-r1 F1).
+ */
+const BAR_WIDTH = 18
 
 function LegendItem({ color, label }: { readonly color: string; readonly label: string }) {
   return (
@@ -31,14 +35,15 @@ function LegendItem({ color, label }: { readonly color: string; readonly label: 
 }
 
 /**
- * The week's eaten (accent) and Garmin burned (`textMuted`) bars per day on a `surface` track, so
+ * The week's eaten (accent; `danger` on an over-budget day, health-module.md §4) and Garmin burned
+ * (`textMuted`) bars per day on a `surface` track, so
  * upcoming and no-data days still read as empty columns; day letter below (today's in accent), a
  * right-aligned legend above (hidden from assistive tech: each column speaks its own label).
  */
-export function DayBars({ days, today, barWidth = 18 }: DayBarsProps) {
+export function DayBars({ days, today }: DayBarsProps) {
   const { colors } = useTheme()
   const columns = dayBarColumns(days, today, BAR_AREA)
-  const trackWidth = 2 * barWidth + space.xs
+  const trackWidth = 2 * BAR_WIDTH + space.xs
   return (
     <View style={{ gap: space.sm }}>
       <View
@@ -81,15 +86,15 @@ export function DayBars({ days, today, barWidth = 18 }: DayBarsProps) {
               />
               <View
                 style={{
-                  width: barWidth,
+                  width: BAR_WIDTH,
                   height: column.eatenHeight,
                   borderRadius: radius.sm,
-                  backgroundColor: colors.accent,
+                  backgroundColor: column.isOver ? colors.danger : colors.accent,
                 }}
               />
               <View
                 style={{
-                  width: barWidth,
+                  width: BAR_WIDTH,
                   height: column.burnedHeight,
                   borderRadius: radius.sm,
                   backgroundColor: colors.textMuted,

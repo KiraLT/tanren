@@ -59,6 +59,9 @@ describe("Authentication user-row check (STLS-F3)", () => {
         Effect.fail(new PersistenceError({ operation: "bump", cause: "D1 down" })),
       bumpMcpTokenGen: () =>
         Effect.fail(new PersistenceError({ operation: "bump", cause: "D1 down" })),
+      burnRefresh: () => Effect.fail(new PersistenceError({ operation: "burn", cause: "D1 down" })),
+      purgeBurnedRefresh: () =>
+        Effect.fail(new PersistenceError({ operation: "purge", cause: "D1 down" })),
     }),
   )
 

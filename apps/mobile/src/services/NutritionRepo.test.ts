@@ -238,6 +238,19 @@ describe("NutritionRepo.week", () => {
       expect(activities).toEqual([])
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("returns the week's daily_health rows, one per date, Monday first", () =>
+    Effect.gen(function* () {
+      yield* atTwoPm
+      yield* health(1, "2026-10-28", { total: 2500, active: 300 })
+      yield* health(2, "2026-10-26", { total: null, active: null })
+      yield* health(3, "2026-11-02", { total: 2000, active: 100 })
+      const { health: rows } = yield* NutritionRepo.use((repo) =>
+        repo.week(LocalDate.make("2026-10-26")),
+      )
+      expect(rows.map((row) => row.date)).toEqual(["2026-10-26", "2026-10-28"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })
 
 const syncRow = (n: number, deletedAt: string | null = null) => ({

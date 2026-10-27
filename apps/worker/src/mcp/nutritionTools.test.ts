@@ -83,6 +83,7 @@ const garminWith = (rows: ReadonlyArray<DailyHealth>) =>
       upsertDays: () => Effect.die("unused"),
       softDeleteAll: () => Effect.die("unused"),
       counts: () => Effect.die("unused"),
+      listActivities: () => Effect.die("unused"),
       listDays: (_userId, from, to) =>
         Effect.succeed(rows.filter((row) => row.date >= from && row.date <= to)),
     }),

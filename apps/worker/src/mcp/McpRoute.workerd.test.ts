@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers"
 import { afterAll, beforeAll, describe, expect, it } from "@effect/vitest"
 import {
   ExerciseId,
+  ListActivitiesResult,
   LOCATION_PRESETS,
   LocationId,
   MCP_TOOLS,
@@ -140,7 +141,7 @@ describe("/mcp in workerd", () => {
     expect(await rpcResult(response)).toMatchObject({ serverInfo: { name: "tanren" } })
   })
 
-  it("lists all twenty-two tools for the dev token (every scope): reads read-only, writes not", async () => {
+  it("lists all twenty-three tools for the dev token (every scope): reads read-only, writes not", async () => {
     const result = await post(rpc(2, "tools/list", {})).then(rpcResult)
     const tools = Schema.decodeUnknownSync(
       Schema.Array(
@@ -153,7 +154,7 @@ describe("/mcp in workerd", () => {
     )(result.tools)
     expect(tools.map((tool) => tool.name)).toEqual([...MCP_TOOLS])
     expect(tools.map((tool) => tool.annotations.readOnlyHint)).toEqual(
-      MCP_TOOLS.map((_, index) => index < 11),
+      MCP_TOOLS.map((_, index) => index < 12),
     )
   })
 
@@ -165,6 +166,21 @@ describe("/mcp in workerd", () => {
     expect(overview.sets).toBe(2)
     expect(overview.volumeKg).toBe(1000)
     expect(overview.exercises.map((summary) => summary.name)).toEqual(["Back Squat"])
+    expect(overview.imported).toEqual({
+      count: 0,
+      durationSeconds: 0,
+      distanceMeters: 0,
+      calories: 0,
+      bySport: [],
+    })
+  })
+
+  it("list_activities answers an empty list on D1 when nothing was imported", async () => {
+    const result = await callTool("list_activities", { period: "90d" })
+    expect(result.isError).toBeUndefined()
+    expect(Schema.decodeUnknownSync(ListActivitiesResult)(result.structuredContent)).toEqual({
+      activities: [],
+    })
   })
 
   it("get_current_plan without a plan answers text only (no structuredContent)", async () => {

@@ -3,7 +3,10 @@ import { darkColors, lightColors } from "./colors"
 import {
   APP_BAR_TITLE_SLOT,
   buttonHeights,
+  buttonHoverStyle,
+  buttonLabel,
   buttonStyle,
+  buttonTouchHeight,
   buttonVariants,
   CHIP_COMPACT_SLOP,
   cardStyle,
@@ -12,10 +15,12 @@ import {
   chipStyle,
   DISABLED_OPACITY,
   discStyle,
+  emptyStateHeadingLevel,
   eyebrowRingState,
   filledDiscStyle,
   listSeparatorStyle,
   numeralScale,
+  pillBackground,
   pillForeground,
   ROW_ICON_SLOT,
   ROW_TITLE_VARIANT,
@@ -48,6 +53,7 @@ import {
   stepperSizes,
   THUMB_ROW_MIN_HEIGHT,
 } from "./controls"
+import { type } from "./tokens"
 
 const idle = { pressed: false, hovered: false, disabled: false }
 
@@ -98,8 +104,45 @@ describe("Stepper", () => {
 })
 
 describe("Button", () => {
-  it("md/lg/xl are 48/56/64", () => {
-    expect(buttonHeights).toEqual({ md: 48, lg: 56, xl: 64 })
+  it("sm/md/lg/xl are 36/48/56/64", () => {
+    expect(buttonHeights).toEqual({ sm: 36, md: 48, lg: 56, xl: 64 })
+  })
+
+  it("sm: 36 pill, 12 px side padding, 15/20/600 label, 44 touch area", () => {
+    expect(buttonStyle("secondary", "sm", "light", lightColors)).toMatchObject({
+      minHeight: 36,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+    })
+    expect(buttonStyle("secondary", "md", "light", lightColors).paddingHorizontal).toBe(24)
+    expect(buttonLabel("sm")).toEqual({ variant: "subhead", fontWeight: "600" })
+    expect(type.subhead).toMatchObject({ fontSize: 15, lineHeight: 20 })
+    expect(buttonLabel("md")).toEqual({ variant: "headline" })
+    expect(buttonTouchHeight("sm")).toBe(44)
+    expect(buttonTouchHeight("md")).toBe(48)
+  })
+
+  it("raised: surfaceRaised/text with a hairline border in both schemes", () => {
+    expect(buttonVariants.raised).toEqual({ background: "surfaceRaised", foreground: "text" })
+    expect(buttonStyle("raised", "md", "light", lightColors)).toMatchObject({
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#E6E6E8",
+    })
+    expect(buttonStyle("raised", "md", "dark", darkColors)).toMatchObject({
+      backgroundColor: "#23272D",
+      borderWidth: 1,
+      borderColor: "#2C3137",
+    })
+    expect(buttonStyle("raised", "md", "dark", darkColors)).not.toHaveProperty("boxShadow")
+    expect(buttonStyle("secondary", "md", "light", lightColors)).not.toHaveProperty("borderWidth")
+  })
+
+  it("raised hover darkens the border only; fill and opacity are untouched", () => {
+    expect(buttonHoverStyle("raised", lightColors)).toEqual({ borderColor: lightColors.textMuted })
+    expect(buttonHoverStyle("raised", darkColors)).toEqual({ borderColor: darkColors.textMuted })
+    expect(buttonHoverStyle("secondary", lightColors)).toEqual({ opacity: 0.92 })
+    expect(buttonHoverStyle("text", lightColors)).toEqual({ backgroundColor: lightColors.surface })
   })
 
   it("is a pill at every size", () => {
@@ -116,7 +159,13 @@ describe("Button", () => {
     expect(buttonVariants.secondary).toEqual({ background: "surface", foreground: "text" })
     expect(buttonVariants.destructive).toEqual({ background: "dangerSoft", foreground: "danger" })
     expect(buttonVariants.text.background).toBe("transparent")
-    expect(Object.keys(buttonVariants)).toEqual(["primary", "secondary", "destructive", "text"])
+    expect(Object.keys(buttonVariants)).toEqual([
+      "primary",
+      "secondary",
+      "raised",
+      "destructive",
+      "text",
+    ])
   })
 
   it("only the dark primary pill glows", () => {
@@ -183,7 +232,7 @@ describe("ListRow", () => {
     expect(style).not.toHaveProperty("height")
   })
 
-  it("grouped rows have no border; standalone rows keep the legacy hairline", () => {
+  it("grouped rows have no border; standalone rows keep their own hairline", () => {
     expect(rowStyle(true, false, lightColors)).not.toHaveProperty("borderBottomWidth")
     expect(rowStyle(false, false, lightColors).borderBottomWidth).toBe(1)
     expect(listSeparatorStyle(lightColors)).toMatchObject({ height: 1, marginLeft: 16 })
@@ -336,7 +385,27 @@ describe("ToggleChip and StatusPill", () => {
       accent: "accent",
       success: "success",
       danger: "danger",
+      muted: "textMuted",
     })
+  })
+
+  it("muted pill: textMuted on surfaceRaised; every other tone stays on surface", () => {
+    expect(pillBackground.muted).toBe("surfaceRaised")
+    expect(lightColors[pillBackground.muted]).toBe("#FFFFFF")
+    expect(darkColors[pillBackground.muted]).toBe("#23272D")
+    expect(lightColors[pillForeground.muted]).toBe("#5F5F66")
+    expect(darkColors[pillForeground.muted]).toBe("#A3A8B0")
+    expect(pillBackground.neutral).toBe("surface")
+    expect(pillBackground.accent).toBe("surface")
+    expect(pillBackground.success).toBe("surface")
+    expect(pillBackground.danger).toBe("surface")
+  })
+
+  it("EmptyState heading: level 1 by default, 2 and 3 pass through", () => {
+    expect(emptyStateHeadingLevel(undefined)).toBe(1)
+    expect(emptyStateHeadingLevel(1)).toBe(1)
+    expect(emptyStateHeadingLevel(2)).toBe(2)
+    expect(emptyStateHeadingLevel(3)).toBe(3)
   })
 })
 

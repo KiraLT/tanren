@@ -292,6 +292,8 @@ describe("McpAuth.writeAllowed (STLS-F4)", () => {
       tokenGens: (userId) => Effect.fail(new UserNotFound({ userId })),
       bumpAppTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
       bumpMcpTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
+      burnRefresh: () => Effect.die("unused"),
+      purgeBurnedRefresh: () => Effect.die("unused"),
     }),
   )
   const principal: McpPrincipal = { userId: owner, scopes: ["tanren:write"] }

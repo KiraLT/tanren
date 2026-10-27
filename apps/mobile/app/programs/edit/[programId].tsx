@@ -1,17 +1,29 @@
 import { ProgramId } from "@tanren/shared"
 import { Match, Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
+import { useEffect } from "react"
 import { View } from "react-native"
 import { ProgramForm } from "../../../src/components/programs/ProgramForm"
 import { defaultSchedule } from "../../../src/components/programs/programEdit"
-import { useGoBack } from "../../../src/components/programs/useGoBack"
+import { useGoBack, useNavGuard } from "../../../src/components/programs/useGoBack"
 import { useProgramUpdate } from "../../../src/components/programs/useProgramEditor"
 import { useProgramDetail } from "../../../src/player/usePrograms"
-import { AppBar, Banner, IconButton, Page, radius, Skeleton, space } from "../../../src/ui"
+import {
+  AppBar,
+  Banner,
+  EmptyState,
+  IconButton,
+  Page,
+  radius,
+  Skeleton,
+  space,
+} from "../../../src/ui"
 
+// Level 2: the AppBar owns the page's one `h1`.
 const NOT_FOUND = (
-  <Banner
-    tone="danger"
+  <EmptyState
+    icon="warning"
+    headingLevel={2}
     title="Program not found"
     body="It may have been deleted on another device."
   />
@@ -32,10 +44,16 @@ function EditPage({ programId }: { readonly programId: ProgramId }) {
   const router = useRouter()
   const back = useGoBack("/programs")
   const { state } = useProgramDetail(programId)
-  const { update, error } = useProgramUpdate()
+  const { update, updateOnce, observe, busy, error } = useProgramUpdate()
+  // A saved move/remove keeps the gate shut until this screen has rendered the reloaded version.
+  const renderedVersion = state._tag === "Ready" ? state.summary.version : 0
+  useEffect(() => observe(renderedVersion), [observe, renderedVersion])
+  const once = useNavGuard()
+  const editable = state._tag === "Ready" && state.summary.source !== "builtin"
   return (
     <Page
       scroll
+      wide={editable}
       header={
         <AppBar
           title="Edit program"
@@ -58,7 +76,9 @@ function EditPage({ programId }: { readonly programId: ProgramId }) {
                 action={{
                   label: "Duplicate to edit",
                   onPress: () =>
-                    router.replace({ pathname: "/programs/new", params: { from: programId } }),
+                    once(() =>
+                      router.replace({ pathname: "/programs/new", params: { from: programId } }),
+                    ),
                 }}
               />
             ) : (
@@ -70,13 +90,17 @@ function EditPage({ programId }: { readonly programId: ProgramId }) {
                 )}
                 days={program.days}
                 error={error}
+                busy={busy}
                 onChange={(change) => update(programId, change)}
+                onChangeOnce={(change) => updateOnce(programId, change)}
                 onOpenDay={(dayNumber) =>
-                  // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-                  router.push({
-                    pathname: "/programs/edit/[programId]/day/[n]",
-                    params: { programId, n: String(dayNumber) },
-                  })
+                  once(() =>
+                    // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+                    router.push({
+                      pathname: "/programs/edit/[programId]/day/[n]",
+                      params: { programId, n: String(dayNumber) },
+                    }),
+                  )
                 }
                 onSave={back}
               />

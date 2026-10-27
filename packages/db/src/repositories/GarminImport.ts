@@ -12,6 +12,7 @@ import {
   type LocalDate,
   type Provider,
   type SyncChange,
+  Timestamp,
   type UserId,
 } from "@tanren/shared"
 import {
@@ -68,6 +69,15 @@ export interface GarminImportRepoShape {
     from: LocalDate,
     to: LocalDate,
   ) => Effect.Effect<ReadonlyArray<DailyHealth>, PersistenceError>
+  /**
+   * Live activities (every provider) with `from <= started_at < to`, newest first by
+   * `(started_at DESC, id)`, at most `limit` (one statement).
+   */
+  readonly listActivities: (
+    userId: UserId,
+    range: { readonly from: DateTime.Utc; readonly to: DateTime.Utc },
+    limit: number,
+  ) => Effect.Effect<ReadonlyArray<ImportedActivity>, PersistenceError>
 }
 
 /** One `SyncStore.apply` per page: `MAX_PUSH_CHANGES`. */
@@ -171,6 +181,19 @@ export class GarminImportRepo extends Context.Service<GarminImportRepo, GarminIm
         execute: ({ userId, from, to }) =>
           sql`SELECT * FROM daily_health WHERE user_id = ${userId} AND deleted_at IS NULL
             AND date >= ${from} AND date <= ${to} ORDER BY date, provider`,
+      })
+      const activitiesInRange = SqlSchema.findAll({
+        Request: Schema.Struct({
+          userId: Schema.String,
+          from: Timestamp,
+          to: Timestamp,
+          limit: Schema.Number,
+        }),
+        Result: ImportedActivityRow,
+        execute: ({ userId, from, to, limit }) =>
+          sql`SELECT * FROM imported_activity WHERE user_id = ${userId} AND deleted_at IS NULL
+            AND started_at >= ${from} AND started_at < ${to}
+            ORDER BY started_at DESC, id LIMIT ${limit}`,
       })
       const countRows = SqlSchema.findOne({
         Request: Schema.Struct({ userId: Schema.String, provider: Schema.String }),
@@ -411,6 +434,10 @@ export class GarminImportRepo extends Context.Service<GarminImportRepo, GarminIm
         listDays: (userId, from, to) =>
           daysInRange({ userId, from, to }).pipe(
             Effect.mapError(persistenceError("garminImport.listDays")),
+          ),
+        listActivities: (userId, { from, to }, limit) =>
+          activitiesInRange({ userId, from, to, limit }).pipe(
+            Effect.mapError(persistenceError("garminImport.listActivities")),
           ),
       }
     }),

@@ -1,5 +1,6 @@
 import type { Program, ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
+import { useState } from "react"
 import { View } from "react-native"
 import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
@@ -11,6 +12,7 @@ import {
   ListGroup,
   ListRow,
   ProgressRing,
+  type RowDisc,
   rhythm,
   StatRow,
   StatusPill,
@@ -29,12 +31,11 @@ import {
   daysDone,
   dayTrailing,
   doneLabel,
-  insideRows,
   programProgress,
   weekWindow,
 } from "../programDays"
 
-/** Height of a desktop section-label row ("Program" / "What's inside"): 28, so both columns align. */
+/** Height of a desktop section-label row ("Program" / "Days"): 28, so both columns align. */
 const SECTION_LABEL_HEIGHT = sizes.labelRow
 
 /** "≈ 15 min" from the planned length. */
@@ -66,7 +67,7 @@ export function EnrolCard({
 }: EnrolCardProps) {
   const desktop = useBreakpoint() === "desktop"
   return (
-    // Desktop: a "Program" eyebrow (same 28-px slot as "What's inside" on the right) so both
+    // Desktop: a "Program" eyebrow (same 28-px slot as the "Days" label on the right) so both
     // columns' first card starts at the same y.
     <View style={{ gap: desktop ? rhythm.labelToGroup : 0 }}>
       {desktop ? (
@@ -120,46 +121,6 @@ export function EnrolCard({
   )
 }
 
-/**
- * Not enrolled, phone: "What's inside", the first week of days (name left, minutes right) under
- * the enrol card, so the page is not half empty.
- */
-export function ProgramInside({ program }: { readonly program: Program }) {
-  return (
-    // The Page's section gap is 16; the card -> label gap is 24 (rhythm.groupToLabel).
-    <View
-      style={{
-        gap: rhythm.labelToGroup,
-        marginTop: rhythm.groupToLabel - space.lg,
-      }}
-    >
-      <Text
-        variant="caption"
-        tone="muted"
-        headingLevel={2}
-        style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
-      >
-        What's inside
-      </Text>
-      <ListGroup>
-        {Arr.map(insideRows(program.days), (row) => (
-          <ListRow
-            key={row.dayNumber}
-            title={row.title}
-            titleVariant="body"
-            accessibilityLabel={`${row.title}, ${row.trailing}`}
-            trailing={
-              <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
-                {row.trailing}
-              </Text>
-            }
-          />
-        ))}
-      </ListGroup>
-    </View>
-  )
-}
-
 interface DayCardProps {
   readonly program: Program
   readonly day: ProgramDay
@@ -202,10 +163,7 @@ export function DayCard({
             <Text variant="subhead" tone="muted">
               {dayCardLine(day, total)}
             </Text>
-            {paused ? (
-              // The pill's `surface` fill vanishes on the card: pull its text onto the text edge.
-              <StatusPill tone="neutral" label="Paused" style={{ marginLeft: -space.sm }} />
-            ) : null}
+            {paused ? <StatusPill tone="muted" label="Paused" /> : null}
           </View>
         </View>
         {paused ? (
@@ -293,6 +251,10 @@ export function DayItems({ day }: DayItemsProps) {
 interface DayListProps {
   readonly program: Program
   readonly currentDay: number
+  /** A row press opens the read-only day preview (`/programs/[programId]/day/[n]`). */
+  readonly onPreview: (dayNumber: number) => void
+  /** Not enrolled: the header reads "Days" and the "0 of N done" counter is hidden. */
+  readonly enrolled: boolean
 }
 
 /**
@@ -300,10 +262,13 @@ interface DayListProps {
  * ("Days"); a phone or tablet shows "This week", the 7 days around the current one. The current
  * row is bold (headline, the rest body) with a chevron, no filled background.
  */
-export function DayList({ program, currentDay }: DayListProps) {
+export function DayList({ program, currentDay, onPreview, enrolled }: DayListProps) {
   const total = program.days.length
   const wide = useBreakpoint() === "desktop"
-  const days = wide ? program.days : weekWindow(program.days, currentDay)
+  // Phone / tablet: the week window until "Show all N days" expands it to every day.
+  const [expanded, setExpanded] = useState(false)
+  const all = wide || expanded
+  const days = all ? program.days : weekWindow(program.days, currentDay)
   return (
     <View style={{ gap: rhythm.labelToGroup }}>
       <View
@@ -314,15 +279,20 @@ export function DayList({ program, currentDay }: DayListProps) {
         }}
       >
         <Text variant="caption" tone="muted" headingLevel={2}>
-          {wide ? "Days" : "This week"}
+          {all || !enrolled ? "Days" : "This week"}
         </Text>
-        <Text variant="caption" tone="accent">
-          {doneLabel(currentDay, total)}
-        </Text>
+        {enrolled ? (
+          <Text variant="caption" tone="accent">
+            {doneLabel(currentDay, total)}
+          </Text>
+        ) : null}
       </View>
       <ListGroup>
         {Arr.map(days, (day) => {
-          const disc = dayDisc(day.dayNumber, currentDay)
+          // Not enrolled: every row is neutral (`currentDay` is a fallback of 1, not "up next").
+          const disc: RowDisc = enrolled
+            ? dayDisc(day.dayNumber, currentDay)
+            : { state: "todo", index: day.dayNumber }
           const current = disc.state === "now"
           return (
             <ListRow
@@ -330,7 +300,9 @@ export function DayList({ program, currentDay }: DayListProps) {
               title={day.title}
               titleVariant={current ? "headline" : "body"}
               disc={disc}
-              accessibilityLabel={`${day.title}, ${dayStateLabel(disc.state)}`}
+              accessibilityLabel={`Preview day ${day.dayNumber}, ${dayStateLabel(disc.state)}`}
+              onPress={() => onPreview(day.dayNumber)}
+              chevron
               trailing={
                 <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
                   {dayTrailing(day)}
@@ -340,6 +312,14 @@ export function DayList({ program, currentDay }: DayListProps) {
           )
         })}
       </ListGroup>
+      {all || days.length >= total ? null : (
+        <Button
+          label={`Show all ${total} days`}
+          variant="text"
+          size="md"
+          onPress={() => setExpanded(true)}
+        />
+      )}
     </View>
   )
 }

@@ -1,14 +1,16 @@
-import { CORE30 } from "@tanren/shared"
+import { CORE30, type ProgramDay } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import { useKeepAwake } from "expo-keep-awake"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { View } from "react-native"
+import { useNavGuard } from "../../src/components/programs/useGoBack"
 import { type PlayerSession, usePlayer } from "../../src/hooks/usePlayer"
 import { ExerciseIllustration } from "../../src/library/ExerciseIllustration"
 import { CompletionSheet, PlayerView } from "../../src/player/components/PlayerView"
 import { approxMinutes } from "../../src/player/components/ProgramHome"
 import { isRunning } from "../../src/player/cues"
+import { mergeDay } from "../../src/player/mergeDay"
 import { dayFraction, eyebrowLabel, segmentsFilled } from "../../src/player/playerHeader"
 import { progress } from "../../src/player/playerMachine"
 import { usePrograms } from "../../src/player/usePrograms"
@@ -74,18 +76,32 @@ function KeepAwake() {
   return null
 }
 
+interface Latched {
+  readonly session: PlayerSession
+  readonly original: ProgramDay
+}
+
 function Player({
   session,
+  original,
   onClose,
 }: {
   readonly session: PlayerSession
+  /** The day as the program writes it: a swap is keyed by the original catalog id. */
+  readonly original: ProgramDay
   readonly onClose: () => void
 }) {
+  const router = useRouter()
+  const once = useNavGuard()
   const { run, remainingMs, send, completion, retry } = usePlayer(session)
   const { player } = run
   // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
   useEffect(() => send("start"), [send])
   const position = progress(session.day, player)
+  /** The current exercise's original id; `None` before the first exercise and after the last. */
+  const swapFrom = Option.flatMap(position, (p) =>
+    Option.map(Arr.get(original.items, p.item - 1), (item) => item.catalogId),
+  )
   const playing = completion._tag === "None" && player._tag !== "Idle"
   const phone = useBreakpoint() === "phone"
   const header = (
@@ -132,7 +148,26 @@ function Player({
               />
             </View>
           ) : (
-            <PlayerView day={session.day} state={player} remainingMs={remainingMs} send={send} />
+            <PlayerView
+              day={session.day}
+              state={player}
+              remainingMs={remainingMs}
+              send={send}
+              {...Option.match(swapFrom, {
+                onNone: () => ({}),
+                onSome: (from) => ({
+                  // Once per focus: a double tap must not stack two sheets.
+                  onSwap: () =>
+                    once(() =>
+                      // biome-ignore lint/plugin/noMutation: Expo Router navigation, not an array push
+                      router.push({
+                        pathname: "/programs/swap",
+                        params: { enrollmentId: session.enrollmentId, from },
+                      }),
+                    ),
+                }),
+              })}
+            />
           ),
         ),
         Match.orElse((done) => (
@@ -158,19 +193,42 @@ export default function PlayScreen() {
         )
       : Option.none()
   // Latch the first loaded day: completing it bumps `currentDay`, which must not swap the player.
-  const [session, setSession] = useState<Option.Option<PlayerSession>>(Option.none())
+  // `original` is that day without swaps (the swap sheet keys on it).
+  const [latched, setLatched] = useState<Option.Option<Latched>>(Option.none())
   useEffect(() => {
     const day = Option.flatMap(target, (entry) => entry.day)
-    if (Option.isNone(session) && Option.isSome(target) && Option.isSome(day)) {
-      setSession(
+    if (Option.isNone(latched) && Option.isSome(target) && Option.isSome(day)) {
+      const dayNumber = day.value.dayNumber
+      setLatched(
         Option.some({
-          enrollmentId: target.value.enrollment.id,
-          dayNumber: day.value.dayNumber,
-          day: day.value,
+          session: { enrollmentId: target.value.enrollment.id, dayNumber, day: day.value },
+          original: Option.getOrElse(
+            Arr.findFirst(target.value.program.days, (d) => d.dayNumber === dayNumber),
+            () => day.value,
+          ),
         }),
       )
     }
-  }, [session, target])
+  }, [latched, target])
+  // After the swap sheet (any store write): fold the re-read day into the running session. Only
+  // item names change (`mergeDay`), so the running phase keeps its clock; a day that completing
+  // moved on (`currentDay` ahead of the latched one) is not folded in.
+  useEffect(() => {
+    if (Option.isNone(latched)) {
+      return
+    }
+    const running = latched.value.session
+    const reread = Option.flatMap(target, (entry) =>
+      entry.enrollment.currentDay === running.dayNumber ? entry.day : Option.none(),
+    )
+    if (Option.isNone(reread)) {
+      return
+    }
+    const day = mergeDay(running.day, reread.value)
+    if (day !== running.day) {
+      setLatched(Option.some({ ...latched.value, session: { ...running, day } }))
+    }
+  }, [latched, target])
 
   const header = (
     <AppBar
@@ -180,8 +238,8 @@ export default function PlayScreen() {
     />
   )
 
-  return Option.match(session, {
-    onSome: (s) => <Player session={s} onClose={close} />,
+  return Option.match(latched, {
+    onSome: (l) => <Player session={l.session} original={l.original} onClose={close} />,
     onNone: () => (
       <Page header={header} scroll>
         {Match.value(state).pipe(

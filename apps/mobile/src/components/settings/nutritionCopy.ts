@@ -46,8 +46,9 @@ export const SEX_LABELS: { readonly [S in Sex | "skip"]: string } = {
   skip: "Skip",
 }
 
-export const EAT_BACK_TITLE = "Eat back active calories"
-export const EAT_BACK_SUBTITLE = "Adds Garmin active calories to the day's budget"
+export const EAT_BACK_TITLE = "Add exercise calories to the budget"
+export const EAT_BACK_SUBTITLE =
+  "Off: the budget stays at your daily target. On: calories Garmin records as active are added to today's budget. Trackers overestimate, so off is the safer default."
 export const TARGETS_HINT =
   "Derived from your goal, weight and activity; add height, birth year and sex for a closer estimate."
 

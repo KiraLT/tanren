@@ -136,8 +136,8 @@ Loading / Failed of either hook: module not rendered (as both strips today). Tex
 ## 8. Verification (for the engineers' done-criteria)
 `/today` and `/health` at 390 × 844 and 1280 × 900, light and dark, states: all present, Garmin off, no profile,
 nothing logged, over budget (seed the offline store; dev user per nutrition.md §8). `getBoundingClientRect` of the
-Today card = 358 × 234 ± 2 at 390 and 496 wide at 1280; `document.querySelectorAll("h1").length === 1` on both
-routes; `ab errors` empty; shots `UI-HM-{today,health}-{state}-{w}-{theme}.png` + rows `screens/HM-rows.html` §2.
+Today card = 358 × 234 ± 2 at 390 and 431 (training day, aside) to 536 (rest day) wide at 1280;
+`document.querySelectorAll("h1").length === 1` on `/health` (Today has 6 by design: workout title + exercise pages); `ab errors` empty; shots `UI-HM-{today,health}-{state}-{w}-{theme}.png` + rows `screens/HM-rows.html` §2.
 
 ## 9. Not decided / VERIFY
 - `VERIFY:` `Card` primitive's border per scheme (grep `borderWidth` in `src/ui/Card.tsx` found none; the ±2 in §8

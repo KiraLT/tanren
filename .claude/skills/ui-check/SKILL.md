@@ -51,7 +51,10 @@ cd ../mobile; CI=1 nohup node_modules/.bin/expo start --web --port 8081 > $S/<ta
 ab() { agent-browser --session <task> "$@"; }
 ab open http://localhost:8081/today
 ab eval 'fetch("http://localhost:8787/api/auth/sign-in/magic-link",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({email:"dev@tanren.local",callbackURL:"http://localhost:8081/today"})}).then(r=>r.status)'
-L=$(grep -o "magic link for dev@tanren.local: http[^ ]*" $S/<task>-wrangler.log | tail -1 | sed 's/\x1b\[[0-9;]*m//g; s/.*: //')
+# the log line reads `magic link for dev@tanren.local (Sign in to Tanren): http…` (subject in parentheses since v5):
+L=$(sed 's/\x1b\[[0-9;]*m//g' $S/<task>-wrangler.log | grep -o "http://localhost:8787/api/auth/magic-link/verify[^ ]*" | tail -1)
+# seeded Health week: DayBars are Mon–Sun, so the default seed (end Tue 27 Oct) shows 2 burned bars + "upcoming";
+# all 7 need `pnpm db:seed -- --end <a Sunday> --persist-to $D` plus a browser fake date on that Sunday (INT-N e2e, 2026-10-27)
 ab open "$L"                                  # verify link → cookie set → redirected to callbackURL
 ab eval 'fetch("http://localhost:8787/api/auth/get-session",{credentials:"include"}).then(r=>r.text())'   # user json, not null
 ab find role button click --name "Log set 1: …"

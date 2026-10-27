@@ -80,7 +80,13 @@ engineer can act on without asking questions.
   `../`, `%2e%2e`, look-alike hosts and sibling tenants (list the bypasses
   you tried in the finding); (3) is the URL canonical
   (`new URL(raw).href === raw`); (4) `no-store`, no secret in logs or
-  `Referer`; (5) binding checked before consume. Report all of them in the
+  `Referer`; (5) binding checked before consume; (6) every purge / cleanup
+  of a burned-token, nonce or code ledger keeps rows for the verifier's
+  tolerance (`exp + CLOCK_SKEW_SECONDS`), else a burned token re-verifies
+  inside the skew window after an attacker-triggered purge (STLS-F5, blocking,
+  2026-10-27); (7) a brief criterion that contradicts the ADR's consequences
+  (ADR-0022: access tokens outlive a revoke ≤ 15 min) is wrong in the brief,
+  not the code — say so instead of blocking. Report all of them in the
   first round, then the hard rules.
 - Correctness: off-by-one, `Option` / `undefined` handling,
   encode / decode asymmetry, timestamp and timezone handling, sync columns

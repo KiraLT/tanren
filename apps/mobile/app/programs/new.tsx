@@ -3,7 +3,6 @@ import { Array as Arr, Match, Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useCallback, useEffect, useRef } from "react"
 import { View } from "react-native"
-import { droppedDays } from "../../src/components/programs/newProgram"
 import { SectionLabel } from "../../src/components/programs/ProgramFields"
 import { useGoBack } from "../../src/components/programs/useGoBack"
 import { useCreateProgram } from "../../src/components/programs/useProgramEditor"
@@ -23,8 +22,6 @@ import {
   space,
   Text,
 } from "../../src/ui"
-
-const MAX_DAYS_NOTE = "copies the first 60 days"
 
 function StartSkeleton() {
   return (
@@ -123,11 +120,7 @@ export default function NewProgramScreen() {
                       <ListRow
                         key={summary.programId}
                         title={summary.title}
-                        subtitle={
-                          droppedDays(summary.days) > 0
-                            ? `${summarySubtitle(summary)} · ${MAX_DAYS_NOTE}`
-                            : summarySubtitle(summary)
-                        }
+                        subtitle={summarySubtitle(summary)}
                         accessibilityLabel={`Duplicate ${summary.title}`}
                         chevron
                         disabled={busy}

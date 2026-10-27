@@ -1,4 +1,4 @@
-import type { DayNumber, ProgramEnrollmentId } from "@tanren/shared"
+import type { CatalogId, DayNumber, ProgramEnrollmentId } from "@tanren/shared"
 import { DateTime, Effect, Option } from "effect"
 import { PhaseAlerts } from "../services/PhaseAlerts"
 import { ProgramRepo } from "../services/ProgramRepo"
@@ -35,6 +35,8 @@ export interface FinishedRun {
   readonly durationSeconds: number
   /** `PlayerRun.performedItems`: completed item-rounds; P5 logs only those. */
   readonly performedItems: number
+  /** The exercise each of those item-rounds ran (a mid-workout swap changes later rounds only). */
+  readonly performedIds: ReadonlyArray<CatalogId>
 }
 
 /** What the completion sheet shows. */
@@ -58,6 +60,7 @@ export const completeDay = (
       startedAt: DateTime.makeUnsafe(run.startedAtMs),
       durationSeconds: run.durationSeconds,
       performedItems: run.performedItems,
+      performedIds: run.performedIds,
     }),
   ).pipe(
     Effect.tap(() => SyncEngine.use((engine) => engine.requestSync)),

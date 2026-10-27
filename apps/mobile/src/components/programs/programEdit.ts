@@ -17,11 +17,12 @@ import { Array as Arr, Match, Option, Schema } from "effect"
  * value; the screens hand the result to `useProgramUpdate`, which writes the row.
  */
 
-/** `ProgramDays` allows at most 60 days; a day holds at most 12 items. */
-export const MAX_DAYS = 60
+/** `ProgramDays` allows 1 to 84 days (the 12-week built-in); a day holds at most 12 items. */
+export const MAX_DAYS = 84
 export const MAX_ITEMS = 12
-/** The most days a week the schedule picker offers (3 to 6). */
-const MAX_PER_WEEK = 6
+/** The "days per week" choices the schedule picker offers. */
+export const PER_WEEK = [3, 4, 5, 6] as const
+const MAX_PER_WEEK = Math.max(...PER_WEEK)
 
 /** The longest slug base: 64 (the `Slug` limit) minus `-` and the 4 random characters. */
 const SLUG_BASE_MAX = 59
@@ -31,7 +32,7 @@ const SLUG_BASE_MAX = 59
  * hyphen, no leading or trailing hyphen, at most `max` characters; an empty result is `"program"`.
  * Always matches `Slug`.
  */
-export const slugify = (text: string, max = 64): string => {
+const slugify = (text: string, max = 64): string => {
   const folded = text
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -67,7 +68,7 @@ export interface StepRange {
 }
 
 /** `current + direction * step`, clamped into the range. */
-export const stepValue = (current: number, direction: -1 | 1, range: StepRange): number =>
+const stepValue = (current: number, direction: -1 | 1, range: StepRange): number =>
   Math.min(range.max, Math.max(range.min, current + direction * range.step))
 
 /** Stepper ranges of the day editor (programs-mcp.md §4). */
@@ -86,7 +87,7 @@ const retitle = (title: string, dayNumber: number): string =>
   title.replace(/^Day \d+/, `Day ${dayNumber}`)
 
 /** Day numbers follow the order (1-based); a leading "Day N" in a title follows too. */
-export const renumber = (days: ReadonlyArray<ProgramDay>): ReadonlyArray<ProgramDay> =>
+const renumber = (days: ReadonlyArray<ProgramDay>): ReadonlyArray<ProgramDay> =>
   Arr.map(days, (day, index) => ({
     ...day,
     dayNumber: index + 1,
@@ -180,7 +181,7 @@ export const workValue = (item: ProgramItem): number =>
     }),
   )
 
-export const withWorkValue = (item: ProgramItem, value: number): ProgramItem =>
+const withWorkValue = (item: ProgramItem, value: number): ProgramItem =>
   Match.value(item).pipe(
     Match.discriminatorsExhaustive("kind")({
       timed: (timed) => ({ ...timed, seconds: value }),
@@ -188,7 +189,7 @@ export const withWorkValue = (item: ProgramItem, value: number): ProgramItem =>
     }),
   )
 
-export const withRest = (item: ProgramItem, restSeconds: number): ProgramItem => ({
+const withRest = (item: ProgramItem, restSeconds: number): ProgramItem => ({
   ...item,
   restSeconds,
 })
@@ -216,6 +217,29 @@ export const mapItem = (
 ): ProgramDay => ({
   ...day,
   items: Arr.map(day.items, (item, i) => (i === index ? change(item) : item)),
+})
+
+// Steps are functions of the value they are applied to, not of what a screen last rendered: two
+// taps queue two changes and each lands on the row the previous one saved.
+
+export const stepWork = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
+  withWorkValue(item, stepValue(workValue(item), direction, workRange(item)))
+
+export const stepRest = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
+  withRest(item, stepValue(item.restSeconds, direction, RANGES.rest))
+
+export const stepRounds = (day: ProgramDay, direction: -1 | 1): ProgramDay => ({
+  ...day,
+  rounds: stepValue(day.rounds, direction, RANGES.rounds),
+})
+
+export const stepRestBetweenRounds = (day: ProgramDay, direction: -1 | 1): ProgramDay => ({
+  ...day,
+  restBetweenRoundsSeconds: stepValue(
+    day.restBetweenRoundsSeconds,
+    direction,
+    RANGES.restBetweenRounds,
+  ),
 })
 
 // Schedule ---------------------------------------------------------------------------------------
@@ -260,3 +284,17 @@ export const parsePickFor = (text: string | undefined): Option.Option<PickTarget
     const dayNumber = yield* Schema.decodeUnknownOption(DayNumber)(Number(rawDay))
     return { programId, dayNumber }
   })
+
+/**
+ * What a schedule says when the picker shows nothing selected for it: a days-per-week count outside
+ * the 3 to 6 segments (a program Claude wrote, or a daily one): "Every day", "2 days a week".
+ * `None` when a segment or a weekday chip is selected.
+ */
+export const scheduleCaption = (schedule: ProgramSchedule): Option.Option<string> =>
+  schedule.kind === "weekdays" || PER_WEEK.some((days) => days === schedule.days)
+    ? Option.none()
+    : Option.some(
+        schedule.days === 7
+          ? "Every day"
+          : `${schedule.days} ${schedule.days === 1 ? "day" : "days"} a week`,
+      )

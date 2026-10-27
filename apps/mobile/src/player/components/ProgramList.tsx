@@ -41,7 +41,7 @@ export function ActiveSection({ active, onStart, onResume }: ActiveSectionProps)
                 paused={entry.enrollment.status === "paused"}
                 onStart={() => onStart(entry.enrollment.id)}
                 onResume={() => onResume(entry)}
-                resumeVariant="secondary"
+                resumeVariant="raised"
               />
             ),
           }),

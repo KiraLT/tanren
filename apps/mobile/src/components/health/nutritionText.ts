@@ -1,75 +1,76 @@
 import { type DayTotals, formatInt } from "@tanren/shared"
-import { Array as Arr, DateTime, Option } from "effect"
-import type { NutritionDay } from "../../services/NutritionRepo"
-import { formatClock } from "../feed/feedGroups"
-
-/** The Today strip's three lines plus their spoken form (nutrition.md §6 "Today strip"). */
-export interface StripLines {
-  /** "620 kcal left" | "120 kcal over" | "1,420 kcal eaten" (no targets). */
-  readonly value: string
-  /** "Eaten 1,420 · Burned 1,840 · Protein 96/170 g". */
-  readonly detail: string
-  /** The first insight's text; `None` when there is none. */
-  readonly insight: Option.Option<string>
-  readonly accessibilityLabel: string
-}
+import { Array as Arr, Option } from "effect"
+import type { HealthStatProps } from "./HealthStats"
 
 /** `1420` → "1,420": the shared grouping (comma thousands, Lead 14:56). */
 export const kcalText = (n: number): string => formatInt(n)
 
-/** "as of 14:05": the instant's 24-h clock in `zone` (the device zone by default). */
-export const asOfText = (
-  at: DateTime.Utc,
-  zone: DateTime.TimeZone = DateTime.zoneMakeLocal(),
-): string => `as of ${formatClock(DateTime.setZone(at, zone))}`
+/** The no-value dash of a stat slot. */
+const DASH = "—"
 
-/** "Burned 1,840" from the day's Garmin total; "Burned: no data" without one. */
-export const burnedText = (day: DayTotals): string =>
-  Option.match(day.burned, {
-    onNone: () => "Burned: no data",
-    onSome: (kcal) => `Burned ${kcalText(kcal)}`,
+/**
+ * The Today health module's stat row (docs/design/health-module.md §3 row 2, §6): Eaten (accent dot,
+ * `danger` over budget), Burned (no dot, `muted` when `stale`, "—" without a Garmin total), Protein
+ * (success dot, "/ 155 g" against the target, "g" without one).
+ */
+export const moduleStats = (
+  day: DayTotals,
+  stale: boolean,
+): readonly [HealthStatProps, HealthStatProps, HealthStatProps] => [
+  {
+    label: "Eaten",
+    value: kcalText(day.eaten.kcal),
+    dot: "accent",
+    valueVariant: "headline",
+    valueTone: Option.exists(day.kcalLeft, (left) => left < 0) ? "danger" : "neutral",
+  },
+  {
+    label: "Burned",
+    value: Option.match(day.burned, { onNone: () => DASH, onSome: kcalText }),
+    valueVariant: "headline",
+    valueTone: stale ? "muted" : "neutral",
+  },
+  {
+    label: "Protein",
+    value: kcalText(day.eaten.proteinG),
+    unit: Option.match(day.targets, {
+      onNone: () => "g",
+      onSome: (targets) => `/ ${kcalText(targets.proteinG)} g`,
+    }),
+    dot: "success",
+    valueVariant: "headline",
+    valueTone: "neutral",
+  },
+]
+
+/** The module is hidden only when nutrition is off, there is no Garmin total and nothing was logged (§6). */
+export const moduleHidden = (day: DayTotals): boolean =>
+  Option.isNone(day.targets) && Option.isNone(day.burned) && day.entries.length === 0
+
+/**
+ * The module's text equivalent (§6): "Health today: Left today 1,650; eaten 1,420; burned 1,840;
+ * protein 96 of 155 g; as of 14:05 · 8,420 steps", then the insight when there is one.
+ */
+export const moduleLabel = (
+  day: DayTotals,
+  hero: { readonly label: string; readonly value: string },
+  meta: string,
+  insight: Option.Option<string>,
+): string => {
+  const burned = Option.match(day.burned, { onNone: () => "no data", onSome: kcalText })
+  const protein = Option.match(day.targets, {
+    onNone: () => `${kcalText(day.eaten.proteinG)} g`,
+    onSome: (targets) => `${kcalText(day.eaten.proteinG)} of ${kcalText(targets.proteinG)} g`,
   })
-
-/** Remaining budget, overshoot, or (tracking off) what was eaten. */
-const valueText = (day: DayTotals): string =>
-  Option.match(day.kcalLeft, {
-    onNone: () => `${kcalText(day.eaten.kcal)} kcal eaten`,
-    onSome: (left) => (left < 0 ? `${kcalText(-left)} kcal over` : `${kcalText(left)} kcal left`),
-  })
-
-/** "Protein 96/170 g" against the target; "Protein 96 g" without one. */
-const proteinText = (day: DayTotals): string =>
-  Option.match(day.targets, {
-    onNone: () => `Protein ${kcalText(day.eaten.proteinG)} g`,
-    onSome: (targets) => `Protein ${kcalText(day.eaten.proteinG)}/${kcalText(targets.proteinG)} g`,
-  })
-
-/** The burned part, with " as of 14:05" when the day has a Garmin total (spoken form only). */
-const spokenBurned = (day: DayTotals, zone: DateTime.TimeZone): string =>
-  Option.match(
-    Option.zipWith(day.burned, day.burnedAsOf, (_, at) => at),
-    {
-      onNone: () => burnedText(day),
-      onSome: (at) => `${burnedText(day)} ${asOfText(at, zone)}`,
-    },
+  return Arr.join(
+    [
+      `Health today: ${hero.label} ${hero.value}`,
+      `eaten ${kcalText(day.eaten.kcal)}`,
+      `burned ${burned}`,
+      `protein ${protein}`,
+      meta,
+      ...Option.toArray(insight),
+    ],
+    "; ",
   )
-
-const detailOf = (day: DayTotals, burned: string): string =>
-  `Eaten ${kcalText(day.eaten.kcal)} · ${burned} · ${proteinText(day)}`
-
-/** The strip's lines for one day (nutrition.md §6); pure. */
-export const stripLines = (
-  nutritionDay: NutritionDay,
-  zone: DateTime.TimeZone = DateTime.zoneMakeLocal(),
-): StripLines => {
-  const { day } = nutritionDay
-  const value = valueText(day)
-  const insight = Option.map(Arr.head(nutritionDay.insights), (first) => first.text)
-  const spoken = [value, detailOf(day, spokenBurned(day, zone)), ...Option.toArray(insight)]
-  return {
-    value,
-    detail: detailOf(day, burnedText(day)),
-    insight,
-    accessibilityLabel: `Nutrition, ${spoken.join(", ")}`,
-  }
 }

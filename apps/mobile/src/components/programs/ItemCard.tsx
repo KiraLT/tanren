@@ -6,10 +6,9 @@ import { CompactStepper, MoveButton } from "./ProgramFields"
 import {
   RANGES,
   type StepRange,
-  stepValue,
+  stepRest,
+  stepWork,
   withKind,
-  withRest,
-  withWorkValue,
   workRange,
   workText,
   workValue,
@@ -21,7 +20,10 @@ export interface ItemCardProps {
   readonly isLast: boolean
   /** The day's only item: removing it would leave an empty day. */
   readonly isOnly: boolean
-  readonly onChange: (item: ProgramItem) => void
+  /** A write is in flight: the position-based buttons (move, remove) are off until it lands. */
+  readonly busy: boolean
+  /** Queued: the change is applied to the stored item, not to the one rendered here. */
+  readonly onChange: (change: (item: ProgramItem) => ProgramItem) => void
   readonly onMove: (direction: -1 | 1) => void
   readonly onRemove: () => void
 }
@@ -47,13 +49,12 @@ export function ItemCard({
   isFirst,
   isLast,
   isOnly,
+  busy,
   onChange,
   onMove,
   onRemove,
 }: ItemCardProps) {
   const name = itemName(item)
-  const work = workValue(item)
-  const range = workRange(item)
   return (
     <Card>
       <View style={{ gap: space.md }}>
@@ -70,13 +71,13 @@ export function ItemCard({
               compact
               label="Timed"
               selected={item.kind === "timed"}
-              onPress={() => onChange(withKind(item, "timed"))}
+              onPress={() => onChange((current) => withKind(current, "timed"))}
             />
             <ToggleChip
               compact
               label="Reps"
               selected={item.kind === "reps"}
-              onPress={() => onChange(withKind(item, "reps"))}
+              onPress={() => onChange((current) => withKind(current, "reps"))}
             />
           </View>
         </View>
@@ -85,9 +86,9 @@ export function ItemCard({
             <CompactStepper
               label={item.kind === "timed" ? `${name} seconds` : `${name} reps`}
               valueText={workText(item)}
-              {...canStep(work, range)}
-              onDecrement={() => onChange(withWorkValue(item, stepValue(work, -1, range)))}
-              onIncrement={() => onChange(withWorkValue(item, stepValue(work, 1, range)))}
+              {...canStep(workValue(item), workRange(item))}
+              onDecrement={() => onChange((current) => stepWork(current, -1))}
+              onIncrement={() => onChange((current) => stepWork(current, 1))}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -95,12 +96,8 @@ export function ItemCard({
               label={`${name} rest`}
               valueText={`${item.restSeconds} s rest`}
               {...canStep(item.restSeconds, RANGES.rest)}
-              onDecrement={() =>
-                onChange(withRest(item, stepValue(item.restSeconds, -1, RANGES.rest)))
-              }
-              onIncrement={() =>
-                onChange(withRest(item, stepValue(item.restSeconds, 1, RANGES.rest)))
-              }
+              onDecrement={() => onChange((current) => stepRest(current, -1))}
+              onIncrement={() => onChange((current) => stepRest(current, 1))}
             />
           </View>
         </View>
@@ -108,19 +105,19 @@ export function ItemCard({
           <MoveButton
             direction="up"
             accessibilityLabel={`Move ${name} up`}
-            disabled={isFirst}
+            disabled={isFirst || busy}
             onPress={() => onMove(-1)}
           />
           <MoveButton
             direction="down"
             accessibilityLabel={`Move ${name} down`}
-            disabled={isLast}
+            disabled={isLast || busy}
             onPress={() => onMove(1)}
           />
           <IconButton
             icon="trash"
             accessibilityLabel={`Remove ${name}`}
-            disabled={isOnly}
+            disabled={isOnly || busy}
             onPress={onRemove}
           />
         </View>

@@ -20,6 +20,7 @@ import {
 } from "./common"
 import { CurrentPlan } from "./currentPlan"
 import { Exercise, MuscleGroup } from "./exercise"
+import { ImportedActivity, ImportedSport } from "./garmin"
 import {
   ExerciseId,
   FoodEntryId,
@@ -72,6 +73,18 @@ export const ExerciseSummary = Schema.Struct({
   lastLoggedAt: Schema.OptionFromNullOr(Timestamp),
 })
 export type ExerciseSummary = typeof ExerciseSummary.Type
+/**
+ * Activities imported from integrations (Garmin) whose `startedAt` is in the period. `distanceMeters`
+ * and `calories` sum the rows that carry them; `bySport` is by `count` descending, then sport.
+ */
+export const ImportedSummary = Schema.Struct({
+  count: Schema.Int,
+  durationSeconds: Schema.Int,
+  distanceMeters: Schema.Number,
+  calories: Schema.Int,
+  bySport: Schema.Array(Schema.Struct({ sport: ImportedSport, count: Schema.Int })),
+})
+export type ImportedSummary = typeof ImportedSummary.Type
 export const Overview = Schema.Struct({
   period: Period,
   range: DateRange,
@@ -83,8 +96,19 @@ export const Overview = Schema.Struct({
   currentPlan: Schema.OptionFromNullOr(
     Schema.Struct({ planId: PlanId, name: Label, weeks: Schema.Int }),
   ),
+  imported: ImportedSummary,
 })
 export type Overview = typeof Overview.Type
+
+// list_activities(period)
+/** `period` defaults to "30d". */
+export const ListActivitiesInput = Schema.Struct({ period: Schema.optionalKey(Period) })
+export type ListActivitiesInput = typeof ListActivitiesInput.Type
+/** Newest first, at most 200. */
+export const ListActivitiesResult = Schema.Struct({
+  activities: Schema.Array(ImportedActivity),
+})
+export type ListActivitiesResult = typeof ListActivitiesResult.Type
 
 // get_exercise_history(exerciseId)
 /** `limit` defaults to 20 sessions. */
@@ -369,7 +393,7 @@ export type ProgramDayInput = typeof ProgramDayInput.Type
 
 const ProgramDaysInput = Schema.Array(ProgramDayInput).check(
   Schema.isMinLength(1),
-  Schema.isMaxLength(60),
+  Schema.isMaxLength(84),
 )
 
 export const WriteProgramInput = Schema.Struct({
@@ -461,7 +485,7 @@ export const SwapExerciseResult = Schema.Struct({
 })
 export type SwapExerciseResult = typeof SwapExerciseResult.Type
 
-/** The eleven read tools come first and stay contiguous (`slice(0, 11)`), then the write tools. */
+/** The twelve read tools come first and stay contiguous (`slice(0, 12)`), then the write tools. */
 export const MCP_TOOLS = [
   "get_overview",
   "get_exercise_history",
@@ -469,6 +493,7 @@ export const MCP_TOOLS = [
   "get_current_plan",
   "search_exercises",
   "get_profile",
+  "list_activities",
   "get_nutrition_day",
   "get_week_review",
   "list_programs",

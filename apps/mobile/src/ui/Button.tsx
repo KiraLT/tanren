@@ -3,7 +3,9 @@ import {
   type ButtonSize,
   type ButtonVariant,
   buttonHoverStyle,
+  buttonLabel,
   buttonStyle,
+  buttonTouchHeight,
   buttonVariants,
 } from "./controls"
 import { Icon, type IconName } from "./Icon"
@@ -19,9 +21,13 @@ export interface ButtonProps {
   /** Defaults to `label`. */
   readonly accessibilityLabel?: string
   readonly onPress: () => void
-  /** primary (default) · secondary · destructive · text (no fill). */
+  /**
+   * secondary (default, on the page `bg`) · raised (inside a `Card`: `secondary` has the card's own
+   * fill and vanishes there) · primary · destructive · text (no fill).
+   * Rule: a button inside a `Card` uses `raised`.
+   */
   readonly variant?: ButtonVariant
-  /** md 48 · lg 56 (primary elsewhere) · xl 64 (Log set). */
+  /** sm 36 (44 touch area) · md 48 · lg 56 (primary elsewhere) · xl 64 (Log set). */
   readonly size?: ButtonSize
   /** Leading 24 px glyph (`check` on Log set, `plus` on Add, `zap` on Start). */
   readonly icon?: IconName
@@ -46,6 +52,31 @@ export function Button({
   const { colors, scheme } = useTheme()
   const { hovered, handlers, focusStyle } = usePressableInteraction()
   const foreground = colors[buttonVariants[variant].foreground]
+  const labelSpec = buttonLabel(size)
+  const pill = [
+    buttonStyle(variant, size, scheme, colors),
+    hovered && !disabled && buttonHoverStyle(variant, colors),
+    focusStyle,
+  ]
+  // `sm` is a 36 px pill inside a 44 px Pressable (react-native-web ignores `hitSlop`): the pill
+  // styles go on an inner View, the caller's `style` and the press/disabled dimming on the outer.
+  const wrapped = size === "sm"
+  const content = loading ? (
+    <ActivityIndicator color={foreground} />
+  ) : (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+      {icon === undefined ? null : <Icon name={icon} size={sizes.iconMd} color={foreground} />}
+      <Text
+        variant={labelSpec.variant}
+        style={{
+          color: foreground,
+          ...(labelSpec.fontWeight === undefined ? {} : { fontWeight: labelSpec.fontWeight }),
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  )
   return (
     <Pressable
       accessibilityRole="button"
@@ -55,24 +86,13 @@ export function Button({
       onPress={loading ? undefined : onPress}
       {...handlers}
       style={({ pressed }) => [
-        buttonStyle(variant, size, scheme, colors),
-        hovered && !disabled && buttonHoverStyle(variant, colors),
+        wrapped ? { minHeight: buttonTouchHeight(size), justifyContent: "center" } : pill,
         pressed && { opacity: 0.85 },
         disabled && { opacity: 0.4 },
-        focusStyle,
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={foreground} />
-      ) : (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          {icon === undefined ? null : <Icon name={icon} size={sizes.iconMd} color={foreground} />}
-          <Text variant="headline" style={{ color: foreground }}>
-            {label}
-          </Text>
-        </View>
-      )}
+      {wrapped ? <View style={pill}>{content}</View> : content}
     </Pressable>
   )
 }

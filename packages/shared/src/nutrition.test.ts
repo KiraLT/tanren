@@ -261,11 +261,11 @@ describe("weekSummary", () => {
 describe("insights (nutrition.md §5)", () => {
   const quiet = logged(1950, 150, "maintain")
 
-  it("protein_short: ≥ 30 g left after 15:00, rounded to 5", () => {
+  it("protein_short: ≥ 30 g left after 15:00, rounded to the gram", () => {
     const today = logged(1950, 76, "maintain")
     expect(insights({ today, week: [today], hour: 15 })).toContainEqual({
       rule: "protein_short",
-      text: "Protein 75 g short — a shake covers it",
+      text: "Protein 74 g short — a shake covers it",
     })
     expect(rules({ today, week: [today], hour: 14 })).not.toContain("protein_short")
   })

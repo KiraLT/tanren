@@ -261,11 +261,14 @@ describe("UserProgram", () => {
     }),
   )
 
-  it.effect("rejects 61 days and the builtin source", () =>
+  it.effect("accepts 84 days, rejects 85 days and the builtin source", () =>
     Effect.gen(function* () {
       const [day] = userProgramWire.days
-      const days = Arr.makeBy(61, (i) => ({ ...day, dayNumber: i + 1 }))
-      expect(yield* failingPaths(UserProgram, { ...userProgramWire, days })).toEqual([["days"]])
+      const daysOf = (n: number) => Arr.makeBy(n, (i) => ({ ...day, dayNumber: i + 1 }))
+      yield* Schema.decodeUnknownEffect(UserProgram)({ ...userProgramWire, days: daysOf(84) })
+      expect(yield* failingPaths(UserProgram, { ...userProgramWire, days: daysOf(85) })).toEqual([
+        ["days"],
+      ])
       expect(yield* failingPaths(UserProgram, { ...userProgramWire, source: "builtin" })).toEqual([
         ["source"],
       ])

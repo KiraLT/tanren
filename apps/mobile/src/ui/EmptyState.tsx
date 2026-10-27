@@ -1,7 +1,8 @@
 import { type StyleProp, View, type ViewStyle } from "react-native"
 import { Button } from "./Button"
+import { emptyStateHeadingLevel } from "./controls"
 import { Icon, type IconName } from "./Icon"
-import { Text } from "./Text"
+import { type HeadingLevel, Text } from "./Text"
 import { useTheme } from "./theme"
 import { sizes, space } from "./tokens"
 
@@ -15,6 +16,8 @@ export interface EmptyStateProps {
   readonly title: string
   readonly body: string
   readonly action?: EmptyStateAction
+  /** Heading level of the title on web (default 1: the page title). Use 2 under an AppBar `h1`. */
+  readonly headingLevel?: HeadingLevel
   readonly style?: StyleProp<ViewStyle>
 }
 
@@ -26,7 +29,7 @@ export interface EmptyStateProps {
 const MIN_HEIGHT = 240
 
 /** Centred empty (or failed, with `icon="warning"`) state: title, muted body, one secondary action. */
-export function EmptyState({ icon, title, body, action, style }: EmptyStateProps) {
+export function EmptyState({ icon, title, body, action, headingLevel, style }: EmptyStateProps) {
   const { colors } = useTheme()
   return (
     <View
@@ -45,7 +48,11 @@ export function EmptyState({ icon, title, body, action, style }: EmptyStateProps
       {icon === undefined ? null : (
         <Icon name={icon} size={sizes.iconLg} color={colors.textMuted} />
       )}
-      <Text variant="headline" accessibilityRole="header" style={{ textAlign: "center" }}>
+      <Text
+        variant="headline"
+        headingLevel={emptyStateHeadingLevel(headingLevel)}
+        style={{ textAlign: "center" }}
+      >
         {title}
       </Text>
       <Text tone="muted" style={{ textAlign: "center" }}>

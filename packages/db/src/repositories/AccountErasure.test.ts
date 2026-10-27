@@ -52,6 +52,11 @@ const seedUser = (n: number) => {
       `one-time-token:hash-${n}`,
       `token-${n}`,
     ),
+    p(
+      `INSERT INTO refresh_token_burn (jti, userId, expiresAt, burnedAt) VALUES (?, ?, 1, 1)`,
+      `jti-${n}`,
+      u,
+    ),
     p(`INSERT INTO sync_clock (user_id, seq) VALUES (?, 1)`, u),
     p(
       `INSERT INTO profile (id, user_id, created_at, updated_at, deleted_at, server_seq, goals, constraints, available_days, equipment, timezone) VALUES (?, ?, '${T}', '${T}', NULL, 1, '[]', '[]', '[]', '[]', 'UTC')`,
@@ -153,7 +158,7 @@ const countOf = (n: number, table: ErasedTable) => {
       ? "id = ?"
       : table === "verification"
         ? "identifier IN ('magic-' || ?, 'one-time-token:hash-' || ?)"
-        : table === "session" || table === "account"
+        : table === "session" || table === "account" || table === "refresh_token_burn"
           ? `"userId" = ?`
           : "user_id = ?"
   const marker = table === "verification" ? String(n) : userOf(n)

@@ -2,18 +2,33 @@ import type { ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { View } from "react-native"
-import { Banner, Button, Card, rhythm, space, Text } from "../../ui"
+import { Banner, Button, Card, Columns, rhythm, space, Text, useBreakpoint } from "../../ui"
 import { ItemCard } from "./ItemCard"
 import { CompactStepper, SectionLabel, TextField } from "./ProgramFields"
-import { MAX_ITEMS, moveItem, RANGES, removeItem, stepValue } from "./programEdit"
+import {
+  MAX_ITEMS,
+  mapItem,
+  moveItem,
+  RANGES,
+  removeItem,
+  type StepRange,
+  stepRestBetweenRounds,
+  stepRounds,
+} from "./programEdit"
+
+type DayChange = (day: ProgramDay) => ProgramDay
 
 export interface DayFormProps {
   readonly day: ProgramDay
   /** The program's only day: it cannot be removed. */
   readonly onlyDay: boolean
   readonly error: Option.Option<string>
-  /** Every change is one saved row; there is no draft to flush. */
-  readonly onChange: (change: (day: ProgramDay) => ProgramDay) => void
+  /** A write is in flight: remove, move and the confirm are off until it lands. */
+  readonly busy: boolean
+  /** Queued: each change is applied to the stored day (text, steppers, mode). */
+  readonly onChange: (change: DayChange) => void
+  /** Position-based (move, remove an item): ignored while a write is in flight. */
+  readonly onChangeOnce: (change: DayChange) => void
   readonly onAddExercise: () => void
   readonly onRemoveDay: () => void
   readonly onDone: () => void
@@ -28,8 +43,8 @@ interface StepRowProps {
   readonly label: string
   readonly valueText: string
   readonly value: number
-  readonly range: { readonly min: number; readonly max: number; readonly step: number }
-  readonly onStep: (next: number) => void
+  readonly range: StepRange
+  readonly onStep: (direction: -1 | 1) => void
 }
 
 function StepRow({ label, valueText, value, range, onStep }: StepRowProps) {
@@ -44,27 +59,54 @@ function StepRow({ label, valueText, value, range, onStep }: StepRowProps) {
           valueText={valueText}
           canDecrement={value > range.min}
           canIncrement={value < range.max}
-          onDecrement={() => onStep(stepValue(value, -1, range))}
-          onIncrement={() => onStep(stepValue(value, 1, range))}
+          onDecrement={() => onStep(-1)}
+          onIncrement={() => onStep(1)}
         />
       </View>
     </View>
   )
 }
 
-/** The day editor body (programs-mcp.md §4): title, rounds, rest between rounds, items, remove day. */
+/**
+ * The day editor body (programs-mcp.md §4). Desktop: Title, Rounds / Rest and the footer on the
+ * left, the exercises on the right (5/7); below that one column, footer last.
+ */
 export function DayForm({
   day,
   onlyDay,
   error,
+  busy,
   onChange,
+  onChangeOnce,
   onAddExercise,
   onRemoveDay,
   onDone,
 }: DayFormProps) {
+  const desktop = useBreakpoint() === "desktop"
   // `Alert.alert` is a no-op on web: removing a whole day is confirmed inline.
   const [confirmRemove, setConfirmRemove] = useState(false)
-  return (
+  const footer = (
+    <View style={{ gap: space.sm }}>
+      <Button variant="primary" size="lg" label="Done" onPress={onDone} />
+      {onlyDay ? null : confirmRemove ? (
+        <Button
+          variant="destructive"
+          label={`Remove ${day.title}? Tap again`}
+          accessibilityLabel={`Confirm removing ${day.title}`}
+          disabled={busy}
+          onPress={onRemoveDay}
+        />
+      ) : (
+        <Button
+          variant="text"
+          label="Remove day"
+          accessibilityLabel={`Remove ${day.title}`}
+          onPress={() => setConfirmRemove(true)}
+        />
+      )}
+    </View>
+  )
+  const settings = (
     <View style={{ gap: rhythm.groupToLabel }}>
       {Option.match(error, {
         onNone: () => null,
@@ -88,19 +130,22 @@ export function DayForm({
             valueText={`${day.rounds}`}
             value={day.rounds}
             range={RANGES.rounds}
-            onStep={(rounds) => onChange((current) => ({ ...current, rounds }))}
+            onStep={(direction) => onChange((current) => stepRounds(current, direction))}
           />
           <StepRow
             label="Rest between rounds"
             valueText={`${day.restBetweenRoundsSeconds} s`}
             value={day.restBetweenRoundsSeconds}
             range={RANGES.restBetweenRounds}
-            onStep={(restBetweenRoundsSeconds) =>
-              onChange((current) => ({ ...current, restBetweenRoundsSeconds }))
-            }
+            onStep={(direction) => onChange((current) => stepRestBetweenRounds(current, direction))}
           />
         </View>
       </Card>
+      {desktop ? footer : null}
+    </View>
+  )
+  const exercises = (
+    <View style={{ gap: rhythm.groupToLabel }}>
       <View style={group}>
         <SectionLabel>Exercises</SectionLabel>
         {Arr.map(day.items, (item, index) => (
@@ -111,19 +156,15 @@ export function DayForm({
             isFirst={index === 0}
             isLast={index === day.items.length - 1}
             isOnly={day.items.length === 1}
-            onChange={(next) =>
-              onChange((current) => ({
-                ...current,
-                items: Arr.map(current.items, (existing, i) => (i === index ? next : existing)),
-              }))
-            }
+            busy={busy}
+            onChange={(change) => onChange((current) => mapItem(current, index, change))}
             onMove={(direction) =>
-              onChange((current) => ({
+              onChangeOnce((current) => ({
                 ...current,
                 items: moveItem(current.items, index, direction),
               }))
             }
-            onRemove={() => onChange((current) => removeItem(current, index))}
+            onRemove={() => onChangeOnce((current) => removeItem(current, index))}
           />
         ))}
         <Button
@@ -134,24 +175,8 @@ export function DayForm({
           onPress={onAddExercise}
         />
       </View>
-      <View style={{ gap: space.sm }}>
-        <Button variant="primary" size="lg" label="Done" onPress={onDone} />
-        {onlyDay ? null : confirmRemove ? (
-          <Button
-            variant="destructive"
-            label={`Remove ${day.title}? Tap again`}
-            accessibilityLabel={`Confirm removing ${day.title}`}
-            onPress={onRemoveDay}
-          />
-        ) : (
-          <Button
-            variant="text"
-            label="Remove day"
-            accessibilityLabel={`Remove ${day.title}`}
-            onPress={() => setConfirmRemove(true)}
-          />
-        )}
-      </View>
+      {desktop ? null : footer}
     </View>
   )
+  return <Columns split="5/7" main={settings} side={exercises} />
 }

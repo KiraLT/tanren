@@ -1,4 +1,4 @@
-import type { FoodEntryRepo, GarminImportRepo, UserProgramRepo } from "@tanren/db"
+import { type FoodEntryRepo, GarminImportRepo, type UserProgramRepo } from "@tanren/db"
 import {
   activeLocation,
   CurrentPlanResult,
@@ -12,6 +12,10 @@ import {
   GetProfileInput,
   GetProfileResult,
   type IdGenerator,
+  type ImportedActivity,
+  type ImportedSummary,
+  ListActivitiesInput,
+  ListActivitiesResult,
   ListSessionsInput,
   type LocationId,
   type McpToolName,
@@ -99,6 +103,38 @@ export const eraseTool = <I extends ToolSchema, O extends ToolSchema>(
 
 const PERIOD_DAYS: { readonly [P in Period]: number } = { "7d": 7, "30d": 30, "90d": 90 }
 export const DEFAULT_PERIOD: Period = "30d"
+/** `list_activities` answers at most this many rows, newest first. */
+export const LIST_ACTIVITIES_LIMIT = 200
+/** `get_overview` totals read up to this many imported rows (90 days of heavy use fits). */
+const OVERVIEW_ACTIVITIES_LIMIT = 1000
+
+type SportCount = ImportedSummary["bySport"][number]
+const bySportCount: Order.Order<SportCount> = Order.combine(
+  Order.flip(Order.mapInput(Order.Number, (entry: SportCount) => entry.count)),
+  Order.mapInput(Order.String, (entry: SportCount) => entry.sport),
+)
+
+/** Totals over imported activities; `distanceMeters` and `calories` sum the rows that carry them. */
+const summarizeImported = (activities: ReadonlyArray<ImportedActivity>): ImportedSummary => ({
+  count: activities.length,
+  durationSeconds: Arr.reduce(activities, 0, (total, a) => total + a.durationSeconds),
+  distanceMeters: Arr.reduce(
+    activities,
+    0,
+    (total, a) => total + Option.getOrElse(a.distanceMeters, () => 0),
+  ),
+  calories: Arr.reduce(activities, 0, (total, a) => total + Option.getOrElse(a.calories, () => 0)),
+  bySport: pipe(
+    activities,
+    Arr.map((a) => a.sport),
+    Arr.dedupe,
+    Arr.map((sport) => ({
+      sport,
+      count: Arr.filter(activities, (a) => a.sport === sport).length,
+    })),
+    Arr.sort(bySportCount),
+  ),
+})
 export const DEFAULT_HISTORY_LIMIT = 20
 
 const volumeOf = (sets: ReadonlyArray<WorkoutSet>): number =>
@@ -164,7 +200,9 @@ export const getOverview: Tool<typeof GetOverviewInput, typeof Overview> = {
     "set and volume totals, then one entry per exercise trained (volume = sum of weightKg x reps, " +
     "best = heaviest set, then most reps), heaviest volume first, plus the active plan. Weights " +
     "are kg; timestamps are ISO-8601 UTC; range is half-open [from, to). Use the exerciseId " +
-    "values with get_exercise_history.",
+    "values with get_exercise_history. `imported` totals the activities synced from integrations " +
+    "(Garmin runs, walks, rides) in the period: count, duration, distance, calories, by sport; " +
+    "list them with list_activities.",
   input: GetOverviewInput,
   output: Overview,
   run: Effect.fn("get_overview")(function* (userId: UserId, input: GetOverviewInput) {
@@ -178,9 +216,15 @@ export const getOverview: Tool<typeof GetOverviewInput, typeof Overview> = {
     // Tombstoned exercises too: a set logged in range still names its exercise.
     const exercises = yield* (yield* ExerciseRepo).list(userId, { includeDeleted: true })
     const plan = yield* activePlanSummary(userId)
+    const imported = yield* (yield* GarminImportRepo).listActivities(
+      userId,
+      range,
+      OVERVIEW_ACTIVITIES_LIMIT,
+    )
     return {
       period,
       range,
+      imported: summarizeImported(imported),
       sessions: sessions.length,
       sets: sets.length,
       volumeKg: volumeOf(sets),
@@ -348,7 +392,29 @@ export const getProfile: Tool<typeof GetProfileInput, typeof GetProfileResult> =
   }),
 }
 
-/** The read tools, in `MCP_TOOLS` order (the first six names). */
+export const listActivities: Tool<typeof ListActivitiesInput, typeof ListActivitiesResult> = {
+  name: "list_activities",
+  kind: "read",
+  description:
+    "Activities synced from integrations (Garmin runs, walks, rides, swims…) that started in the " +
+    "last 7, 30 or 90 days (period, default 30d), newest first, at most 200: provider, sport, " +
+    "title, startedAt, durationSeconds, distanceMeters, calories and heart rates (null when the " +
+    "device sent none). Gym sessions are in list_sessions; get_overview totals both.",
+  input: ListActivitiesInput,
+  output: ListActivitiesResult,
+  run: Effect.fn("list_activities")(function* (userId: UserId, input: ListActivitiesInput) {
+    const to = yield* DateTime.now
+    const from = DateTime.subtract(to, { days: PERIOD_DAYS[input.period ?? DEFAULT_PERIOD] })
+    const activities = yield* (yield* GarminImportRepo).listActivities(
+      userId,
+      { from, to },
+      LIST_ACTIVITIES_LIMIT,
+    )
+    return { activities }
+  }),
+}
+
+/** The read tools, in `MCP_TOOLS` order (the first seven names). */
 export const readTools: ReadonlyArray<AnyTool> = [
   eraseTool(getOverview),
   eraseTool(getExerciseHistory),
@@ -356,4 +422,5 @@ export const readTools: ReadonlyArray<AnyTool> = [
   eraseTool(getCurrentPlan),
   eraseTool(searchExercises),
   eraseTool(getProfile),
+  eraseTool(listActivities),
 ]

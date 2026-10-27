@@ -35,6 +35,7 @@ const finished = {
   startedAtMs: Date.UTC(2026, 9, 21, 7),
   durationSeconds: 912,
   performedItems: 9,
+  performedIds: [],
 }
 
 const notUsed = Effect.die("not used in this test")
@@ -54,6 +55,7 @@ const repoLayer = (
       setStatus: () => notUsed,
       setSwap: () => notUsed,
       todayFor: () => notUsed,
+      findRow: () => notUsed,
       save: () => notUsed,
       deleteProgram: () => notUsed,
       complete,

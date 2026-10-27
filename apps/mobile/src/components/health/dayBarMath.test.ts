@@ -98,6 +98,34 @@ describe("dayBarColumns", () => {
     expect(columns[4]?.burnedHeight).toBe(0)
   })
 
+  it("marks a past day whose eaten kcal beats the budget as over, and says so", () => {
+    // Tuesday 2,400 > 2,040 budget; Friday's 9,000 is upcoming, so never over.
+    expect(Arr.map(columns, (c) => c.isOver)).toEqual([
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ])
+    expect(columns[1]?.accessibilityLabel).toBe(
+      "Tuesday: eaten 2,400 kcal, over budget, burned 2,100 kcal",
+    )
+  })
+
+  it("is never over without a budget or at exactly the budget", () => {
+    const [none, exact] = dayBarColumns(
+      [
+        day(0, { budgetKcal: Option.none() }),
+        day(1, { eaten: { kcal: 2040, proteinG: 0, carbsG: 0, fatG: 0 } }),
+      ],
+      TODAY,
+      120,
+    )
+    expect([none?.isOver, exact?.isOver]).toEqual([false, false])
+  })
+
   it("gives seven distinct labels", () => {
     expect(new Set(Arr.map(columns, (c) => c.accessibilityLabel)).size).toBe(7)
   })

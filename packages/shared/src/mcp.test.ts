@@ -10,6 +10,8 @@ import {
   GetOverviewInput,
   GetProfileInput,
   GetProfileResult,
+  ListActivitiesInput,
+  ListActivitiesResult,
   LogSessionInput,
   LogSessionResult,
   MCP_SCOPES,
@@ -98,6 +100,16 @@ const overviewWire: OverviewEncoded = {
     name: "Upper / lower, autumn block",
     weeks: 5,
   },
+  imported: {
+    count: 3,
+    durationSeconds: 5400,
+    distanceMeters: 12500.5,
+    calories: 900,
+    bySport: [
+      { sport: "running", count: 2 },
+      { sport: "walking", count: 1 },
+    ],
+  },
 }
 
 describe("Overview", () => {
@@ -114,6 +126,64 @@ describe("Overview", () => {
       ...overviewWire,
       exercises: [{ ...summaryWire, best: null, lastLoggedAt: null }],
       currentPlan: null,
+    }),
+  )
+
+  it.effect("rejects an overview without imported and an unknown sport in bySport", () =>
+    Effect.gen(function* () {
+      const { imported: _imported, ...withoutImported } = overviewWire
+      expect(yield* failingPaths(Overview, withoutImported)).toEqual([["imported"]])
+      expect(
+        yield* failingPaths(Overview, {
+          ...overviewWire,
+          imported: { ...overviewWire.imported, bySport: [{ sport: "chess", count: 1 }] },
+        }),
+      ).toEqual([["imported", "bySport", 0, "sport"]])
+    }),
+  )
+})
+
+describe("list_activities contracts", () => {
+  const activityWire = {
+    ...rowWire,
+    id: "8a4e1a2b-3c4d-4e5f-8a6b-7c8d9e0f1a2b",
+    provider: "garmin" as const,
+    externalId: "1234567890",
+    sport: "running" as const,
+    title: "Morning run",
+    startedAt: "2026-10-18T06:30:00.000Z",
+    durationSeconds: 1800,
+    distanceMeters: 5200.5,
+    calories: 410,
+    avgHeartRate: 152,
+    maxHeartRate: 171,
+  }
+
+  it.effect("ListActivitiesInput decodes {} and a period, and rejects an unknown period", () =>
+    Effect.gen(function* () {
+      expect(Object.keys(yield* Schema.decodeUnknownEffect(ListActivitiesInput)({}))).toEqual([])
+      yield* accepts(ListActivitiesInput, { period: "90d" })
+      expect(yield* failingPaths(ListActivitiesInput, { period: "1y" })).toEqual([["period"]])
+    }),
+  )
+
+  it.effect("ListActivitiesResult round-trips activities, with and without optional metrics", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(ListActivitiesResult, { activities: [activityWire] })
+      yield* wireRoundTrips(ListActivitiesResult, {
+        activities: [{ ...activityWire, distanceMeters: null, calories: null, avgHeartRate: null }],
+      })
+      yield* wireRoundTrips(ListActivitiesResult, { activities: [] })
+    }),
+  )
+
+  it.effect("ListActivitiesResult names the failing field of a bad activity", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(ListActivitiesResult, {
+          activities: [{ ...activityWire, durationSeconds: -1 }],
+        }),
+      ).toEqual([["activities", 0, "durationSeconds"]])
     }),
   )
 })
@@ -462,18 +532,19 @@ describe("SearchExercisesResult", () => {
 })
 
 describe("MCP_TOOLS", () => {
-  it("lists the six read tools first, get_profile last among them", () => {
-    expect(MCP_TOOLS.slice(0, 6)).toEqual([
+  it("lists the seven read tools first, list_activities last among them", () => {
+    expect(MCP_TOOLS.slice(0, 7)).toEqual([
       "get_overview",
       "get_exercise_history",
       "list_sessions",
       "get_current_plan",
       "search_exercises",
       "get_profile",
+      "list_activities",
     ])
   })
 
-  it.effect("names the twenty-two tools and McpToolName accepts exactly those", () =>
+  it.effect("names the twenty-three tools and McpToolName accepts exactly those", () =>
     Effect.gen(function* () {
       expect(MCP_TOOLS).toEqual([
         "get_overview",
@@ -482,6 +553,7 @@ describe("MCP_TOOLS", () => {
         "get_current_plan",
         "search_exercises",
         "get_profile",
+        "list_activities",
         "get_nutrition_day",
         "get_week_review",
         "list_programs",
@@ -499,7 +571,7 @@ describe("MCP_TOOLS", () => {
         "set_enrollment_status",
         "swap_exercise",
       ])
-      expect(new Set(MCP_TOOLS).size).toBe(22)
+      expect(new Set(MCP_TOOLS).size).toBe(23)
       yield* Effect.forEach(MCP_TOOLS, (name) => Schema.decodeUnknownEffect(McpToolName)(name))
       yield* rejects(McpToolName, "delete_everything")
     }),
@@ -527,7 +599,7 @@ describe("program tool contracts", () => {
     }),
   )
 
-  it.effect("WriteProgramInput decodes a one-day program and rejects 61 days", () =>
+  it.effect("WriteProgramInput decodes a one-day and an 84-day program and rejects 85 days", () =>
     Effect.gen(function* () {
       const input = {
         slug: "push-pull",
@@ -537,8 +609,27 @@ describe("program tool contracts", () => {
         days: [dayInput],
       }
       yield* accepts(WriteProgramInput, input)
-      const days = Array.from({ length: 61 }, () => dayInput)
+      yield* accepts(WriteProgramInput, {
+        ...input,
+        days: Array.from({ length: 84 }, () => dayInput),
+      })
+      const days = Array.from({ length: 85 }, () => dayInput)
       expect(yield* failingPaths(WriteProgramInput, { ...input, days })).toEqual([["days"]])
+    }),
+  )
+
+  it.effect("UpdateProgramInput takes up to 84 days and rejects 85", () =>
+    Effect.gen(function* () {
+      yield* accepts(UpdateProgramInput, {
+        programId: "core-30",
+        days: Array.from({ length: 84 }, () => dayInput),
+      })
+      expect(
+        yield* failingPaths(UpdateProgramInput, {
+          programId: "core-30",
+          days: Array.from({ length: 85 }, () => dayInput),
+        }),
+      ).toEqual([["days"]])
     }),
   )
 

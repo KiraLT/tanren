@@ -15,6 +15,8 @@ export interface DayBarColumn {
   readonly isToday: boolean
   /** After today: no bars, "upcoming". */
   readonly isFuture: boolean
+  /** Eaten above the day's budget (both known, not upcoming): the eaten bar is `danger`. */
+  readonly isOver: boolean
   /** "Monday: eaten 1,420 kcal, burned 1,840 kcal". */
   readonly accessibilityLabel: string
 }
@@ -58,15 +60,17 @@ const scaleOf = (days: ReadonlyArray<DayTotals>): number =>
 const heightOf = (kcal: number, scale: number, maxHeight: number): number =>
   scale > 0 ? Math.round((kcal / scale) * maxHeight) : 0
 
+/** `eaten.kcal > budgetKcal`; false without a budget (health-module.md §4). */
+const isOverBudget = (day: DayTotals): boolean =>
+  Option.exists(day.budgetKcal, (budget) => day.eaten.kcal > budget)
+
 const labelOf = (day: DayTotals, name: string): string => {
   const logged = day.entries.length > 0 || day.eaten.kcal > 0
+  // Colour is not the only signal: an over-budget day says so.
+  const eaten = `eaten ${kcalText(day.eaten.kcal)} kcal${isOverBudget(day) ? ", over budget" : ""}`
   return Option.match(day.burned, {
-    onNone: () =>
-      logged
-        ? `${name}: eaten ${kcalText(day.eaten.kcal)} kcal, burned: no data`
-        : `${name}: nothing logged`,
-    onSome: (burned) =>
-      `${name}: eaten ${kcalText(day.eaten.kcal)} kcal, burned ${kcalText(burned)} kcal`,
+    onNone: () => (logged ? `${name}: ${eaten}, burned: no data` : `${name}: nothing logged`),
+    onSome: (burned) => `${name}: ${eaten}, burned ${kcalText(burned)} kcal`,
   })
 }
 
@@ -98,6 +102,7 @@ export const dayBarColumns = (
           ),
       isToday: day.date === today,
       isFuture,
+      isOver: !isFuture && isOverBudget(day),
       accessibilityLabel: isFuture
         ? `${name}: upcoming`
         : labelOf(day, day.date === today ? `Today, ${name}` : name),
@@ -106,7 +111,7 @@ export const dayBarColumns = (
 }
 
 /** `-310` → "−310" (U+2212, as in the design), `1420` → "1,420". */
-export const signedKcalText = (n: number): string => (n < 0 ? `−${kcalText(-n)}` : kcalText(n))
+const signedKcalText = (n: number): string => (n < 0 ? `−${kcalText(-n)}` : kcalText(n))
 
 /** The week's average eaten − burned per day with a Garmin total; `None` when no day has one. */
 export const avgBalanceText = (review: Pick<WeekReview, "netKcal" | "daysWithBurn">): string =>

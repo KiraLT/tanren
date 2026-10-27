@@ -107,6 +107,7 @@ const input = (dayNumber: number, performedItems: number, durationSeconds = 60) 
   startedAt: DateTime.makeUnsafe(NOW - 900_000),
   durationSeconds,
   performedItems,
+  performedIds: [],
 })
 
 describe("ProgramRepo edge cases", () => {

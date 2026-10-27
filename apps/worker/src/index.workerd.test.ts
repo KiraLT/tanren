@@ -350,7 +350,7 @@ describe("D1 statement budget (Free: 50 per invocation)", () => {
     expect(statements).toBeLessThanOrEqual(50)
   })
 
-  it("get_overview over /mcp uses at most 5 D1 statements", async () => {
+  it("get_overview over /mcp uses at most 6 D1 statements", async () => {
     const startedAt = DateTime.formatIso(
       DateTime.subtract(await Effect.runPromise(DateTime.now), { hours: 1 }),
     )
@@ -393,7 +393,8 @@ describe("D1 statement budget (Free: 50 per invocation)", () => {
     console.log("get_overview D1 statements", statements, counts)
     expect(value.status).toBe(200)
     expect(value.body).toContain('\\"sets\\":3')
-    expect(statements).toBeLessThanOrEqual(5)
+    // 5 training statements + 1 for the imported-activities summary (N-S4).
+    expect(statements).toBeLessThanOrEqual(6)
   })
 })
 

@@ -102,7 +102,7 @@ interface ToolAnnotations {
   readonly destructiveHint?: boolean
 }
 
-const READ_ONLY: ToolAnnotations = { readOnlyHint: true }
+const READ_ONLY: ToolAnnotations = { readOnlyHint: true, idempotentHint: true }
 
 /** Every tool's annotations; a new `MCP_TOOLS` name without an entry is a compile error. */
 const ANNOTATIONS: { readonly [N in McpToolName]: ToolAnnotations } = {
@@ -112,6 +112,7 @@ const ANNOTATIONS: { readonly [N in McpToolName]: ToolAnnotations } = {
   get_current_plan: READ_ONLY,
   search_exercises: READ_ONLY,
   get_profile: READ_ONLY,
+  list_activities: READ_ONLY,
   get_nutrition_day: READ_ONLY,
   get_week_review: READ_ONLY,
   list_programs: READ_ONLY,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { UserProgramRepo } from "@tanren/db"
+import { PersistenceError, UserProgramRepo } from "@tanren/db"
 import {
   CATALOG,
   CatalogId,
@@ -16,9 +16,11 @@ import {
   SwapExerciseInput,
   swapCandidates,
   UpdateProgramInput,
+  type UserId,
+  UserProgram,
   WriteProgramInput,
 } from "@tanren/shared"
-import { Array as Arr, DateTime, Effect, Layer, Option, Schema } from "effect"
+import { Array as Arr, DateTime, Effect, Layer, Option, Ref, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { Repositories } from "../repos"
 import { MemoryGarminImport } from "../repos/MemoryGarminImport"
@@ -526,4 +528,153 @@ describe("tool descriptions", () => {
       "Start the user's enrollment in a program today (or `startedOn`). Several programs may be active at once; the app's Today lists each active program's next day. Returns the existing enrollment if one is already active/paused.",
     )
   })
+})
+
+describe("84-day programs (Lead ruling 2026-10-27)", () => {
+  it.effect("writes an 84-day program and reports its day count", () =>
+    Effect.gen(function* () {
+      const days = Arr.makeBy(84, (i) => day([reps(i % 2 === 0 ? "crunch" : "dead-bug")]))
+      const result = yield* writeProgram.run(userA, written(program(days)))
+      expect(result.days).toBe(84)
+    }).pipe(Effect.provide(layer)),
+  )
+
+  it("tells Claude the 84-day cap in the write_program description", () => {
+    expect(writeProgram.description).toContain("A program is 1–84 days;")
+  })
+})
+
+describe("write_program and update_program on a device conflict", () => {
+  const conflict = new PersistenceError({
+    operation: "program.put",
+    cause: ["conflict 00000000-0000-4000-8000-000000000001"],
+  })
+  /**
+   * The repo whose first `put` reports a conflict, the rest delegate. With `device`, a phone's
+   * edit (a new summary, `version + 1`) lands through `base.put` just before the conflict.
+   */
+  const flaky = (device: Option.Option<string> = Option.none()) =>
+    Effect.gen(function* () {
+      const base = yield* UserProgramRepo
+      const puts = yield* Ref.make(0)
+      const deviceEdit = (userId: UserId, row: UserProgram) =>
+        Option.match(device, {
+          onNone: () => Effect.void,
+          onSome: (summary) =>
+            Effect.gen(function* () {
+              const stored = yield* base.get(userId, row.id)
+              if (Option.isSome(stored)) {
+                yield* base.put(
+                  userId,
+                  yield* UserProgram.makeEffect({
+                    ...stored.value,
+                    summary,
+                    version: stored.value.version + 1,
+                  }).pipe(Effect.orDie),
+                )
+              }
+            }),
+        })
+      const repo = UserProgramRepo.of({
+        ...base,
+        put: (userId, row) =>
+          Ref.getAndUpdate(puts, (n) => n + 1).pipe(
+            Effect.flatMap((n) =>
+              n === 0
+                ? deviceEdit(userId, row).pipe(Effect.andThen(Effect.fail(conflict)))
+                : base.put(userId, row),
+            ),
+          ),
+      })
+      return { repo, puts }
+    })
+
+  it.effect("write_program reads again and writes once more", () =>
+    Effect.gen(function* () {
+      const { repo, puts } = yield* flaky()
+      const result = yield* writeProgram
+        .run(userA, written(program(THREE_DAYS)))
+        .pipe(Effect.provideService(UserProgramRepo, repo))
+      expect([result.created, result.version]).toEqual([true, 1])
+      expect(yield* Ref.get(puts)).toBe(2)
+    }).pipe(Effect.provide(layer)),
+  )
+
+  it.effect("update_program patches the fresh row, keeping the device's edit", () =>
+    Effect.gen(function* () {
+      const created = yield* writeProgram.run(userA, written(program(THREE_DAYS)))
+      const { repo, puts } = yield* flaky(Option.some("Edited on the phone"))
+      const result = yield* updateProgram
+        .run(userA, update({ programId: created.programId, title: "Retitled" }))
+        .pipe(Effect.provideService(UserProgramRepo, repo))
+      // v1 (written) → v2 (device edit) → v3 (this patch on the fresh row).
+      expect(result.version).toBe(3)
+      // The device's edit goes through `base.put`, uncounted: the conflict, then the retry.
+      expect(yield* Ref.get(puts)).toBe(2)
+      const rows = yield* (yield* UserProgramRepo).list(userA)
+      expect(rows.map((row) => [row.title, row.summary, row.version])).toEqual([
+        ["Retitled", "Edited on the phone", 3],
+      ])
+    }).pipe(Effect.provide(layer)),
+  )
+
+  it.effect("a PersistenceError that is not a conflict is not retried", () =>
+    Effect.gen(function* () {
+      const base = yield* UserProgramRepo
+      const puts = yield* Ref.make(0)
+      const repo = UserProgramRepo.of({
+        ...base,
+        put: () =>
+          Ref.update(puts, (n) => n + 1).pipe(
+            Effect.andThen(
+              Effect.fail(new PersistenceError({ operation: "program.put", cause: ["db down"] })),
+            ),
+          ),
+      })
+      const error = yield* Effect.flip(
+        writeProgram
+          .run(userA, written(program(THREE_DAYS)))
+          .pipe(Effect.provideService(UserProgramRepo, repo)),
+      )
+      expect(error).toMatchObject({ _tag: "PersistenceError", cause: ["db down"] })
+      expect(yield* Ref.get(puts)).toBe(1)
+    }).pipe(Effect.provide(layer)),
+  )
+
+  it.effect("a second conflict is the caller's: PersistenceError, nothing written", () =>
+    Effect.gen(function* () {
+      const base = yield* UserProgramRepo
+      const repo = UserProgramRepo.of({ ...base, put: () => Effect.fail(conflict) })
+      const error = yield* Effect.flip(
+        writeProgram
+          .run(userA, written(program(THREE_DAYS)))
+          .pipe(Effect.provideService(UserProgramRepo, repo)),
+      )
+      expect(error).toMatchObject({ _tag: "PersistenceError", operation: "program.put" })
+      expect(yield* base.list(userA)).toEqual([])
+    }).pipe(Effect.provide(layer)),
+  )
+})
+
+describe("get_program_progress reads each enrollment's completions once", () => {
+  it.effect("one completions statement per enrollment, summary and day list alike", () =>
+    Effect.gen(function* () {
+      yield* setup
+      yield* enrollProgram.run(userA, enroll({ programId: "core-30" }))
+      const base = yield* UserProgramRepo
+      const reads = yield* Ref.make(0)
+      const repo = UserProgramRepo.of({
+        ...base,
+        completions: (userId, enrollmentId) =>
+          Ref.update(reads, (n) => n + 1).pipe(
+            Effect.andThen(base.completions(userId, enrollmentId)),
+          ),
+      })
+      const result = yield* getProgramProgress
+        .run(userA, progress({ programId: "core-30" }))
+        .pipe(Effect.provideService(UserProgramRepo, repo))
+      expect(result.enrollments).toHaveLength(1)
+      expect(yield* Ref.get(reads)).toBe(1)
+    }).pipe(Effect.provide(layer)),
+  )
 })

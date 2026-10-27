@@ -92,3 +92,21 @@ export const oauthCodeUse = sqliteTable("oauth_code_use", {
   jti: text("jti").primaryKey(),
   expiresAt: integer("expiresAt").notNull(),
 })
+
+/**
+ * Refresh-token rotation ledger (ADR-0022 amendment, STLS-F5, migration 0010): every app and MCP
+ * refresh burns the presented token's `jti` here and issues a new pair; a `jti` that is already
+ * present is reuse, and the user's token generation for that family is bumped. `expiresAt` and
+ * `burnedAt` are epoch ms; rows are purged once `expiresAt` (the burned token's own expiry) has
+ * passed. Same camelCase column style as the other auth tables; erased with the user.
+ */
+export const refreshTokenBurn = sqliteTable(
+  "refresh_token_burn",
+  {
+    jti: text("jti").primaryKey(),
+    userId: text("userId").notNull(),
+    expiresAt: integer("expiresAt").notNull(),
+    burnedAt: integer("burnedAt").notNull(),
+  },
+  (t) => [index("refresh_token_burn_expires_at_idx").on(t.expiresAt)],
+)

@@ -12,7 +12,9 @@ import {
   ProgramId,
   programIdOfRow,
   SessionRow,
+  UserId,
   UserProgram,
+  UserProgramId,
   WorkoutSetRow,
 } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
@@ -161,6 +163,7 @@ const dayInput = (enrollmentId: ProgramEnrollmentId, dayNumber: number) => ({
   startedAt: DateTime.makeUnsafe(NOW - 900_000),
   durationSeconds: 840,
   performedItems: 1,
+  performedIds: [],
 })
 
 describe("ProgramRepo", () => {
@@ -269,6 +272,7 @@ describe("ProgramRepo", () => {
             startedAt: DateTime.makeUnsafe(NOW),
             durationSeconds: 60,
             performedItems: 1,
+            performedIds: [],
           }),
         )
         expect(abandonError._tag).toBe("StoreError")
@@ -395,7 +399,11 @@ const ENROLLMENT = "00000000-0000-4000-8000-0000000000c1"
 /** The circuit's planned length: 3 × (7 × 30 + 6 × 15) + 2 × 60. */
 const CIRCUIT_SECONDS = 1020
 
-const completeCircuit = (startedAgoSeconds: number, performedItems = 21) =>
+const completeCircuit = (
+  startedAgoSeconds: number,
+  performedItems = 21,
+  performedIds: ReadonlyArray<CatalogId> = [],
+) =>
   Effect.gen(function* () {
     const enrollment = yield* stored(ENROLLMENT, { programId: CIRCUIT_ID })
     const input = {
@@ -404,6 +412,7 @@ const completeCircuit = (startedAgoSeconds: number, performedItems = 21) =>
       startedAt: DateTime.makeUnsafe(NOW - startedAgoSeconds * 1000),
       durationSeconds: startedAgoSeconds,
       performedItems,
+      performedIds,
     }
     const before = yield* version
     const completion = yield* (yield* ProgramRepo).complete(input)
@@ -787,6 +796,270 @@ describe("ProgramRepo user programs", () => {
         expect(yield* rows(`SELECT "_dirty" FROM "program" WHERE "deletedAt" IS NOT NULL`)).toEqual(
           [{ _dirty: 1 }],
         )
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.findRow", () => {
+  it.effect("returns the stored row with its description and schedule", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const withDescription = yield* UserProgram.makeEffect({
+          ...USER_PROGRAM,
+          description: Option.some("A longer description."),
+        })
+        yield* repo.save(withDescription)
+        const found = yield* repo.findRow(USER_PROGRAM.id)
+        expect(
+          Option.map(found, (row) => [row.title, row.description, row.schedule, row.version]),
+        ).toEqual(
+          Option.some([
+            "Zebra split",
+            Option.some("A longer description."),
+            { kind: "daysPerWeek", days: 3 },
+            1,
+          ]),
+        )
+      }),
+    ),
+  )
+
+  it.effect("matches an id stored upper-case, and save keeps that spelling (no second row)", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const upper = UserProgramId.make(USER_PROGRAM.id.toUpperCase())
+        yield* repo.save(yield* UserProgram.makeEffect({ ...USER_PROGRAM, id: upper }))
+        expect(Option.map(yield* repo.findRow(USER_PROGRAM.id), (row) => row.id)).toEqual(
+          Option.some(upper),
+        )
+        const saved = yield* repo.save(
+          yield* UserProgram.makeEffect({ ...USER_PROGRAM, title: "Renamed" }),
+        )
+        expect([saved.id, saved.version]).toEqual([upper, 2])
+        expect(yield* rows(`SELECT "id", "version" FROM "program"`)).toEqual([
+          { id: upper, version: 2 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("is None for an unknown or tombstoned id", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        expect(Option.isNone(yield* repo.findRow(USER_PROGRAM.id))).toBe(true)
+        yield* repo.save(USER_PROGRAM)
+        yield* repo.deleteProgram(USER_PROGRAM.id)
+        expect(Option.isNone(yield* repo.findRow(USER_PROGRAM.id))).toBe(true)
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo test debt (REV-1b)", () => {
+  it.effect("setSwap on a terminal enrollment fails EnrollmentTerminal and writes nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const done = yield* stored("00000000-0000-4000-8000-0000000000c4", {
+          status: "completed",
+          currentDay: 3,
+        })
+        const before = yield* version
+        const error = yield* Effect.flip(repo.setSwap(done.id, PLANK, Option.some(DEAD_BUG)))
+        expect(Predicate.isTagged(error.cause, "EnrollmentTerminal")).toBe(true)
+        expect(yield* version).toBe(before)
+        expect(yield* rows(`SELECT "swaps", "_dirty" FROM "program_enrollment"`)).toEqual([
+          { swaps: "[]", _dirty: 0 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("setStatus on an abandoned enrollment is refused and writes nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const left = yield* stored("00000000-0000-4000-8000-0000000000c5", {
+          status: "abandoned",
+        })
+        const before = yield* version
+        const error = yield* Effect.flip(repo.setStatus(left.id, "active"))
+        expect(Predicate.isTagged(error.cause, "EnrollmentTerminal")).toBe(true)
+        expect(yield* version).toBe(before)
+        expect(yield* rows(`SELECT "status", "_dirty" FROM "program_enrollment"`)).toEqual([
+          { status: "abandoned", _dirty: 0 },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("deleteProgram with an unknown id fails StoreError(ProgramNotFound)", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const before = yield* version
+        const error = yield* Effect.flip(repo.deleteProgram(USER_PROGRAM.id))
+        expect(error).toBeInstanceOf(StoreError)
+        expect(Predicate.isTagged(error.cause, "ProgramNotFound")).toBe(true)
+        expect(yield* version).toBe(before)
+      }),
+    ),
+  )
+
+  it.effect("save on update keeps createdAt, source and the owner as userId", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const first = yield* repo.save(USER_PROGRAM)
+        // The caller's copy claims another author, source and creation time: the stored ones win.
+        const tampered = yield* UserProgram.makeEffect({
+          ...USER_PROGRAM,
+          title: "Zebra split v2",
+          userId: UserId.make("00000000-0000-4000-8000-00000000beef"),
+          createdAt: DateTime.makeUnsafe(NOW + 86_400_000),
+          source: "mcp",
+        })
+        const saved = yield* repo.save(tampered)
+        expect(saved.title).toBe("Zebra split v2")
+        expect(saved.userId).toBe(LOCAL_USER_ID)
+        expect(saved.source).toBe("manual")
+        expect(DateTime.toEpochMillis(saved.createdAt)).toBe(
+          DateTime.toEpochMillis(first.createdAt),
+        )
+        expect(DateTime.toEpochMillis(saved.createdAt)).toBe(
+          DateTime.toEpochMillis(USER_PROGRAM.createdAt),
+        )
+        expect(yield* rows(`SELECT "userId", "source", "createdAt" FROM "program"`)).toEqual([
+          {
+            userId: LOCAL_USER_ID,
+            source: "manual",
+            createdAt: DateTime.formatIso(USER_PROGRAM.createdAt),
+          },
+        ])
+      }),
+    ),
+  )
+
+  it.effect("setSwap that changes nothing writes nothing: no updatedAt bump, no dirty flag", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const live = yield* stored("00000000-0000-4000-8000-0000000000c6", {})
+        const before = yield* version
+        // Revert of an id that was never swapped.
+        yield* repo.setSwap(live.id, PLANK, Option.none())
+        // A swap to itself is a revert too.
+        yield* repo.setSwap(live.id, PLANK, Option.some(PLANK))
+        expect(yield* version).toBe(before)
+        expect(yield* rows(`SELECT "updatedAt", "_dirty" FROM "program_enrollment"`)).toEqual([
+          { updatedAt: DateTime.formatIso(live.updatedAt), _dirty: 0 },
+        ])
+        // Setting the same pair twice: the second call is the no-op.
+        yield* repo.setSwap(live.id, PLANK, Option.some(DEAD_BUG))
+        const afterFirst = yield* version
+        yield* repo.setSwap(live.id, PLANK, Option.some(DEAD_BUG))
+        expect(yield* version).toBe(afterFirst)
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.deleteProgram with an upper-case stored id", () => {
+  it.effect("is refused while an enrollment is active, whatever spelling the caller uses", () =>
+    runRows(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const upper = UserProgramId.make(USER_PROGRAM.id.toUpperCase())
+        yield* repo.save(yield* UserProgram.makeEffect({ ...USER_PROGRAM, id: upper }))
+        yield* repo.enroll(programIdOfRow(upper))
+        const refusedLower = yield* Effect.flip(repo.deleteProgram(USER_PROGRAM.id))
+        const refusedUpper = yield* Effect.flip(repo.deleteProgram(upper))
+        expect(
+          [refusedLower, refusedUpper].map((error) =>
+            Predicate.isTagged(error.cause, "ProgramInUse"),
+          ),
+        ).toEqual([true, true])
+        expect(Option.isSome(yield* repo.findRow(upper))).toBe(true)
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.complete logs what was performed (mid-workout swaps)", () => {
+  /** The circuit's 21 item-rounds, round-major, as the day writes them. */
+  const WRITTEN = Array.from({ length: 21 }, (_, index) =>
+    CatalogId.make(CIRCUIT_ITEMS[index % 7] ?? "plank"),
+  )
+  const SQUAT = CatalogId.make("squat")
+  const loggedIds = sets.pipe(Effect.map((logged) => logged.map((set) => set.exerciseId)))
+
+  it.effect("2 rounds before a swap and 1 after: 2 sets under the original, 1 under the new", () =>
+    run(
+      Effect.gen(function* () {
+        // plank (item 0) was swapped to squat during round 3 (item-round 14 on).
+        const ids = WRITTEN.map((id, index) => (index % 7 === 0 && index >= 14 ? SQUAT : id))
+        yield* completeCircuit(1200, 21, ids)
+        const logged = yield* loggedIds
+        const plankSets = [0, 7, 14].map((index) => logged[index])
+        expect(plankSets).toEqual([
+          exerciseIdOf("plank"),
+          exerciseIdOf("plank"),
+          exerciseIdOf("squat"),
+        ])
+        expect(logged.filter((id) => id === exerciseIdOf("plank"))).toHaveLength(2)
+        expect(logged).toHaveLength(21)
+      }),
+    ),
+  )
+
+  it.effect("a swap then a revert: only the middle round carries the swapped exercise", () =>
+    run(
+      Effect.gen(function* () {
+        const ids = WRITTEN.map((id, index) => (index % 7 === 0 && index === 7 ? SQUAT : id))
+        yield* completeCircuit(1200, 21, ids)
+        const logged = yield* loggedIds
+        expect([0, 7, 14].map((index) => logged[index])).toEqual([
+          exerciseIdOf("plank"),
+          exerciseIdOf("squat"),
+          exerciseIdOf("plank"),
+        ])
+      }),
+    ),
+  )
+
+  it.effect("the recorded ids win over the swaps stored on the enrollment", () =>
+    run(
+      Effect.gen(function* () {
+        const enrollment = yield* stored(ENROLLMENT, { programId: CIRCUIT_ID })
+        yield* (yield* ProgramRepo).setSwap(
+          enrollment.id,
+          CatalogId.make("plank"),
+          Option.some(SQUAT),
+        )
+        yield* (yield* ProgramRepo).complete({
+          enrollmentId: enrollment.id,
+          dayNumber: 1,
+          startedAt: DateTime.makeUnsafe(NOW - 1_200_000),
+          durationSeconds: 1200,
+          performedItems: 21,
+          performedIds: WRITTEN,
+        })
+        const logged = yield* loggedIds
+        expect(logged[0]).toBe(exerciseIdOf("plank"))
+        expect(logged[14]).toBe(exerciseIdOf("plank"))
+      }),
+    ),
+  )
+
+  it.effect("with no ids recorded the day as written (swaps as stored) is logged, as before", () =>
+    run(
+      Effect.gen(function* () {
+        yield* completeCircuit(1200)
+        expect(yield* loggedIds).toEqual(WRITTEN.map(exerciseIdOf))
       }),
     ),
   )

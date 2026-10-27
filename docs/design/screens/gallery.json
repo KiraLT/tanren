@@ -991,6 +991,58 @@
         "HM-B-health-1280-dark.png"
       ],
       "title": "Health module directions (HM-D)"
+    },
+    {
+      "badges": [
+        "HM-T1",
+        "HM-T2"
+      ],
+      "id": "hm-today",
+      "shots": [
+        "UI-HM-today-allpresent-390-light.png",
+        "UI-HM-today-allpresent-390-dark.png",
+        "UI-HM-today-allpresent-1280-light.png",
+        "UI-HM-today-allpresent-1280-dark.png",
+        "UI-HM-today-noprofile-390-light.png",
+        "UI-HM-today-noprofile-390-dark.png",
+        "UI-HM-today-noprofile-1280-light.png",
+        "UI-HM-today-noprofile-1280-dark.png"
+      ],
+      "title": "Today health module (HM-2)"
+    },
+    {
+      "badges": [
+        "HM-H1",
+        "HM-H2"
+      ],
+      "id": "hm-health",
+      "shots": [
+        "UI-HM-health-ready-390-light.png",
+        "UI-HM-health-ready-390-dark.png",
+        "UI-HM-health-ready-1280-light.png",
+        "UI-HM-health-ready-1280-dark.png",
+        "UI-HM-health-over-390-light.png",
+        "UI-HM-health-over-390-dark.png",
+        "UI-HM-health-over-1280-light.png",
+        "UI-HM-health-over-1280-dark.png"
+      ],
+      "title": "/health hero and week (HM-3)"
+    },
+    {
+      "badges": [
+        "N2b",
+        "N4"
+      ],
+      "id": "nutri-e2e",
+      "shots": [
+        "UI-NUTRI-N2b-health-burned-390-light.png",
+        "UI-NUTRI-N2b-health-burned-390-dark.png",
+        "UI-NUTRI-N2b-health-burned-1280-light.png",
+        "UI-NUTRI-N2b-health-burned-1280-dark.png",
+        "UI-NUTRI-N4-foodlog-undo-390-light.png",
+        "UI-NUTRI-N4-foodlog-undo-390-dark.png"
+      ],
+      "title": "Nutrition end to end (INT-N)"
     }
   ]
 }

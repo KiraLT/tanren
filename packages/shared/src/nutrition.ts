@@ -375,7 +375,8 @@ export const insights = (input: InsightInput): ReadonlyArray<Insight> => {
         when(Option.isSome(today.proteinLeftG) && proteinLeft >= 30 && hour >= 15, () =>
           insight(
             "protein_short",
-            `Protein ${formatInt(Math.round(proteinLeft / 5) * 5)} g short — a shake covers it`,
+            // Exact grams (Lead 17:00): the /health card shows "78 / 155 g" beside it.
+            `Protein ${formatInt(Math.round(proteinLeft))} g short — a shake covers it`,
           ),
         ),
         when(Option.isSome(today.proteinLeftG) && proteinLeft <= 0, () =>

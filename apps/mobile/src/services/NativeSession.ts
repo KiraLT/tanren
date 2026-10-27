@@ -184,10 +184,37 @@ const make = (deps: NativeSessionDeps) =>
         ),
       )
 
-    const clear = Effect.forEach(
-      [ACCESS_KEY, REFRESH_KEY, EXPIRES_KEY, LEGACY_SESSION_KEY, PENDING_KEY],
-      (key) => Effect.ignore(kv.remove(key)),
-      { discard: true },
+    /**
+     * A refreshed pair whose store failed. The server burned the stored refresh token (STLS-F5), so
+     * this pair wins over the stored one until a retried store succeeds; re-sending the burned token
+     * later than 30 s would count as reuse and sign the user out on every device.
+     */
+    const unsaved = yield* Ref.make(Option.none<AppTokenPair>())
+
+    /** Retries the store of an unsaved pair, then returns the pair to use (unsaved first). */
+    const currentPair = Effect.gen(function* () {
+      const pending = yield* Ref.get(unsaved)
+      if (Option.isNone(pending)) {
+        return yield* readPair
+      }
+      const saved = yield* storePair(pending.value).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      )
+      if (saved) {
+        yield* Ref.set(unsaved, Option.none())
+      }
+      return pending
+    })
+
+    const clear = Ref.set(unsaved, Option.none<AppTokenPair>()).pipe(
+      Effect.andThen(
+        Effect.forEach(
+          [ACCESS_KEY, REFRESH_KEY, EXPIRES_KEY, LEGACY_SESSION_KEY, PENDING_KEY],
+          (key) => Effect.ignore(kv.remove(key)),
+          { discard: true },
+        ),
+      ),
     )
 
     /** `POST /api/token/refresh` with `refreshToken`: a fresh pair, nothing stored. */
@@ -211,9 +238,13 @@ const make = (deps: NativeSessionDeps) =>
             isUnauthorised(cause)
               ? clear.pipe(Effect.as(Option.none<string>()))
               : Effect.succeed(Option.none<string>()),
-          // A failed write still hands out the fresh access token; the next call refreshes again.
+          // A failed write still hands out the fresh access token and keeps the pair in memory
+          // (`unsaved`): every later call retries the store and refreshes with THIS refresh token.
           onSuccess: (next) =>
-            Effect.ignore(storePair(next)).pipe(Effect.as(Option.some(next.accessToken))),
+            storePair(next).pipe(
+              Effect.catch(() => Ref.set(unsaved, Option.some(next))),
+              Effect.as(Option.some(next.accessToken)),
+            ),
         }),
       )
 
@@ -260,7 +291,7 @@ const make = (deps: NativeSessionDeps) =>
     })
 
     const deferRevoke = Effect.gen(function* () {
-      const stored = yield* readPair
+      const stored = yield* currentPair
       if (Option.isSome(stored)) {
         yield* kv.set(PENDING_REVOKE_KEY, stored.value.refreshToken)
       }
@@ -271,7 +302,7 @@ const make = (deps: NativeSessionDeps) =>
     const token = refreshLock.withPermits(1)(
       Effect.gen(function* () {
         yield* retryOnce
-        const stored = yield* readPair
+        const stored = yield* currentPair
         if (Option.isNone(stored)) {
           return Option.none<string>()
         }
@@ -282,7 +313,7 @@ const make = (deps: NativeSessionDeps) =>
       }),
     )
 
-    const hasSession = readPair.pipe(Effect.map(Option.isSome))
+    const hasSession = currentPair.pipe(Effect.map(Option.isSome))
 
     const readPending = Effect.gen(function* () {
       const raw = yield* kv.get(PENDING_KEY)
@@ -375,6 +406,8 @@ const make = (deps: NativeSessionDeps) =>
       )
       const session = yield* exchange({ code, verifier: pending.value.verifier })
       yield* storePair(session.access)
+      // A fresh sign-in never loses to a stale unsaved pair from the previous session.
+      yield* Ref.set(unsaved, Option.none())
       // Guard: a marker that survived the retry (offline) must not revoke this new session at the
       // next start, so it goes regardless.
       yield* kv.remove(PENDING_REVOKE_KEY).pipe(Effect.ignore)

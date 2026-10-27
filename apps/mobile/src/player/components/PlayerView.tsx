@@ -52,6 +52,8 @@ interface PlayerViewProps {
   readonly state: PlayerState
   readonly remainingMs: Option.Option<number>
   readonly send: (tag: PlayerEventTag) => void
+  /** Opens the swap sheet for the current exercise; the button shows on an exercise screen only. */
+  readonly onSwap?: () => void
 }
 
 /**
@@ -59,7 +61,7 @@ interface PlayerViewProps {
  * a 120 px illustration beside the name, the rest screen a 56 px one beside "Next"; both carry the
  * big ring (a reps item: count numeral + Done, ADR-0020), the transport row and `Finish workout`.
  */
-export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
+export function PlayerView({ day, state, remainingMs, send, onSwap }: PlayerViewProps) {
   const breakpoint = useBreakpoint()
   const phone = breakpoint === "phone"
   const ring = ringSpec(breakpoint, useWindowDimensions().width)
@@ -125,6 +127,14 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
           ),
         })}
       </View>
+      {onSwap === undefined ? null : (
+        <IconButton
+          icon="swap"
+          accessibilityLabel="Swap exercise"
+          onPress={onSwap}
+          style={{ alignSelf: "flex-start" }}
+        />
+      )}
     </View>
   )
 

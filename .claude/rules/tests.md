@@ -58,3 +58,7 @@ paths:
   in the same change — or the sentence goes. `useAuthGate` documented the
   second-tab case for five days while the real behaviour was a silent black
   screen (BS-1, 2026-10-27).
+- A write path's test asserts the stored row (read it back through the repo
+  or the harness and compare the fields), not only that the repo or client
+  was called with the right arguments: G-F1's daily-summary tests asserted
+  the Garmin calls and never the `daily_health` rows (REV nit, 2026-10-27).

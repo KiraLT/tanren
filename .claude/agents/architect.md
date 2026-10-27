@@ -58,6 +58,17 @@ an API.
    need (`chevron`, `tone="danger"`, `titleVariant`, `disabled`): UI-C's
    `ListRow` lacked them, three screen engineers built local workarounds, and
    closing the gap cost UI-1d plus half of UI-F1.
+   A spec's type and label lines obey `.claude/rules/react.md` (sentence
+   case, no all-caps, no `letterSpacing`/`textTransform`) — read the rule
+   before writing §Type: health-module.md spec'd uppercase labels, HM-1
+   overrode and the spec was fixed after the fact (2026-10-27). Every
+   constant the width arithmetic rests on (aside padding, column widths,
+   gutters) is read from the layout code and cited `file:line`, never
+   assumed: §3 said the Today card is 464 at 1280, the aside pads 32 each
+   side → 431, and §8's "496 wide" / "h1 === 1" criteria were wrong for Today.
+   A heading and its body never disagree: §4's title said "route order
+   unchanged" while its body said "DayBars in the right column"; HM-3 kept
+   the old order, the designer's F1 re-applied the body, one fix round.
    Three more checks before a spec is handed over (UI-D, 2026-10-26): (a) new
    file names differ from their siblings by more than case — macOS APFS is
    case-insensitive and `Columns.tsx` next to `columns.ts` is TS1261
@@ -163,6 +174,15 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   what the client stores and retries (pending-revoke marker cleared after
   the next successful call) and what the server-side exposure window is.
   STLS-5 needed a Lead ruling plus two fix rounds for this one line.
+- **Post-revoke truth table**: per token kind (session, access, refresh,
+  code), state what still verifies after a bump, reuse or sign-out and for
+  how long (ADR-0022: an access token lives ≤ 15 min after a revoke by
+  design). Briefs and tests copy the table; STLS-F5's done-criterion "the old
+  access token is 401" contradicted the ADR and the engineer had to argue it.
+- **Ledger retention vs verification tolerance**: any purge/cleanup of a
+  burned-token, nonce or code ledger keeps rows for `exp + CLOCK_SKEW` (the
+  verifier's tolerance), and the design names that number next to the purge.
+  STLS-F5 purged at `exp` and a burned token re-verified for 60 s (REV, 2026-10-27).
 
 ## Screen design checklist (every design with a web-rendered page)
 

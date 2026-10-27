@@ -1,6 +1,7 @@
-import { ProgramId } from "@tanren/shared"
+import { type ProgramDay, ProgramId } from "@tanren/shared"
 import { Array as Arr, Match, Option, Schema } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
+import { useEffect } from "react"
 import { View } from "react-native"
 import { DayForm } from "../../../../../src/components/programs/DayForm"
 import {
@@ -8,12 +9,32 @@ import {
   removeDay,
   updateDay,
 } from "../../../../../src/components/programs/programEdit"
-import { useGoBack } from "../../../../../src/components/programs/useGoBack"
-import { useProgramUpdate } from "../../../../../src/components/programs/useProgramEditor"
+import { useGoBack, useNavGuard } from "../../../../../src/components/programs/useGoBack"
+import {
+  type ProgramDraft,
+  useProgramUpdate,
+} from "../../../../../src/components/programs/useProgramEditor"
 import { useProgramDetail } from "../../../../../src/player/usePrograms"
-import { AppBar, Banner, IconButton, Page, radius, Skeleton, space } from "../../../../../src/ui"
+import {
+  AppBar,
+  Banner,
+  EmptyState,
+  IconButton,
+  Page,
+  radius,
+  Skeleton,
+  space,
+} from "../../../../../src/ui"
 
-const NOT_FOUND = <Banner tone="danger" title="Day not found" body="It may have been removed." />
+// Level 2: the AppBar owns the page's one `h1`.
+const NOT_FOUND = (
+  <EmptyState
+    icon="warning"
+    headingLevel={2}
+    title="Day not found"
+    body="It may have been removed."
+  />
+)
 
 function DaySkeleton() {
   return (
@@ -35,10 +56,23 @@ function DayPage({
   const router = useRouter()
   const back = useGoBack({ pathname: "/programs/edit/[programId]", params: { programId } })
   const { state } = useProgramDetail(programId)
-  const { update, error } = useProgramUpdate()
+  const { update, updateOnce, updateAndLeave, observe, busy, error } = useProgramUpdate()
+  // A saved move/remove keeps the gate shut until this screen has rendered the reloaded version.
+  const renderedVersion = state._tag === "Ready" ? state.summary.version : 0
+  useEffect(() => observe(renderedVersion), [observe, renderedVersion])
+  const once = useNavGuard()
+  const editable =
+    state._tag === "Ready" &&
+    state.summary.source !== "builtin" &&
+    Arr.some(state.program.days, (entry) => entry.dayNumber === dayNumber)
+  const changeDay = (change: (day: ProgramDay) => ProgramDay) => (draft: ProgramDraft) => ({
+    ...draft,
+    days: updateDay(draft.days, dayNumber, change),
+  })
   return (
     <Page
       scroll
+      wide={editable}
       header={
         <AppBar
           title={`Day ${dayNumber}`}
@@ -62,21 +96,20 @@ function DayPage({
                 day={day.value}
                 onlyDay={program.days.length === 1}
                 error={error}
-                onChange={(change) =>
-                  update(programId, (draft) => ({
-                    ...draft,
-                    days: updateDay(draft.days, dayNumber, change),
-                  }))
-                }
+                busy={busy}
+                onChange={(change) => update(programId, changeDay(change))}
+                onChangeOnce={(change) => updateOnce(programId, changeDay(change))}
                 onAddExercise={() =>
-                  // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-                  router.push({
-                    pathname: "/programs/pick",
-                    params: { pickFor: pickForParam({ programId, dayNumber }) },
-                  })
+                  once(() =>
+                    // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+                    router.push({
+                      pathname: "/programs/pick",
+                      params: { pickFor: pickForParam({ programId, dayNumber }) },
+                    }),
+                  )
                 }
                 onRemoveDay={() =>
-                  update(programId, (draft) => ({
+                  updateAndLeave(programId, (draft) => ({
                     ...draft,
                     days: removeDay(draft.days, dayNumber - 1),
                   })).then((saved) => {

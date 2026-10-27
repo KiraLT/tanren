@@ -27,6 +27,11 @@ const byDate: Order.Order<DailyHealth> = Order.combine(
   Order.mapInput(Order.String, (row: DailyHealth) => row.provider),
 )
 
+const newestFirst: Order.Order<ImportedActivity> = Order.combine(
+  Order.flip(Order.mapInput(DateTime.Order, (row: ImportedActivity) => row.startedAt)),
+  Order.mapInput(Order.String, (row: ImportedActivity) => row.id),
+)
+
 /** The last row per key, in first-seen order (like the D1 repo). */
 const lastByKey = <A>(rows: ReadonlyArray<A>, key: (a: A) => string): ReadonlyArray<A> =>
   Arr.filter(rows, (row, i) => !rows.slice(i + 1).some((later) => key(later) === key(row)))
@@ -178,7 +183,36 @@ export const MemoryGarminImport = {
           ),
         )
 
-      return GarminImportRepo.of({ upsertActivities, upsertDays, softDeleteAll, counts, listDays })
+      /** Live activities with `from <= startedAt < to`, newest first, at most `limit`. */
+      const listActivities = (
+        userId: UserId,
+        range: { readonly from: DateTime.Utc; readonly to: DateTime.Utc },
+        limit: number,
+      ) =>
+        Effect.map(store.rows("importedActivity", userId), (stored) =>
+          Arr.take(
+            Arr.sort(
+              Arr.filter(
+                Arr.map(stored, (s) => s.row),
+                (r) =>
+                  isLive(r) &&
+                  DateTime.isGreaterThanOrEqualTo(r.startedAt, range.from) &&
+                  DateTime.isLessThan(r.startedAt, range.to),
+              ),
+              newestFirst,
+            ),
+            limit,
+          ),
+        )
+
+      return GarminImportRepo.of({
+        upsertActivities,
+        upsertDays,
+        softDeleteAll,
+        counts,
+        listDays,
+        listActivities,
+      })
     }),
   ),
 } as const

@@ -21,6 +21,75 @@ export interface ProgressRingProps {
   readonly style?: StyleProp<ViewStyle>
 }
 
+export interface RingArcProps {
+  /** Centre of the parent `Svg` (px). */
+  readonly centre: number
+  /** This ring's outer diameter, stroke included; nested rings pass a smaller one. */
+  readonly diameter: number
+  readonly stroke: number
+  /** Fraction drawn, 0..1 (clamped). */
+  readonly progress: number
+  readonly color: string
+  readonly trackColor: string
+}
+
+/**
+ * One track + round-capped arc, the drawing every ring shares (`ProgressRing`, `HealthRings`). The
+ * parent `Svg` is rotated -90deg so the arc starts at 12 o'clock and fills clockwise.
+ */
+export function RingArc({ centre, diameter, stroke, progress, color, trackColor }: RingArcProps) {
+  const ring = ringGeometry(diameter, stroke, progress)
+  return (
+    <>
+      <Circle
+        cx={centre}
+        cy={centre}
+        r={ring.r}
+        stroke={trackColor}
+        strokeWidth={stroke}
+        fill="none"
+      />
+      <Circle
+        cx={centre}
+        cy={centre}
+        r={ring.r}
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={[ring.circumference, ring.circumference]}
+        strokeDashoffset={ring.dashOffset}
+        fill="none"
+      />
+    </>
+  )
+}
+
+/** Centres `children` over a `size` ring (absolutely positioned, ignores touches). */
+export function RingOverlay({
+  size,
+  children,
+}: {
+  readonly size: number
+  readonly children: ReactNode
+}) {
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: size,
+        height: size,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </View>
+  )
+}
+
 /** A small `accent` arc on a `border` track, filling clockwise from 12 o'clock (§5 progress marks). */
 export function ProgressRing({
   progress,
@@ -33,7 +102,6 @@ export function ProgressRing({
 }: ProgressRingProps) {
   const { colors } = useTheme()
   const spec = ringSpec(size, { stroke, diameter })
-  const ring = ringGeometry(spec.size, spec.stroke, progress)
   return (
     <View
       accessible
@@ -43,42 +111,16 @@ export function ProgressRing({
       style={[{ width: spec.size, height: spec.size }, style]}
     >
       <Svg width={spec.size} height={spec.size} style={{ transform: [{ rotate: "-90deg" }] }}>
-        <Circle
-          cx={ring.centre}
-          cy={ring.centre}
-          r={ring.r}
-          stroke={colors.border}
-          strokeWidth={spec.stroke}
-          fill="none"
-        />
-        <Circle
-          cx={ring.centre}
-          cy={ring.centre}
-          r={ring.r}
-          stroke={colors.accent}
-          strokeWidth={spec.stroke}
-          strokeLinecap="round"
-          strokeDasharray={[ring.circumference, ring.circumference]}
-          strokeDashoffset={ring.dashOffset}
-          fill="none"
+        <RingArc
+          centre={spec.size / 2}
+          diameter={spec.size}
+          stroke={spec.stroke}
+          progress={progress}
+          color={colors.accent}
+          trackColor={colors.border}
         />
       </Svg>
-      {children === undefined ? null : (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: spec.size,
-            height: spec.size,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {children}
-        </View>
-      )}
+      {children === undefined ? null : <RingOverlay size={spec.size}>{children}</RingOverlay>}
     </View>
   )
 }

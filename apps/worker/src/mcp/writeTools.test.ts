@@ -732,7 +732,7 @@ describe("update_profile", () => {
 describe("writeTools", () => {
   it("lists the three write tools in MCP_TOOLS order, all kind write", () => {
     expect(writeTools.map((t) => [t.name, t.kind])).toEqual(
-      MCP_TOOLS.slice(11, 14).map((name) => [name, "write"]),
+      MCP_TOOLS.slice(12, 15).map((name) => [name, "write"]),
     )
   })
 

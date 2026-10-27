@@ -43,6 +43,8 @@ const statelessFor = (request: Request, user: Option.Option<UserId>) =>
             tokenGens: () => Effect.succeed({ app: 0, mcp: 3 }),
             bumpAppTokenGen: () => Effect.void,
             bumpMcpTokenGen: () => Effect.void,
+            burnRefresh: () => Effect.die("unused"),
+            purgeBurnedRefresh: () => Effect.void,
           }),
         ),
         ClientResolver.layerWith({

@@ -88,9 +88,9 @@ const item = (name: string, kcal: number, proteinG: number, carbsG: number, fatG
 })
 
 describe("nutrition tools over /mcp in workerd", () => {
-  it("lists all twenty-two tools for a read + write principal", async () => {
+  it("lists all twenty-three tools for a read + write principal", async () => {
     const names = await toolNames(writer)
-    expect(names).toHaveLength(22)
+    expect(names).toHaveLength(23)
     expect(names).toEqual([...MCP_TOOLS])
   })
 

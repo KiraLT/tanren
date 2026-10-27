@@ -35,6 +35,7 @@ export {
   stepperSizeFor,
 } from "./controls"
 export { EmptyState } from "./EmptyState"
+export { HealthRings, type HealthRingsProps } from "./HealthRings"
 export { Icon, type IconName } from "./Icon"
 export { IconButton } from "./IconButton"
 export { type PressableInteraction, usePressableInteraction } from "./interaction"

@@ -89,6 +89,8 @@ const harness = (
               : Effect.succeed({ app: 0, mcp: 0 }),
           bumpAppTokenGen: () => Effect.die("unused"),
           bumpMcpTokenGen: () => Effect.die("unused"),
+          burnRefresh: () => Effect.die("unused"),
+          purgeBurnedRefresh: () => Effect.die("unused"),
         }),
       )
       const deps = Layer.mergeAll(

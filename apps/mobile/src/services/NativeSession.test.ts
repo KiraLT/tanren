@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Ref } from "effect"
+import { Effect, Layer, Option, Ref } from "effect"
 import { FetchHttpClient, HttpClientRequest } from "effect/http"
 import { TestClock } from "effect/testing"
 import {
@@ -9,6 +9,7 @@ import {
   EXPIRES_KEY,
   LEGACY_SESSION_KEY,
   NativeSession,
+  NativeSignInFailed,
   nativeSignInFailureMessage,
   PENDING_KEY,
   PENDING_REVOKE_KEY,
@@ -695,5 +696,79 @@ describe("callbackFailure and copy", () => {
         (reason) => nativeSignInFailureMessage(reason).length > 0,
       ),
     ).toBe(true)
+  })
+})
+
+describe("NativeSession.token when the rotated pair cannot be stored (STLS-F6)", () => {
+  /** A SecureStore whose writes fail while `broken` is true. */
+  const flakyKv = (store: Store, broken: Ref.Ref<boolean>) => ({
+    get: (key: string) => Ref.get(store).pipe(Effect.map((all) => Option.fromNullishOr(all[key]))),
+    set: (key: string, value: string) =>
+      Effect.gen(function* () {
+        if (yield* Ref.get(broken)) {
+          return yield* new NativeSignInFailed({ reason: "storage" })
+        }
+        yield* Ref.update(store, (all) => ({ ...all, [key]: value }))
+      }),
+    remove: (key: string) =>
+      Ref.update(store, (all) =>
+        Object.fromEntries(Object.entries(all).filter(([name]) => name !== key)),
+      ),
+  })
+  const pkce = {
+    randomBytes: () => Effect.succeed(RFC_BYTES),
+    sha256: () => Effect.succeed(new Uint8Array()),
+  }
+
+  it.effect("refreshes with the unsaved pair, never the burned stored one, then stores it", () => {
+    const bodies: Array<string> = []
+    const pairs = [
+      { accessToken: NEW_ACCESS, refreshToken: NEW_REFRESH, expiresAt: EXPIRES_IN_10_MIN },
+      { accessToken: "acc-789", refreshToken: "ref-789", expiresAt: FAR_FUTURE },
+    ]
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const body = await new Request(input, init).text()
+      // biome-ignore lint/plugin/noMutation: test spy collecting what the fake server saw
+      bodies.push(body)
+      return new Response(JSON.stringify(pairs[bodies.length - 1]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    }
+    return Effect.gen(function* () {
+      const store: Store = yield* Ref.make<Readonly<Record<string, string>>>(
+        pairEntries("1969-12-31T00:00:00.000Z"),
+      )
+      const broken = yield* Ref.make(true)
+      yield* Effect.gen(function* () {
+        expect(yield* NativeSession.use((s) => s.token)).toEqual(Option.some(NEW_ACCESS))
+        // The store failed: the burned REFRESH is still on disk, the new pair only in memory.
+        expect((yield* Ref.get(store))[REFRESH_KEY]).toBe(REFRESH)
+        yield* TestClock.adjust("571 seconds")
+        expect(yield* NativeSession.use((s) => s.token)).toEqual(Option.some("acc-789"))
+        expect(bodies).toEqual([
+          JSON.stringify({ refreshToken: REFRESH }),
+          JSON.stringify({ refreshToken: NEW_REFRESH }),
+        ])
+        yield* Ref.set(broken, false)
+        expect(yield* NativeSession.use((s) => s.token)).toEqual(Option.some("acc-789"))
+        expect(yield* Ref.get(store)).toEqual({
+          [ACCESS_KEY]: "acc-789",
+          [REFRESH_KEY]: "ref-789",
+          [EXPIRES_KEY]: FAR_FUTURE,
+        })
+        expect(bodies).toHaveLength(2)
+      }).pipe(
+        Effect.provide(
+          NativeSession.layerWith({
+            kv: flakyKv(store, broken),
+            pkce,
+            returnTo: Effect.succeed(RETURN_TO),
+            baseUrl: Effect.succeed("http://api.test"),
+          }).pipe(Layer.provide(FetchHttpClient.layer)),
+        ),
+        Effect.provideService(FetchHttpClient.Fetch, fetch),
+      )
+    })
   })
 })

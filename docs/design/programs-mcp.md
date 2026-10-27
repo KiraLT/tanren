@@ -17,7 +17,7 @@ export const ProgramSchedule = Schema.Union([
 ])
 export const ProgramSource = Schema.Literals(["builtin", "mcp", "manual"])
 export const UserProgramSource = Schema.Literals(["mcp", "manual"])           // what a row may hold
-export const ProgramDays = Schema.Array(ProgramDay).check(Schema.isMinLength(1), Schema.isMaxLength(60))
+export const ProgramDays = Schema.Array(ProgramDay).check(Schema.isMinLength(1), Schema.isMaxLength(84))   // 1–84 (Lead 16:19: the 12-week built-in is 84 days)
 export const UserProgramFields = {
   title: Label, slug: Slug /* immutable, unique per user among live rows */, summary: Note,
   description: Schema.OptionFromNullOr(Text), days: ProgramDays, schedule: ProgramSchedule,
@@ -122,7 +122,7 @@ SwapExerciseInput = Struct({ enrollmentId: ProgramEnrollmentId, from: CatalogId,
 ```
 Semantics (`apps/worker/src/mcp/programTools.ts`): every check before the first write, every row carries the caller's
 `userId`. `write_program`: decode → catalog check (`findCatalogExercise`, first unknown id → `NotFound { entity:
-"catalogExercise", id }`) → `bySlug`: none → insert (`source: "mcp"`, `version: 1`, `created: true`); some → replace
+"catalogExercise", id }` (`EntityName` gains `"catalogExercise"` and `NotFound.id` is a plain `String`, ratified 16:11: catalog ids and built-in program ids are slugs, not UUIDs)) → `bySlug`: none → insert (`source: "mcp"`, `version: 1`, `created: true`); some → replace
 fields, `version + 1`, same id, `created: false`. Warnings (strings, never errors): `"day N runs M min (> 45)"`,
 `"day N repeats <id>"`, `"<id> is a timed exercise used as reps"` / vice versa (catalog `kind` vs item `kind`;
 `kind: "distance"` entries never warn), `"enrollment <id> is on day K > days (N): the app shows the program as finished"`.
@@ -137,7 +137,7 @@ active`, either → `abandoned`. `swap_exercise`: `from` must occur in the progr
 be in `swapCandidates(original, CATALOG, [] /* server has no location: equipment not filtered */)` else `ValidationError
 listing the first 8 candidates`; `null` removes the entry; result echoes the 8 candidates for `from`.
 Descriptions (verbatim in the tool; one paragraph each, ≤ 900 chars). `write_program`: "Create or replace one of the
-user's guided programs (replace = same slug; the id and enrollments are kept). A program is 1–60 days; each day has
+user's guided programs (replace = same slug; the id and enrollments are kept). A program is 1–84 days; each day has
 1–12 exercises done for 1–5 rounds. Use `search_exercises` to get `catalogId`s — never invent ids. Use `kind: "timed"`
 (10–600 s) only for holds, isometrics and cardio (plank, wall sit, bike); use `kind: "reps"` (1–100) for everything
 else. Rest 15–30 s between core/bodyweight items, 60–120 s between heavy strength items, 0 for cardio; 45–90 s between
@@ -167,7 +167,7 @@ pill (status wins) → text = 358 − 16 − 24 − 12 − 12 − 100 − 8 − 
 Detail: `EnrolCard` (button "Start program"; when another program is active: "Start alongside"), `ProgramInside`,
 `DayList`; enrolled: `DayCard` + `DayStats` + `DayItems` (swaps applied) + actions group (`ListRow`s): "Pause"/"Resume"
 (`icon="pause"/"play"`), "Leave program" (`tone="danger"`), and for non-builtin "Edit program" (`chevron`) and "Delete
-program" (`tone="danger"`; disabled with subtitle "Pause or leave first" while active/paused; confirm `Alert`).
+program" (`tone="danger"`; disabled with subtitle "Leave the program first" while active/paused — pausing does not unblock it; inline confirm Banner, `Alert` is a no-op on web).
 Built-ins: "Duplicate to edit" (`chevron`) → `/programs/new?from=`.
 New: two `Card`s 358 wide: "Blank program" and "Duplicate a program" (`ListRow` per program) → creates a `program`
 row (`source: "manual"`, `version 1`, slug = slugified title + 4 random chars) and opens the editor.

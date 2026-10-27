@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   ExerciseId,
   IdGenerator,
+  ImportedActivity,
   LOCATION_PRESETS,
   LocationId,
   MCP_TOOLS,
@@ -19,9 +20,16 @@ import {
   WeightKg,
   WorkoutSet,
 } from "@tanren/shared"
-import { DateTime, Effect, Layer, Option } from "effect"
+import { DateTime, Effect, Layer, Option, Schema } from "effect"
 import { TestClock } from "effect/testing"
-import { ExerciseRepo, PlanRepo, ProfileRepo, Repositories, SessionRepo } from "../repos"
+import {
+  ExerciseRepo,
+  MemoryStore,
+  PlanRepo,
+  ProfileRepo,
+  Repositories,
+  SessionRepo,
+} from "../repos"
 import { MemoryGarminImport } from "../repos/MemoryGarminImport"
 import { MemoryIntegrations } from "../repos/MemoryIntegrations"
 import { at, exercise, plan, userA, userB, week } from "../sync/fixtures"
@@ -32,6 +40,7 @@ import {
   getExerciseHistory,
   getOverview,
   getProfile,
+  listActivities,
   listSessions,
   readTools,
   searchExercises,
@@ -500,8 +509,8 @@ describe("search_exercises availableAt", () => {
 })
 
 describe("readTools", () => {
-  it("lists the six read tools in MCP_TOOLS order", () => {
-    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 6))
+  it("lists the seven read tools in MCP_TOOLS order", () => {
+    expect(readTools.map((tool) => tool.name)).toEqual(MCP_TOOLS.slice(0, 7))
   })
 
   it("marks every read tool read and every write tool write", () => {
@@ -654,3 +663,135 @@ describe("QA: tombstones and isolation", () => {
   )
 })
 const from = at("2026-10-10T17:00:00.000Z")
+
+const importedActivity = (
+  n: number,
+  fields: {
+    readonly startedAt: string
+    readonly sport: string
+    readonly durationSeconds: number
+    readonly distanceMeters: number | null
+    readonly calories: number | null
+    readonly userId?: UserId
+    readonly deletedAt?: string
+  },
+) =>
+  Schema.decodeUnknownSync(ImportedActivity)({
+    id: `74000000-0000-4000-8000-${n.toString().padStart(12, "0")}`,
+    userId: fields.userId ?? userA,
+    createdAt: "2026-10-19T08:00:00.000Z",
+    updatedAt: "2026-10-19T08:00:00.000Z",
+    deletedAt: fields.deletedAt ?? null,
+    provider: "garmin",
+    externalId: `ext-${n}`,
+    sport: fields.sport,
+    title: `Activity ${n}`,
+    startedAt: fields.startedAt,
+    durationSeconds: fields.durationSeconds,
+    distanceMeters: fields.distanceMeters,
+    calories: fields.calories,
+    avgHeartRate: null,
+    maxHeartRate: null,
+  })
+
+/** NOW is 2026-10-20: two activities in 30d (one inside 7d), one outside, one deleted, one foreign. */
+const seedImported = Effect.gen(function* () {
+  const store = yield* MemoryStore
+  yield* store.put("importedActivity", userA, [
+    importedActivity(1, {
+      startedAt: "2026-10-18T06:00:00.000Z",
+      sport: "running",
+      durationSeconds: 1800,
+      distanceMeters: 5000,
+      calories: 400,
+    }),
+    importedActivity(2, {
+      startedAt: "2026-10-10T07:00:00.000Z",
+      sport: "walking",
+      durationSeconds: 3600,
+      distanceMeters: 3000,
+      calories: null,
+    }),
+    importedActivity(3, {
+      startedAt: "2026-08-01T07:00:00.000Z",
+      sport: "running",
+      durationSeconds: 999,
+      distanceMeters: 1,
+      calories: 1,
+    }),
+    importedActivity(4, {
+      startedAt: "2026-10-15T07:00:00.000Z",
+      sport: "cycling",
+      durationSeconds: 999,
+      distanceMeters: 1,
+      calories: 1,
+      deletedAt: "2026-10-16T00:00:00.000Z",
+    }),
+  ])
+  yield* store.put("importedActivity", userB, [
+    importedActivity(5, {
+      userId: userB,
+      startedAt: "2026-10-17T07:00:00.000Z",
+      sport: "running",
+      durationSeconds: 999,
+      distanceMeters: 1,
+      calories: 1,
+    }),
+  ])
+})
+
+describe("list_activities", () => {
+  it.effect("lists the period's live activities newest first, never another user's", () =>
+    Effect.gen(function* () {
+      const result = yield* run(seedImported.pipe(Effect.andThen(listActivities.run(userA, {}))))
+      expect(result.activities.map((a) => a.externalId)).toEqual(["ext-1", "ext-2"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("7d keeps only the activity of the last week", () =>
+    Effect.gen(function* () {
+      const result = yield* run(
+        seedImported.pipe(Effect.andThen(listActivities.run(userA, { period: "7d" }))),
+      )
+      expect(result.activities.map((a) => a.externalId)).toEqual(["ext-1"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("answers an empty list when nothing was imported", () =>
+    Effect.gen(function* () {
+      const result = yield* run(listActivities.run(userA, {}))
+      expect(result.activities).toEqual([])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("get_overview imported summary", () => {
+  it.effect("totals the period's imported activities by sport", () =>
+    Effect.gen(function* () {
+      const overview = yield* run(seedImported.pipe(Effect.andThen(getOverview.run(userA, {}))))
+      expect(overview.imported).toEqual({
+        count: 2,
+        durationSeconds: 5400,
+        distanceMeters: 8000,
+        calories: 400,
+        bySport: [
+          { sport: "running", count: 1 },
+          { sport: "walking", count: 1 },
+        ],
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("is all zeros without imports", () =>
+    Effect.gen(function* () {
+      const overview = yield* run(getOverview.run(userA, {}))
+      expect(overview.imported).toEqual({
+        count: 0,
+        durationSeconds: 0,
+        distanceMeters: 0,
+        calories: 0,
+        bySport: [],
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})

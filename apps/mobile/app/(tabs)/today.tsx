@@ -1,11 +1,11 @@
-import { Array as Arr, Match, Option } from "effect"
+import { Array as Arr, Match } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { TodayPrograms, useDueToday } from "../../src/components/TodayPrograms"
 import { TodayReady } from "../../src/components/TodayReady"
 import { FinishWorkout } from "../../src/components/today/FinishWorkout"
-import { HealthStrip, useHealthLine } from "../../src/components/today/HealthStrip"
-import { NutritionStrip } from "../../src/components/today/NutritionStrip"
+import { HealthModule } from "../../src/components/today/HealthModule"
+import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
@@ -79,36 +79,24 @@ function TodaySkeleton() {
 }
 
 /**
- * The health and nutrition strips above the pager, stacked `space.sm` (nutrition.md §6):
- * `TodayReady`'s page is unpadded, so each takes the gutter here; the first visible one sits
- * `space.lg` under the AppBar, and with both hidden the banner takes no space.
+ * Above the pager (health-module.md §3): the health module (one column only; the two-column layout
+ * shows it as the aside's first card) and the programs due. `TodayReady`'s page is unpadded, so each
+ * takes the gutter here and sits `space.lg` below the previous; a hidden module takes no space.
  */
-function ReadyStrips() {
+function ReadyBanner() {
   const breakpoint = useBreakpoint()
-  const healthShown = Option.isSome(useHealthLine())
+  const wide = useLayoutMode() === "two-column"
   const marginHorizontal = gutter[breakpoint]
   const programsDue = useDueToday()
   return (
     <>
-      <HealthStrip style={{ marginHorizontal, marginTop: space.lg }} />
-      <NutritionStrip style={{ marginHorizontal, marginTop: healthShown ? space.sm : space.lg }} />
+      {wide ? null : <HealthModule style={{ marginHorizontal, marginTop: space.lg }} />}
       {/* Programs due, above the pager; the wrapper exists only when one is due (no empty space). */}
       {Arr.isReadonlyArrayNonEmpty(programsDue) && (
         <View style={{ marginHorizontal, marginTop: space.lg }}>
           <TodayPrograms />
         </View>
       )}
-    </>
-  )
-}
-
-/** Empty: both strips as `Page` sections; under a visible health strip, the page's 16 gap is pulled to 8. */
-function EmptyStrips() {
-  const healthShown = Option.isSome(useHealthLine())
-  return (
-    <>
-      <HealthStrip />
-      <NutritionStrip style={healthShown ? { marginTop: space.sm - space.lg } : undefined} />
     </>
   )
 }
@@ -122,7 +110,7 @@ const renderState = Match.type<TodayState>().pipe(
     ),
     Empty: () => (
       <Page header={<TodayBar />}>
-        <EmptyStrips />
+        <HealthModule />
         <TodayPrograms />
         <EmptyState
           icon="calendar"
@@ -143,7 +131,8 @@ const renderState = Match.type<TodayState>().pipe(
         accessory={<SignInEntry />}
         exercises={exercises}
         footer={<FinishWorkout session={session} />}
-        banner={<ReadyStrips />}
+        banner={<ReadyBanner />}
+        asideTop={<HealthModule />}
       />
     ),
   }),

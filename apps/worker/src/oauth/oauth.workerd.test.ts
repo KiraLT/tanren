@@ -308,7 +308,7 @@ describe("OAuth flow through the provider (workerd)", () => {
 
   it("a read-only grant lists the eight read tools and cannot call a write tool", async () => {
     const token = await grant(["tanren:read"])
-    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 11))
+    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 12))
     const response = await mcp(Option.some(token), "tools/call", {
       name: "update_profile",
       arguments: { timezone: "Europe/Vilnius" },
@@ -354,6 +354,21 @@ describe("OAuth flow through the provider (workerd)", () => {
     const body = await json(refreshed)
     expect(body).toMatchObject({ token_type: "Bearer", scope: "tanren:read tanren:write" })
     expect(await toolNames(Option.some(str(body.access_token)))).toEqual([...MCP_TOOLS])
+  })
+
+  it("a refresh token re-sent at once → 200; 31 s later → 400 invalid_grant, rotated dies (STLS-F5)", async () => {
+    const { exchange } = await codeGrant()
+    const first = await json(await exchange())
+    const rotated = await json(await refreshWith(str(first.refresh_token)))
+    expect(rotated.refresh_token).not.toBe(first.refresh_token)
+    // Within the 30 s grace a re-send gets a fresh pair; age the burn past it (real clock here).
+    expect((await refreshWith(str(first.refresh_token))).status).toBe(200)
+    await env.DB.prepare(`UPDATE refresh_token_burn SET "burnedAt" = "burnedAt" - 31000`).run()
+    const reuse = await refreshWith(str(first.refresh_token))
+    expect(reuse.status).toBe(400)
+    expect(await json(reuse)).toMatchObject({ error: "invalid_grant" })
+    const afterBump = await refreshWith(str(rotated.refresh_token))
+    expect(await json(afterBump)).toMatchObject({ error: "invalid_grant" })
   })
 
   it("revoke-mcp (web session) → the refresh token answers 400 invalid_grant", async () => {

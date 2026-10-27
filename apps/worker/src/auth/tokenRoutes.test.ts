@@ -1,9 +1,10 @@
 import { describe, expect, it } from "@effect/vitest"
 import { UserTokens } from "@tanren/db"
 import { AppTokenPair, UserId } from "@tanren/shared"
-import { Context, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Context, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { MemoryTokens } from "../repos/MemoryTokens"
+import { verdictOf } from "./refreshRotation"
 import { Sessions } from "./Sessions"
 import { Tokens } from "./Tokens"
 import { tokenRoutes } from "./tokenRoutes"
@@ -76,6 +77,63 @@ describe("POST /api/token/refresh", () => {
       expect(next.refreshToken).not.toBe(pair.refreshToken)
       const identity = yield* harness.tokens.verifyApp(next.accessToken)
       expect(identity).toMatchObject({ userId: USER, gen: 0 })
+    }),
+  )
+
+  it.live("a burned refresh token re-sent at once gets a fresh pair, no bump (30 s grace)", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup()
+      const pair = yield* harness.tokens.issueAppPair(USER, 0)
+      expect((yield* harness.refresh(pair.refreshToken)).status).toBe(200)
+      const resent = yield* harness.refresh(pair.refreshToken)
+      expect(resent.status).toBe(200)
+      yield* Schema.decodeUnknownEffect(AppTokenPair)(yield* harness.json(resent))
+      expect(yield* harness.users.tokenGens(USER)).toEqual({ app: 0, mcp: 0 })
+    }),
+  )
+
+  it.live("a refresh token burned 31 s ago is 401 revoked and kills every app token", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup()
+      const pair = yield* harness.tokens.issueAppPair(USER, 0)
+      const rotated = yield* Schema.decodeUnknownEffect(AppTokenPair)(
+        yield* harness.json(yield* harness.refresh(pair.refreshToken)),
+      )
+      // The handler runs on the real clock: simulate "burned 31 s ago" by writing that ledger row.
+      const stale = yield* harness.tokens.issueAppPair(USER, 0)
+      const identity = yield* harness.tokens.verifyAppRefresh(stale.refreshToken)
+      const now = yield* DateTime.now
+      yield* harness.users.burnRefresh({
+        userId: USER,
+        jti: identity.jti,
+        expiresAt: DateTime.add(now, { days: 31 }),
+        burnedAt: DateTime.subtract(now, { seconds: 31 }),
+      })
+      yield* expectRejected(harness, yield* harness.refresh(stale.refreshToken), "revoked")
+      expect(yield* harness.users.tokenGens(USER)).toEqual({ app: 1, mcp: 0 })
+      yield* expectRejected(harness, yield* harness.refresh(rotated.refreshToken), "revoked")
+    }),
+  )
+
+  it.live("a token burned by the route survives a purge at exp + 30 s (skew window)", () =>
+    Effect.gen(function* () {
+      const harness = yield* setup()
+      const pair = yield* harness.tokens.issueAppPair(USER, 0)
+      const identity = yield* harness.tokens.verifyAppRefresh(pair.refreshToken)
+      expect((yield* harness.refresh(pair.refreshToken)).status).toBe(200)
+      // 30 s past `exp` the token still verifies (60 s skew), so the purge must keep its row.
+      const atExpPlus30 = DateTime.add(DateTime.makeUnsafe(identity.exp * 1000), { seconds: 30 })
+      yield* harness.users.purgeBurnedRefresh(atExpPlus30)
+      // The handler runs on the real clock (a replay now would be grace), so probe the kept row
+      // directly: a replay at exp + 30 s finds it burned, and `verdictOf` there is reuse.
+      const replay = yield* harness.users.burnRefresh({
+        userId: USER,
+        jti: identity.jti,
+        expiresAt: atExpPlus30,
+        burnedAt: atExpPlus30,
+      })
+      expect(replay._tag).toBe("AlreadyBurned")
+      expect(verdictOf(replay, atExpPlus30)).toBe("reuse")
     }),
   )
 

@@ -222,7 +222,13 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    the Lead committed mobile-B's `settings.tsx` with strava's import of the
    uncommitted `IntegrationsSection` (22:11, 2026-10-26) and HEAD stopped
    building until SV-6 landed; a shared file is committed only with both
-   streams' pieces, so both team-leads say when theirs is ready. The same
+   streams' pieces, so both team-leads say when theirs is ready. Every
+   interim and the final carry a `Committable now:` line — the files whose
+   hunks are final AND import nothing still in flight — and a `Hold:` line
+   for the rest with the dependency named (`mcp.ts MCP_TOOLS names ← worker
+   mcp/* half`), so the Lead's path-filtered commit never has to guess: the
+   17:02 commit attempt (2026-10-27) pulled N-S4's shared/db halves without
+   their worker half and was abandoned for the team's final. The same
    test gates a wave: never ask the Lead to commit wave N while any file in it
    imports a symbol that only wave N+1 defines or exports (`git diff --name-only`
    of the wave → `grep -n "from '" <file>` against files still in flight);

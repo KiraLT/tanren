@@ -5,13 +5,16 @@ import {
   IntegrationRepo,
   type IntegrationRow,
   PersistenceError,
+  ProfileRepo,
 } from "@tanren/db"
 import {
   DailyHealthInsert,
   type ExportFailureReason,
   ImportedActivityInsert,
   Label,
-  type LocalDate,
+  LocalDate,
+  Profile,
+  TimeZone,
   UserId,
   Uuid,
 } from "@tanren/shared"
@@ -168,6 +171,8 @@ interface Setup {
   readonly users?: number
   /** `upsertActivities` fails like D1 when another writer took the natural key first. */
   readonly race?: boolean
+  /** User 1 has a live profile in this IANA zone (default: no profile → UTC). */
+  readonly timezone?: string
 }
 
 /** The D1 error chain of a unique-index race: PersistenceError → SqlError-like → D1 error. */
@@ -247,6 +252,24 @@ const setup = (script: Script, opts: Setup = {}) =>
         return yield* integrations.upsert(row)
       }),
     )
+    if (opts.timezone !== undefined) {
+      yield* Context.get(context, ProfileRepo).put(userId(1), [
+        Profile.make({
+          id: userId(1),
+          userId: userId(1),
+          createdAt: DateTime.makeUnsafe(NOW),
+          updatedAt: DateTime.makeUnsafe(NOW),
+          deletedAt: Option.none(),
+          goals: [],
+          constraints: [],
+          availableDays: [],
+          locations: [],
+          activeLocationId: Option.none(),
+          timezone: TimeZone.make(opts.timezone),
+          nutrition: Option.none(),
+        }),
+      ])
+    }
     const pull = Context.get(context, GarminPull)
     const run = <A, E>(effect: Effect.Effect<A, E>) => effect.pipe(Effect.provide(logs.layer))
     const row = (n = 1) =>
@@ -303,7 +326,8 @@ describe("GarminPull cursor", () => {
         Option.some({
           // The window was read in full: the next run starts the day after it.
           activitiesSince: DateTime.makeUnsafe("2026-10-07T00:00:00.000Z"),
-          healthThrough: "2026-10-26",
+          // Never past the day before yesterday: yesterday and today are re-read every run.
+          healthThrough: "2026-10-25",
           lastPullAt: Option.some(DateTime.makeUnsafe(NOW)),
           lastError: Option.none(),
           lastAttemptAt: DateTime.makeUnsafe(NOW),
@@ -542,19 +566,103 @@ describe("GarminPull back-fill at page size 50", () => {
           imported: 90,
           since: Option.some("2026-10-17"),
           activityCalls: ["activities 2026-10-07..2026-10-16 @0"],
-          garminCalls: 2,
-          importWrites: ["activities 30", "days 1"],
+          // 1 activity page + the dailies of yesterday and today.
+          garminCalls: 3,
+          importWrites: ["activities 30", "days 2"],
         },
         {
           imported: 120,
           // The last window ended yesterday: from here on every run re-reads yesterday..today.
           since: Option.some("2026-10-26"),
           activityCalls: ["activities 2026-10-17..2026-10-26 @0"],
-          garminCalls: 2,
-          importWrites: ["activities 30", "days 1"],
+          garminCalls: 3,
+          importWrites: ["activities 30", "days 2"],
         },
       ])
       expect(Math.max(...runs.map((r) => r.garminCalls))).toBeLessThanOrEqual(GARMIN_CALL_BUDGET)
     }),
+  )
+})
+
+describe("GarminPull local day (G-F1)", () => {
+  /** A cursor whose activity window is read and whose health is final through `healthThrough`. */
+  const cursorThrough = (healthThrough: string) =>
+    JSON.stringify({
+      activitiesSince: "2026-10-26T00:00:00.000Z",
+      healthThrough,
+      lastPullAt: "2026-10-26T10:00:00.000Z",
+      lastError: null,
+    })
+  /** Pulls user 1 at `instant` and returns the daily calls and the stored `daily_health` dates. */
+  const pullAt = (instant: string, opts: Setup) =>
+    Effect.gen(function* () {
+      const t = yield* setup({}, { expiresInMinutes: 48 * 60, ...opts })
+      yield* TestClock.setTime(DateTime.toEpochMillis(DateTime.makeUnsafe(instant)))
+      yield* t.run(t.pull.drainUser(userId(1)))
+      const days = yield* t.imports.listDays(
+        userId(1),
+        LocalDate.make("2026-10-01"),
+        LocalDate.make("2026-10-31"),
+      )
+      return {
+        daily: (yield* t.calls).filter((c) => c.startsWith("daily")),
+        stored: days.map((d) => d.date),
+      }
+    })
+
+  it.effect("22:30Z in Europe/Vilnius (00:30 local) reads 27 and 28 October", () =>
+    Effect.gen(function* () {
+      const result = yield* pullAt("2026-10-27T22:30:00.000Z", {
+        timezone: "Europe/Vilnius",
+        scope: cursorThrough("2026-10-26"),
+      })
+      expect(result).toEqual({
+        daily: ["daily 2026-10-27", "daily 2026-10-28"],
+        stored: ["2026-10-27", "2026-10-28"],
+      })
+    }),
+  )
+
+  it.effect("00:30Z in Europe/Vilnius (02:30 local) reads 26 and 27 October", () =>
+    Effect.gen(function* () {
+      const result = yield* pullAt("2026-10-27T00:30:00.000Z", {
+        timezone: "Europe/Vilnius",
+        scope: cursorThrough("2026-10-25"),
+      })
+      expect(result.daily).toEqual(["daily 2026-10-26", "daily 2026-10-27"])
+    }),
+  )
+
+  it.effect("no profile falls back to UTC like the nutrition tools: 22:30Z reads 26 and 27", () =>
+    Effect.gen(function* () {
+      const result = yield* pullAt("2026-10-27T22:30:00.000Z", {
+        scope: cursorThrough("2026-10-25"),
+      })
+      expect(result.daily).toEqual(["daily 2026-10-26", "daily 2026-10-27"])
+    }),
+  )
+
+  it.effect(
+    "a steady-state run re-reads yesterday and today and keeps healthThrough before them",
+    () =>
+      Effect.gen(function* () {
+        const t = yield* setup(
+          {},
+          { timezone: "Europe/Vilnius", scope: cursorThrough("2026-10-25") },
+        )
+        yield* t.run(t.pull.drainUser(userId(1)))
+        yield* TestClock.adjust("5 minutes")
+        yield* t.run(t.pull.drainUser(userId(1)))
+        const daily = (yield* t.calls).filter((c) => c.startsWith("daily"))
+        expect(daily).toEqual([
+          "daily 2026-10-26",
+          "daily 2026-10-27",
+          "daily 2026-10-26",
+          "daily 2026-10-27",
+        ])
+        expect(Option.map(readCursor((yield* t.row()).scope), (c) => c.healthThrough)).toEqual(
+          Option.some("2026-10-25"),
+        )
+      }),
   )
 })

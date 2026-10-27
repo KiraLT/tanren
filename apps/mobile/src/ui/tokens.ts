@@ -74,7 +74,7 @@ export const sizes = {
   appBar: 56,
   /** Height of a `StatRow variant="tile"` tile (desktop r3: caption over a headline value). */
   statTile: 72,
-  /** Desktop list row with a subtitle (Programs "What's inside": title over the routine line). */
+  /** Desktop Plan rest row (`PlanDayRow`, its only user): 64 high. */
   rowTall: 64,
   /** A section label row (caption beside a value, e.g. Today "Sets" / exercise name): 28 high. */
   labelRow: 28,

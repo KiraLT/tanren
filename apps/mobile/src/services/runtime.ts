@@ -17,7 +17,6 @@ import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
 import { Account } from "./Account"
 import { CurrentUser } from "./CurrentUser"
-import { DailyHealthRepo } from "./DailyHealthRepo"
 import { DataExporter } from "./DataExport"
 import { ExerciseLink } from "./ExerciseLink"
 import { FeedRepo } from "./FeedRepo"
@@ -184,7 +183,6 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       ProfileRepo.layer,
       HistoryRepo.layer,
       FeedRepo.layer,
-      DailyHealthRepo.layer,
       ImportedActivityRepo.layer,
       FoodEntryRepo.layer,
       NutritionRepo.layer.pipe(Layer.provide(PlanWeekRepo.layer)),

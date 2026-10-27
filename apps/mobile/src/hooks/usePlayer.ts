@@ -1,5 +1,5 @@
 import type { DayNumber, ProgramDay, ProgramEnrollmentId } from "@tanren/shared"
-import { Match, Option } from "effect"
+import { Array as Arr, Match, Option } from "effect"
 import { useAudioPlayer } from "expo-audio"
 import * as Haptics from "expo-haptics"
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
@@ -14,6 +14,7 @@ import {
   parseSpeed,
   reduceRun,
 } from "../player/cues"
+import { initialPlan, reconcilePlan } from "../player/mergeDay"
 import {
   COMPLETION_FAILED,
   type CompletionResult,
@@ -72,6 +73,20 @@ export const usePlayer = (
   const config = useMemo(() => ({ day: session.day, speed: SPEED }), [session.day])
   const reducer = useMemo(() => reduceRun(config), [config])
   const [run, dispatch] = useReducer(reducer, undefined, () => initialRun(Date.now()))
+  // The exercise of every item-round. A swap reaches the player as a new `session.day` (the
+  // route's `mergeDay`); it renames the item-rounds still open and never the ones already done,
+  // so `complete` logs what was performed.
+  const [plan, setPlan] = useState({ day: session.day, ids: initialPlan(session.day) })
+  useEffect(() => {
+    setPlan((prev) =>
+      prev.day === session.day
+        ? prev
+        : {
+            day: session.day,
+            ids: reconcilePlan(prev.ids, prev.day, session.day, run.player),
+          },
+    )
+  }, [session.day])
   const [completion, setCompletion] = useState<CompletionState>({ _tag: "None" })
   const [foreground, setForeground] = useState(AppState.currentState === "active")
   const beep = useAudioPlayer(BEEP)
@@ -153,6 +168,7 @@ export const usePlayer = (
           startedAtMs: Option.getOrElse(run.startedAtMs, () => run.nowMs),
           durationSeconds: run.player.durationSeconds,
           performedItems: run.performedItems,
+          performedIds: Arr.take(plan.ids, run.performedItems),
         })
       : Option.none()
 

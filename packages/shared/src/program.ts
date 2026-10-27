@@ -36,7 +36,7 @@ export type UserProgramSource = typeof UserProgramSource.Type
 
 export const ProgramDays = Schema.Array(ProgramDay).check(
   Schema.isMinLength(1),
-  Schema.isMaxLength(60),
+  Schema.isMaxLength(84),
 )
 export type ProgramDays = typeof ProgramDays.Type
 
@@ -83,7 +83,7 @@ export const programIdOfRow = (id: UserProgramId): ProgramId => ProgramId.make(i
 
 /** A row as a `Program` definition, so the player and Today treat built-ins and rows alike. */
 export const toProgram = (row: UserProgram): Program =>
-  // `disableChecks`: every field comes from an already-decoded `UserProgram` (Note ⊂ Text, 60 ⊂ 365 days).
+  // `disableChecks`: every field comes from an already-decoded `UserProgram` (Note ⊂ Text, 84 ⊂ 365 days).
   new Program(
     {
       programId: programIdOfRow(row.id),

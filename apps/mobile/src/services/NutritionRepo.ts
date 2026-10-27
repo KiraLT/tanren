@@ -33,6 +33,8 @@ export interface HealthWeek {
   readonly review: WeekReview
   /** Live imported activities started in the week, `startedAt` desc. */
   readonly activities: ReadonlyArray<ImportedActivity>
+  /** The week's live `daily_health` rows, one per date (newest `updatedAt` wins), Monday first. */
+  readonly health: ReadonlyArray<DailyHealth>
 }
 
 /** Both read the device zone per call (`DateTime.CurrentTimeZone`), like `PlanWeekRepo.currentWeek`. */
@@ -108,20 +110,24 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
           // Rows come newest `updatedAt` first, so the first per date wins.
           const healthOf = (date: LocalDate): Option.Option<DailyHealth> =>
             Arr.findFirst(health, (row) => row.date === date)
-          return Arr.map(datesFrom(first, count), (date) =>
-            buildDayTotals({
-              date,
-              entries: byDate[date] ?? [],
-              health: healthOf(date),
-              nutrition,
-            }),
-          )
+          const dates = datesFrom(first, count)
+          return {
+            days: Arr.map(dates, (date) =>
+              buildDayTotals({
+                date,
+                entries: byDate[date] ?? [],
+                health: healthOf(date),
+                nutrition,
+              }),
+            ),
+            health: Arr.getSomes(Arr.map(dates, healthOf)),
+          }
         })
 
       const day = (localDate: LocalDate) =>
         Effect.gen(function* () {
           const zone = yield* DateTime.CurrentTimeZone
-          const week = yield* daysFrom(LocalDate.make(shiftDate(localDate, -6)), 7, zone)
+          const { days: week } = yield* daysFrom(LocalDate.make(shiftDate(localDate, -6)), 7, zone)
           const today = Arr.lastNonEmpty(week)
           const hour = DateTime.getPart(DateTime.setZone(yield* DateTime.now, zone), "hour")
           return { day: today, insights: insights({ today, week, hour }) }
@@ -150,7 +156,7 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
       const week = (weekStart: LocalDate) =>
         Effect.gen(function* () {
           const zone = yield* DateTime.CurrentTimeZone
-          const days = yield* daysFrom(weekStart, 7, zone)
+          const { days, health } = yield* daysFrom(weekStart, 7, zone)
           const { from, to } = rangeOf(weekStart, 7, zone)
           const bounds = [DateTime.formatIso(from), DateTime.formatIso(to)]
           const workoutsDone = yield* store.all({ sql: WORKOUTS, params: bounds }).pipe(
@@ -191,7 +197,7 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
             workoutsPlanned,
             insights: weekInsights(days, now, localDateIn(now, zone)),
           }
-          return { review, activities }
+          return { review, activities, health }
         })
 
       return NutritionRepo.of({ day, week })

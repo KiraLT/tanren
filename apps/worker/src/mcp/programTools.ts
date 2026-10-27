@@ -19,6 +19,7 @@ import {
   PROGRAMS,
   type Program,
   type ProgramDay,
+  type ProgramDayCompletion,
   ProgramDays,
   ProgramDetail,
   ProgramEnrollment,
@@ -50,7 +51,7 @@ import {
 import { Array as Arr, DateTime, Effect, Option, Order, Schema } from "effect"
 import { ProfileRepo } from "../repos"
 import { localDayOf } from "../time/localDate"
-import { type AnyTool, eraseTool, type Tool } from "./tools"
+import { type AnyTool, eraseTool, type Tool, type ToolError } from "./tools"
 
 // The MCP program tools (docs/design/programs-mcp.md §3, ADR-0026). Built-in programs are static
 // shared data (`PROGRAMS`, read-only); the user's own programs are `program` rows reached through
@@ -67,6 +68,21 @@ export const programWriteAnnotations = {
 } as const
 
 const BUILT_IN_READ_ONLY = "built-in programs are read-only"
+/**
+ * A device push landed between this tool's read and its write (`UserProgramRepo.put` fails with
+ * `PersistenceError` naming `conflict <id>`, nothing written): the whole read-modify-write runs
+ * once more on the fresh row.
+ */
+const isConflict = (error: ToolError): boolean =>
+  error._tag === "PersistenceError" &&
+  Array.isArray(error.cause) &&
+  error.cause.some(
+    (reason: unknown) => typeof reason === "string" && reason.startsWith("conflict "),
+  )
+
+const retryOnConflict = <A, R>(attempt: Effect.Effect<A, ToolError, R>) =>
+  Effect.retry(attempt, { times: 1, while: isConflict })
+
 /** A day longer than this many minutes earns a warning. */
 const MAX_DAY_MINUTES = 45
 
@@ -132,33 +148,43 @@ const shownEnrollment = (
 
 const newestFirst = Order.flip(DateTime.Order)
 
+/** The summary of an enrollment whose completions the caller already read. */
+const summaryFrom = (
+  enrollment: ProgramEnrollment,
+  resolved: Option.Option<Resolved>,
+  completions: ReadonlyArray<ProgramDayCompletion>,
+): EnrollmentSummary => ({
+  enrollmentId: enrollment.id,
+  programId: enrollment.programId,
+  title: Option.match(resolved, {
+    onNone: () => enrollment.programId,
+    onSome: (r) => r.program.name,
+  }),
+  status: enrollment.status,
+  startedOn: enrollment.startedOn,
+  currentDay: enrollment.currentDay,
+  totalDays: Option.match(resolved, { onNone: () => 0, onSome: (r) => r.program.days.length }),
+  completedDays: completions.length,
+  lastCompletedAt: Arr.head(
+    Arr.sort(
+      Arr.map(completions, (completion) => completion.completedAt),
+      newestFirst,
+    ),
+  ),
+  swaps: enrollment.swaps,
+})
+
+/** One `completions` statement per enrollment. */
 const summaryOf = Effect.fn("enrollmentSummary")(function* (
   userId: UserId,
   enrollment: ProgramEnrollment,
   resolved: Option.Option<Resolved>,
 ) {
-  const completions = yield* (yield* UserProgramRepo).completions(userId, enrollment.id)
-  const summary: EnrollmentSummary = {
-    enrollmentId: enrollment.id,
-    programId: enrollment.programId,
-    title: Option.match(resolved, {
-      onNone: () => enrollment.programId,
-      onSome: (r) => r.program.name,
-    }),
-    status: enrollment.status,
-    startedOn: enrollment.startedOn,
-    currentDay: enrollment.currentDay,
-    totalDays: Option.match(resolved, { onNone: () => 0, onSome: (r) => r.program.days.length }),
-    completedDays: completions.length,
-    lastCompletedAt: Arr.head(
-      Arr.sort(
-        Arr.map(completions, (completion) => completion.completedAt),
-        newestFirst,
-      ),
-    ),
-    swaps: enrollment.swaps,
-  }
-  return summary
+  return summaryFrom(
+    enrollment,
+    resolved,
+    yield* (yield* UserProgramRepo).completions(userId, enrollment.id),
+  )
 })
 
 const summariesOf = (
@@ -309,22 +335,29 @@ export const getProgramProgress: Tool<typeof GetProgramProgressInput, typeof Pro
     const repo = yield* UserProgramRepo
     const all = yield* loadAll(userId)
     const enrollments = yield* repo.enrollments(userId, input.programId)
-    const completions =
-      input.programId === undefined
-        ? []
-        : Arr.flatten(
-            yield* Effect.forEach(enrollments, (enrollment) =>
-              Effect.map(repo.completions(userId, enrollment.id), (rows) =>
-                Arr.map(rows, (row) => ({
-                  enrollmentId: row.enrollmentId,
-                  dayNumber: row.dayNumber,
-                  completedAt: row.completedAt,
-                  durationSeconds: row.durationSeconds,
-                })),
-              ),
+    // One `completions` read per enrollment feeds both the summary and the day list.
+    const rows = yield* Effect.forEach(enrollments, (enrollment) =>
+      Effect.map(repo.completions(userId, enrollment.id), (completions) => ({
+        enrollment,
+        completions,
+      })),
+    )
+    return {
+      enrollments: Arr.map(rows, ({ enrollment, completions }) =>
+        summaryFrom(enrollment, lookup(all, enrollment.programId), completions),
+      ),
+      completions:
+        input.programId === undefined
+          ? []
+          : Arr.flatMap(rows, ({ completions }) =>
+              Arr.map(completions, (row) => ({
+                enrollmentId: row.enrollmentId,
+                dayNumber: row.dayNumber,
+                completedAt: row.completedAt,
+                durationSeconds: row.durationSeconds,
+              })),
             ),
-          )
-    return { enrollments: yield* summariesOf(userId, enrollments, all), completions }
+    }
   }),
 }
 
@@ -368,7 +401,7 @@ export const writeProgram: Tool<typeof WriteProgramInput, typeof WriteProgramRes
   kind: "write",
   description:
     "Create or replace one of the user's guided programs (replace = same slug; the id and " +
-    "enrollments are kept). A program is 1–60 days; each day has 1–12 exercises done for 1–5 " +
+    "enrollments are kept). A program is 1–84 days; each day has 1–12 exercises done for 1–5 " +
     'rounds. Use `search_exercises` to get `catalogId`s — never invent ids. Use `kind: "timed"` ' +
     '(10–600 s) only for holds, isometrics and cardio (plank, wall sit, bike); use `kind: "reps"` ' +
     "(1–100) for everything else. Rest 15–30 s between core/bodyweight items, 60–120 s between " +
@@ -385,15 +418,19 @@ export const writeProgram: Tool<typeof WriteProgramInput, typeof WriteProgramRes
     }
     yield* checkCatalog(input.days)
     const days = yield* buildDays(input.days)
-    const existing = yield* (yield* UserProgramRepo).bySlug(userId, input.slug)
-    return yield* upsert(userId, existing, {
-      slug: input.slug,
-      title: input.title,
-      summary: input.summary,
-      description: Option.fromNullishOr(input.description),
-      days,
-      schedule: input.schedule,
-    })
+    return yield* retryOnConflict(
+      Effect.gen(function* () {
+        const existing = yield* (yield* UserProgramRepo).bySlug(userId, input.slug)
+        return yield* upsert(userId, existing, {
+          slug: input.slug,
+          title: input.title,
+          summary: input.summary,
+          description: Option.fromNullishOr(input.description),
+          days,
+          schedule: input.schedule,
+        })
+      }),
+    )
   }),
 }
 
@@ -421,24 +458,30 @@ export const updateProgram: Tool<typeof UpdateProgramInput, typeof UpdateProgram
     if (isEmptyPatch(input)) {
       return yield* new ValidationError({ message: "empty patch", issues: [] })
     }
-    const found = yield* resolve(userId, input.programId)
-    const existing = Option.flatMap(found, (resolved) => resolved.row)
-    if (Option.isNone(existing)) {
-      return yield* new NotFound({ entity: "program", id: input.programId })
-    }
-    const row = existing.value
     if (input.days !== undefined) {
       yield* checkCatalog(input.days)
     }
-    const days = input.days === undefined ? row.days : yield* buildDays(input.days)
-    return yield* upsert(userId, existing, {
-      slug: row.slug,
-      title: input.title ?? row.title,
-      summary: input.summary ?? row.summary,
-      description: input.description ?? row.description,
-      days,
-      schedule: input.schedule ?? row.schedule,
-    })
+    const newDays =
+      input.days === undefined ? Option.none() : Option.some(yield* buildDays(input.days))
+    // Read, patch and write as one unit, so a conflict retry patches the fresh row.
+    return yield* retryOnConflict(
+      Effect.gen(function* () {
+        const found = yield* resolve(userId, input.programId)
+        const existing = Option.flatMap(found, (resolved) => resolved.row)
+        if (Option.isNone(existing)) {
+          return yield* new NotFound({ entity: "program", id: input.programId })
+        }
+        const row = existing.value
+        return yield* upsert(userId, existing, {
+          slug: row.slug,
+          title: input.title ?? row.title,
+          summary: input.summary ?? row.summary,
+          description: input.description ?? row.description,
+          days: Option.getOrElse(newDays, () => row.days),
+          schedule: input.schedule ?? row.schedule,
+        })
+      }),
+    )
   }),
 }
 
@@ -483,6 +526,9 @@ export const deleteProgram: Tool<typeof DeleteProgramInput, typeof DeleteProgram
         issues: [],
       })
     }
+    // Not atomic (`UserProgramRepo` has no batch): enrollments are abandoned one by one, then the
+    // row is tombstoned. A failure part-way leaves some abandoned and the program live; calling
+    // again with `force` abandons the rest and deletes, so a retry heals it.
     yield* Effect.forEach(open, (enrollment) =>
       saveEnrollment(userId, enrollment, { status: "abandoned" }),
     )

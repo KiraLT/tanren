@@ -20,9 +20,15 @@ app/          ROUTE INVENTORY — every route, kept complete by whoever adds one
               adds its line); UI specs, QA capture sets and the owner's gallery are built from this list.
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
   (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
-  root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`),
+  root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`,
+  `?enrollmentId=` REQUIRED, only an `active` one opens), programs/[programId].tsx (detail),
+  programs/[programId]/day/[n].tsx (read-only day preview; folder beside `[programId].tsx`, both resolve),
+  programs/new.tsx (blank or `?from=` duplicate), programs/edit/[programId].tsx (program editor),
+  programs/edit/[programId]/day/[n].tsx (day editor), programs/pick.tsx (`?pickFor=<programId>/<day>`
+  exercise picker), programs/swap.tsx (`?enrollmentId=&from=` swap sheet) — team programs v6b,
   progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
-  settings/integrations/{index,[provider]}.tsx, privacy.tsx + terms.tsx (public legal pages, ADR-0024:
+  settings/integrations/{index,[provider]}.tsx, settings/nutrition.tsx, health/index.tsx (Health),
+  health/add.tsx (quick-add modal) — v6 nutrition, privacy.tsx + terms.tsx (public legal pages, ADR-0024:
   `isPublicRoute` in `authGate.ts` lets a signed-out device open them; both render `LegalPage`)
   Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1); the
   signed-out web landing (`src/components/landing/Landing.tsx`, rendered by `_layout.tsx` on every
@@ -30,7 +36,7 @@ app/          ROUTE INVENTORY — every route, kept complete by whoever adds one
 src/
   ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
               tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
-              desktop nav), Text, Card, Button, IconButton, Icon, ListRow, Stepper, SegmentedControl,
+              desktop nav), Text, Card, Button, IconButton, Icon, ListRow (`checked` = switch role + state), Stepper, SegmentedControl,
               StatusPill, TimerRing, EmptyState, Banner, Skeleton, `interaction.ts` (web hover/focus);
               Forge (docs/design/ui-direction-final.md): `controls.ts` pure style tables (+ test), `iconPaths.ts`
               glyph table, ListGroup (+ `useGrouped`), ToggleChip, ProgressRing, SegmentBar, SetDots; fonts Barlow
@@ -39,9 +45,12 @@ src/
               CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
               HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
               pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf),
-              ProgramRepo (enrol/active/todayFor/complete → completion + session + sets), PhaseAlerts
+              ProgramRepo (find/list/activeEnrollments/dueToday/enroll/setStatus/setSwap/todayFor/
+              save/findRow/deleteProgram/complete → completion + session + sets), PhaseAlerts
               (+ .notifications adapter)
-  player/     playerMachine (pure), cues, playerEffects, useProgramDay, components/{ProgramHome,PlayerView}
+  player/     playerMachine (pure), cues, playerEffects, usePrograms (+ useProgramDetail, useStoreVersion),
+              programList (pure), components/{ProgramHome,ProgramList,ProgramActions,PlayerView};
+              components/programs/ = editor, picker, day preview, swap list; components/TodayPrograms.tsx
               — team programs; route app/programs/play.tsx, hook src/hooks/usePlayer.ts
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
@@ -243,7 +252,7 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   a late `tick` chains every elapsed phase from the previous deadline; duration excludes pauses.
   `phaseKey` also changes on pause/resume, so cues compare `_tag`s (`cues.ts`). `usePlayer` ticks
   every 250 ms and on `AppState → active`; `KeepAwake` is mounted in `app/programs/play.tsx` only
-  while Working/Resting. The play screen latches the day it opened with.
+  while Working/Resting. The play screen latches the day it opened with (v6b swaps: see below).
 - `PhaseAlerts` (port, ADR-0012): one pending local notification at the phase end; the layer loads
   `expo-notifications` via dynamic `import()` (node tests never load it; web or failed import →
   no-op). No foreground notification handler. Live Activity adapter (P7) not built (gated).
@@ -258,8 +267,8 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   clock `Text variant="clock"` 64/68, `TimerRing` stroke 10 (local `RING_STROKE`), the eyebrow ring
   dropped on phone (tablet/desktop keep it). Plan: rest rows 52, one-line session items and day
   header, `StatRow` week stats (done = sessions with status done; a rep range counts its minimum),
-  section gap 24. Programs: `ProgressRing` with the day number (stroke 3), not-enrolled "What's
-  inside" list. Open (UI-P-left): `Stepper` unit slot (the "kg" caption still sits under the
+  section gap 24. Programs: `ProgressRing` with the day number (stroke 3); not-enrolled detail lists
+  the days (v6b, below). Open (UI-P-left): `Stepper` unit slot (the "kg" caption still sits under the
   numeral), Plan session row 172 vs 156 (card padding 11 vs 8), Programs hero 56 vs 104, `Page`
   `sectionGap` default 16 (24 wanted).
 - Phone layout (pair mobile-B, accepted r2, `docs/design/reviews/UI-PmobileB-r2.md`; 390):
@@ -284,6 +293,53 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   behind illustrations stays until IMG-7 re-tints the art (§7 says transparent); `ListRow`
   `titleLines`/`subtitleLines` + tabular title (src/ui) would replace the clamp and the empty-title
   hack; Volume/1RM cards are 4 px shorter in dark than light.
+
+## v6b programs: user programs, statuses, swaps, editor (ADR-0026, docs/design/programs-mcp.md §4; team programs)
+
+- Finder: built-ins (`PROGRAMS`: Core 30, 12-Week Lean Build) then the owner's live `program` rows
+  (`toProgram`); a custom `programId` is its lower-case row UUID; `findRow`/`programRow` match ids
+  case-insensitively. Store v6 = `program` table + `program_enrollment.swaps` (JSON, default `[]`).
+- Statuses `active | paused | completed | abandoned`, several active at once (one per program).
+  `paused` freezes `currentDay`, `complete` → `EnrollmentNotActive`; `completed`/`abandoned` are
+  terminal (`EnrollmentTerminal`); `setStatus` to the current status writes nothing. "Leave
+  program" = `setStatus(id, "abandoned")`. `enroll` returns an existing active/paused enrollment.
+- `dueToday(now)` = active, has a next day, no completion of that enrollment on today's local date
+  (a day done today hides the program until tomorrow). Today: `<TodayPrograms />` ("Programs due",
+  358×60 rows, `Button size="sm"` "Start"), mounted by nutri-today in `(tabs)/today.tsx`; Today's eyebrow
+  is the first `active` (not paused) entry with a day left.
+- Swaps live on the enrollment, keyed by the ORIGINAL catalog id (≤ 30), applied in `todayFor`,
+  `activeEnrollments[].day` and the preview; candidates =
+  `swapCandidates(original, CATALOG, Some(active location equipment))` (≤ 8); revert = remove entry.
+  Mid-workout (P-M4/P-M6): `play.tsx` re-reads the day after a swap and `mergeDay` renames only the
+  open item-rounds (running item onwards, `kind` must match; clocks untouched); `usePlayer` keeps the
+  catalog id of every item-round (`RunPlan`/`reconcilePlan`) and `complete` logs `performedIds`, so
+  rounds done before a swap keep the exercise actually performed (history never rewritten).
+- Play opens only the `active` enrollment named by `?enrollmentId=`; missing/unknown/paused/finished →
+  danger Banner "This workout is not available. Start it from the Programs tab."
+- Tab: "Active" (DayCard per active/paused; a paused card shows a `raised` Resume, not Start,
+  StatusPill `muted` "Paused" under the subtitle) + "Programs" (ListRow 358×60, subtitle "N days · a–b min"
+  [+ " · Made with Claude"], one trailing slot: status pill beats the "Yours" badge); 1280 Columns 6/6,
+  idle → left "No active program" Card 564 wide. Detail: meta caption (13/18/500) under the title,
+  Pause row only while active (paused → the EnrolCard carries Resume), Delete disabled with
+  "Leave the program first" while active/paused, inline Banner confirm (Alert is a no-op on web).
+  Days: `DayList` on every width (phone: week window + "Show all N days"; desktop: side column, all
+  days); not enrolled → header "Days", no counter, no "now"/"up next" marker. Every day row (chevron)
+  opens the read-only preview `programs/[programId]/day/[n]` ("Preview day N, <state>": position card,
+  `src/ui` StatRow, items with illustrations); "Start this day" only for the active enrollment's
+  current day. Navigating controls go through `useNavGuard`/`useGoBack` (`components/programs/useGoBack.ts`).
+- Editor: no draft; every change writes the row via `ProgramRepo.save` (version + 1, slug/source/
+  createdAt kept); text fields save on blur; edits are change functions applied to the freshly read
+  row. `writeGate` (pure, tested) + `useWriteGate`: `queued` (steppers, chips, text) is dropped while a
+  `positional` (move/remove) or `leave` (remove day, pick, create) write is pending; a positional write
+  stays claimed until the reloaded row renders; a saved `leave` locks until the screen goes, a failed
+  one unlocks. `ProgramDays` 1–84, ≤ 12 items
+  per day. 1280: program and day editors `Page wide` + Columns 5/7; the picker stays a single
+  column (named exception). Item card 358×176 (+1 px borders), CompactStepper (unit in the value),
+  Timed/Reps = two ToggleChips 125×32; "up" = `chevronDown` rotated 180° (no `chevronUp` glyph yet).
+- `src/ui` rules from v6b (P-UI): a button inside a `Card` uses `variant="raised"` (`surfaceRaised`
+  fill + hairline `border` in both schemes; `secondary` has the Card's fill and vanishes there);
+  `Button size="sm"` = 36-px pill in a 44-px Pressable (RN web ignores `hitSlop`); `StatusPill
+  tone="muted"`; under an `AppBar` h1 an `EmptyState` takes `headingLevel={2}`, errors stay `Banner`.
 
 ## Commands
 
@@ -416,8 +472,8 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   + `daily_health` (indexes `imported_activity_started`, `daily_health_date`, dirty indexes for the generic
   push scan); `LocalStore` members for both. `FeedRepo.activities(limit)` returns `ReadonlyArray<FeedItem>`
   (`{_tag:"session"|"imported", activity}`, ≤ limit in total, `startedAt` desc then id desc; deleted rows
-  excluded); `activity(id)` stays session-only. `DailyHealthRepo.today(localDate)` → `useDailyHealth(localDate):
-  Option<DailyHealth>`; `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
+  excluded); `activity(id)` stays session-only. `daily_health` is read only by `NutritionRepo` (`DailyHealthRepo` /
+  `useDailyHealth` deleted with the v5 strip, HM-3); `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
 - Feed: `FeedRow` gains `Imported` (`feedGroups.ts`, `sessionOnly`); week summary counts sessions, a week of
   only imports reads "N activities"; the desktop aside takes sessions only, so an imported card opens its own
   route `/activity/imported/[id]` (one 600 column at every width). `ImportedCard` (`src/components/feed/`,
@@ -428,9 +484,8 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   from 99,950 m); the detail and the spoken label keep units ("410 kcal"). Detail stat tiles sit on the bare
   page (no Card: `surface` tiles on a `surface` Card are invisible). Sport glyphs `run`, `walk`, `bike`, `swim`
   (+ existing `dumbbell`, `zap`, `more`).
-- Today: `HealthStrip` (`src/components/today/`) under the AppBar in `Empty` and `Ready` only (Ready through
-  `TodayReady`'s `banner?: ReactNode`); line = total kcal · steps · resting bpm, None values dropped, hidden
-  when all None; 36 high. Consumed by v6 nutrition: keep `daily_health` / `HealthStrip` shapes.
+- Today: the Garmin day (burned, steps) shows in the v6 `HealthModule` (see the nutrition Today line below); the
+  v5 text strip is gone (HM-2).
 - Settings: `ProviderList` has `garmin` (second row, before Apple Health); `/settings/integrations/garmin` =
   `GarminCard` (paste field 48 high per design §8, token trimmed, component state only, cleared after every
   attempt, secure-entry props; Connect disabled < 16 chars; Disconnect `variant="destructive"`; revoked banner
@@ -488,7 +543,7 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   SyncStore invariant), `list({ from, to })` (live, `loggedAt` in [from, to), asc; the SQL lives once in `liveFoodEntries`),
   `softDelete` / `restore` → boolean; every write dirty. `NutritionRepo.day(date)` → `NutritionDay { day: DayTotals, insights }`
   (shared `buildDayTotals` + `insights`; insights read the 7 days ENDING the date); `.week(monday)` → `HealthWeek { review:
-  WeekReview, activities }` (shared `weekSummary`, Mon–Sun, a future week has no insights, `workoutsPlanned` from
+  WeekReview, activities, health }` (`health` = the week's `daily_health` rows, one per date) (shared `weekSummary`, Mon–Sun, a future week has no insights, `workoutsPlanned` from
   `PlanWeekRepo.currentWeek`). Both read `daily_health` / `imported_activity` / `workout_session` with their own range SELECTs
   (Garmin's repos stay single-row) and take `CurrentTimeZone` per call; a day is device-zone local midnight to midnight.
   Hooks `useNutritionDay` / `useNutritionWeek` sit on `useStoreRead` (`StoreRead` admits `NutritionRepo`); `useFoodEntryActions`
@@ -497,26 +552,32 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
 - Lead rulings: budget = goal intake (Garmin burn is information, shown "as of HH:MM"); eat-back only when `eatBackActive`
   (default off); "Burned: no data" when the day has no `daily_health` row; commas (`formatInt` / `kcalText`); insights ≤ 3 in
   group order.
-- Today: `NutritionStrip` (`src/components/today/`) under `HealthStrip` in Empty and Ready. Three rows of 18: value (`caption
-  accent`), detail (`caption muted`), first insight. 72 high (54 without an insight); rows 2–3 indented 24 under "Nutrition".
-  Hidden while loading, on a failed read, and when nutrition is off and nothing was logged today. Press → `/health`. Its text
-  lives in `components/health/nutritionText.ts` (`stripLines`, `kcalText`, `asOfText`, `burnedText`). The gap reads Garmin's
-  `useHealthLine()`, the one visibility rule: `space.sm` under a visible HealthStrip, else HealthStrip's slot; both hidden = 0 px.
+- Today (HM-2, docs/design/health-module.md §3 merge, plan Amendment 26): one `HealthModule` card (`src/components/today/`,
+  pressable → `/health`) in Empty (a `Page` section) and Ready (phone/tablet: `TodayReady` `banner`, gutter + `space.lg`;
+  two-column: `TodayReady` `asideTop`, the aside's first card, 431 wide at 1280). `HealthRings` 104 + "Left today" numeral
+  (`display`), `HealthStatRow` Eaten · Burned · Protein, `metaLine` (as of HH:MM · steps, never resting bpm), first insight;
+  358 × 236 at 390 (214 without an insight). Reads only `useNutritionDay` (`DayTotals` carries burned/steps); null while
+  Loading/Failed and when `moduleHidden` (no targets, no burned, no entries). Pure text in `components/health/nutritionText.ts`
+  (`moduleStats`, `moduleHidden`, `moduleLabel`, `kcalText`), maths in `today/healthModuleMath.ts`.
 - `/health` (`app/health/index.tsx`, root Stack, not a tab): Loading | Off | Failed | Ready, all in one `Page wide` frame with
   `AppBar "Health"` (Back falls back to `/today`, `plus` → `/health/add`, `settings` → `/settings/nutrition`). Off = no targets →
-  EmptyState "Set a nutrition goal"; it never waits on the week read. Ready: `HealthHero` (4 tiles: 2x2 on phone, since 4-up dense
-  truncated "kcal eaten" at 83.5 px; one dense row from tablet up; plus "Burned as of HH:MM" / "Burned: no data"), `DayBars` (Mon–Sun; 164 high = legend 16 "Eaten / Burned" (aria-hidden) + 8 + bars 120 + 4 +
-  letter 16; a `surface` track per column; eaten `accent`, burned `textMuted` (≥ 3:1 in both schemes, designer r1 F1); bars 18 wide,
-  28 at desktop (`barWidth`); a11y label per column, "Today, " on today; maths in `dayBarMath.ts` because of the TS1261 case rule), protein days `Card` + `SegmentBar`, `InsightList` (≤ 3
-  `Banner info`), `WeekReviewCard` (two `StatRow plain` rows of two, since `plain` ignores `direction`), the week's
-  `ImportedCard`s, and nutri-food's `FoodLog` (delete + Undo through `useFoodEntryActions`). Desktop ≥ 900: `Columns 7/5`; main =
-  hero, DayBars, protein days, food log; side = insights, week review, activities (main/side 658/470 at a 1280 window: `Columns`
-  inside `Page wide` splits the gutter-padded 1152, as `/activity` does).
+  EmptyState "Set a nutrition goal"; it never waits on the week read. Ready (HM-3, health-module.md §4, designer UI-HM-r1):
+  `HealthHero` = `HealthRings` + "Left today"/"Over today" `numeral` + caption + `HealthStatRow` (`title`); a column with ring 176
+  (364 high at 390) below a 640 main column (`heroIsRow`), else a row: ring 240 beside a text block flex ≤ 424. `WeekBars` (local in
+  the route) = `DayBars` (Mon–Sun; 164 high = legend 16 (aria-hidden) + 8 + bars 120 + 4 + letter 16; `surface` track per column; eaten
+  `accent`, `danger` on a day with eaten > budget (`isOver`, label adds ", over budget"), burned `textMuted`; bars 18 wide everywhere)
+  + `freshnessLine` caption (`metaLine` without the steps: "as of 16:50" / "as of 27 Oct 16:37" / "No tracker connected") + a `Card` of two `HealthStat`s "Steps today" · "Resting HR · 7 days"
+  (`healthWeekMath.restingHrWeek` over `HealthWeek.health`, Mon–Sun mean, `muted` under 3 days). `HealthStat` units are a baseline
+  sibling in the caption face, gap 4, strings without a leading space ("kcal", "/ 155 g"). Then protein days `Card` + `SegmentBar`,
+  `InsightList` (≤ 3 `Banner info`), `WeekReviewCard`, the week's `ImportedCard`s, `FoodLog`. Phone: hero, week, protein, insights,
+  review, activities, food log. Desktop ≥ 900 `Columns 7/5` (658/470 at 1280): main = hero, protein, food log; side = insights,
+  review, week, activities.
 - Status: done (team nutri-today, 2026-10-27; REV-1/REV-2/N-MR APPROVE, designer `docs/design/reviews/UI-NUTRI-r1.md` N1 Today
   strip PASS 4, N2 Health Ready PASS 4 after r2, N3 Off PASS 4). Proven with agent-browser: an exported build on web 9032 signed in to
   an isolated worker on 9035 (scratch D1 migrated 0001–0009, month seed + 10 food entries); shots `docs/design/screens/UI-NUTRI-N{1,2,3}-*`,
-  rows `UI-NUTRI-rows.html`. Open: the seed has no `daily_health` rows, so no shot shows burned bars or HealthStrip + strip stacked
-  (seed.ts gaps → INT-N); FoodLog delete/Undo not driven in the browser by this team.
+  rows `UI-NUTRI-rows.html`. INT-N (2026-10-27): the month seed now writes 7 `daily_health` rows (end − 6 … end); `/health`
+  DayBars is the calendar week Mon–Sun, so 7 burned bars need `--end <a Sunday>` + a fake date on it (`docs/design/reviews/UI-NUTRI-e2e.md`,
+  shots N2b); FoodLog delete → Undo → entry back driven (N4); the eat-back row (only with Garmin connected) is `switch [checked]`.
 
 ## Status
 
