@@ -31,6 +31,12 @@ paths:
   the LAST entry (`tableRank("dailyHealth")`), never a literal mid-range
   sample — a cursor regex with a one-digit rank passed on 9 tables and
   failed on 11 (2026-10-27).
+- Paginated or cursor-driven pulls (back-fill, sync pull, feed import): one
+  test runs the job N times against a fixture LARGER than one run's page
+  budget (e.g. 2 pages × 50 → 120 items) and asserts the cursor reaches
+  steady state with every item imported once — a Garmin back-fill stalled
+  forever past 100 activities and three review passes plus two QA runs
+  missed it because every fixture fitted one run (GM-F1, 2026-10-27).
 - Deterministic: no `Date.now()`, no random without a seeded `Random`.
 - One assertion idea per test; failures must read as a sentence.
 - Keep fixtures tiny and next to the test; build them with the schema's

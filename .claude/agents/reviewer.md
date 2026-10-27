@@ -95,6 +95,11 @@ engineer can act on without asking questions.
   @tanren/worker exec vitest --project @tanren/worker-workerd <name>`, ≈ 30 s)
   and quote the count; "workerd project not run" as a `should` (OAUTH-UI,
   2026-10-27) only costs a fix round for something you could verify.
+- A paginated or cursor-driven job (back-fill, pull, import) is reviewed on
+  its multi-run path: find the test that runs it N times over a fixture larger
+  than one run's page budget (rules/tests.md); none → `should` with the fixture
+  size named. GM-R's three passes and GM-Q1/Q2 all missed a stall past 100
+  Garmin activities because every fixture fitted one run (2026-10-27).
 - Registry growth is a consumer check, not a diff check: when the diff adds an
   entry to `SYNC_TABLE_ORDER`, `AVAILABLE_PROVIDERS`, a migration list or any
   ordered registry, open the files that encode the registry's size or an index

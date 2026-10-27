@@ -81,7 +81,12 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    `registry: <file>` lines, list the files under `registry` in your interim
    and team report, and do not wait for a reply — Garmin W1 (2026-10-27)
    asked a grant for 10 such files in its first interim. Anything larger
-   than a line stays a grant ask. Box tasks by size, not by default: a single-module
+   than a line stays a grant ask. Every question in a HOLD interim carries
+   your default ("I proceed as written if silent"); never wait for a ruling
+   that is not a grant on another team's file. GO → first child dispatch is
+   ≤ 2 min: the GO message only fills the `<GO: …>` slots in briefs you
+   already wrote (v6: programs 1.4 min, nutri-today 2.7, nutri-server 4.7,
+   nutri-food 5.3 min after GO, 2026-10-27). Box tasks by size, not by default: a single-module
    change with tests gets 10 min (hardening H1–H4 ran 2–5 min on 15–20 min
    boxes); 20 min only for a task that carries a runtime proof or opens a
    new package or runtime.

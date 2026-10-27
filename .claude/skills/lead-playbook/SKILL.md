@@ -139,7 +139,11 @@ task sheet. Tactics, in order of payoff:
 9. **Dispatch a team-lead on HOLD while its commit precondition is pending.**
    Its prep (charter, ports, registry grep, wave-1 briefs ≈ 7 min) overlaps
    the wait; GO is one message. Garmin TL: GO 13:48, first child 13:50:52,
-   ≈ 4 min saved vs dispatch-after-commit (EM batch 10, P4).
+   ≈ 4 min saved vs dispatch-after-commit (EM batch 10, P4). The GO message
+   pastes the foundation report's `## Exports` section verbatim and answers
+   every HOLD question in one block; a TL that asked nothing it could default
+   is the norm (team-lead.md). v6: four TLs lost ≈ 3 min each to GO
+   slot-filling and Lead relays the sheet should have carried (EM batch 13, P1).
 
 ## Unattended mode (owner away; set 2026-10-21 00:35 for 8 h)
 
@@ -283,7 +287,14 @@ Ports: web <W> / API <A> and a scratch `dist` dir for this team (ui-check
   <band>"` is empty (desktop r3 and LOGO-2 collided on 8861).
 Contracts (frozen): <schemas / signatures / endpoints, with file paths;
   every endpoint names its request/response Schema in packages/shared —
-  a missing one is a foundation gap, not a team-local file>
+  a missing one is a foundation gap, not a team-local file; every port
+  another TEAM implements against carries file, tag, method signatures and
+  who assigns ids/timestamps — v6's `FoodEntryRepo` and `buildDayTotals`
+  were named without signatures and cost two Lead relays (EM batch 13, P4)>
+Forbidden strings: <a string the owner excluded ("don't mention X") lives
+  only in the brief; the Lead and team-leads never write it into a sheet,
+  Log line or charter — refer to "the brief" — or the forbidden-string grep
+  fires on the Lead's own lines (P-D1, 2026-10-27; EM batch 13, P3)>
 Provides: <ports another team or stream implements against; frozen in the
   team sheet the moment they compile>
 Runtime proof: <the command that runs the code in its target runtime, e.g.
@@ -366,6 +377,8 @@ Out: <explicitly not this brief; leave notes instead>
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
 Facts only (grep- or curl-verified at dispatch). Worker dev port is 8787 unless busy, then a spare.
+A forbidden string (owner: "don't mention X") is written here ONCE and nowhere else in the repo —
+not in the sheet, the Log or a charter (EM batch 13, P3).
 
 Security (auth / redirect / token work only): design §<n> + architect.md "Auth /
 redirect design checklist" line by line; paste the bypass tests you ran (`../`,
@@ -592,7 +605,10 @@ still unlocked, and before the last wave run
 `SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ssh-add -l`;
 a non-zero exit means the owner line must say "unlock 1Password before you go".
 Never bypass signing. 2026-10-26: three commits failed from 23:50 and DEPLOY-4
-slid to 09:48 the next morning (EM batch 6, P1).
+slid to 09:48 the next morning (EM batch 6, P1). Signing agent down
+mid-session (`ssh-add -l` non-zero; 1Password 14:52–14:54 on 2026-10-27,
+self-recovered): keep dispatching, retry the commit once per accepted task,
+never hold a team on it (EM batch 13, P2).
 
 ## Lead load limit (owner, 2026-10-26: "better split your work if you feel overwhelmed")
 

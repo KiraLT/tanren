@@ -201,6 +201,17 @@ migrations) lists the registry's consumers (`grep -rln <registry> apps
 packages`) in the sheet, marking the ones that encode its size or an index
 (cursor regexes, fixed widths); the Garmin team-lead spent 2.5 of its 7 prep
 minutes rebuilding that list and still read `Cursor.ts` as a non-consumer.
+A new synced table is ONE task: the shared literal, the Drizzle table, the
+migration and the memory/db ports land together, or the tree is red by
+design for every team until the second task lands (v6 N-F0 added the
+`foodEntry` literal, N-S1 owned the table and 0008; 20 min of red tree,
+2026-10-27). A sheet's Frozen contracts carry every cross-TEAM port with its
+full signature (file, class/tag, method types, who assigns ids/timestamps):
+v6 named `FoodEntryRepo` and `buildDayTotals` without signatures, so
+nutri-today froze the repo at minute 13 and the Lead relayed it to nutri-food
+and asked N-F0 for `buildDayTotals` mid-run. A foundation task's Done line
+says "report ends with an `## Exports` list of exact symbol names", and the
+sheet names that list as the GO payload for the waiting team-leads.
 
 Default 15 minutes of work for ONE deliverable; add 5 per further deliverable
 (ADR, design note, task sheet with briefs) and write the sum in the report:

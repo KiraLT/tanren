@@ -75,6 +75,13 @@ Lead had to route it back through the team-lead, one extra turn each way).
    untracked file, never more than one line: UI-1c, UI-4b and IMG-3 each slipped "once" (IMG-3 on its own new
    file) and each needed a second call to re-check. Appending a Log line to `docs/tasks/*.md` with a heredoc or
    `printf >>` is fine and needs no mention in the report.
+   A multi-hunk patch is several Edit calls (one per hunk), never a python/perl `str.replace` script
+   and never a `sed` per import line, even on a tracked file and even with a diff proof: SEC-1b
+   rewrote `AccountHandlers.ts` with python and ran four import `sed`s (2026-10-27); the same
+   applies to a multi-line rename in a tracked doc (P-D1 `sed -i` on `programs-mcp.md`). There is
+   no scripted-rewrite exception. A single-use export is not a dead export: a dead-export sweep
+   deletes only exports with zero importers outside their own test (SEC-1b H1 found 22 single-use,
+   deleted 1); no periodic sweep is briefed.
    Parallel engineers share the workspace: a gate or test failure in a file outside your brief
    is probably another engineer mid-edit. Re-run once after a minute; if it persists, report it
    as foreign and move on. Do not diagnose or touch it.
