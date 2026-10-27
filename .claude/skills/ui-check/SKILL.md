@@ -132,10 +132,12 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   harness broke under `sh`).
 - Gallery check (GAL-2): a capture task that adds rows to the review gallery HTML runs
   `node docs/design/gallery.mjs [html] [screensDir]` and pastes its output (badge uniqueness, missing
-  shots; exit 1 on missing is expected while the 60 v1 shots live only in the published artifact). It
-  rewrites the checked-in manifest `docs/design/screens/gallery.json`. The Lead publishes from
-  `node docs/design/gallery.mjs --publish` (map of shots on disk; duplicate badges are the only hard
-  failure). A new section picks a badge prefix not already in `gallery.json`.
+  shots; exit 0 expected — the 60 v1 shots that live only in the published artifact are marked
+  `store: true` in the manifest and are not "missing"; a shot referenced by the HTML and absent on disk
+  exits 1 and is named). A plain run never writes; only `--write` regenerates the checked-in manifest
+  `docs/design/screens/gallery.json`, and only the Lead passes it (at publish time). The Lead publishes
+  from `node docs/design/gallery.mjs --publish` (map of shots on disk; duplicate badges are the only
+  hard failure). A new section picks a badge prefix not already in `gallery.json`.
 - `ui-measure.js` `docH` (`documentElement.scrollHeight`) equals the viewport height on every route whose
   ScrollView scrolls (RNW pins the body to 100 %), so it proves nothing about page length (LAND-1,
   2026-10-26). Read the scrolling column's `scrollHeight` (`contentH`) instead; desktop r4 adds the probe.
