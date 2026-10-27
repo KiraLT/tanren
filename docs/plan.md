@@ -261,3 +261,30 @@ Recorded 2026-10-19, from the owner's kickoff message:
    duration, distance, calories, heart rate) and the day's calories;
    disconnect removes the token (ADR-0023, `docs/design/garmin.md`,
    `docs/tasks/v5-garmin.md`; spike G1 first on the real API).
+20. **Calories and nutrition tracking** (2026-10-27 13:52, owner, verbatim):
+   "Next, I want to integrate calories tracking like
+   https://www.myfitnesspal.com in the app. How I think it should work (these
+   are just ideas, your team should think and establish the plan on their
+   own): — Garmin fetches burned callories. Idk about our workouts, wont it
+   just duplicate if we track. You decide, research how others like
+   https://www.myfitnesspal.com/ do. — Food tracking via mcp. I am thinking of
+   using claude and just taking photos. I dont need max precision, but I want
+   it to make as east as possible. — Then you open app in todays view it
+   should show how much you burned, how much you ate. And insigts,
+   suggestions. — Health insights that includes activities, calories, etc. —
+   Set goals, like gain mucle, lose weigt, etc. In food tracking it should
+   track protein, calories, etc. — Maybe overall stats of the past week to
+   see if we rearched our goals) Plan yourself it. You can add simple manual
+   entry adding with common foods and suplements, but focus adding food is
+   via mcp. Manually I maybe will only add protein shakes/bars, etc. Think
+   yourself hold to make it". Lead reading: a nutrition domain next to
+   training — food entries with calories and macros logged mainly through
+   MCP (the owner photographs a meal in the Claude app, Claude estimates and
+   calls a `log_food` tool), a small manual quick-add for shakes, bars and
+   supplements; burned calories from Garmin's daily totals with a
+   double-counting policy decided by research (how MyFitnessPal reconciles
+   tracker burn with logged workouts); goals (gain muscle / lose weight /
+   maintain) that set calorie and protein targets; Today shows burned vs
+   eaten with insights; a Health insights view and a weekly review against
+   the goal (ADR-0025, `docs/design/nutrition.md`, `docs/tasks/v6-nutrition.md`,
+   research `docs/research/2026-10-27-nutrition-tracking.md`).
