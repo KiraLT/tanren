@@ -34,9 +34,9 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
 ## Live at hand-off (2026-10-27 14:14; agent ids in the scratchpad `live-agents.txt` and the step-2 Log)
-**Production = `25a0b64` (DEPLOY-9 13:52):** stateless auth (ADR-0022, migration 0006, no KV), legal pages, account-delete
-endpoint, Garmin shared schemas. HEAD is ahead of production by: STLS-F3/F4 (write-path user-row checks, REST + MCP),
-LEGAL-2b (Settings → Data → Delete account), GAL-4, EM batches 9–10, v6 nutrition plan docs. Owner reconnected the Claude
+**Production = `4be4770` (DEPLOY-10 14:22; DEPLOY-9 13:52 was `25a0b64`):** stateless auth (ADR-0022, migration 0006, no KV),
+legal pages, account deletion end to end (LEGAL-2a/2b), write-path user-row checks (STLS-F3/F4), Garmin shared schemas, the
+Forge consent/login/error/MCP-root pages (OAUTH-UI). HEAD = production + gallery manifest. Owner reconnected the Claude
 connector (O1 done 13:59); O2 (delete the old KV namespace) is still open and owner-only.
 **Owner rules in force:** every ask to the owner is its own bold line; NEVER mention the Resend key rotation or the Garmin
 personal-key regeneration again (owner 13:52: he does both himself); the owner wants to reload VS Code — tell him
