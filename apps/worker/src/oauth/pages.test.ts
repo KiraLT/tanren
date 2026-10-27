@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { type ConsentView, consentPage } from "./pages"
+import { Array as Arr } from "effect"
+import { type ConsentView, consentPage, PAGE_CSP } from "./pages"
 
 const base: ConsentView = {
   clientId: "https://claude.ai/oauth/claude-code-client-metadata",
@@ -30,7 +31,7 @@ describe("consentPage", () => {
       "Verified app · claude.ai. Only continue if you just started this in Claude.",
     )
     expect(page).not.toContain("Unknown app")
-    expect(page).toContain('value="approve">Approve</button>')
+    expect(page).toContain('value="approve">Allow</button>')
     expect(page).not.toContain("<script")
   })
 
@@ -45,6 +46,31 @@ describe("consentPage", () => {
     expect(page).not.toContain("Verified app")
     expect(page).not.toContain("<script")
     expect(page).not.toContain("<b>")
+  })
+
+  it("wears the Forge frame: wordmark, legal footer, no third-party host (OAUTH-UI)", () => {
+    const page = consentPage(base, "h-4")
+    expect(page).toContain('class="wordmark" href="https://tanren.me"')
+    expect(page).toContain('<a href="https://tanren.me/privacy">Privacy</a>')
+    expect(page).toContain('<a href="https://tanren.me/terms">Terms</a>')
+    expect(page).toContain("prefers-color-scheme:dark")
+    const hosts = Arr.dedupe(
+      Arr.fromIterable(page.matchAll(/https?:\/\/([^/"' ]+)/g)).map((m) => m[1]),
+    )
+    expect(hosts).toEqual(["tanren.me"])
+  })
+
+  it("Deny stays a submit button with the frozen name/value", () => {
+    expect(consentPage(base, "h-5")).toContain(
+      'type="submit" name="decision" value="deny">Deny</button>',
+    )
+  })
+
+  it("the CSP allows inline styles and the data: wordmark only", () => {
+    expect(PAGE_CSP).toBe(
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'",
+    )
+    expect(consentPage(base, "h-6")).not.toContain("<script")
   })
 
   it("an unknown CIMD client also names the host of its document", () => {

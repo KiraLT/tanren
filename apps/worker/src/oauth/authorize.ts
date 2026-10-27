@@ -17,7 +17,14 @@ import { WorkerConfig } from "../Config"
 import type { ConsentDescription } from "./consent"
 import { clientTrust } from "./knownClients"
 import { OAuthApi, type OAuthFailure } from "./OAuthApi"
-import { type ConsentView, checkEmailPage, consentPage, errorPage, loginPage } from "./pages"
+import {
+  type ConsentView,
+  checkEmailPage,
+  consentPage,
+  errorPage,
+  loginPage,
+  PAGE_CSP,
+} from "./pages"
 
 /** The Worker env as the router hands it over; this module reads nothing from it directly. */
 export type AuthorizeEnv = unknown
@@ -51,6 +58,7 @@ const html = (status: number, body: string, extra: Headers = new Headers()): Res
       ...extra.entries(),
       ["content-type", HTML],
       ["cache-control", "no-store"],
+      ["content-security-policy", PAGE_CSP],
     ]),
   })
 

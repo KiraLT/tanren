@@ -110,3 +110,7 @@ layout lines for `auth/Tokens.ts`, `auth/tokenRoutes.ts`, `oauth/{clients,consen
 
 ## Log
 - 12:33 architect start; 12:39 both spikes read; 12:48 ADR-0022, design, sheet written (15.2 min).
+
+## OAUTH-UI
+
+Log 2026-10-27 14:13 (engineer, fable): consent/login/check-email/error pages and the MCP root wear the Forge frame (`oauth/pages.ts` `shell`, W1 wordmark as a 5 KB alpha-mask data: PNG in `oauth/assets.ts`, platform font stack, `PAGE_CSP` added to `authorize.ts` html helper); 9 shots + measured JSON `docs/design/screens/UI-OAUTH-*`, `UI-OAUTH-rows.html` (OA1–OA9). Known-client consent rendered from a fixture (CIMD https client not producible locally); MCP root shot live on wrangler dev :8960.

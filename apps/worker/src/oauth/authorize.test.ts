@@ -71,6 +71,8 @@ describe("GET /authorize", () => {
       const response = yield* call(`/authorize?${query}`)
       expect(response.status).toBe(200)
       expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
+      expect(response.headers.get("content-security-policy")).toContain("img-src data:")
+      expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'")
       const body = yield* text(response)
       expect(body).toContain('action="/authorize/login"')
       expect(body).toContain(`name="next" value="${escapeHtml(`/authorize?${query}`)}"`)
@@ -85,6 +87,10 @@ describe("GET /authorize", () => {
       expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
       expect(response.headers.get("set-cookie")).toContain("__Host-oauth-consent=handle-1")
       expect(response.headers.get("x-frame-options")).toBe("DENY")
+      const csp = response.headers.get("content-security-policy") ?? ""
+      expect(csp).toContain("img-src data:")
+      expect(csp).toContain("frame-ancestors 'none'")
+      expect(csp.split("frame-ancestors").length).toBe(2)
       const body = yield* text(response)
       expect(body).toContain('name="handle" value="handle-1"')
       expect(body).toContain('value="tanren:read" checked')
@@ -104,6 +110,8 @@ describe("GET /authorize", () => {
       const response = yield* call(`/authorize?${authorizeQuery({ client_id: "nobody" })}`)
       expect(response.status).toBe(400)
       expect(response.headers.get("location")).toBeNull()
+      expect(response.headers.get("content-security-policy")).toContain("img-src data:")
+      expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'")
       expect(yield* text(response)).toContain("Invalid client_id")
     }),
   )

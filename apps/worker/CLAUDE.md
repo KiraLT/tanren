@@ -71,7 +71,9 @@ src/
   oauth/              the stateless authorization server (ADR-0022, docs/design/auth-v2.md §5; no KV, no DO, no library).
                       provider.ts (`makeRouter`: the Worker's fetch router, CORS, `statelessOAuth` hook) · authorize.ts (`/authorize` pages:
                       Better Auth magic-link login → consent) · OAuthApi.ts (the six-method port; `layerStateless` over
-                      `Tokens` + `ClientResolver`, `layerFake` for Node tests) · pages.ts (HTML pages) · knownClients.ts (IDENT-1 trust:
+                      `Tokens` + `ClientResolver`, `layerFake` for Node tests) · pages.ts (HTML pages in the Forge frame: `shell`
+                      = wordmark + column + legal footer, `PAGE_CSP` sent by every `/authorize*` page; assets.ts holds the W1
+                      wordmark as a 5 KB alpha-mask `data:` PNG, OAUTH-UI) · knownClients.ts (IDENT-1 trust:
                       host equality against `TRUSTED_CLIENT_HOSTS`) · clients.ts (`ClientResolver`: CIMD fetch for an https `client_id`
                       with a path — 5 s timeout, 5 KiB cap, no redirects, JSON, cached in a named Cache API cache ≤ 1 h; else a DCR client-id
                       JWT; canonical-URL checks; stateless `POST /oauth/register`) · consent.ts (consent handle JWT with a nonce, the

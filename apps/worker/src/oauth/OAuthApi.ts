@@ -186,7 +186,6 @@ export class OAuthApi extends Context.Service<OAuthApi, OAuthApiShape>()(
                 headers: new Headers([
                   ["set-cookie", consentCookie(nonce)],
                   ["x-frame-options", "DENY"],
-                  ["content-security-policy", "frame-ancestors 'none'"],
                 ]),
               }
             }),
