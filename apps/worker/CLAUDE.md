@@ -105,7 +105,7 @@ tsconfig variants     `wrangler.test.jsonc`; `wrangler.jsonc` top level = local,
 - Scopes: `toolsFor(principal)` registers read tools only with `tanren:read`, write tools only with `tanren:write`
   (otherwise: unknown tool); it is the only enforcement — challenge and metadata merely advertise both. Empty
   requested scope = both on the consent page; the grant is ticked ∩ requested ∩ `MCP_SCOPES`.
-- Tools: `call(userId, rawArgs)` decodes once (→ `ValidationError`), runs, encodes to JSON; `inputSchema =
+- Tools: `call(userId, args)` decodes the unknown `args` once (→ `ValidationError`), runs, encodes to JSON; `inputSchema =
   toStandardJSONSchemaV1(toStandardSchemaV1(toEncoded(input)))`, so the SDK validates the wire shape and `call` never
   sees decoded values. A non-object result (`get_current_plan` → null) is text only, no `structuredContent`. Typed
   errors → `isError` text; `PersistenceError` and defects → `storage unavailable` / `internal error`.

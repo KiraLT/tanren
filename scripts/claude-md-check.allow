@@ -1,0 +1,11 @@
+# Backticked tokens that are real in the docs but exist nowhere in the tree. One token per line; a
+# comment line says why. Keep it short: a long list means the token regex is wrong.
+# apps/mobile/CLAUDE.md names it to say the icon table has NO such icon.
+chevronUp
+# apps/worker/CLAUDE.md: Cloudflare Workers binding type the rate limiter could move to (owner action).
+ratelimits
+# apps/worker/CLAUDE.md: a path inside the VS Code extension, outside the repo.
+native-binary
+# packages/db/CLAUDE.md: `X` is a placeholder for any repository (XRepo, XRepoShape, XRepo.layer).
+XRepo
+XRepoShape

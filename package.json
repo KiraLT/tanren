@@ -7,8 +7,9 @@
     "node": ">=24.21.0"
   },
   "scripts": {
-    "check": "pnpm check:plugins && biome ci --error-on-warnings . && pnpm typecheck && vitest run",
+    "check": "pnpm check:plugins && pnpm check:claude-md && biome ci --error-on-warnings . && pnpm typecheck && vitest run",
     "check:plugins": "node .biome/selftest.mjs",
+    "check:claude-md": "scripts/claude-md-check.sh",
     "dev": "pnpm run \"/^dev:(api|web)$/\"",
     "dev:api": "pnpm -F @tanren/worker dev",
     "dev:web": "pnpm web:serve",
