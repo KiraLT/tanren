@@ -1,3 +1,4 @@
 - [Interim escalations](feedback_interim_escalation.md) — SendMessage "main" for interims; SubagentHandback only for the final report
 - [Background dispatch blocks](feedback_background_dispatch.md) — one long Agent call blocked the turn 8 h; split long tasks, batch ready ones together
+- [Addenda to running children](feedback_addenda_to_running_children.md) — late findings → SendMessage to the live owner; capture as a later resume
 - [Resumes do not block](feedback_resume_nonblocking.md) — SendMessage resumes overlap with one blocking Agent call; use for fix rounds
