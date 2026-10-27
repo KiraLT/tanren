@@ -251,3 +251,73 @@ describe("IntegrationRepo refresh lease", () => {
       }).pipe(Effect.provide(TestLayer)),
   )
 })
+
+describe("IntegrationRepo Garmin cursor and work list", () => {
+  it.effect("setCursor round-trips the string in scope and leaves updatedAt alone", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const stored = row(50, userOf(50), { provider: "garmin", scope: "" })
+      yield* repo.upsert(stored)
+      const cursor = '{"activitiesSince":"2026-10-26T00:00:00.000Z","healthThrough":"2026-10-26"}'
+      yield* repo.setCursor(stored.id, cursor)
+      expect(yield* repo.get(stored.userId, "garmin")).toEqual(
+        Option.some({ ...stored, scope: cursor }),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("listActive skips revoked rows and other providers, oldest updatedAt first", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const newer = row(51, userOf(51), { provider: "garmin", updatedAt: T1 })
+      const older = row(52, userOf(52), { provider: "garmin", updatedAt: T0 })
+      const revoked = row(53, userOf(53), { provider: "garmin", status: "revoked" })
+      const strava = row(54, userOf(54))
+      yield* Effect.forEach([newer, older, revoked, strava], repo.upsert)
+      const mine = new globalThis.Set([newer.id, older.id, revoked.id, strava.id])
+      const listed = (yield* repo.listActive("garmin")).filter((r) => mine.has(r.id))
+      expect(listed.map((r) => r.id)).toEqual([older.id, newer.id])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("listActive puts never-pulled rows first, then the oldest lastAttemptAt", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const pulledAt = (iso: string) =>
+        JSON.stringify({
+          activitiesSince: "2026-10-26T00:00:00.000Z",
+          healthThrough: "2026-10-26",
+          lastAttemptAt: iso,
+          lastError: null,
+        })
+      // Oldest `updatedAt` but pulled most recently: it must come last.
+      const recent = row(61, userOf(61), {
+        provider: "garmin",
+        updatedAt: T0,
+        scope: pulledAt("2026-10-27T10:05:00.000Z"),
+      })
+      const stale = row(62, userOf(62), {
+        provider: "garmin",
+        updatedAt: T0,
+        scope: pulledAt("2026-10-27T10:00:00.000Z"),
+      })
+      const fresh = row(63, userOf(63), { provider: "garmin", updatedAt: T1, scope: "" })
+      const notJson = row(64, userOf(64), { provider: "garmin", updatedAt: T1, scope: "read,x" })
+      const nullPull = row(65, userOf(65), {
+        provider: "garmin",
+        updatedAt: T1,
+        scope: JSON.stringify({ lastAttemptAt: null }),
+      })
+      yield* Effect.forEach([recent, stale, fresh, notJson, nullPull], repo.upsert)
+      const mine = new globalThis.Set([recent.id, stale.id, fresh.id, notJson.id, nullPull.id])
+      const listed = (yield* repo.listActive("garmin")).filter((r) => mine.has(r.id))
+      expect(listed.map((r) => r.id)).toEqual([
+        fresh.id,
+        notJson.id,
+        nullPull.id,
+        stale.id,
+        recent.id,
+      ])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})

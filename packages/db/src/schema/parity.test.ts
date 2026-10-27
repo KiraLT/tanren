@@ -3,6 +3,7 @@ import { ROW_KEYS, ROW_TABLE, SyncTable } from "@tanren/shared"
 import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core"
 import { Array as Arr, String as Str } from "effect"
 import { exercise } from "./exercise"
+import { dailyHealth, importedActivity } from "./garmin"
 import { plan, plannedSession, plannedSet, planWeek } from "./plan"
 import { programDayCompletion, programEnrollment } from "./program"
 import { workoutSession, workoutSet } from "./session"
@@ -20,6 +21,8 @@ const TABLES: { readonly [T in SyncTable]: SQLiteTable } = {
   set: workoutSet,
   programEnrollment,
   programDayCompletion,
+  importedActivity,
+  dailyHealth,
 }
 
 /** Server-only: never on a synced row. */

@@ -41,6 +41,15 @@ export interface Env {
    * integration tokens. A clearly fake key is a local var; outside `local` it is always a secret.
    */
   readonly INTEGRATION_TOKEN_KEY: string
+  /** `console` (default when absent: fixture data, no network) or `provider` (Garmin Personal API). */
+  readonly GARMIN_MODE?: string
+  /** Garmin Personal API origin (var); absent = `https://personal.connectapi.garmin.com`. */
+  readonly GARMIN_BASE_URL?: string
+  /**
+   * Local simulation only: `rejected` makes the console `exchange` fail like a revoked key. Refused
+   * unless `GARMIN_MODE` is `console`; pass it with `--var`, never in config.
+   */
+  readonly GARMIN_CONSOLE_FAIL?: string
 }
 
 /** The plain vars `WorkerConfig` needs, so tests can build a config without D1. */

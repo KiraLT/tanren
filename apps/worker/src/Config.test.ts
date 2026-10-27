@@ -392,3 +392,53 @@ describe("Strava and integration token config", () => {
     }),
   )
 })
+
+describe("Garmin config", () => {
+  it.effect("defaults when absent: console mode, the Personal API host, no simulated failure", () =>
+    Effect.gen(function* () {
+      const config = yield* load(localEnv)
+      expect(config.garminMode).toBe("console")
+      expect(config.garminBaseUrl).toBe("https://personal.connectapi.garmin.com")
+      expect(Option.isNone(config.garminConsoleFail)).toBe(true)
+    }),
+  )
+
+  it.effect("provider mode with a base URL decodes (trailing slash dropped)", () =>
+    Effect.gen(function* () {
+      const config = yield* load({
+        ...productionEnv,
+        GARMIN_MODE: "provider",
+        GARMIN_BASE_URL: "https://garmin.example.test/",
+      })
+      expect(config.garminMode).toBe("provider")
+      expect(config.garminBaseUrl).toBe("https://garmin.example.test")
+    }),
+  )
+
+  it.effect("GARMIN_CONSOLE_FAIL=rejected is Some in console mode", () =>
+    Effect.gen(function* () {
+      const config = yield* load({ ...localEnv, GARMIN_CONSOLE_FAIL: "rejected" })
+      expect(config.garminConsoleFail).toEqual(Option.some("rejected"))
+    }),
+  )
+
+  it.effect("refuses GARMIN_CONSOLE_FAIL in provider mode", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, GARMIN_MODE: "provider", GARMIN_CONSOLE_FAIL: "rejected" }),
+      )
+      expect(error).toBeInstanceOf(ConfigError)
+      expect(error.message).toContain("GARMIN_CONSOLE_FAIL")
+      expect(error.message).toContain('GARMIN_MODE is "console"')
+    }),
+  )
+
+  it.effect("refuses an unknown GARMIN_CONSOLE_FAIL value and an unknown GARMIN_MODE", () =>
+    Effect.gen(function* () {
+      const value = yield* Effect.flip(load({ ...localEnv, GARMIN_CONSOLE_FAIL: "inactive" }))
+      expect(value.message).toContain('GARMIN_CONSOLE_FAIL "inactive"')
+      const mode = yield* Effect.flip(load({ ...localEnv, GARMIN_MODE: "live" }))
+      expect(mode).toBeInstanceOf(ConfigError)
+    }),
+  )
+})

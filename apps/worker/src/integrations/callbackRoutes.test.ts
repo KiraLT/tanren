@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { IntegrationRepo, type IntegrationRow } from "@tanren/db"
+import { IntegrationRepo, type IntegrationRow, UserNotFound, UserTokens } from "@tanren/db"
 import { IdGenerator, Label, UserId } from "@tanren/shared"
 import { Array as Arr, Clock, DateTime, Effect, Layer, Logger, Option, Redacted, Ref } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
@@ -28,7 +28,12 @@ const grant: TokenGrant = {
 }
 
 const harness = (
-  opts: { readonly exchange: "ok" | "fail"; readonly config?: WorkerConfigShape } = {
+  opts: {
+    readonly exchange: "ok" | "fail"
+    readonly config?: WorkerConfigShape
+    /** `deleted`: the state's user was erased after the state was signed. */
+    readonly user?: "exists" | "deleted"
+  } = {
     exchange: "ok",
   },
 ) =>
@@ -71,11 +76,28 @@ const harness = (
           releaseRefresh: () => Effect.die("unused"),
           markRevoked: () => Effect.die("unused"),
           remove: () => Effect.die("unused"),
+          setCursor: () => Effect.die("unused"),
+          listActive: () => Effect.die("unused"),
         }),
       )
-      const deps = Layer.mergeAll(strava, repo, IdGenerator.layerTest, TokenSeal.layer).pipe(
-        Layer.provideMerge(Layer.succeed(WorkerConfig, opts.config ?? config)),
+      const tokens = Layer.succeed(
+        UserTokens,
+        UserTokens.of({
+          tokenGens: (userId) =>
+            opts.user === "deleted"
+              ? Effect.fail(new UserNotFound({ userId }))
+              : Effect.succeed({ app: 0, mcp: 0 }),
+          bumpAppTokenGen: () => Effect.die("unused"),
+          bumpMcpTokenGen: () => Effect.die("unused"),
+        }),
       )
+      const deps = Layer.mergeAll(
+        strava,
+        repo,
+        tokens,
+        IdGenerator.layerTest,
+        TokenSeal.layer,
+      ).pipe(Layer.provideMerge(Layer.succeed(WorkerConfig, opts.config ?? config)))
       const web = HttpRouter.toWebHandler(
         callbackRoutes.pipe(
           Layer.provide(deps),
@@ -149,6 +171,19 @@ describe("GET /integrations/strava/callback", () => {
     const h = harness()
     const response = await get(h.handler, { state: await state(WEB), code: CODE, scope: "read" })
     expect(response.headers.get("location")).toBe(`${WEB}?error=scope`)
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a state for an erased user stores nothing and spends no code (?error=provider)", async () => {
+    const h = harness({ exchange: "ok", user: "deleted" })
+    const response = await get(h.handler, {
+      state: await state(WEB),
+      code: CODE,
+      scope: "read,activity:write",
+    })
+    expect(response.status).toBe(303)
+    expect(response.headers.get("location")).toBe(`${WEB}?error=provider`)
     expect(read(h.exchanges)).toEqual([])
     expect(read(h.upserts)).toEqual([])
   })

@@ -28,8 +28,10 @@ export const tableRank = (table: SyncTable): number => SYNC_TABLE_ORDER.indexOf(
 export const encodeCursor = (position: Position): SyncCursor =>
   SyncCursor.make(`${position.seq}:${position.rank}:${position.id || "-"}`)
 
-// Uppercase hex too: `Schema.isUUID()` accepts it, so a stored id may be uppercase.
-const CURSOR = /^(\d{1,15}):(\d):([0-9a-fA-F-]{36}|-)$/
+// Uppercase hex too: `Schema.isUUID()` accepts it, so a stored id may be uppercase. The rank has as
+// many digits as SYNC_TABLE_ORDER needs (12 tables since GM-2: ranks 10 and 11 are two digits); a
+// rank past the last table is rejected below.
+const CURSOR = /^(\d{1,15}):(\d{1,2}):([0-9a-fA-F-]{36}|-)$/
 
 const badCursor = (cursor: string) =>
   new ValidationError({
@@ -41,7 +43,10 @@ export const decodeCursor = (cursor: SyncCursor): Effect.Effect<Position, Valida
   Option.match(Option.fromNullishOr(CURSOR.exec(cursor)), {
     onNone: () => Effect.fail(badCursor(cursor)),
     onSome: ([, seq, rank, id]) =>
-      seq === undefined || rank === undefined || id === undefined
+      seq === undefined ||
+      rank === undefined ||
+      id === undefined ||
+      Number(rank) >= SYNC_TABLE_ORDER.length
         ? Effect.fail(badCursor(cursor))
         : Effect.succeed({ seq: Number(seq), rank: Number(rank), id: id === "-" ? "" : id }),
   })

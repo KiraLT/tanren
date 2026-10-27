@@ -20,6 +20,7 @@ import {
 import { type App, makeApp, memoryPersistence } from "../app"
 import { Sessions } from "../auth/Sessions"
 import { ExportQueue } from "../integrations/ExportQueue"
+import { GarminApi } from "../integrations/GarminApi"
 import { StravaApi, StravaRequestFailed } from "../integrations/StravaApi"
 import { makeTokenSeal, TokenSeal } from "../integrations/TokenSeal"
 import { MemoryStore } from "../repos"
@@ -62,7 +63,10 @@ interface Harness {
 }
 
 /** One memory store shared by the app, its export queue (console Strava) and the test. */
-const harness = (revoke: "ok" | "fail" = "ok"): Harness => {
+const harness = (
+  revoke: "ok" | "fail" = "ok",
+  garmin: Layer.Layer<GarminApi> = GarminApi.layerConsole,
+): Harness => {
   const ctx = Effect.runSync(Effect.scoped(Layer.build(memoryPersistence(MemoryStore.layer))))
   const persistence = Layer.succeedContext(ctx)
   const revoked = Effect.runSync(Ref.make<ReadonlyArray<string>>([]))
@@ -104,6 +108,7 @@ const harness = (revoke: "ok" | "fail" = "ok"): Harness => {
     persistence,
     exports,
     strava,
+    garmin,
   })
   return {
     app,
@@ -155,13 +160,27 @@ describe("GET /integrations", () => {
         failedExports: 0,
         blockedExports: 0,
       },
+      {
+        provider: "garmin",
+        state: "disconnected",
+        account: null,
+        connectedAt: null,
+        lastExportAt: null,
+        pendingExports: 0,
+        failedExports: 0,
+        blockedExports: 0,
+        imports: { lastPullAt: null, lastError: null, activities: 0, days: 0 },
+      },
     ])
   })
 
-  it("does not list garmin until its connect endpoint exists", async () => {
+  it("lists garmin with imports, and only garmin carries them", async () => {
     const response = await call(harness(), "GET", "/integrations")
     const providers = Schema.decodeUnknownSync(Status)(await response.json()).providers
-    expect(providers.map((p) => p.provider)).not.toContain("garmin")
+    expect(providers.map((p) => [p.provider, "imports" in p])).toEqual([
+      ["strava", false],
+      ["garmin", true],
+    ])
   })
 
   it("reports connected with the athlete, and the pending/failed/blocked/sent counts", async () => {
@@ -367,5 +386,81 @@ describe("POST /integrations/strava/exports/retry", () => {
     })
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ id: exportId(9), status: "sent", attempts: 1 })
+  })
+})
+
+/** A pasted personal key: shape only, never a real one. */
+const garminKey = "console-personal-key-0123456789"
+
+describe("POST /integrations/garmin/connect", () => {
+  it("validates, stores the sealed key, pulls inline and answers connected with imports", async () => {
+    const h = harness()
+    const response = await call(h, "POST", "/integrations/garmin/connect", { token: garminKey })
+    expect(response.status).toBe(200)
+    const text = await response.text()
+    expect(text).not.toContain(garminKey)
+    expect(JSON.parse(text)).toMatchObject({
+      provider: "garmin",
+      state: "connected",
+      account: { displayName: "Console Garmin" },
+      imports: { lastError: null, activities: 2, days: 7 },
+    })
+    const row = await run(h.integrations.get(owner, "garmin"))
+    expect(
+      Option.map(row, (r) => [r.externalId, r.status, r.refreshToken.startsWith("v1.")]),
+    ).toEqual(Option.some(["personal", "active", true]))
+    expect(Option.map(row, (r) => r.refreshToken.includes(garminKey))).toEqual(Option.some(false))
+  })
+
+  it("connecting twice keeps one row with the same id", async () => {
+    const h = harness()
+    await call(h, "POST", "/integrations/garmin/connect", { token: garminKey })
+    const first = await run(h.integrations.get(owner, "garmin"))
+    await call(h, "POST", "/integrations/garmin/connect", { token: garminKey })
+    const second = await run(h.integrations.get(owner, "garmin"))
+    expect(Option.map(second, (r) => r.id)).toEqual(Option.map(first, (r) => r.id))
+    expect((await run(h.integrations.listActive("garmin"))).length).toBe(1)
+  })
+
+  it("a key Garmin refuses answers 400 GarminTokenRejected rejected and stores nothing", async () => {
+    const h = harness("ok", GarminApi.layerConsoleWith(Option.some("rejected")))
+    const response = await call(h, "POST", "/integrations/garmin/connect", { token: garminKey })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ _tag: "GarminTokenRejected", reason: "rejected" })
+    expect(Option.isNone(await run(h.integrations.get(owner, "garmin")))).toBe(true)
+  })
+
+  it("a key shorter than 16 characters is a 400 before Garmin is called", async () => {
+    const response = await call(harness(), "POST", "/integrations/garmin/connect", {
+      token: "short",
+    })
+    expect(response.status).toBe(400)
+  })
+})
+
+describe("DELETE /integrations/garmin", () => {
+  it("removes the row and soft-deletes the imports, answers 204", async () => {
+    const h = harness()
+    await call(h, "POST", "/integrations/garmin/connect", { token: garminKey })
+    const response = await call(h, "DELETE", "/integrations/garmin")
+    expect(response.status).toBe(204)
+    expect(Option.isNone(await run(h.integrations.get(owner, "garmin")))).toBe(true)
+    const body = Schema.decodeUnknownSync(Status)(
+      await (await call(h, "GET", "/integrations")).json(),
+    )
+    expect(body.providers[1]).toMatchObject({
+      provider: "garmin",
+      state: "disconnected",
+      imports: { activities: 0, days: 0 },
+    })
+  })
+
+  it("answers 409 IntegrationNotConnected when nothing is connected", async () => {
+    const response = await call(harness(), "DELETE", "/integrations/garmin")
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({
+      _tag: "IntegrationNotConnected",
+      provider: "garmin",
+    })
   })
 })

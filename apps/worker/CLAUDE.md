@@ -5,7 +5,7 @@ The Cloudflare Worker: REST API (`@effect/platform` HttpApi), Better Auth
 server (stateless `createMcpHandler` from the Cloudflare Agents SDK, ADR-0010, not `McpAgent`). The
 Worker's default export is `{ fetch, scheduled }`: `fetch` is the router in `oauth/provider.ts` over a stateless OAuth
 authorization server written in Effect (ADR-0022: Tanren JWTs, no KV, no library) that guards `/mcp` and serves the OAuth
-endpoints and authorize pages; `scheduled` is the export cron.
+endpoints and authorize pages; `scheduled` is the cron (Strava export drain, then Garmin pull).
 
 Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 
@@ -26,7 +26,7 @@ Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
 ```
 src/
   index.ts            Worker entry: default export = `{ fetch, scheduled }`: `fetch` calls `makeRouter(env, config, { app, mcp, authorize }, persistence)`
-                      (`oauth/provider.ts`: CORS preflight, discovery, `/oauth/{register,token}`, `/authorize*`, `/mcp`, then `app`); `scheduled` = `ctx.waitUntil(runScheduled(env))` (cron export drain);
+                      (`oauth/provider.ts`: CORS preflight, discovery, `/oauth/{register,token}`, `/authorize*`, `/mcp`, then `app`); `scheduled` = `ctx.waitUntil(runScheduled(env))` (cron: Strava export drain, then Garmin pull);
                       `app` = makeApp(env, { BetterAuth.layer(env.DB), d1Persistence(env.DB) }), `mcp` = makeMcp(…, McpAuth.layerLive)
   app.ts              makeApp: HttpApi layer + auth mode + persistence → { handler }; memoryPersistence / d1Persistence
   Env.ts, Config.ts   `Env` interface + config/guard (incl. `STRAVA_MODE`, `STRAVA_CLIENT_ID`, `STRAVA_CONSOLE_FAIL` vars and the
@@ -38,7 +38,9 @@ src/
                       `layerConsole` logs `[strava:console] …`, `STRAVA_CONSOLE_FAIL=inactive` simulates a lapsed app; 403 or an
                       inactive-looking 4xx → `app_inactive`) · ExportQueue.ts (enqueueCompleted + drain: claim → token refresh → send →
                       settle; backoff +1 m/+5 m/+30 m/+2 h, 5th failure `dead`, `blocked` retried every 12 h) · activityText.ts (pure: session →
-                      Strava activity name/start/elapsed/description) · scheduled.ts (`runScheduled`: cron drain, 10 rows per run) ·
+                      Strava activity name/start/elapsed/description) · scheduled.ts (`runScheduled`: export drain, 10 rows per run, then `GarminPull.drain`, 4 users per run; each drain has its own `catchCause`, so one failing never blocks the other) ·
+                      Garmin import (ADR-0023, docs/design/garmin.md; `GARMIN_MODE` `console` default | `provider`, `GARMIN_BASE_URL`, `GARMIN_CONSOLE_FAIL=rejected` console only; no server-side Garmin secret, the user's key is sealed with `INTEGRATION_TOKEN_KEY`): GarminApi.ts (port: `exchange` key → 24 h JWT, profile, activities list, daily summary; `layerHttp`/`layerLive` real, `layerConsole` = 2 activities + 7 days, `layer` picks by `GARMIN_MODE`; `GarminApiError`) ·
+                      GarminPull.ts (`GarminPull.drain({ max })`: per user ≤ 10 Garmin calls and ≤ 2 activity pages, 7-day dailies, 30-day back-fill, cursor in the integration row, daily 404 → no row; writes through `GarminImportRepo`; `layerDisabled`) ·
                       connect.ts (`startConnect`: allow-list `returnTo` ≤ 300 chars, signed 10-min `state`, authorize URL with
                       `approval_prompt=force`; console mode → our own callback with `code=console`; refused outside local) ·
                       callbackRoutes.ts (plain `HttpRouter` `GET /integrations/strava/callback`: verify state, exchange code, upsert, 303 or
@@ -51,6 +53,7 @@ src/
                       IntegrationsHandlers.ts (connect limiter keyed `strava-connect:<userId>`)
   repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests) ·
                       MemoryIntegrations.ts (in-memory `IntegrationRepo`/`ActivityExportRepo` for Node tests) ·
+                      MemoryGarminImport.ts (in-memory `GarminImportRepo` for Node tests; the D1 `GarminImportRepo` lives in `packages/db/src/repositories/GarminImport.ts`: upsert imported activities / daily health through `SyncStore`, skip unchanged live rows) ·
                       MemoryTokens.ts (in-memory `UserTokens` + `OAuthCodeUseRepo` for Node tests: every user exists at generation 0)
   auth/               Tokens.ts (ONE service for all 7 token kinds: app access/refresh, MCP access/refresh, auth code, consent handle,
                       DCR client id; HS256 JWTs via `jose`, keys = WebCrypto HKDF sub-keys of `BETTER_AUTH_SECRET` (no new secret), `kid`,
@@ -64,7 +67,9 @@ src/
                       styles, escaped url, fixed light colours; `resendBody` calls it), authRoutes (store/build/request failure → 503
                       `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
   sync/               Sync (push = db SyncStore.apply, then for a completed session `ExportQueue.enqueueCompleted` + `drain(1)` within 5 s,
-                      never failing the push; pull + serverTime); SyncStoreMemory (Node fake, no LWW)
+                      never failing the push; pull + serverTime); SyncStoreMemory (Node fake, no LWW). Imports (`importedActivity`, `dailyHealth`)
+                      are pull-only synced tables: `Sync.push` rejects them `forbidden` (`PULL_ONLY`, before `SyncStore.apply`), only the Worker's
+                      own `GarminImportRepo` writes them, and MCP never reads them
   mcp/                tools.ts (6 read tools incl. `search_exercises` (`availableAt`: 1 D1 statement) and `get_profile`; with the 3 write tools 9 total; a read-only grant lists 6; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
                       writeTools.ts (`write_plan_week`, `log_session`, `update_profile`) · McpAuth.ts (identity port → `McpPrincipal`) ·
                       server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime) · McpLanding.ts (GET/HEAD `/` on the MCP host: static help page naming the connector URL)
@@ -73,7 +78,9 @@ src/
                       Better Auth magic-link login → consent) · OAuthApi.ts (the six-method port; `layerStateless` over
                       `Tokens` + `ClientResolver`, `layerFake` for Node tests) · pages.ts (HTML pages in the Forge frame: `shell`
                       = wordmark + column + legal footer, `PAGE_CSP` sent by every `/authorize*` page; assets.ts holds the W1
-                      wordmark as a 5 KB alpha-mask `data:` PNG, OAUTH-UI) · knownClients.ts (IDENT-1 trust:
+                      wordmark as a 5 KB alpha-mask `data:` PNG, OAUTH-UI; fontRoute.ts serves `GET /oauth/assets/barlow-condensed-800.woff2`
+                      (Latin-subset Barlow Condensed 800, OFL, a wrangler `rules` Data module typed by `fonts/fontModules.d.ts`; called
+                      from `index.ts` before the router; the h1 face, `font-src 'self'`, OAUTH-FONT) · knownClients.ts (IDENT-1 trust:
                       host equality against `TRUSTED_CLIENT_HOSTS`) · clients.ts (`ClientResolver`: CIMD fetch for an https `client_id`
                       with a path — 5 s timeout, 5 KiB cap, no redirects, JSON, cached in a named Cache API cache ≤ 1 h; else a DCR client-id
                       JWT; canonical-URL checks; stateless `POST /oauth/register`) · consent.ts (consent handle JWT with a nonce, the

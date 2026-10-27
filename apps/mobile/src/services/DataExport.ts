@@ -1,6 +1,8 @@
 import {
+  DailyHealthRow,
   DataExport,
   ExerciseRow,
+  ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
   PlanRow,
@@ -73,6 +75,8 @@ const make = Effect.gen(function* () {
       yield* readLive("set", WorkoutSetRow),
       yield* readLive("programEnrollment", ProgramEnrollmentRow),
       yield* readLive("programDayCompletion", ProgramDayCompletionRow),
+      yield* readLive("importedActivity", ImportedActivityRow),
+      yield* readLive("dailyHealth", DailyHealthRow),
     ])
     const encoded = yield* Schema.encodeEffect(DataExport)({
       format: "tanren.export",

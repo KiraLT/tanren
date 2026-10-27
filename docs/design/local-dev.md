@@ -353,5 +353,28 @@ until the owner has a Strava app, deploy.md §Strava secrets).
   `wrangler dev --test-scheduled --port <api> --inspector-port <i1> --persist-to <dir> --var MCP_RESOURCE_URL:http://localhost:<api>/mcp`
   with `<dir>` from `mktemp -d`; never `db:reset` while another agent shares the default state.
 
+## §GARMIN_MODE: the Garmin import locally (ADR-0023, `docs/design/garmin.md`)
+
+`apps/worker/wrangler.jsonc` top-level vars carry `GARMIN_MODE: "console"` (also the `Config.ts` default when the var is
+unset) and rely on the same fake `INTEGRATION_TOKEN_KEY` and the same cron (`*/5 * * * *`) as Strava. No Garmin account,
+no network, no key. `GARMIN_BASE_URL` is unset locally (decode default `https://personal.connectapi.garmin.com`, unused in console mode).
+
+- **Console fixture.** `GarminApi.layerConsole` answers with 2 activities (a run with a distance, a strength session without
+  one) and 7 daily-health days (today back to today − 6). Connect in Settings → Integrations → Garmin by pasting any
+  16+ characters; the console exchange accepts them and the display name is fake.
+- **Pull it.** Start the worker with `--test-scheduled` and call the cron route (the same call as the Strava drain):
+  `curl "http://localhost:<port>/cdn-cgi/local/scheduled?cron=*/5+*+*+*+*"`. The log shows
+  `[scheduled] export drain attempted=<n>` then `[scheduled] garmin drain users=<n>` (Garmin runs after the Strava drain,
+  each with its own `catchCause`; 4 users per run, at most 10 Garmin calls per user). After the next app sync the Feed shows
+  the 2 imported cards and Today shows the day strip.
+- **Simulate a rejected key.** `wrangler dev --test-scheduled --var GARMIN_CONSOLE_FAIL:rejected` makes the console
+  exchange fail like a revoked or expired key: Settings shows "Token rejected" and asks for a new key. `Config.ts` accepts
+  only the value `rejected`, and only with `GARMIN_MODE=console` (startup guard otherwise).
+- **Provider mode (real Garmin).** `--var GARMIN_MODE:provider` calls the Garmin Personal API. It needs a real personal
+  key pasted into Settings → Integrations → Garmin at run time (generated at connect.garmin.com → Settings → Personal API
+  token). **Never put a key in a file, a `--var`, a commit or a committed log**; it is sealed in D1 like the Strava tokens.
+  The owner regenerates the key after any test.
+- **Another dev server is running?** Spare port and own state, exactly as in §STRAVA_MODE.
+
 ## 9a. Implemented (2026-10-20)
 `pnpm db:migrate` / `pnpm db:seed [--seed n] [--end YYYY-MM-DD]` / `pnpm db:reset` (root) run against the local D1 under `apps/worker/.wrangler/state`; the runner is `apps/worker/scripts/seed.ts` via `tsx` (Node type stripping fails on extensionless imports).

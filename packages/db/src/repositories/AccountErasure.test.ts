@@ -121,6 +121,17 @@ const seedUser = (n: number) => {
       u,
       id(10),
     ),
+    p(
+      `INSERT INTO imported_activity (id, user_id, created_at, updated_at, deleted_at, server_seq, provider, external_id, sport, title, started_at, duration_seconds) VALUES (${row}, 'garmin', ?, 'run', 'Run', '${T}', 1800)`,
+      id(16),
+      u,
+      `ext-${n}`,
+    ),
+    p(
+      `INSERT INTO daily_health (id, user_id, created_at, updated_at, deleted_at, server_seq, provider, date) VALUES (${row}, 'garmin', '2026-10-27')`,
+      id(17),
+      u,
+    ),
   ])
 }
 
@@ -163,7 +174,7 @@ describe("AccountErasure", () => {
         ).all<{ readonly name: string; readonly sql: string }>(),
       )
       const withUserColumn = Arr.map(
-        Arr.filter(tables.results, (t) => /[`"](user_id|userId)[`"]\s+text/.test(t.sql)),
+        Arr.filter(tables.results, (t) => /[`"](user_id|userId)[`"]/.test(t.sql)),
         (t) => t.name,
       )
       const listed = Arr.filter(ERASED_TABLES, (t) => t !== "user" && t !== "verification")

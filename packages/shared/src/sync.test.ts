@@ -165,6 +165,8 @@ describe("SyncChange", () => {
           set: ({ row }) => Option.some(row.sessionId),
           programEnrollment: () => Option.none(),
           programDayCompletion: ({ row }) => Option.some(row.enrollmentId),
+          importedActivity: () => Option.none(),
+          dailyHealth: () => Option.none(),
         }),
       )
     const decoded = Schema.decodeUnknownSync(PushRequest)(pushRequestJson)
@@ -179,6 +181,9 @@ describe("SYNC_TABLE_ORDER", () => {
   it("lists every SyncTable literal exactly once", () => {
     expectTypeOf<(typeof SYNC_TABLE_ORDER)[number]>().toEqualTypeOf<SyncTable>()
     expect(new globalThis.Set(SYNC_TABLE_ORDER).size).toBe(SYNC_TABLE_ORDER.length)
+  })
+  it("ends with the parentless, pull-only Garmin import tables", () => {
+    expect(SYNC_TABLE_ORDER.slice(-2)).toEqual(["importedActivity", "dailyHealth"])
   })
 })
 

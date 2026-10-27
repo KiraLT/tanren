@@ -3,10 +3,11 @@ import type {
   ActivityExportId,
   ExportFailureReason,
   ExportStatus,
+  GarminTokenRejected,
   Provider,
   ProviderStatus,
 } from "@tanren/shared"
-import { DateTime, Option } from "effect"
+import { DateTime, Match, Option } from "effect"
 import type { IconName, Tone } from "../../ui"
 
 /** Pill label and tone (StatusPill has no warning tone: problems are `danger`). */
@@ -51,8 +52,55 @@ export const EXPORTS_EMPTY_BODY = "Finish a session and it shows up here"
 export const SESSION_FALLBACK = "Session"
 export const APPLE_HEALTH = { title: "Apple Health", pill: "Needs app build" } as const
 export const ABOUT_TITLE = "About integrations"
-export const ABOUT_BODY =
-  "Integrations send finished sessions to other apps. Tanren only writes; it never reads data back."
+/** Which page the About card sits on: the Integrations list or one provider's detail. */
+export type AboutScope = "list" | Provider
+
+/**
+ * The About card's text per page. Strava is export-only; Garmin imports (design §10), so neither the
+ * list nor the Garmin page may claim that Tanren never reads data back.
+ */
+export const ABOUT_BODIES: { readonly [S in AboutScope]: string } = {
+  list: "Strava receives your finished sessions; Tanren never reads Strava data. Garmin imports your own activities and daily summaries, read-only, never shared or used by the AI planning tools.",
+  strava:
+    "Integrations send finished sessions to other apps. Tanren only writes; it never reads data back.",
+  garmin:
+    "Tanren imports your own Garmin activities and daily summaries (calories, steps, resting heart rate). Read-only: never shared with third parties or used by the AI planning tools. Disconnecting removes the token and the imported data.",
+}
+
+/** Garmin's personal-API-token page (a constant: the UI never links anything else). */
+export const GARMIN_TOKEN_URL = "https://connect.garmin.com/app/settings/personalApiToken"
+/** The connect button stays disabled until the trimmed token is this long (`GarminConnectRequest`). */
+export const GARMIN_MIN_TOKEN_LENGTH = 16
+
+/** Garmin copy, design §8 (verbatim). */
+export const GARMIN = {
+  /** Two lines at 390 like Strava's row (GM-D: "your own" made it wrap to three). */
+  idleSubtitle: "Imports runs, rides and daily calories",
+  firstImport: "First import within 5 minutes",
+  revokedTitle: "Token rejected",
+  revokedBody: "Garmin stopped accepting the token. Paste a new one",
+  body: "Paste your personal API token. Tanren checks it once, stores it encrypted and imports your activities and daily calories.",
+  placeholder: "Personal API token",
+  tokenLink: "Get a token at connect.garmin.com → Settings",
+  connect: "Connect Garmin",
+  /** Garmin connect can take up to 30 s (`GARMIN_CONNECT_TIMEOUT_SECONDS`): say so while it runs. */
+  connecting: "Connecting… up to 30 s",
+  disconnect: "Disconnect Garmin",
+  expiry: "Garmin tokens expire 30–365 days after creation; renew at connect.garmin.com",
+  notConnected: "Garmin is not connected",
+} as const
+
+/** True once the pasted token, trimmed, is long enough to send. */
+export const canSubmitToken = (raw: string): boolean => raw.trim().length >= GARMIN_MIN_TOKEN_LENGTH
+
+export type GarminRejectReason = GarminTokenRejected["reason"]
+
+/** `GarminTokenRejected.reason` → the card's danger banner (design §8). */
+export const GARMIN_REJECT_COPY: { readonly [R in GarminRejectReason]: string } = {
+  rejected: "Garmin did not accept this token",
+  "not-configured": "Garmin connection goes live after the owner enables it",
+  unreachable: "Garmin did not answer. Try again",
+}
 
 const MONTHS = [
   "Jan",
@@ -97,10 +145,39 @@ const connectedRow = (status: ProviderStatus, zone: DateTime.TimeZone) => {
   return { pill: { label: "Connected", tone: "success" as const }, subtitle }
 }
 
+/** Garmin's row (design §8): an import provider, so its copy speaks of imports, not exports. */
+const garminRow = (status: ProviderStatus, zone: DateTime.TimeZone) =>
+  ({
+    connected: () => ({
+      pill: { label: "Connected", tone: "accent" as const },
+      subtitle: Option.match(
+        Option.flatMap(Option.fromNullishOr(status.imports), (imports) => imports.lastPullAt),
+        {
+          onNone: () => GARMIN.firstImport,
+          onSome: (at) => `Last import ${formatDayTime(at, zone)}`,
+        },
+      ),
+    }),
+    revoked: () => ({
+      pill: { label: GARMIN.revokedTitle, tone: "danger" as const },
+      subtitle: GARMIN.revokedBody,
+    }),
+    disconnected: () => ({
+      pill: { label: "Not connected", tone: "neutral" as const },
+      subtitle: GARMIN.idleSubtitle,
+    }),
+  })[status.state]()
+
 /** The provider's list row: pill + subtitle. Blocked wins over failed; failed over last export. */
 export const providerRow = (status: ProviderStatus, zone: DateTime.TimeZone): ProviderRowCopy => {
   const title = PROVIDER_NAMES[status.provider]
-  const { pill, subtitle } = {
+  const { pill, subtitle } =
+    status.provider === "garmin" ? garminRow(status, zone) : stravaRow(status, zone)
+  return { title, pill, subtitle, accessibilityLabel: `${title}, ${pill.label}` }
+}
+
+const stravaRow = (status: ProviderStatus, zone: DateTime.TimeZone) =>
+  ({
     connected: () => connectedRow(status, zone),
     revoked: () => ({
       pill: { label: "Reconnect", tone: "danger" as const },
@@ -110,9 +187,7 @@ export const providerRow = (status: ProviderStatus, zone: DateTime.TimeZone): Pr
       pill: { label: "Not connected", tone: "neutral" as const },
       subtitle: IDLE_SUBTITLE,
     }),
-  }[status.state]()
-  return { title, pill, subtitle, accessibilityLabel: `${title}, ${pill.label}` }
-}
+  })[status.state]()
 
 /** Settings row subtitle: "Strava · Connected"; just "Strava" while unknown. */
 export const settingsSubtitle = (
@@ -306,3 +381,81 @@ export const actionBanner = (
   reason === "not-configured"
     ? { tone: "info", title: GO_LIVE_NOTE }
     : { tone: "danger", title: failureTitle(reason), body: failureBody(reason) }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+
+/** "Mon 27 Oct" in `zone`. */
+export const formatWeekdayDay = (at: DateTime.DateTime, zone: DateTime.TimeZone): string =>
+  `${WEEKDAYS[DateTime.toParts(DateTime.setZone(at, zone)).weekDay] ?? ""} ${formatDay(at, zone)}`
+
+/** No-break space: a count and its noun never wrap apart, so a line breaks only at " · ". */
+export const NBSP = " "
+
+const countOf = (count: number, one: string, many: string): string =>
+  `${count}${NBSP}${count === 1 ? one : many}`
+
+/** Connected body: "Connected as <name> · <n> activities · <n> days" (counts 0 before the first pull). */
+export const garminConnectedLine = (status: ProviderStatus): string => {
+  const who = Option.match(status.account, {
+    onNone: () => "Connected",
+    onSome: ({ displayName }) => `Connected as ${displayName}`,
+  })
+  const activities = status.imports?.activities ?? 0
+  const days = status.imports?.days ?? 0
+  return `${who} · ${countOf(activities, "activity", "activities")} · ${countOf(days, "day", "days")}`
+}
+
+/** "Token added Mon 27 Oct"; None when the server sent no `connectedAt`. */
+export const tokenAddedLine = (
+  status: ProviderStatus,
+  zone: DateTime.TimeZone,
+): Option.Option<string> =>
+  Option.map(status.connectedAt, (at) => `Token added ${formatWeekdayDay(at, zone)}`)
+
+/** Why the last Garmin action failed: a request failure or the worker's token verdict. */
+export type GarminFailure =
+  | { readonly _tag: "Failed"; readonly reason: FailureReason }
+  | { readonly _tag: "Rejected"; readonly reason: GarminRejectReason }
+
+/**
+ * The banner to show after a failed action, if any. A failed connect is hidden once the reloaded
+ * status reads connected: the request timed out on the device but the server connected anyway.
+ */
+export const garminVisibleFailure = (
+  action:
+    | { readonly _tag: "Idle" }
+    | { readonly _tag: "Busy" }
+    | (GarminFailure & { readonly action: string }),
+  state: ProviderStatus["state"],
+): Option.Option<BannerCopy> => {
+  if (action._tag === "Idle" || action._tag === "Busy") return Option.none()
+  const connectedAnyway = action.action === "connect" && state === "connected"
+  return connectedAnyway ? Option.none() : Option.some(garminActionBanner(action))
+}
+
+export interface BannerCopy {
+  readonly tone: "info" | "danger"
+  readonly title: string
+  readonly body?: string
+}
+
+/**
+ * The Garmin card's banner. Token verdicts use §8's copy; offline and server reuse the shared copy;
+ * the Strava-worded `not-connected` / `not-configured` lines are replaced by Garmin's own.
+ */
+export const garminActionBanner = (failure: GarminFailure): BannerCopy =>
+  Match.value(failure).pipe(
+    Match.tagsExhaustive({
+      Rejected: ({ reason }): BannerCopy => ({ tone: "danger", title: GARMIN_REJECT_COPY[reason] }),
+      Failed: ({ reason }): BannerCopy =>
+        ({
+          offline: () => actionBanner("offline"),
+          server: () => actionBanner("server"),
+          "not-connected": (): BannerCopy => ({ tone: "danger", title: GARMIN.notConnected }),
+          "not-configured": (): BannerCopy => ({
+            tone: "info",
+            title: GARMIN_REJECT_COPY["not-configured"],
+          }),
+        })[reason](),
+    }),
+  )

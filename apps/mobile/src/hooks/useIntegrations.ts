@@ -1,14 +1,22 @@
-import type { ActivityExportId, IntegrationsStatus, ProviderStatus } from "@tanren/shared"
+import type { ActivityExportId, IntegrationsStatus, Provider, ProviderStatus } from "@tanren/shared"
 import { Array as Arr, Cause, DateTime, Effect, Exit, Option, Predicate } from "effect"
 import { useFocusEffect } from "expo-router"
 import { useCallback, useRef, useState } from "react"
-import { type ExportRowCopy, exportRow, isBlocked } from "../components/settings/integrationsCopy"
+import {
+  type ExportRowCopy,
+  exportRow,
+  type GarminRejectReason,
+  isBlocked,
+} from "../components/settings/integrationsCopy"
 import { FeedRepo } from "../services/FeedRepo"
 import {
+  GARMIN_CONNECT_RELOAD,
   Integrations,
   type IntegrationsFailure,
   openAuthorizeUrl,
   platformReturnTo,
+  type ReloadPolicy,
+  shouldReload,
 } from "../services/Integrations"
 import { runtime } from "../services/runtime"
 
@@ -21,6 +29,7 @@ export type LoadState<A> =
 
 export interface IntegrationsOverview {
   readonly strava: ProviderStatus
+  readonly garmin: ProviderStatus
   readonly zone: DateTime.TimeZone
 }
 
@@ -29,18 +38,27 @@ export interface StravaDetail extends IntegrationsOverview {
   readonly blocked: boolean
 }
 
-/** What a button press is doing now, or why the last one failed. */
+/**
+ * What a button press is doing now, or why the last one failed. `Rejected` is Garmin's token
+ * verdict (`GarminTokenRejected.reason`); Strava never produces it.
+ */
 export type ActionState =
   | { readonly _tag: "Idle" }
   | { readonly _tag: "Busy"; readonly action: "connect" | "disconnect" | ActivityExportId }
-  | { readonly _tag: "Failed"; readonly reason: IntegrationsFailure }
+  | { readonly _tag: "Failed"; readonly reason: IntegrationsFailure; readonly action: ActionName }
+  | { readonly _tag: "Rejected"; readonly reason: GarminRejectReason; readonly action: ActionName }
+
+export type ActionName = "connect" | "disconnect" | ActivityExportId
+
+const STAY: ReloadPolicy = { onSuccess: false, onFailure: false }
+const RELOAD_ON_SUCCESS: ReloadPolicy = { onSuccess: true, onFailure: false }
 
 /** The server always lists every provider; a missing one reads as disconnected. */
-const stravaOf = (status: IntegrationsStatus): ProviderStatus =>
+export const providerOf = (status: IntegrationsStatus, provider: Provider): ProviderStatus =>
   Option.getOrElse(
-    Arr.findFirst(status.providers, (provider) => provider.provider === "strava"),
+    Arr.findFirst(status.providers, (row) => row.provider === provider),
     (): ProviderStatus => ({
-      provider: "strava",
+      provider,
       state: "disconnected",
       account: Option.none(),
       connectedAt: Option.none(),
@@ -54,11 +72,15 @@ const stravaOf = (status: IntegrationsStatus): ProviderStatus =>
 const loadOverview = Effect.gen(function* () {
   const status = yield* Integrations.use((service) => service.status)
   const zone = yield* DateTime.CurrentTimeZone
-  return { strava: stravaOf(status), zone } satisfies IntegrationsOverview
+  return {
+    strava: providerOf(status, "strava"),
+    garmin: providerOf(status, "garmin"),
+    zone,
+  } satisfies IntegrationsOverview
 })
 
 const loadDetail = Effect.gen(function* () {
-  const { strava, zone } = yield* loadOverview
+  const overview = yield* loadOverview
   const exports = yield* Integrations.use((service) => service.exports(RECENT_EXPORTS)).pipe(
     Effect.catchTag("IntegrationsRequestFailed", (failure) =>
       failure.reason === "not-connected" ? Effect.succeed([]) : Effect.fail(failure),
@@ -68,10 +90,14 @@ const loadDetail = Effect.gen(function* () {
   const rows = yield* Effect.forEach(exports, (row) =>
     FeedRepo.use((feed) => feed.activity(row.sessionId)).pipe(
       Effect.orElseSucceed(() => Option.none()),
-      Effect.map((activity) => exportRow(row, activity, zone)),
+      Effect.map((activity) => exportRow(row, activity, overview.zone)),
     ),
   )
-  return { strava, zone, rows, blocked: isBlocked(strava, exports) } satisfies StravaDetail
+  return {
+    ...overview,
+    rows,
+    blocked: isBlocked(overview.strava, exports),
+  } satisfies StravaDetail
 })
 
 const reasonOf = (cause: Cause.Cause<unknown>): IntegrationsFailure =>
@@ -87,20 +113,38 @@ const reasonOf = (cause: Cause.Cause<unknown>): IntegrationsFailure =>
         : "server",
   })
 
+const REJECT_REASONS: ReadonlyArray<unknown> = ["rejected", "not-configured", "unreachable"]
+
+const isRejectReason = (value: unknown): value is GarminRejectReason =>
+  REJECT_REASONS.includes(value)
+
+/** A failed action: Garmin's token verdict keeps its reason; anything else is a request failure. */
+const failedActionOf = (cause: Cause.Cause<unknown>, action: ActionName): ActionState =>
+  Option.match(
+    Option.flatMap(Cause.findErrorOption(cause), (failure) =>
+      Predicate.isTagged(failure, "GarminTokenRejected") &&
+      Predicate.hasProperty(failure, "reason") &&
+      isRejectReason(failure.reason)
+        ? Option.some(failure.reason)
+        : Option.none(),
+    ),
+    {
+      onNone: (): ActionState => ({ _tag: "Failed", reason: reasonOf(cause), action }),
+      onSome: (reason): ActionState => ({ _tag: "Rejected", reason, action }),
+    },
+  )
+
+type Requirements = Integrations | FeedRepo | DateTime.CurrentTimeZone
+
 /** Runs an Integrations effect on the app runtime with the service's own layer. */
-const run = <A, E>(
-  effect: Effect.Effect<A, E, Integrations | FeedRepo | DateTime.CurrentTimeZone>,
-  signal?: AbortSignal,
-) =>
+const run = <A, E>(effect: Effect.Effect<A, E, Requirements>, signal?: AbortSignal) =>
   runtime.runPromiseExit(
     effect.pipe(Effect.provide(Integrations.layer)),
     signal === undefined ? undefined : { signal },
   )
 
 /** Loads on every focus (the provider round trip returns to a refocused screen). */
-const useFocusLoad = <A>(
-  load: Effect.Effect<A, unknown, Integrations | FeedRepo | DateTime.CurrentTimeZone>,
-) => {
+const useFocusLoad = <A>(load: Effect.Effect<A, unknown, Requirements>) => {
   const [state, setState] = useState<LoadState<A>>({ _tag: "Loading" })
   const [version, setVersion] = useState(0)
   const reload = useCallback(() => setVersion((current) => current + 1), [])
@@ -122,6 +166,37 @@ const useFocusLoad = <A>(
   return { state, reload, setLoading: () => setState({ _tag: "Loading" }) }
 }
 
+/** One action at a time (a ref guards double taps); reloads the page after when asked. */
+const useActions = (reload: () => void) => {
+  const [action, setAction] = useState<ActionState>({ _tag: "Idle" })
+  const busy = useRef(false)
+  const perform = useCallback(
+    (
+      name: ActionName,
+      effect: Effect.Effect<unknown, unknown, Requirements>,
+      policy: ReloadPolicy,
+    ) => {
+      if (busy.current) return
+      // biome-ignore lint/plugin/noMutation: React ref flag guarding double taps, not shared state
+      busy.current = true
+      setAction({ _tag: "Busy", action: name })
+      run(effect).then((exit) => {
+        // biome-ignore lint/plugin/noMutation: React ref flag guarding double taps, not shared state
+        busy.current = false
+        if (Exit.isFailure(exit)) {
+          setAction(failedActionOf(exit.cause, name))
+          if (shouldReload(policy, "failure")) reload()
+          return
+        }
+        setAction({ _tag: "Idle" })
+        if (shouldReload(policy, "success")) reload()
+      })
+    },
+    [reload],
+  )
+  return { action, perform }
+}
+
 /** Settings row and the Integrations list: every provider's status. */
 export const useIntegrationsOverview = () => {
   const { state, reload, setLoading } = useFocusLoad(loadOverview)
@@ -137,32 +212,7 @@ export const useIntegrationsOverview = () => {
 /** Strava detail: status, recent exports, and the connect / disconnect / retry actions. */
 export const useStravaDetail = () => {
   const { state, reload, setLoading } = useFocusLoad(loadDetail)
-  const [action, setAction] = useState<ActionState>({ _tag: "Idle" })
-  const busy = useRef(false)
-
-  const perform = useCallback(
-    (
-      name: "connect" | "disconnect" | ActivityExportId,
-      effect: Effect.Effect<unknown, unknown, Integrations | FeedRepo | DateTime.CurrentTimeZone>,
-      after: "reload" | "stay",
-    ) => {
-      if (busy.current) return
-      // biome-ignore lint/plugin/noMutation: React ref flag guarding double taps, not shared state
-      busy.current = true
-      setAction({ _tag: "Busy", action: name })
-      run(effect).then((exit) => {
-        // biome-ignore lint/plugin/noMutation: React ref flag guarding double taps, not shared state
-        busy.current = false
-        if (Exit.isFailure(exit)) {
-          setAction({ _tag: "Failed", reason: reasonOf(exit.cause) })
-          return
-        }
-        setAction({ _tag: "Idle" })
-        if (after === "reload") reload()
-      })
-    },
-    [reload],
-  )
+  const { action, perform } = useActions(reload)
 
   const connect = useCallback(
     () =>
@@ -173,7 +223,7 @@ export const useStravaDetail = () => {
           const url = yield* Integrations.use((service) => service.connect(returnTo))
           yield* openAuthorizeUrl(url)
         }),
-        "stay",
+        STAY,
       ),
     [perform],
   )
@@ -182,7 +232,7 @@ export const useStravaDetail = () => {
       perform(
         "disconnect",
         Integrations.use((service) => service.disconnect),
-        "reload",
+        RELOAD_ON_SUCCESS,
       ),
     [perform],
   )
@@ -191,7 +241,7 @@ export const useStravaDetail = () => {
       perform(
         id,
         Integrations.use((service) => service.retry(id)),
-        "reload",
+        RELOAD_ON_SUCCESS,
       ),
     [perform],
   )
@@ -202,6 +252,45 @@ export const useStravaDetail = () => {
     connect,
     disconnect,
     retryExport,
+    retry: () => {
+      setLoading()
+      reload()
+    },
+  }
+}
+
+/**
+ * Garmin detail: status plus paste-token connect and disconnect. The token is passed straight to
+ * the service and not kept here (the card owns and clears it).
+ */
+export const useGarminDetail = () => {
+  const { state, reload, setLoading } = useFocusLoad(loadOverview)
+  const { action, perform } = useActions(reload)
+
+  const connect = useCallback(
+    (token: string) =>
+      perform(
+        "connect",
+        Integrations.use((service) => service.connectGarmin(token)),
+        GARMIN_CONNECT_RELOAD,
+      ),
+    [perform],
+  )
+  const disconnect = useCallback(
+    () =>
+      perform(
+        "disconnect",
+        Integrations.use((service) => service.disconnectGarmin),
+        RELOAD_ON_SUCCESS,
+      ),
+    [perform],
+  )
+
+  return {
+    state,
+    action,
+    connect,
+    disconnect,
     retry: () => {
       setLoading()
       reload()

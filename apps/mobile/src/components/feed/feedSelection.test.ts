@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Activity, SessionId } from "@tanren/shared"
+import { Activity, ImportedActivity, SessionId } from "@tanren/shared"
 import { Option, Schema } from "effect"
+import type { FeedItem } from "../../services/FeedRepo"
+import { sessionOnly } from "./feedGroups"
 import { effectiveActivity } from "./feedSelection"
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
@@ -46,5 +48,37 @@ describe("effectiveActivity", () => {
   it("is None for an empty list", () => {
     expect(Option.isNone(effectiveActivity([], Option.some(id(1))))).toBe(true)
     expect(Option.isNone(effectiveActivity([], Option.none()))).toBe(true)
+  })
+})
+
+describe("effectiveActivity over feed items", () => {
+  const items: ReadonlyArray<FeedItem> = [
+    {
+      _tag: "imported",
+      activity: Schema.decodeUnknownSync(ImportedActivity)({
+        id: uuid(700),
+        userId: uuid(99),
+        createdAt: "2026-10-27T06:00:00.000Z",
+        updatedAt: "2026-10-27T06:00:00.000Z",
+        deletedAt: null,
+        provider: "garmin",
+        externalId: "g-1",
+        sport: "running",
+        title: "Morning Run",
+        startedAt: "2026-10-27T05:12:00.000Z",
+        durationSeconds: 2880,
+        distanceMeters: null,
+        calories: null,
+        avgHeartRate: null,
+        maxHeartRate: null,
+      }),
+    },
+    { _tag: "session", activity: newest },
+    { _tag: "session", activity: older },
+  ]
+
+  it("defaults to the newest session, skipping a newer imported activity", () => {
+    const shown = effectiveActivity(items.flatMap(sessionOnly), Option.none())
+    expect(Option.map(shown, (a) => a.sessionId)).toEqual(Option.some(id(1)))
   })
 })

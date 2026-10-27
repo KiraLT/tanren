@@ -141,8 +141,42 @@ const v3: ReadonlyArray<string> = [
   `ALTER TABLE "profile" ADD COLUMN "activeLocationId" TEXT`,
 ]
 
+/**
+ * v4 (docs/design/garmin.md §9, ADR-0023): pull-only imported provider data. The Worker writes
+ * these rows and the app only reads them; the dirty indexes exist because the generic push scan
+ * walks every synced table.
+ */
+const v4: ReadonlyArray<string> = [
+  table(
+    "imported_activity",
+    `"provider" TEXT NOT NULL,
+  "externalId" TEXT NOT NULL,
+  "sport" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "startedAt" TEXT NOT NULL,
+  "durationSeconds" INTEGER NOT NULL,
+  "distanceMeters" REAL,
+  "calories" INTEGER,
+  "avgHeartRate" INTEGER,
+  "maxHeartRate" INTEGER`,
+  ),
+  table(
+    "daily_health",
+    `"provider" TEXT NOT NULL,
+  "date" TEXT NOT NULL,
+  "totalCalories" INTEGER,
+  "activeCalories" INTEGER,
+  "steps" INTEGER,
+  "restingHeartRate" INTEGER`,
+  ),
+  `CREATE INDEX IF NOT EXISTS "imported_activity_started" ON "imported_activity" ("startedAt")`,
+  `CREATE INDEX IF NOT EXISTS "daily_health_date" ON "daily_health" ("date")`,
+  dirtyIndex("imported_activity"),
+  dirtyIndex("daily_health"),
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

@@ -1,7 +1,9 @@
 import { D1Client } from "@effect/sql-d1"
 import {
   type AcceptedChange,
+  DailyHealthRow,
   ExerciseRow,
+  ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
   PlanRow,
@@ -81,10 +83,12 @@ export interface SyncStoreShape {
    * `conflicts` with the server row), `updatedAt` > now + 5 min clamped to now. Every accepted row is
    * written in ONE `D1Client.batch` behind one clock bump, so all share one `server_seq`; a failing
    * statement aborts the whole push (`PersistenceError`, nothing written). No accepted rows: no write.
+   * `guard` (Worker writes only) runs first in that batch: a guard that errors aborts it.
    */
   readonly apply: (
     userId: UserId,
     changes: ReadonlyArray<SyncChange>,
+    guard?: Statement.Statement<unknown>,
   ) => Effect.Effect<PushResult, PersistenceError>
   /** Rows after `after` in the server sync order `(seq, table rank, id)`, tombstones included. */
   readonly pull: (
@@ -139,6 +143,16 @@ const decodeRow: {
       table: "programDayCompletion",
       row,
     })),
+  importedActivity: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(ImportedActivityRow)(r), (row) => ({
+      table: "importedActivity",
+      row,
+    })),
+  dailyHealth: (r) =>
+    Effect.map(Schema.decodeUnknownEffect(DailyHealthRow)(r), (row) => ({
+      table: "dailyHealth",
+      row,
+    })),
 }
 
 const encodeRow = (
@@ -156,6 +170,8 @@ const encodeRow = (
       set: ({ row }) => Schema.encodeEffect(WorkoutSetRow)(row),
       programEnrollment: ({ row }) => Schema.encodeEffect(ProgramEnrollmentRow)(row),
       programDayCompletion: ({ row }) => Schema.encodeEffect(ProgramDayCompletionRow)(row),
+      importedActivity: ({ row }) => Schema.encodeEffect(ImportedActivityRow)(row),
+      dailyHealth: ({ row }) => Schema.encodeEffect(DailyHealthRow)(row),
     }),
   )
 
@@ -179,6 +195,8 @@ const parentKeys = (change: SyncChange): ReadonlyArray<SyncKey> =>
       programEnrollment: () => [],
       // `sessionId` is a nullable soft link, not a parent (v2-programs.md §2).
       programDayCompletion: ({ row }) => [syncKey("programEnrollment", row.enrollmentId)],
+      importedActivity: () => [],
+      dailyHealth: () => [],
     }),
   )
 
@@ -197,6 +215,8 @@ const chainParent = (change: SyncChange): Option.Option<SyncKey> =>
       programEnrollment: () => Option.none(),
       programDayCompletion: ({ row }) =>
         Option.some(syncKey("programEnrollment", row.enrollmentId)),
+      importedActivity: () => Option.none(),
+      dailyHealth: () => Option.none(),
     }),
   )
 
@@ -215,6 +235,8 @@ const IMMUTABLE: { readonly [T in SyncTable]: ReadonlyArray<string> } = {
   set: ["sessionId"],
   programEnrollment: ["programId", "startedOn"],
   programDayCompletion: ["enrollmentId", "dayNumber"],
+  importedActivity: ["provider", "externalId"],
+  dailyHealth: ["provider", "date"],
 }
 
 const pushOrder: Order.Order<SyncChange> = Order.combine(
@@ -307,6 +329,10 @@ const uniqueSlot = (snapshot: Snapshot, change: SyncChange): Option.Option<strin
               : Option.none(),
           programDayCompletion: ({ row }) =>
             Option.some(completionDaySlot(`${row.enrollmentId}|${row.dayNumber}`)),
+          // Full (not partial) unique keys, tombstones included: `GarminImportRepo` reuses the
+          // existing row's id for its natural key, and only the Worker writes these tables.
+          importedActivity: () => Option.none(),
+          dailyHealth: () => Option.none(),
         }),
       )
 
@@ -583,7 +609,11 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
       })
 
     const apply = Effect.fn("SyncStore.apply")(
-      function* (userId: UserId, changes: ReadonlyArray<SyncChange>) {
+      function* (
+        userId: UserId,
+        changes: ReadonlyArray<SyncChange>,
+        guard?: Statement.Statement<unknown>,
+      ) {
         const now = yield* DateTime.now
         const { unique, duplicates } = splitDuplicates(changes)
         const sorted = Arr.sort(unique, pushOrder)
@@ -631,7 +661,11 @@ export class SyncStore extends Context.Service<SyncStore, SyncStoreShape>()("@ta
               record,
             ),
           )
-          yield* sql.batch([bumpClock(sql, userId), ...statements])
+          yield* sql.batch([
+            ...(guard === undefined ? [] : [guard]),
+            bumpClock(sql, userId),
+            ...statements,
+          ])
         }
         return {
           accepted: outcome.accepted,

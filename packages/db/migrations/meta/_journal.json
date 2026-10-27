@@ -50,6 +50,13 @@
       "when": 1793098205543,
       "tag": "0006_token_generations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793101967267,
+      "tag": "0007_garmin_import",
+      "breakpoints": true
     }
   ]
 }

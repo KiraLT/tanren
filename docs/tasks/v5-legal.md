@@ -35,6 +35,7 @@ Case check: `ls apps/mobile/src/components/legal apps/mobile/app | tr A-Z a-z | 
   buttons in `apps/worker/src/oauth/pages.ts`/`consent.ts` — hand-off, not a task here.
 
 ## Assumes (cited)
+- Garmin data paragraph, verbatim from `docs/design/garmin.md` §10 (team garmin, ADR-0023): "If you connect Garmin, you paste a personal API token issued by Garmin to you. Tanren checks it once, stores it encrypted on our server and uses it every five minutes to import your own Garmin activities (type, name, start time, duration, distance, calories, heart rate) and daily summaries (calories, steps, resting heart rate). This data is shown to you in the app and is never shared with third parties or used by the AI planning tools. Disconnecting deletes the token and removes the imported data from your account."
 - Gate: `gateFor` returns `"allow"` only for `Option.isSome(account) || localSets > 0 || isSignInRoute(route)`
   (`grep -n "allow" apps/mobile/src/services/authGate.ts`); `_layout.tsx` shows the Stack whenever gate is `"allow"` (ADR-0021).
 - No deletion exists: `grep -rin "delete" apps/worker/src/auth apps/mobile/src/services/Account.ts` → only `forgetOwner`

@@ -1,7 +1,9 @@
 import { PersistenceError } from "@tanren/db"
 import {
+  DailyHealth,
   Exercise,
   Forbidden,
+  ImportedActivity,
   Plan,
   PlannedSession,
   PlannedSet,
@@ -28,6 +30,8 @@ export interface RowByTable {
   readonly set: WorkoutSet
   readonly programEnrollment: ProgramEnrollment
   readonly programDayCompletion: ProgramDayCompletion
+  readonly importedActivity: ImportedActivity
+  readonly dailyHealth: DailyHealth
 }
 
 /** A row plus its server sync position (the in-memory `server_seq`, db.md §3). */
@@ -58,6 +62,8 @@ const emptyState: MemoryState = {
     set: HashMap.empty(),
     programEnrollment: HashMap.empty(),
     programDayCompletion: HashMap.empty(),
+    importedActivity: HashMap.empty(),
+    dailyHealth: HashMap.empty(),
   },
   clock: HashMap.empty(),
 }
@@ -187,6 +193,30 @@ const keep: { readonly [T in SyncTable]: Keep<T> } = {
         createdAt: s.createdAt,
         enrollmentId: s.enrollmentId,
         dayNumber: s.dayNumber,
+      }),
+      () => i,
+    ),
+  importedActivity: (s, i) =>
+    Option.getOrElse(
+      ImportedActivity.makeOption({
+        ...i,
+        id: s.id,
+        userId: s.userId,
+        createdAt: s.createdAt,
+        provider: s.provider,
+        externalId: s.externalId,
+      }),
+      () => i,
+    ),
+  dailyHealth: (s, i) =>
+    Option.getOrElse(
+      DailyHealth.makeOption({
+        ...i,
+        id: s.id,
+        userId: s.userId,
+        createdAt: s.createdAt,
+        provider: s.provider,
+        date: s.date,
       }),
       () => i,
     ),

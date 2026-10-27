@@ -3,6 +3,7 @@ import { useRouter } from "expo-router"
 import { View } from "react-native"
 import { TodayReady } from "../../src/components/TodayReady"
 import { FinishWorkout } from "../../src/components/today/FinishWorkout"
+import { HealthStrip } from "../../src/components/today/HealthStrip"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
@@ -75,6 +76,12 @@ function TodaySkeleton() {
   )
 }
 
+/** The health strip above the pager: `TodayReady`'s page is unpadded, so it takes the gutter here. */
+function ReadyHealthStrip() {
+  const breakpoint = useBreakpoint()
+  return <HealthStrip style={{ marginHorizontal: gutter[breakpoint], marginTop: space.lg }} />
+}
+
 const renderState = Match.type<TodayState>().pipe(
   Match.tagsExhaustive({
     Loading: () => (
@@ -84,6 +91,7 @@ const renderState = Match.type<TodayState>().pipe(
     ),
     Empty: () => (
       <Page header={<TodayBar />}>
+        <HealthStrip />
         <EmptyState
           icon="calendar"
           title="Nothing planned today"
@@ -103,6 +111,7 @@ const renderState = Match.type<TodayState>().pipe(
         accessory={<SignInEntry />}
         exercises={exercises}
         footer={<FinishWorkout session={session} />}
+        banner={<ReadyHealthStrip />}
       />
     ),
   }),

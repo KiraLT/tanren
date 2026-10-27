@@ -77,6 +77,19 @@ export interface IntegrationRepoShape {
   ) => Effect.Effect<void, PersistenceError>
   /** Deletes the integration and that user's exports of the provider in one batch. */
   readonly remove: (userId: UserId, provider: Provider) => Effect.Effect<void, PersistenceError>
+  /**
+   * Stores a pull cursor in `scope` (Garmin: `GarminCursorJson`, garmin.md §2). Touches nothing
+   * else, `updated_at` included, so a drain's `seenUpdatedAt` guards stay valid.
+   */
+  readonly setCursor: (id: Uuid, cursor: string) => Effect.Effect<void, PersistenceError>
+  /**
+   * The `active` connections of `provider` across users (the cron's work list, garmin.md §3):
+   * never pulled first (no `lastAttemptAt` in a JSON `scope`), then the oldest `lastAttemptAt`, then
+   * oldest `updatedAt`, then id. The one unscoped read: it serves the scheduled drain, not a request.
+   */
+  readonly listActive: (
+    provider: Provider,
+  ) => Effect.Effect<ReadonlyArray<IntegrationRow>, PersistenceError>
 }
 
 export class IntegrationRepo extends Context.Service<IntegrationRepo, IntegrationRepoShape>()(
@@ -146,7 +159,30 @@ export class IntegrationRepo extends Context.Service<IntegrationRepo, Integratio
             WHERE id = ${id} AND updated_at = ${seenUpdatedAt}`,
       })
 
+      const writeCursor = SqlSchema.void({
+        Request: Schema.Struct({ id: Uuid, cursor: Schema.String }),
+        execute: ({ id, cursor }) => sql`UPDATE integration SET scope = ${cursor} WHERE id = ${id}`,
+      })
+      const active = SqlSchema.findAll({
+        Request: Provider,
+        Result: IntegrationRow,
+        execute: (provider) =>
+          // Never pulled first, then the oldest `lastAttemptAt` (cron fairness: `setCursor` leaves
+          // `updated_at` alone). `json_valid` guards a scope that is not JSON ("" or Strava's list).
+          sql`SELECT * FROM integration WHERE provider = ${provider} AND status = 'active'
+            ORDER BY
+              (CASE WHEN json_valid(scope) THEN json_extract(scope, '$.lastAttemptAt') END) IS NOT NULL,
+              (CASE WHEN json_valid(scope) THEN json_extract(scope, '$.lastAttemptAt') END),
+              updated_at, id`,
+      })
+
       return {
+        setCursor: (id, cursor) =>
+          writeCursor({ id, cursor }).pipe(
+            Effect.mapError(persistenceError("integration.setCursor")),
+          ),
+        listActive: (provider) =>
+          active(provider).pipe(Effect.mapError(persistenceError("integration.listActive"))),
         get: (userId, provider) =>
           find({ userId, provider }).pipe(Effect.mapError(persistenceError("integration.get"))),
         upsert: (row) =>

@@ -395,6 +395,8 @@ describe("SyncEngine.syncOnce", () => {
             workout_set: 1,
             program_enrollment: 0,
             program_day_completion: 0,
+            imported_activity: 0,
+            daily_health: 0,
           })
           expect(
             yield* phone.run(
@@ -512,6 +514,68 @@ describe("SyncEngine auto-finish (REV-AF)", () => {
         expect((yield* phone(sessionState))[0]?.finishedAt).toBeNull()
         yield* phone(syncOnce)
         expect((yield* phone(sessionState))[0]?.finishedAt).toBe(at(1))
+      }),
+    ),
+  )
+})
+
+describe("SyncEngine and the pull-only import tables (garmin.md §2)", () => {
+  const rowColumns = (id: string) => ({
+    id,
+    userId: LOCAL_USER_ID,
+    createdAt: at(0),
+    updatedAt: at(1),
+    deletedAt: null,
+  })
+  const imported = decode({
+    table: "importedActivity",
+    row: {
+      ...rowColumns("00000000-0000-4000-8000-0000000000f1"),
+      provider: "garmin",
+      externalId: "123",
+      sport: "running",
+      title: "Morning Run",
+      startedAt: at(0),
+      durationSeconds: 1800,
+      distanceMeters: 5000,
+      calories: 350,
+      avgHeartRate: 150,
+      maxHeartRate: 172,
+    },
+  })
+  const health = decode({
+    table: "dailyHealth",
+    row: {
+      ...rowColumns("00000000-0000-4000-8000-0000000000f2"),
+      provider: "garmin",
+      date: "2026-10-20",
+      totalCalories: 2400,
+      activeCalories: 600,
+      steps: 9000,
+      restingHeartRate: 52,
+    },
+  })
+
+  it.effect("stores pulled imports clean and never pushes them back", () =>
+    withServer(
+      Effect.gen(function* () {
+        yield* serverPush([imported, health])
+        const phone = yield* openDevice()
+        const first = yield* phone.run(syncOnce)
+        expect(first.pulled).toBe(2)
+        expect(
+          yield* phone.run(
+            query(
+              `SELECT "id", "_dirty" FROM "imported_activity" UNION ALL SELECT "id", "_dirty" FROM "daily_health"`,
+            ),
+          ),
+        ).toEqual([
+          { id: imported.row.id, _dirty: 0 },
+          { id: health.row.id, _dirty: 0 },
+        ])
+        const second = yield* phone.run(syncOnce)
+        expect(second.pushed).toBe(0)
+        expect(Arr.filter(yield* phone.calls, (call) => call.kind === "push")).toEqual([])
       }),
     ),
   )

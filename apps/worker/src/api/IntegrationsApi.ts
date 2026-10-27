@@ -4,10 +4,13 @@ import {
   ConnectRequest,
   ConnectResponse,
   ExportsQuery,
+  GarminConnectRequest,
+  GarminTokenRejected,
   IntegrationNotConnected,
   IntegrationsStatus,
   NativeRateLimited,
   NotFound,
+  ProviderStatus,
   RetryExportRequest,
   ValidationError,
 } from "@tanren/shared"
@@ -34,6 +37,19 @@ export class IntegrationsApi extends HttpApiGroup.make("integrations")
   )
   .add(
     HttpApiEndpoint.delete("disconnect", "/integrations/strava", {
+      error: [IntegrationNotConnected, Internal],
+    }),
+  )
+  .add(
+    // garmin.md §4: the pasted personal API key is validated against Garmin, sealed, then pulled.
+    HttpApiEndpoint.post("garminConnect", "/integrations/garmin/connect", {
+      payload: GarminConnectRequest,
+      success: ProviderStatus,
+      error: [GarminTokenRejected, NativeRateLimited, Internal],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.delete("garminDisconnect", "/integrations/garmin", {
       error: [IntegrationNotConnected, Internal],
     }),
   )

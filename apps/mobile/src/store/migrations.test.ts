@@ -83,12 +83,84 @@ describe("migrations v3", () => {
         },
       ])
       yield* migrate(driver)
-      expect(yield* userVersion(driver)).toBe(3)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
       const rows = yield* driver.all({
         sql: `SELECT "locations", "activeLocationId" FROM "profile"`,
         params: [],
       })
       expect(rows).toEqual([{ locations: "[]", activeLocationId: null }])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})
+
+describe("migrations v4", () => {
+  const indexesOf = (table: string) =>
+    SqlDriver.use((driver) =>
+      driver.all({ sql: `PRAGMA index_list("${table}")`, params: [] }),
+    ).pipe(Effect.map((rows) => rows.map((row) => String(row.name))))
+
+  it.effect("creates imported_activity and daily_health with their indexes", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* migrate(driver)
+      expect(MIGRATIONS.length).toBe(4)
+      expect(yield* userVersion(driver)).toBe(4)
+      const sync = ["createdAt", "updatedAt", "deletedAt", "_dirty", "_rejected"]
+      expect(yield* columnsOf("imported_activity")).toEqual([
+        "id",
+        "userId",
+        "provider",
+        "externalId",
+        "sport",
+        "title",
+        "startedAt",
+        "durationSeconds",
+        "distanceMeters",
+        "calories",
+        "avgHeartRate",
+        "maxHeartRate",
+        ...sync,
+      ])
+      expect(yield* columnsOf("daily_health")).toEqual([
+        "id",
+        "userId",
+        "provider",
+        "date",
+        "totalCalories",
+        "activeCalories",
+        "steps",
+        "restingHeartRate",
+        ...sync,
+      ])
+      expect(yield* indexesOf("imported_activity")).toEqual(
+        expect.arrayContaining(["imported_activity_started", "imported_activity_dirty"]),
+      )
+      expect(yield* indexesOf("daily_health")).toEqual(
+        expect.arrayContaining(["daily_health_date", "daily_health_dirty"]),
+      )
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+
+  it.effect("upgrades a v3 store in place, keeping its rows", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* driver.batch([
+        ...MIGRATIONS.slice(0, 3)
+          .flat()
+          .map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 3", params: [] },
+        {
+          sql: `INSERT INTO "exercise" ("id", "userId", "name", "aliases", "muscleGroups", "createdAt", "updatedAt")
+            VALUES ('e1', 'u1', 'Squat', '[]', '[]', 't', 't')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(4)
+      expect(yield* driver.all({ sql: `SELECT "name" FROM "exercise"`, params: [] })).toEqual([
+        { name: "Squat" },
+      ])
+      expect(yield* driver.all({ sql: `SELECT * FROM "daily_health"`, params: [] })).toEqual([])
     }).pipe(Effect.provide(nodeSqlDriverLayer)),
   )
 })

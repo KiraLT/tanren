@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import { PageLimit, SyncTable, Timestamp } from "./common"
 import { Exercise } from "./exercise"
+import { DailyHealth, ImportedActivity } from "./garmin"
 import { Uuid } from "./ids"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
 import { ProgramDayCompletion, ProgramEnrollment } from "./program"
@@ -10,6 +11,8 @@ import { Profile } from "./user"
 /**
  * Parents first: the server applies a push in this order (§10.2). The program tables come after
  * `set`: a completion's `sessionId` is a nullable soft link, its only parent is the enrollment.
+ * The Garmin import tables come last: no parents, pull-only (the Worker writes them, push rejects
+ * them `forbidden`, ADR-0023).
  */
 export const SYNC_TABLE_ORDER = [
   "profile",
@@ -22,6 +25,8 @@ export const SYNC_TABLE_ORDER = [
   "set",
   "programEnrollment",
   "programDayCompletion",
+  "importedActivity",
+  "dailyHealth",
 ] as const satisfies ReadonlyArray<SyncTable>
 
 export const MAX_PUSH_CHANGES = 500
@@ -41,6 +46,8 @@ export const SyncChange = Schema.Union([
   member("set", WorkoutSet),
   member("programEnrollment", ProgramEnrollment),
   member("programDayCompletion", ProgramDayCompletion),
+  member("importedActivity", ImportedActivity),
+  member("dailyHealth", DailyHealth),
 ])
 export type SyncChange = typeof SyncChange.Type
 export type SyncChangeEncoded = (typeof SyncChange)["Encoded"]

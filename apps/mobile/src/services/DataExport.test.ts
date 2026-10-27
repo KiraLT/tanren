@@ -28,6 +28,23 @@ const COMPLETION = "6a7b8c9d-0e1f-4a2b-9c3d-5e6f7a8b9c0d"
 const DELETED_EXERCISE = "7b8c9d0e-1f2a-4b3c-8d4e-6f7a8b9c0d1e"
 const DELETED_SET = "8c9d0e1f-2a3b-4c4d-9e5f-7a8b9c0d1e2f"
 const DELETED_ENROLLMENT = "9d0e1f2a-3b4c-4d5e-8f6a-8b9c0d1e2f3a"
+const IMPORTED = "0e1f2a3b-4c5d-4e6f-9a7b-9c0d1e2f3a4b"
+const HEALTH = "1f2a3b4c-5d6e-4f7a-8b8c-0d1e2f3a4b5c"
+const DELETED_HEALTH = "2a3b4c5d-6e7f-4a8b-9c9d-1e2f3a4b5c6d"
+
+const dailyHealth = (id: string, columns: typeof live | typeof tombstone, date: string) => ({
+  table: "dailyHealth",
+  row: {
+    id,
+    ...columns,
+    provider: "garmin",
+    date,
+    totalCalories: 1840,
+    activeCalories: null,
+    steps: 8420,
+    restingHeartRate: 52,
+  },
+})
 
 const set = (id: string, columns: typeof live | typeof tombstone, order: number) => ({
   table: "set",
@@ -174,6 +191,25 @@ const wire = [
       sessionId: SESSION,
     },
   },
+  {
+    table: "importedActivity",
+    row: {
+      id: IMPORTED,
+      ...live,
+      provider: "garmin",
+      externalId: "18234567890",
+      sport: "running",
+      title: "Morning Run",
+      startedAt: AT,
+      durationSeconds: 2880,
+      distanceMeters: 6200,
+      calories: 412,
+      avgHeartRate: 148,
+      maxHeartRate: null,
+    },
+  },
+  dailyHealth(HEALTH, live, "2026-10-21"),
+  dailyHealth(DELETED_HEALTH, tombstone, "2026-10-20"),
 ]
 
 const TestLayer = DataExporter.layer.pipe(
@@ -206,7 +242,7 @@ const exported = Effect.gen(function* () {
 })
 
 describe("DataExporter.exportAll", () => {
-  it.effect("decodes with DataExport and holds the live rows of all 10 tables, parents first", () =>
+  it.effect("decodes with DataExport and holds the live rows of all 12 tables, parents first", () =>
     Effect.gen(function* () {
       yield* seed(true)
       const file = yield* exported
@@ -221,6 +257,8 @@ describe("DataExporter.exportAll", () => {
         "set",
         "programEnrollment",
         "programDayCompletion",
+        "importedActivity",
+        "dailyHealth",
       ])
       expect(file.format).toBe("tanren.export")
       expect(file.version).toBe(1)
@@ -235,6 +273,7 @@ describe("DataExporter.exportAll", () => {
       expect(ids).not.toContain(DELETED_EXERCISE)
       expect(ids).not.toContain(DELETED_SET)
       expect(ids).not.toContain(DELETED_ENROLLMENT)
+      expect(ids).not.toContain(DELETED_HEALTH)
       expect(file.rows.every((change) => Option.isNone(change.row.deletedAt))).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )

@@ -31,6 +31,9 @@
     // Optional simulation, never set here: `wrangler dev --var STRAVA_CONSOLE_FAIL:inactive` makes the
     // console createActivity fail like a Strava app whose subscription lapsed (Config.ts refuses it otherwise).
     "STRAVA_CLIENT_ID": "local-strava-client",
+    // Garmin import (docs/design/garmin.md §3): console mode answers with fixture data, no network.
+    // Optional simulation, never set here: `wrangler dev --var GARMIN_CONSOLE_FAIL:rejected`.
+    "GARMIN_MODE": "console",
     // Clearly fake (32 zero bytes), local only. Config.ts refuses it outside `local`.
     "INTEGRATION_TOKEN_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
   },
@@ -74,7 +77,10 @@
         // Owner step O2 (docs/tasks/v4-strava.md): the Client ID from strava.com/settings/api.
         // Secrets, never vars: `wrangler secret put STRAVA_CLIENT_SECRET --env production` and
         // `wrangler secret put INTEGRATION_TOKEN_KEY --env production` (value: `openssl rand -base64 32`).
-        "STRAVA_CLIENT_ID": "<owner: strava client id>"
+        "STRAVA_CLIENT_ID": "<owner: strava client id>",
+        // Garmin Personal API (docs/design/garmin.md §0, §3): the owner pastes a key in Settings; no secret here.
+        "GARMIN_MODE": "provider",
+        "GARMIN_BASE_URL": "https://personal.connectapi.garmin.com"
       },
       "triggers": { "crons": ["*/5 * * * *"] },
       "d1_databases": [

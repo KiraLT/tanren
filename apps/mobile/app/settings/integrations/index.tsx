@@ -32,7 +32,7 @@ const useReturnBanner = () => {
   return { banner, dismiss: () => setBanner(Option.none()) }
 }
 
-/** Root-Stack route: Settings > Integrations (Strava and the Apple Health placeholder). */
+/** Root-Stack route: Settings > Integrations (Strava, Garmin and the Apple Health placeholder). */
 export default function IntegrationsScreen() {
   const router = useRouter()
   const { state, retry } = useIntegrationsOverview()
@@ -72,12 +72,13 @@ export default function IntegrationsScreen() {
             {bannerView}
             <ProviderList
               strava={state.value.strava}
+              garmin={state.value.garmin}
               zone={state.value.zone}
-              onOpen={() => router.navigate("/settings/integrations/strava")}
+              onOpen={(provider) => router.navigate(`/settings/integrations/${provider}`)}
             />
           </View>
         }
-        side={<AboutIntegrations />}
+        side={<AboutIntegrations scope="list" />}
       />
     </Page>
   )

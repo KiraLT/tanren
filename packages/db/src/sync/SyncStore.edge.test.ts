@@ -337,7 +337,9 @@ describe("SyncStore.pull edges", () => {
         "-1:0:-",
         `1:0:${"g".repeat(36)}`,
         "99999999999999999999:0:-",
-        "1:10:-",
+        // Ranks 10 and 11 are real since GM-2 (importedActivity, dailyHealth); past the last is not.
+        "1:12:-",
+        "1:100:-",
       ]
       yield* Effect.forEach(bad, (raw) =>
         Effect.gen(function* () {

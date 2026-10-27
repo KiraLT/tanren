@@ -1,10 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { View } from "react-native"
 import { ExportRows } from "../../../src/components/integrations/ExportRows"
+import { GarminCard } from "../../../src/components/integrations/GarminCard"
+import { AboutIntegrations } from "../../../src/components/integrations/ProviderList"
 import { LoadFailedBanner, StatusBanner } from "../../../src/components/integrations/StatusBanner"
 import { StravaCard } from "../../../src/components/integrations/StravaCard"
 import { BLOCKED_COPY } from "../../../src/components/settings/integrationsCopy"
-import { useStravaDetail } from "../../../src/hooks/useIntegrations"
+import { useGarminDetail, useStravaDetail } from "../../../src/hooks/useIntegrations"
 import { AppBar, Columns, EmptyState, IconButton, Page, Skeleton, space } from "../../../src/ui"
 
 function StravaDetailScreen({ back }: { readonly back: () => void }) {
@@ -52,7 +54,45 @@ function StravaDetailScreen({ back }: { readonly back: () => void }) {
   )
 }
 
-/** Root-Stack route: one provider's page. Only `strava` exists; anything else is not found. */
+function GarminDetailScreen({ back }: { readonly back: () => void }) {
+  const { state, action, connect, disconnect, retry } = useGarminDetail()
+  const header = (
+    <AppBar
+      title="Garmin"
+      leading={<IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={back} />}
+    />
+  )
+  if (state._tag !== "Ready") {
+    return (
+      <Page scroll header={header}>
+        {state._tag === "Loading" ? (
+          <Skeleton width="100%" height={240} />
+        ) : (
+          <LoadFailedBanner reason={state.reason} onRetry={retry} />
+        )}
+      </Page>
+    )
+  }
+  return (
+    <Page scroll wide header={header}>
+      <Columns
+        split="5/7"
+        main={
+          <GarminCard
+            garmin={state.value.garmin}
+            zone={state.value.zone}
+            action={action}
+            onConnect={connect}
+            onDisconnect={disconnect}
+          />
+        }
+        side={<AboutIntegrations scope="garmin" />}
+      />
+    </Page>
+  )
+}
+
+/** Root-Stack route: one provider's page (`strava`, `garmin`); anything else is not found. */
 export default function ProviderScreen() {
   const router = useRouter()
   const { provider } = useLocalSearchParams<{ provider: string | string[] }>()
@@ -60,6 +100,9 @@ export default function ProviderScreen() {
   const back = () => (router.canGoBack() ? router.back() : router.replace("/settings/integrations"))
   if (provider === "strava") {
     return <StravaDetailScreen back={back} />
+  }
+  if (provider === "garmin") {
+    return <GarminDetailScreen back={back} />
   }
   return (
     <Page
@@ -71,7 +114,10 @@ export default function ProviderScreen() {
         />
       }
     >
-      <EmptyState title="Integration not found" body="Tanren connects to Strava only for now." />
+      <EmptyState
+        title="Integration not found"
+        body="Tanren connects to Strava and Garmin for now."
+      />
     </Page>
   )
 }

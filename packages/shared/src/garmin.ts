@@ -139,6 +139,8 @@ export const GarminCursor = Schema.Struct({
   /** Last successful drain of this user. */
   lastPullAt: Schema.OptionFromNullOr(Timestamp),
   lastError: Schema.OptionFromNullOr(ExportFailureReason),
+  /** Last drain attempt of this user, failures included: orders the cron's work list (fairness). */
+  lastAttemptAt: Schema.optionalKey(Timestamp),
 })
 export type GarminCursor = typeof GarminCursor.Type
 export type GarminCursorEncoded = (typeof GarminCursor)["Encoded"]

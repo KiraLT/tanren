@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { SessionId, SyncChange } from "@tanren/shared"
-import { DateTime, Effect, Layer, Option, Schema } from "effect"
+import { type Activity, SessionId, SyncChange } from "@tanren/shared"
+import { Array as Arr, DateTime, Effect, Layer, Match, Option, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
-import { clampLimit, FEED_PAGE, FeedRepo, MAX_FEED_LIMIT } from "./FeedRepo"
+import { clampLimit, FEED_PAGE, type FeedItem, FeedRepo, MAX_FEED_LIMIT } from "./FeedRepo"
 import { LocalStore } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
@@ -174,6 +174,16 @@ const seeded = Effect.gen(function* () {
 
 const feed = (limit: number) => FeedRepo.use((repo) => repo.activities(limit))
 
+const activityOf = (item: FeedItem): Option.Option<Activity> =>
+  Match.valueTags(item, {
+    session: ({ activity }) => Option.some(activity),
+    imported: () => Option.none(),
+  })
+
+/** The session activities of the feed (the session-only fixture has no imported rows). */
+const sessions = (limit: number) =>
+  feed(limit).pipe(Effect.map((items) => Arr.getSomes(items.map(activityOf))))
+
 describe("clampLimit", () => {
   it("floors, clamps below at 0 and above at MAX_FEED_LIMIT", () => {
     const cases: ReadonlyArray<readonly [number, number]> = [
@@ -199,16 +209,18 @@ describe("FeedRepo.activities", () => {
   it.effect("lists only live sessions with a live set, newest first, id desc on a tie", () =>
     Effect.gen(function* () {
       yield* seeded
-      const ids = (yield* feed(FEED_PAGE)).map((a) => a.sessionId)
+      const items = yield* feed(FEED_PAGE)
+      const ids = Arr.getSomes(items.map(activityOf)).map((a) => a.sessionId)
       // S_EMPTY (no sets), S_DELETED_SETS (only a tombstoned set) and S_GONE (tombstoned) are absent.
       expect(ids).toEqual([S_OPEN, S_PROGRAM, S_C, S_B, S_A])
+      expect(items.every((item) => item._tag === "session")).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("respects the limit, and 0 or a negative limit is empty", () =>
     Effect.gen(function* () {
       yield* seeded
-      expect((yield* feed(2)).map((a) => a.sessionId)).toEqual([S_OPEN, S_PROGRAM])
+      expect((yield* sessions(2)).map((a) => a.sessionId)).toEqual([S_OPEN, S_PROGRAM])
       expect(yield* feed(0)).toEqual([])
       expect(yield* feed(-3)).toEqual([])
     }).pipe(Effect.provide(TestLayer)),
@@ -217,7 +229,7 @@ describe("FeedRepo.activities", () => {
   it.effect("a limit far above MAX_FEED_LIMIT still returns a small store whole", () =>
     Effect.gen(function* () {
       yield* seeded
-      expect((yield* feed(10_000)).map((a) => a.sessionId)).toEqual([
+      expect((yield* sessions(10_000)).map((a) => a.sessionId)).toEqual([
         S_OPEN,
         S_PROGRAM,
         S_C,
@@ -230,7 +242,7 @@ describe("FeedRepo.activities", () => {
   it.effect("counts the PRs per session over each exercise's full history", () =>
     Effect.gen(function* () {
       yield* seeded
-      const activities = yield* feed(FEED_PAGE)
+      const activities = yield* sessions(FEED_PAGE)
       expect(activities.map((a) => a.prs)).toEqual([0, 0, 1, 1, 0])
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -238,7 +250,7 @@ describe("FeedRepo.activities", () => {
   it.effect("titles a planned session from its live planned_session", () =>
     Effect.gen(function* () {
       yield* seeded
-      const byId = new Map((yield* feed(FEED_PAGE)).map((a) => [a.sessionId, a]))
+      const byId = new Map((yield* sessions(FEED_PAGE)).map((a) => [a.sessionId, a]))
       expect(byId.get(S_A)).toMatchObject({ kind: "planned", title: "Lower A" })
       // A tombstoned planned session no longer names it.
       expect(byId.get(S_B)).toMatchObject({ kind: "free", title: "Workout" })
@@ -248,7 +260,7 @@ describe("FeedRepo.activities", () => {
   it.effect("marks a program-day session from program_day_completion", () =>
     Effect.gen(function* () {
       yield* seeded
-      const byId = new Map((yield* feed(FEED_PAGE)).map((a) => [a.sessionId, a]))
+      const byId = new Map((yield* sessions(FEED_PAGE)).map((a) => [a.sessionId, a]))
       const program = byId.get(S_PROGRAM)
       expect(program).toMatchObject({ kind: "program", title: "Core 30 · Day 3" })
       expect(
@@ -261,7 +273,7 @@ describe("FeedRepo.activities", () => {
   it.effect("a deleted exercise still names its old sets", () =>
     Effect.gen(function* () {
       yield* seeded
-      const a = (yield* feed(FEED_PAGE)).find((activity) => activity.sessionId === S_A)
+      const a = (yield* sessions(FEED_PAGE)).find((activity) => activity.sessionId === S_A)
       expect(a?.exercises.map((e) => [e.name, e.sets.length])).toEqual([
         ["Back Squat", 2],
         ["Bench Press", 1],
@@ -272,7 +284,7 @@ describe("FeedRepo.activities", () => {
   it.effect("an unfinished session started under 12 h ago is inProgress, an old one is done", () =>
     Effect.gen(function* () {
       yield* seeded
-      const byId = new Map((yield* feed(FEED_PAGE)).map((a) => [a.sessionId, a.status]))
+      const byId = new Map((yield* sessions(FEED_PAGE)).map((a) => [a.sessionId, a.status]))
       expect(byId.get(S_OPEN)).toBe("inProgress")
       expect(byId.get(S_B)).toBe("done")
       expect(byId.get(S_A)).toBe("done")
@@ -284,6 +296,88 @@ describe("FeedRepo.activities", () => {
       const error = yield* Effect.flip(feed(FEED_PAGE))
       expect(error._tag).toBe("StoreError")
     }).pipe(Effect.provide(FailingLayer)),
+  )
+})
+
+describe("FeedRepo.activities with imported activities", () => {
+  const I_RUN = uid(40) // between S_C/S_B (10-12) and S_PROGRAM (10-19)
+  const I_GONE = uid(41) // tombstoned, newest of all
+
+  const imported = (id: string, startedAt: string, deletedAt: string | null = null) => ({
+    table: "importedActivity",
+    row: {
+      ...row(id, deletedAt),
+      provider: "garmin",
+      externalId: `garmin-${id}`,
+      sport: "running",
+      title: "Morning Run",
+      startedAt,
+      durationSeconds: 2880,
+      distanceMeters: 6200,
+      calories: 412,
+      avgHeartRate: 148,
+      maxHeartRate: null,
+    },
+  })
+
+  const withImports = Effect.gen(function* () {
+    yield* seeded
+    yield* write([
+      imported(I_RUN, "2026-10-15T07:12:00.000Z"),
+      imported(I_GONE, "2026-10-27T07:00:00.000Z", STAMP),
+    ])
+  })
+
+  const tagged = (items: ReadonlyArray<FeedItem>) =>
+    items.map((item) =>
+      Match.valueTags(item, {
+        session: ({ activity }) => ["session", activity.sessionId],
+        imported: ({ activity }) => ["imported", activity.id],
+      }),
+    )
+
+  it.effect("interleaves a live imported activity by startedAt and drops a deleted one", () =>
+    Effect.gen(function* () {
+      yield* withImports
+      expect(tagged(yield* feed(FEED_PAGE))).toEqual([
+        ["session", S_OPEN],
+        ["session", S_PROGRAM],
+        ["imported", I_RUN],
+        ["session", S_C],
+        ["session", S_B],
+        ["session", S_A],
+      ])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("carries the decoded imported row", () =>
+    Effect.gen(function* () {
+      yield* withImports
+      const item = (yield* feed(FEED_PAGE)).find((entry) => entry._tag === "imported")
+      expect(item?.activity).toMatchObject({
+        id: I_RUN,
+        title: "Morning Run",
+        sport: "running",
+        durationSeconds: 2880,
+        distanceMeters: Option.some(6200),
+        maxHeartRate: Option.none(),
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("applies the limit to the merged timeline", () =>
+    Effect.gen(function* () {
+      yield* withImports
+      expect(tagged(yield* feed(3))).toEqual([
+        ["session", S_OPEN],
+        ["session", S_PROGRAM],
+        ["imported", I_RUN],
+      ])
+      expect(tagged(yield* feed(2))).toEqual([
+        ["session", S_OPEN],
+        ["session", S_PROGRAM],
+      ])
+    }).pipe(Effect.provide(TestLayer)),
   )
 })
 
@@ -309,8 +403,11 @@ describe("FeedRepo.activity", () => {
   it.effect("equals the feed's entry for the same session", () =>
     Effect.gen(function* () {
       yield* seeded
-      const fromFeed = (yield* feed(FEED_PAGE)).find((a) => a.sessionId === S_PROGRAM)
-      expect(Option.getOrUndefined(yield* one(S_PROGRAM))).toEqual(fromFeed)
+      const fromFeed = (yield* feed(FEED_PAGE)).find(
+        (item) => Option.getOrUndefined(activityOf(item))?.sessionId === S_PROGRAM,
+      )
+      const activity = Option.getOrUndefined(yield* one(S_PROGRAM))
+      expect({ _tag: "session", activity }).toEqual(fromFeed)
     }).pipe(Effect.provide(TestLayer)),
   )
 

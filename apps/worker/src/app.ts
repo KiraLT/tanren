@@ -1,9 +1,10 @@
-import type {
-  AccountErasure,
-  ActivityExportRepo,
-  IntegrationRepo,
-  OAuthCodeUseRepo,
-  UserTokens,
+import {
+  type AccountErasure,
+  type ActivityExportRepo,
+  GarminImportRepo,
+  type IntegrationRepo,
+  type OAuthCodeUseRepo,
+  type UserTokens,
 } from "@tanren/db"
 import { IdGenerator } from "@tanren/shared"
 import { Effect, Layer, Match } from "effect"
@@ -22,6 +23,8 @@ import { WorkerConfig } from "./Config"
 import type { EnvVars } from "./Env"
 import { callbackRoutes } from "./integrations/callbackRoutes"
 import { ExportQueue } from "./integrations/ExportQueue"
+import { GarminApi } from "./integrations/GarminApi"
+import { GarminPull } from "./integrations/GarminPull"
 import { StravaApi } from "./integrations/StravaApi"
 import { TokenSeal } from "./integrations/TokenSeal"
 import {
@@ -34,6 +37,7 @@ import {
   type SessionRepo,
 } from "./repos"
 import { MemoryAccountErasure } from "./repos/MemoryAccountErasure"
+import { MemoryGarminImport } from "./repos/MemoryGarminImport"
 import { MemoryIntegrations } from "./repos/MemoryIntegrations"
 import { MemoryTokens } from "./repos/MemoryTokens"
 import { Sync } from "./sync/Sync"
@@ -64,6 +68,7 @@ export type Persistence =
   | UserTokens
   | OAuthCodeUseRepo
   | AccountErasure
+  | GarminImportRepo
 
 export interface AppServices {
   readonly auth: AuthMode
@@ -73,6 +78,8 @@ export interface AppServices {
   readonly exports?: Layer.Layer<ExportQueue, never, WorkerConfig>
   /** Strava for the connect callback and disconnect. Default: `StravaApi.layer` (`STRAVA_MODE`). */
   readonly strava?: Layer.Layer<StravaApi, never, WorkerConfig>
+  /** Garmin for connect and the inline pull. Default: `GarminApi.layer` (`GARMIN_MODE`). */
+  readonly garmin?: Layer.Layer<GarminApi, never, WorkerConfig>
 }
 
 /**
@@ -83,9 +90,13 @@ export const memoryPersistence = (store: Layer.Layer<MemoryStore>): Layer.Layer<
   Layer.mergeAll(
     Repositories.layerMemoryNoDeps,
     SyncStoreMemory,
-    MemoryIntegrations.layer,
     MemoryTokens.layer,
     MemoryAccountErasure.layer,
+    // The import fake gates on the same `IntegrationRepo` the handlers use (disconnect wins).
+    MemoryGarminImport.layer.pipe(
+      Layer.provide(IdGenerator.layer),
+      Layer.provideMerge(MemoryIntegrations.layer),
+    ),
   ).pipe(Layer.provide(store))
 
 /**
@@ -93,7 +104,12 @@ export const memoryPersistence = (store: Layer.Layer<MemoryStore>): Layer.Layer<
  * declares `ConfigError` for `Config`-sourced settings; ours are plain values, so it is a defect.
  */
 export const d1Persistence = (db: D1Database): Layer.Layer<Persistence> =>
-  Layer.mergeAll(Repositories.layer, SyncStore.layer).pipe(Layer.provide(D1Layer(db)), Layer.orDie)
+  Layer.mergeAll(
+    Repositories.layer,
+    SyncStore.layer,
+    // Garmin imports write through the same SyncStore (garmin.md §2); one SyncStore per build.
+    GarminImportRepo.layer.pipe(Layer.provide(Layer.merge(SyncStore.layer, IdGenerator.layer))),
+  ).pipe(Layer.provide(D1Layer(db)), Layer.orDie)
 
 /** CORS for the allowed origins, with cookies (`HttpRouter.cors` also answers preflights). */
 const corsLayer = Layer.unwrap(
@@ -146,12 +162,14 @@ export const makeApp = (env: EnvVars, services: AppServices): App => {
     persistence,
     IdGenerator.layer,
     services.strava ?? StravaApi.layer,
+    services.garmin ?? GarminApi.layer,
     TokenSeal.layer,
   )
   const api = HttpApiBuilder.layer(Api).pipe(
     Layer.provide(HandlersLive),
     Layer.provide(auth.authentication),
     Layer.provide(Sync.layer),
+    Layer.provide(GarminPull.layer),
     Layer.provide(
       Layer.mergeAll(shared, auth.sessions, services.exports ?? ExportQueue.layerDisabled),
     ),

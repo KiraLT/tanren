@@ -126,3 +126,4 @@ gallery; report measured card height and strip height. Time box: 20 min.
 and one Assumes line in `docs/tasks/v5-legal.md` quoting design §10 verbatim. Time box: 10 min.
 
 ### GM-R / GM-D / GM-Q1 / GM-Q2 — see the task table rows (criteria are complete there); boxes 25 / 10 / 20 / 15 min.
+- 14:31 · GM-D (fable): FIX (3 items + 1 re-shoot) — feed stat labels kcal/Avg bpm → Calories/Avg HR (bare numbers ratified); Garmin list subtitle 3 lines at 390 → 2; connected body breaks "2 / activities" → NBSP; About card in H1/H2/H4 shows the Strava-only text but ABOUT_BODIES scope wiring landed 14:30 after the shots → re-shoot proves it. HealthStrip, imported detail, "Connecting… up to 30 s" ratified

@@ -17,6 +17,10 @@ export const integration = sqliteTable(
     accessToken: text("access_token").notNull(),
     refreshToken: text("refresh_token").notNull(),
     expiresAt: text("expires_at").notNull(),
+    /**
+     * Strava: granted scope. Garmin: JSON cursor `{"activitiesSince": Timestamp, "healthThrough":
+     * LocalDate}` (ADR-0023 §2). Stored data only: no code branches on it.
+     */
     scope: text("scope").notNull(),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),

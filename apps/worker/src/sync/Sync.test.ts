@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { decodeCursor, encodeCursor } from "@tanren/db"
-import { type PushResponse, Session, type SyncChange, SyncCursor } from "@tanren/shared"
-import { DateTime, Effect, Fiber, Layer, Option, Ref } from "effect"
+import {
+  DailyHealth,
+  ImportedActivity,
+  type PushResponse,
+  Session,
+  type SyncChange,
+  SyncCursor,
+} from "@tanren/shared"
+import { DateTime, Effect, Fiber, Layer, Option, Ref, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { ExportQueue } from "../integrations/ExportQueue"
 import { ExerciseRepo, MemoryStore, Repositories } from "../repos"
@@ -225,6 +232,87 @@ describe("Sync.push exports completed sessions (design §6)", () => {
         Effect.die("strava exploded"),
       )
       expect(result).toEqual(completedResponse)
+    }),
+  )
+})
+
+describe("Sync.push and the pull-only import tables (garmin.md §2)", () => {
+  const rowColumns = (n: number) => ({
+    id: `00000000-0000-4000-8000-0000000007${n.toString().padStart(2, "0")}`,
+    userId: userA,
+    createdAt: "2026-10-26T08:00:00.000Z",
+    updatedAt: "2026-10-26T08:00:00.000Z",
+    deletedAt: null,
+  })
+  const imported: SyncChange = {
+    table: "importedActivity",
+    row: Schema.decodeUnknownSync(ImportedActivity)({
+      ...rowColumns(1),
+      provider: "garmin",
+      externalId: "123",
+      sport: "running",
+      title: "Run",
+      startedAt: "2026-10-26T06:00:00.000Z",
+      durationSeconds: 1800,
+      distanceMeters: null,
+      calories: null,
+      avgHeartRate: null,
+      maxHeartRate: null,
+    }),
+  }
+  const health: SyncChange = {
+    table: "dailyHealth",
+    row: Schema.decodeUnknownSync(DailyHealth)({
+      ...rowColumns(2),
+      provider: "garmin",
+      date: "2026-10-26",
+      totalCalories: 2400,
+      activeCalories: null,
+      steps: null,
+      restingHeartRate: null,
+    }),
+  }
+
+  it.effect(
+    "rejects an importedActivity and a dailyHealth change as forbidden, writing neither",
+    () =>
+      Effect.gen(function* () {
+        const sync = yield* Sync
+        const push = sync.push
+        const response = yield* push(userA, { changes: [imported, ex(exercise(0x71)), health] })
+        expect(response.accepted.map((a) => a.id)).toEqual([exercise(0x71).id])
+        expect(response.rejected.map((r) => [r.table, r.id, r.reason])).toEqual([
+          ["importedActivity", imported.row.id, "forbidden"],
+          ["dailyHealth", health.row.id, "forbidden"],
+        ])
+        const page = yield* sync.pull(userA, { since: Option.none(), limit: 10 })
+        expect(page.changes.map((c) => c.table)).toEqual(["exercise"])
+      }).pipe(Effect.provide(SyncLayer)),
+  )
+
+  it.effect("never hands a pull-only change to the store", () =>
+    Effect.gen(function* () {
+      const seen = yield* Ref.make<ReadonlyArray<string>>([])
+      const store = Layer.succeed(
+        SyncStore,
+        SyncStore.of({
+          getRows: () => Effect.succeed([]),
+          apply: (_, changes) =>
+            Ref.set(
+              seen,
+              changes.map((c) => c.table),
+            ).pipe(Effect.as({ ...stored, rejected: [] })),
+          pull: () => Effect.die("unused"),
+        }),
+      )
+      const sync = yield* Effect.provide(
+        Sync,
+        Sync.layer.pipe(Layer.provide(Layer.mergeAll(store, ExportQueue.layerDisabled))),
+      )
+      const push = sync.push
+      const response = yield* push(userA, { changes: [imported, health] })
+      expect(yield* Ref.get(seen)).toEqual([])
+      expect(response.rejected.map((r) => r.reason)).toEqual(["forbidden", "forbidden"])
     }),
   )
 })

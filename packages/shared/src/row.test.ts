@@ -336,6 +336,8 @@ describe("ROW_TABLE and ROW_KEYS", () => {
     expect(ROW_TABLE.set).toBe("workout_set")
     expect(ROW_TABLE.session).toBe("workout_session")
     expect(ROW_TABLE.planWeek).toBe("plan_week")
+    expect(ROW_TABLE.importedActivity).toBe("imported_activity")
+    expect(ROW_TABLE.dailyHealth).toBe("daily_health")
   })
 
   it("list the record keys of every table", () => {

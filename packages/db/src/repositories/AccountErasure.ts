@@ -23,6 +23,8 @@ export const ERASED_TABLES = [
   "program_enrollment",
   "activity_export",
   "integration",
+  "imported_activity",
+  "daily_health",
   "profile",
   "sync_clock",
   "verification",
@@ -60,6 +62,9 @@ export class AccountErasure extends Context.Service<AccountErasure, AccountErasu
               sql`DELETE FROM program_enrollment WHERE user_id = ${userId}`,
               sql`DELETE FROM activity_export WHERE user_id = ${userId}`,
               sql`DELETE FROM integration WHERE user_id = ${userId}`,
+              // Garmin import (ADR-0023, migration 0007).
+              sql`DELETE FROM imported_activity WHERE user_id = ${userId}`,
+              sql`DELETE FROM daily_health WHERE user_id = ${userId}`,
               sql`DELETE FROM profile WHERE user_id = ${userId}`,
               sql`DELETE FROM sync_clock WHERE user_id = ${userId}`,
               // Magic links store `{"type":"magic-link","email",…}`; one-time tokens store the

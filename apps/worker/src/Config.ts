@@ -15,6 +15,12 @@ export type EmailMode = typeof EmailMode.Type
 export const StravaMode = Schema.Literals(["console", "provider"])
 export type StravaMode = typeof StravaMode.Type
 
+export const GarminMode = Schema.Literals(["console", "provider"])
+export type GarminMode = typeof GarminMode.Type
+
+/** Garmin Personal API host (docs/design/garmin.md §0); the decode default for `GARMIN_BASE_URL`. */
+export const DEFAULT_GARMIN_BASE_URL = "https://personal.connectapi.garmin.com"
+
 /** 32 zero bytes, base64. The local `wrangler.jsonc` value; refused outside `local` (docs/design/integrations.md §3). */
 export const FAKE_INTEGRATION_TOKEN_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
@@ -42,6 +48,10 @@ const RawEnv = Schema.Struct({
   STRAVA_CONSOLE_FAIL: Schema.optionalKey(Schema.String),
   STRAVA_CLIENT_SECRET: Schema.optionalKey(Schema.RedactedFromValue(Schema.NonEmptyString)),
   INTEGRATION_TOKEN_KEY: Schema.RedactedFromValue(Schema.NonEmptyString),
+  // Optional with decode defaults (`console`, the Personal API host): older env objects still load.
+  GARMIN_MODE: Schema.optionalKey(GarminMode),
+  GARMIN_BASE_URL: Schema.optionalKey(Schema.NonEmptyString),
+  GARMIN_CONSOLE_FAIL: Schema.optionalKey(Schema.String),
 })
 
 /** Without `NATIVE_RETURN_PREFIXES`: the simulator / USB Expo Go locally, nothing elsewhere. */
@@ -77,6 +87,12 @@ export interface WorkerConfigShape {
   readonly stravaClientSecret: Option.Option<Redacted.Redacted<string>>
   /** AES-256-GCM key for sealing integration tokens: base64 of 32 bytes (`TokenSeal`). */
   readonly integrationTokenKey: Redacted.Redacted<string>
+  /** `console` (default): fixture data, no network; `provider`: the Garmin Personal API. */
+  readonly garminMode: GarminMode
+  /** Garmin Personal API origin, no trailing slash; defaults to `DEFAULT_GARMIN_BASE_URL`. */
+  readonly garminBaseUrl: string
+  /** Console layer refuses every key (`GARMIN_CONSOLE_FAIL=rejected`, startup guard). */
+  readonly garminConsoleFail: Option.Option<"rejected">
 }
 
 const splitOrigins = (raw: string): ReadonlyArray<string> =>
@@ -166,6 +182,24 @@ const decodeEnv = (env: unknown): Effect.Effect<WorkerConfigShape, ConfigError> 
                 }),
               ),
     })
+    const garminMode = raw.GARMIN_MODE ?? "console"
+    const garminConsoleFail = yield* Option.match(Option.fromNullishOr(raw.GARMIN_CONSOLE_FAIL), {
+      onNone: () => Effect.succeed(Option.none<"rejected">()),
+      onSome: (value) =>
+        value !== "rejected"
+          ? Effect.fail(
+              new ConfigError({
+                message: `GARMIN_CONSOLE_FAIL "${value}" is not supported (only "rejected")`,
+              }),
+            )
+          : garminMode === "console"
+            ? Effect.succeed(Option.some("rejected" as const))
+            : Effect.fail(
+                new ConfigError({
+                  message: `GARMIN_CONSOLE_FAIL is only allowed when GARMIN_MODE is "console" (got "${garminMode}")`,
+                }),
+              ),
+    })
     const tokenKey = Redacted.value(raw.INTEGRATION_TOKEN_KEY)
     if (!isAes256KeyBase64(tokenKey)) {
       return yield* new ConfigError({
@@ -198,6 +232,9 @@ const decodeEnv = (env: unknown): Effect.Effect<WorkerConfigShape, ConfigError> 
       stravaClientId: raw.STRAVA_CLIENT_ID,
       stravaClientSecret,
       integrationTokenKey: raw.INTEGRATION_TOKEN_KEY,
+      garminMode,
+      garminBaseUrl: (raw.GARMIN_BASE_URL ?? DEFAULT_GARMIN_BASE_URL).replace(/\/+$/, ""),
+      garminConsoleFail,
     }
   })
 

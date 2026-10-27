@@ -7,11 +7,31 @@ import {
   type IntegrationRepoShape,
   type IntegrationRow,
 } from "@tanren/db"
-import { Array as Arr, Context, DateTime, Effect, Layer, Match, Option, Order, Ref } from "effect"
+import {
+  Array as Arr,
+  Context,
+  DateTime,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Order,
+  Ref,
+  Schema,
+} from "effect"
 
 // In-memory `IntegrationRepo` + `ActivityExportRepo` for the Node app tests (`memoryPersistence`).
 // The D1 implementations (`@tanren/db`) need workerd; their SQL rules are proven there. This fake
 // keeps the observable contract (ordering, reset rules, counts) and claims without guards.
+
+/** `json_extract(scope, '$.lastAttemptAt')` for a JSON scope with a string there, else None. */
+const ScopePull = Schema.fromJsonString(
+  Schema.Struct({ lastAttemptAt: Schema.optionalKey(Schema.NullOr(Schema.String)) }),
+)
+const lastAttemptAt = (row: IntegrationRow): Option.Option<string> =>
+  Option.flatMap(Schema.decodeUnknownOption(ScopePull)(row.scope), (s) =>
+    Option.fromNullishOr(s.lastAttemptAt),
+  )
 
 interface State {
   readonly integrations: ReadonlyArray<IntegrationRow>
@@ -68,6 +88,31 @@ const make = Effect.gen(function* () {
   const read = Ref.get(state)
 
   const integration: IntegrationRepoShape = {
+    // Like D1: only `scope` changes, `updatedAt` included stays.
+    setCursor: (id, cursor) =>
+      update((s) => ({
+        ...s,
+        integrations: Arr.map(s.integrations, (r) => (r.id === id ? { ...r, scope: cursor } : r)),
+      })),
+    listActive: (provider) =>
+      Effect.map(read, (s) =>
+        Arr.sort(
+          Arr.filter(s.integrations, (r) => r.provider === provider && r.status === "active"),
+          Order.combine(
+            Order.combine(
+              // Like D1: never pulled first, then the oldest `lastAttemptAt` (ISO text sorts by time).
+              Order.mapInput(Order.Boolean, (r: IntegrationRow) => Option.isSome(lastAttemptAt(r))),
+              Order.mapInput(Order.String, (r: IntegrationRow) =>
+                Option.getOrElse(lastAttemptAt(r), () => ""),
+              ),
+            ),
+            Order.combine(
+              Order.mapInput(DateTime.Order, (r: IntegrationRow) => r.updatedAt),
+              Order.mapInput(Order.String, (r: IntegrationRow) => r.id),
+            ),
+          ),
+        ),
+      ),
     get: (userId, provider) =>
       Effect.map(read, (s) =>
         Arr.findFirst(s.integrations, (r) => r.userId === userId && r.provider === provider),

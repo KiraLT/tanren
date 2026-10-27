@@ -37,6 +37,11 @@ interface TodayReadyProps {
   readonly exercises: ReadonlyArray<TodayExercise>
   /** End of the session view, under the pager (the Finish workout slot). */
   readonly footer?: ReactNode
+  /**
+   * One line above the pager (the imported health strip, garmin.md §7). The page is unpadded, so the
+   * banner brings its own gutter and top margin: it may render nothing, and must then take no space.
+   */
+  readonly banner?: ReactNode
 }
 
 interface ExerciseCounterProps {
@@ -159,7 +164,7 @@ function TodayAside({ exercises, index, onSelect, current, rest }: TodayAsidePro
  * pager, store errors, and the rest timer. In the two-column layout the rest timer becomes a
  * ring in the aside, next to the current exercise's sets.
  */
-export function TodayReady({ title, accessory, exercises, footer }: TodayReadyProps) {
+export function TodayReady({ title, accessory, exercises, footer, banner }: TodayReadyProps) {
   const { logSet, pending, error } = useLogSet()
   const { remaining, start, stop } = useRestTimer()
   const [page, setPage] = useState(0)
@@ -210,6 +215,7 @@ export function TodayReady({ title, accessory, exercises, footer }: TodayReadyPr
       }
     >
       <View style={{ flex: 1 }}>
+        {banner}
         {setup ? (
           <View style={{ marginHorizontal: gutter[breakpoint], marginTop: space.lg }}>
             <TodaySetupCard />

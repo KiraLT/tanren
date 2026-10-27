@@ -2,19 +2,26 @@ import { ActivityExport, ProviderStatus } from "@tanren/shared"
 import { DateTime, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import {
+  ABOUT_BODIES,
   actionBanner,
   BLOCKED_COPY,
+  canSubmitToken,
   detailHeadline,
   detailNote,
   exportRow,
   formatDayTime,
+  GARMIN,
   GO_LIVE_NOTE,
+  garminActionBanner,
+  garminConnectedLine,
+  garminVisibleFailure,
   IDLE_SUBTITLE,
   isBlocked,
   PENDING_SUBTITLE,
   providerRow,
   returnBanner,
   settingsSubtitle,
+  tokenAddedLine,
   VIEW_ON_STRAVA,
 } from "./integrationsCopy"
 
@@ -248,5 +255,195 @@ describe("isBlocked", () => {
 describe("formatDayTime", () => {
   it("pads hours and minutes", () => {
     expect(formatDayTime(DateTime.makeUnsafe("2026-01-05T07:03:00.000Z"), UTC)).toBe("5 Jan, 07:03")
+  })
+})
+
+const garmin = (overrides: Record<string, unknown>) =>
+  status({
+    provider: "garmin",
+    imports: { lastPullAt: null, lastError: null, activities: 0, days: 0 },
+    ...overrides,
+  })
+
+describe("providerRow for Garmin", () => {
+  it("shows Not connected, neutral, with the import subtitle when disconnected", () => {
+    const row = providerRow(
+      status({ provider: "garmin", state: "disconnected", account: null }),
+      UTC,
+    )
+    expect(row).toEqual({
+      title: "Garmin",
+      pill: { label: "Not connected", tone: "neutral" },
+      subtitle: "Imports runs, rides and daily calories",
+      accessibilityLabel: "Garmin, Not connected",
+    })
+  })
+
+  it("promises the first import within 5 minutes when connected and never pulled", () => {
+    const row = providerRow(garmin({}), UTC)
+    expect([row.pill, row.subtitle]).toEqual([
+      { label: "Connected", tone: "accent" },
+      "First import within 5 minutes",
+    ])
+  })
+
+  it("shows the last import time in the zone when connected and pulled", () => {
+    const row = providerRow(
+      garmin({
+        imports: {
+          lastPullAt: "2026-10-27T08:05:00.000Z",
+          lastError: null,
+          activities: 3,
+          days: 7,
+        },
+      }),
+      VILNIUS,
+    )
+    expect(row.subtitle).toBe("Last import 27 Oct, 10:05")
+  })
+
+  it("shows Token rejected, danger, and asks for a new token when revoked", () => {
+    const row = providerRow(garmin({ state: "revoked" }), UTC)
+    expect([row.pill, row.subtitle]).toEqual([
+      { label: "Token rejected", tone: "danger" },
+      "Garmin stopped accepting the token. Paste a new one",
+    ])
+  })
+
+  it("keeps Strava's own copy for a Strava row", () => {
+    expect(providerRow(status({ state: "revoked" }), UTC).pill.label).toBe("Reconnect")
+  })
+})
+
+describe("Garmin card copy", () => {
+  it("summarises the account and import counts when connected", () => {
+    const line = garminConnectedLine(
+      garmin({
+        account: { displayName: "Lukas K." },
+        imports: { lastPullAt: null, lastError: null, activities: 12, days: 1 },
+      }),
+    )
+    expect(line).toBe("Connected as Lukas K. · 12 activities · 1 day")
+  })
+
+  it("reads plain Connected with zero counts when the server sent no account or imports", () => {
+    expect(garminConnectedLine(status({ provider: "garmin", account: null }))).toBe(
+      "Connected · 0 activities · 0 days",
+    )
+  })
+
+  it("dates the token as 'Mon 26 Oct'", () => {
+    expect(tokenAddedLine(garmin({ connectedAt: "2026-10-26T19:00:00.000Z" }), UTC)).toEqual(
+      Option.some("Token added Mon 26 Oct"),
+    )
+  })
+
+  it("has no token date when connectedAt is null", () => {
+    expect(tokenAddedLine(garmin({ connectedAt: null }), UTC)).toEqual(Option.none())
+  })
+
+  it("enables Connect only once the trimmed token has 16 characters", () => {
+    expect([
+      canSubmitToken("  0123456789abcde  "),
+      canSubmitToken("0123456789abcdef"),
+      canSubmitToken(" 0123456789abcdef\n"),
+    ]).toEqual([false, true, true])
+  })
+
+  it("names the token page in the link caption", () => {
+    expect(GARMIN.tokenLink).toBe("Get a token at connect.garmin.com → Settings")
+  })
+})
+
+describe("garminActionBanner", () => {
+  it("says Garmin did not accept a rejected token", () => {
+    expect(garminActionBanner({ _tag: "Rejected", reason: "rejected" })).toEqual({
+      tone: "danger",
+      title: "Garmin did not accept this token",
+    })
+  })
+
+  it("says the connection goes live later when Garmin is not configured", () => {
+    expect(garminActionBanner({ _tag: "Rejected", reason: "not-configured" })).toEqual({
+      tone: "danger",
+      title: "Garmin connection goes live after the owner enables it",
+    })
+  })
+
+  it("asks to try again when Garmin is unreachable", () => {
+    expect(garminActionBanner({ _tag: "Rejected", reason: "unreachable" })).toEqual({
+      tone: "danger",
+      title: "Garmin did not answer. Try again",
+    })
+  })
+
+  it("reuses the shared offline copy", () => {
+    expect(garminActionBanner({ _tag: "Failed", reason: "offline" })).toEqual(
+      actionBanner("offline"),
+    )
+  })
+
+  it("names Garmin, not Strava, when the provider is not connected", () => {
+    expect(garminActionBanner({ _tag: "Failed", reason: "not-connected" }).title).toBe(
+      "Garmin is not connected",
+    )
+  })
+})
+
+describe("garminVisibleFailure", () => {
+  it("hides a failed connect once the reloaded status reads connected", () => {
+    expect(
+      garminVisibleFailure({ _tag: "Failed", reason: "offline", action: "connect" }, "connected"),
+    ).toEqual(Option.none())
+  })
+
+  it("shows the offline banner for a failed connect while still disconnected", () => {
+    expect(
+      garminVisibleFailure(
+        { _tag: "Failed", reason: "offline", action: "connect" },
+        "disconnected",
+      ),
+    ).toEqual(Option.some(actionBanner("offline")))
+  })
+
+  it("still shows a failed disconnect while connected", () => {
+    expect(
+      Option.isSome(
+        garminVisibleFailure(
+          { _tag: "Failed", reason: "server", action: "disconnect" },
+          "connected",
+        ),
+      ),
+    ).toBe(true)
+  })
+
+  it("shows nothing while busy", () => {
+    expect(garminVisibleFailure({ _tag: "Busy" }, "disconnected")).toEqual(Option.none())
+  })
+
+  it("tells the user a connect can take up to 30 s", () => {
+    expect(GARMIN.connecting).toBe("Connecting… up to 30 s")
+  })
+})
+
+describe("ABOUT_BODIES", () => {
+  it("never claims Tanren does not read data on the Garmin page or the list", () => {
+    expect(
+      [ABOUT_BODIES.garmin, ABOUT_BODIES.list].some((body) =>
+        body.includes("never reads data back"),
+      ),
+    ).toBe(false)
+  })
+
+  it("says Garmin imports are read-only and kept from the AI planning tools", () => {
+    expect(ABOUT_BODIES.garmin).toContain(
+      "never shared with third parties or used by the AI planning tools",
+    )
+  })
+
+  it("keeps Strava's export-only text", () => {
+    expect(ABOUT_BODIES.strava).toBe(
+      "Integrations send finished sessions to other apps. Tanren only writes; it never reads data back.",
+    )
   })
 })

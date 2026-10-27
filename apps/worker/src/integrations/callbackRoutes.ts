@@ -1,4 +1,4 @@
-import { SealedToken as DbSealedToken, IntegrationRepo } from "@tanren/db"
+import { SealedToken as DbSealedToken, IntegrationRepo, UserTokens } from "@tanren/db"
 import { IdGenerator, type NativeRateLimited, type UserId } from "@tanren/shared"
 import { DateTime, Effect, Layer } from "effect"
 import { HttpRouter, type HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -89,8 +89,8 @@ const logOutcome = (userId: UserId, outcome: CallbackOutcome) =>
 /**
  * `GET /integrations/strava/callback` (design §4). Identity comes only from the signed `state`:
  * cookies and `Authorization` are never read. Order: rate limit → state (signature, expiry,
- * returnTo) → provider `error` → `activity:write` in `scope` → exchange the code once → seal →
- * upsert → back to `returnTo`.
+ * returnTo) → provider `error` → `activity:write` in `scope` → the state's user still exists →
+ * exchange the code once → seal → upsert → back to `returnTo`.
  */
 export const callbackRoutes = Layer.unwrap(
   Effect.gen(function* () {
@@ -98,6 +98,7 @@ export const callbackRoutes = Layer.unwrap(
     const strava = yield* StravaApi
     const seal = yield* TokenSeal
     const integrations = yield* IntegrationRepo
+    const tokens = yield* UserTokens
     const ids = yield* IdGenerator
     const limit = yield* makeLimiter
 
@@ -126,6 +127,16 @@ export const callbackRoutes = Layer.unwrap(
           return yield* finish("provider")
         }
         return yield* Effect.gen(function* () {
+          // The state is signed but stateless: an account erased after it was minted must not get
+          // an integration row back (STLS-F3/F4). Checked before the one-time code is spent.
+          const exists = yield* tokens.tokenGens(state.userId).pipe(
+            Effect.as(true),
+            Effect.catchTag("UserNotFound", () => Effect.succeed(false)),
+          )
+          if (!exists) {
+            yield* Effect.logWarning(`[strava] callback for a missing user userId=${state.userId}`)
+            return yield* finish("provider")
+          }
           const grant = yield* strava.exchangeCode(code)
           const access = yield* seal.seal(grant.accessToken)
           const refresh = yield* seal.seal(grant.refreshToken)

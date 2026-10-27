@@ -1,0 +1,363 @@
+import {
+  SealedToken as DbSealedToken,
+  GarminImportRepo,
+  IntegrationRepo,
+  type IntegrationRow,
+  type PersistenceError,
+} from "@tanren/db"
+import {
+  type DailyHealthInsert,
+  type ExportFailureReason,
+  type GarminCursor,
+  GarminCursorJson,
+  type ImportedActivityInsert,
+  LocalDate,
+  type Timestamp,
+  type UserId,
+} from "@tanren/shared"
+import {
+  Array as Arr,
+  Context,
+  Data,
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  type Redacted,
+  Ref,
+  Schema,
+} from "effect"
+import { REFRESH_MARGIN } from "./ExportQueue"
+import {
+  GARMIN_PAGE_SIZE,
+  type GarminActivityWindow,
+  GarminApi,
+  type GarminApiError,
+} from "./GarminApi"
+import { TokenSeal, type TokenSealError } from "./TokenSeal"
+
+/** Users one cron run pulls (garmin.md §3); the rest wait for the next `*\/5` run, oldest first. */
+export const GARMIN_MAX_USERS_PER_RUN = 4
+/** Garmin calls one user may cost per run, re-exchanges included (Workers subrequest budget). */
+export const GARMIN_CALL_BUDGET = 10
+/**
+ * Activity pages per run (400 activities). When the cap cuts a window, `activitiesSince` is kept
+ * and the next run re-reads that window from offset 0 (no page offset is stored): fine at personal
+ * scale, where one 30-day window stays under 400 activities. A longer window never gets past page 2.
+ */
+export const GARMIN_MAX_ACTIVITY_PAGES = 2
+/** Daily summaries per run. */
+export const GARMIN_MAX_DAYS = 7
+/** First pull (or an unreadable cursor): activities of the last 30 days. */
+export const GARMIN_BACKFILL_DAYS = 30
+
+/** Garmin refused the key (or it no longer opens): revoke exactly row version `seen`. */
+class GarminRevoked extends Data.TaggedError("GarminRevoked")<{ readonly seen: Timestamp }> {}
+/** `GARMIN_CALL_BUDGET` is spent: stop calling, keep what was read. */
+class GarminOutOfBudget extends Data.TaggedError("GarminOutOfBudget") {}
+
+export interface GarminPullShape {
+  /** Pulls up to `max` active Garmin users, oldest `updatedAt` first; returns how many. Never fails. */
+  readonly drain: (opts: { readonly max: number }) => Effect.Effect<number>
+  /** Pulls one user now (the connect handler's inline pull). Never fails; a no-op when not active. */
+  readonly drainUser: (userId: UserId) => Effect.Effect<void>
+}
+
+const UNIQUE_VIOLATION = "UNIQUE constraint failed"
+
+/**
+ * True when a cause chain (PersistenceError → SqlError → D1 error) carries SQLite's unique-index
+ * message: two writers raced on an import natural key. Bounded depth; reads `message` and `cause` only.
+ */
+const hasUniqueViolation = (cause: unknown, depth: number): boolean =>
+  depth > 0 &&
+  Predicate.isObject(cause) &&
+  ((Predicate.hasProperty(cause, "message") &&
+    Predicate.isString(cause.message) &&
+    cause.message.includes(UNIQUE_VIOLATION)) ||
+    (Predicate.hasProperty(cause, "cause") && hasUniqueViolation(cause.cause, depth - 1)))
+
+export const isUniqueRace = (error: PersistenceError): boolean => hasUniqueViolation(error.cause, 6)
+
+const localDate = (dt: DateTime.Utc): Effect.Effect<LocalDate> =>
+  // `formatIsoDateUtc` always yields a valid `YYYY-MM-DD`: a failure here is a defect.
+  Schema.decodeUnknownEffect(LocalDate)(DateTime.formatIsoDateUtc(dt)).pipe(Effect.orDie)
+
+/** Empty or undecodable `scope` = no cursor (Lead ruling 2). */
+export const readCursor = (scope: string): Option.Option<GarminCursor> =>
+  Schema.decodeUnknownOption(GarminCursorJson)(scope)
+
+/** The window a cursor-less user starts from: activities since today − 30 d, health after today − 7 d. */
+export const freshCursor = (now: DateTime.Utc): Effect.Effect<GarminCursor> =>
+  Effect.map(
+    localDate(DateTime.subtract(now, { days: GARMIN_MAX_DAYS })),
+    (healthThrough): GarminCursor => ({
+      activitiesSince: DateTime.subtract(DateTime.startOf(now, "day"), {
+        days: GARMIN_BACKFILL_DAYS,
+      }),
+      healthThrough,
+      lastPullAt: Option.none(),
+      lastError: Option.none(),
+    }),
+  )
+
+/** The days after `healthThrough` up to today, oldest first, at most `GARMIN_MAX_DAYS`. */
+const pendingDays = (
+  healthThrough: LocalDate,
+  today: LocalDate,
+): Effect.Effect<ReadonlyArray<LocalDate>> =>
+  Option.match(DateTime.make(`${healthThrough}T00:00:00.000Z`), {
+    onNone: () => Effect.succeed([]),
+    onSome: (from) =>
+      Effect.map(
+        Effect.forEach(Arr.range(1, GARMIN_MAX_DAYS), (offset) =>
+          localDate(DateTime.add(from, { days: offset })),
+        ),
+        Arr.filter((day) => day <= today),
+      ),
+  })
+
+const make = Effect.gen(function* () {
+  const integrations = yield* IntegrationRepo
+  const imports = yield* GarminImportRepo
+  const api = yield* GarminApi
+  const seal = yield* TokenSeal
+
+  const writeCursor = (row: IntegrationRow, cursor: GarminCursor) =>
+    Schema.encodeEffect(GarminCursorJson)(cursor).pipe(
+      // A cursor built from decoded values always encodes.
+      Effect.orDie,
+      Effect.flatMap((json) => integrations.setCursor(row.id, json)),
+    )
+
+  /** One user's pull (garmin.md §3). Fails only with `PersistenceError` or a defect. */
+  const pullRow = Effect.fn("GarminPull.pullRow")(function* (row: IntegrationRow) {
+    const now = yield* DateTime.now
+    const today = yield* localDate(now)
+    const stored = readCursor(row.scope)
+    const cursor = Option.isSome(stored) ? stored.value : yield* freshCursor(now)
+    const budget = yield* Ref.make(GARMIN_CALL_BUDGET)
+    const spend = Ref.modify(budget, (left): readonly [boolean, number] => [
+      left > 0,
+      left - 1,
+    ]).pipe(Effect.flatMap((ok) => (ok ? Effect.void : Effect.fail(new GarminOutOfBudget()))))
+
+    const revokedVersion = (seen: Timestamp) => (_: TokenSealError) => new GarminRevoked({ seen })
+    const key = yield* seal
+      .open(row.refreshToken)
+      .pipe(Effect.mapError(revokedVersion(row.updatedAt)))
+    const storedJwt = yield* seal
+      .open(row.accessToken)
+      .pipe(Effect.mapError(revokedVersion(row.updatedAt)))
+    const auth = yield* Ref.make({ jwt: storedJwt, version: row.updatedAt, exchanged: false })
+
+    /** Key → new JWT, stored sealed in ONE update; a refused key revokes the version in use. */
+    const exchange = Effect.gen(function* () {
+      const current = yield* Ref.get(auth)
+      yield* spend
+      const fresh = yield* api.exchange(key).pipe(
+        Effect.catchIf(
+          (error) => error.reason === "token_rejected",
+          () => Effect.fail(new GarminRevoked({ seen: current.version })),
+        ),
+      )
+      const access = yield* seal.seal(fresh.jwt)
+      yield* integrations.setTokens(row.id, {
+        // Same `v1.<iv>.<ct>` string: TokenSeal's brand and the db column's brand name one value.
+        access: DbSealedToken.make(access),
+        refresh: row.refreshToken,
+        expiresAt: fresh.expiresAt,
+        updatedAt: now,
+      })
+      yield* Ref.set(auth, { jwt: fresh.jwt, version: now, exchanged: true })
+      return fresh.jwt
+    })
+
+    /** A data call with the current JWT; a 401 re-exchanges once per run, a second one revokes. */
+    const authed = <A>(
+      call: (jwt: Redacted.Redacted<string>) => Effect.Effect<A, GarminApiError>,
+    ) =>
+      Effect.gen(function* () {
+        const current = yield* Ref.get(auth)
+        yield* spend
+        return yield* call(current.jwt).pipe(
+          Effect.catchIf(
+            (error) => error.reason === "token_rejected",
+            () =>
+              current.exchanged
+                ? Effect.fail(new GarminRevoked({ seen: current.version }))
+                : exchange.pipe(
+                    Effect.flatMap((jwt) =>
+                      Effect.andThen(
+                        spend,
+                        call(jwt).pipe(
+                          Effect.catchIf(
+                            (error) => error.reason === "token_rejected",
+                            () => Effect.fail(new GarminRevoked({ seen: now })),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        )
+      })
+
+    if (DateTime.isLessThan(row.expiresAt, DateTime.add(now, REFRESH_MARGIN))) {
+      yield* exchange
+    }
+
+    const window: GarminActivityWindow = {
+      startDate: yield* localDate(cursor.activitiesSince),
+      endDate: today,
+    }
+    /** Pages while `more`, at most `GARMIN_MAX_ACTIVITY_PAGES`; `complete` = the window was read. */
+    const pages = (
+      page: number,
+      found: ReadonlyArray<ImportedActivityInsert>,
+    ): Effect.Effect<
+      { readonly items: ReadonlyArray<ImportedActivityInsert>; readonly complete: boolean },
+      GarminApiError | GarminRevoked | PersistenceError
+    > =>
+      page >= GARMIN_MAX_ACTIVITY_PAGES
+        ? Effect.succeed({ items: found, complete: false })
+        : authed((jwt) => api.activities(jwt, window, page * GARMIN_PAGE_SIZE)).pipe(
+            Effect.flatMap((result) =>
+              result.more
+                ? pages(page + 1, Arr.appendAll(found, result.items))
+                : Effect.succeed({ items: Arr.appendAll(found, result.items), complete: true }),
+            ),
+            Effect.catchTag("GarminOutOfBudget", () =>
+              Effect.succeed({ items: found, complete: false }),
+            ),
+          )
+    const activities = yield* pages(0, [])
+    yield* imports.upsertActivities(row.userId, activities.items)
+
+    const days = yield* pendingDays(cursor.healthThrough, today)
+    const read = yield* Effect.forEach(days, (day) =>
+      authed((jwt) => api.daily(jwt, day)).pipe(
+        Effect.map((summary) => Option.some({ day, summary })),
+        Effect.catchTag("GarminOutOfBudget", () =>
+          Effect.succeed(
+            Option.none<{ day: LocalDate; summary: Option.Option<DailyHealthInsert> }>(),
+          ),
+        ),
+      ),
+    )
+    const fetched = Arr.getSomes(Arr.takeWhile(read, Option.isSome))
+    yield* imports.upsertDays(row.userId, Arr.getSomes(Arr.map(fetched, (f) => f.summary)))
+
+    const yesterday = DateTime.subtract(DateTime.startOf(now, "day"), { days: 1 })
+    const lastFinal = yield* localDate(yesterday)
+    // Today is re-read every run: `healthThrough` never passes yesterday.
+    const healthThrough = Option.match(Arr.last(fetched), {
+      onNone: () => cursor.healthThrough,
+      onSome: ({ day }) => (day < lastFinal ? day : lastFinal),
+    })
+    yield* writeCursor(row, {
+      activitiesSince: activities.complete ? yesterday : cursor.activitiesSince,
+      healthThrough: healthThrough > cursor.healthThrough ? healthThrough : cursor.healthThrough,
+      lastPullAt: Option.some(now),
+      lastError: Option.none(),
+      lastAttemptAt: now,
+    })
+    yield* Effect.log(
+      `[garmin] pull userId=${row.userId} activities=${activities.items.length} days=${fetched.length}`,
+    )
+  })
+
+  /** `pullRow` with its stop reasons settled: revoke, or keep the cursor and record `lastError`. */
+  const pullUser = (row: IntegrationRow): Effect.Effect<void, PersistenceError> => {
+    /**
+     * A failed or skipped attempt stamps `lastAttemptAt` (so `listActive` rotates the cron's users)
+     * and leaves `lastPullAt` (last success, shown as "Last import") and the data window as stored;
+     * `lastError` is derived from the prior value.
+     */
+    const attempted = (
+      lastError: (prior: Option.Option<ExportFailureReason>) => Option.Option<ExportFailureReason>,
+    ) => {
+      const cursor = readCursor(row.scope)
+      return Effect.gen(function* () {
+        const now = yield* DateTime.now
+        const base = Option.isSome(cursor) ? cursor.value : yield* freshCursor(now)
+        yield* writeCursor(row, {
+          ...base,
+          lastError: lastError(base.lastError),
+          lastAttemptAt: now,
+        })
+      })
+    }
+    const stopped = (reason: ExportFailureReason) => attempted(() => Option.some(reason))
+    return pullRow(row).pipe(
+      Effect.catchTags({
+        GarminRevoked: ({ seen }) =>
+          Effect.gen(function* () {
+            yield* integrations.markRevoked(row.id, seen, yield* DateTime.now)
+            yield* stopped("token_rejected")
+            yield* Effect.logWarning(`[garmin] revoked userId=${row.userId}`)
+          }),
+        GarminApiError: ({ reason }) =>
+          stopped(reason).pipe(
+            Effect.andThen(
+              Effect.logWarning(`[garmin] pull stopped userId=${row.userId} reason=${reason}`),
+            ),
+          ),
+        GarminOutOfBudget: () => Effect.void,
+        PersistenceError: (error) =>
+          isUniqueRace(error)
+            ? // A connect-time pull and the cron minted ids for the same natural key: the other
+              // writer won. Not a user-facing error; the next run re-reads the same window.
+              attempted((prior) => prior).pipe(
+                Effect.andThen(
+                  Effect.log(`[garmin] pull skipped userId=${row.userId} reason=race`),
+                ),
+              )
+            : attempted((prior) => prior).pipe(Effect.ignore, Effect.andThen(Effect.fail(error))),
+      }),
+    )
+  }
+
+  /** A failed user is logged and skipped: one user never blocks the others. */
+  const pullLogged = (row: IntegrationRow) =>
+    pullUser(row).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning(`[garmin] pull failed userId=${row.userId}`, cause),
+      ),
+    )
+
+  const drain = (opts: { readonly max: number }): Effect.Effect<number> =>
+    integrations.listActive("garmin").pipe(
+      Effect.map(Arr.take(opts.max)),
+      Effect.tap((rows) => Effect.forEach(rows, pullLogged, { discard: true })),
+      Effect.map((rows) => rows.length),
+      Effect.catchCause((cause) =>
+        Effect.logWarning("[garmin] drain failed", cause).pipe(Effect.as(0)),
+      ),
+    )
+
+  const drainUser = (userId: UserId): Effect.Effect<void> =>
+    integrations.get(userId, "garmin").pipe(
+      Effect.flatMap((row) =>
+        Option.isSome(row) && row.value.status === "active" ? pullLogged(row.value) : Effect.void,
+      ),
+      Effect.catchCause((cause) =>
+        Effect.logWarning(`[garmin] pull failed userId=${userId}`, cause),
+      ),
+    )
+
+  return { drain, drainUser } satisfies GarminPullShape
+})
+
+export class GarminPull extends Context.Service<GarminPull, GarminPullShape>()(
+  "@tanren/worker/GarminPull",
+) {
+  /** Needs `IntegrationRepo`, `GarminImportRepo`, `GarminApi` and `TokenSeal`. */
+  static readonly layer = Layer.effect(this, make)
+  /** Does nothing (tests that do not exercise Garmin). */
+  static readonly layerDisabled = Layer.succeed(
+    this,
+    this.of({ drain: () => Effect.succeed(0), drainUser: () => Effect.void }),
+  )
+}

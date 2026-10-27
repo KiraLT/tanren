@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Activity, ActivityExercise } from "@tanren/shared"
+import { Activity, ActivityExercise, ImportedActivity } from "@tanren/shared"
 import { DateTime, Schema } from "effect"
+import type { FeedItem } from "../../services/FeedRepo"
 import {
   activityLabel,
   exerciseMapSource,
@@ -10,6 +11,7 @@ import {
   formatDurationCompact,
   formatStamp,
   groupByWeek,
+  sessionOnly,
   statTiles,
   statValueVariant,
   TILE_VALUE_MAX_CHARS,
@@ -76,9 +78,34 @@ const today2 = activity({ n: 2, startedAt: "2026-10-26T16:00:00.000Z", volumeKg:
 const lastWeek = activity({ n: 3, startedAt: "2026-10-20T16:00:00.000Z", volumeKg: 1000 })
 const older = activity({ n: 4, startedAt: "2026-10-13T16:00:00.000Z", volumeKg: 500 })
 
+const session = (a: Activity): FeedItem => ({ _tag: "session", activity: a })
+const sessions = (list: ReadonlyArray<Activity>): ReadonlyArray<FeedItem> => list.map(session)
+
+/** A pulled Garmin run, decoded from the wire shape. */
+const imported = (n: number, startedAt: string): ImportedActivity =>
+  Schema.decodeUnknownSync(ImportedActivity)({
+    id: uuid(700 + n),
+    userId: uuid(99),
+    createdAt: "2026-10-27T06:00:00.000Z",
+    updatedAt: "2026-10-27T06:00:00.000Z",
+    deletedAt: null,
+    provider: "garmin",
+    externalId: `g-${n}`,
+    sport: "running",
+    title: "Morning Run",
+    startedAt,
+    durationSeconds: 2880,
+    distanceMeters: 6200,
+    calories: 412,
+    avgHeartRate: 148,
+    maxHeartRate: 171,
+  })
+const run = imported(1, "2026-10-27T05:12:00.000Z")
+const runItem: FeedItem = { _tag: "imported", activity: run }
+
 describe("groupByWeek", () => {
   it("gives this week, last week and an older week their labels and keys", () => {
-    const sections = groupByWeek([today1, today2, lastWeek, older], NOW)
+    const sections = groupByWeek(sessions([today1, today2, lastWeek, older]), NOW)
     expect(sections.map((s) => [s.key, s.label])).toEqual([
       ["2026-10-26", "This week"],
       ["2026-10-19", "Last week"],
@@ -87,7 +114,7 @@ describe("groupByWeek", () => {
   })
 
   it("counts workouts and sums volume per week", () => {
-    const [first, second] = groupByWeek([today1, today2, lastWeek], NOW)
+    const [first, second] = groupByWeek(sessions([today1, today2, lastWeek]), NOW)
     expect(first?.summary).toBe("2 workouts · 12,400 kg")
     expect(second?.summary).toBe("1 workout · 1,000 kg")
   })
@@ -95,12 +122,12 @@ describe("groupByWeek", () => {
   it("sums reps when the whole week is bodyweight", () => {
     const a = activity({ n: 5, startedAt: "2026-10-27T16:00:00.000Z", volumeKg: 0, reps: 100 })
     const b = activity({ n: 6, startedAt: "2026-10-26T16:00:00.000Z", volumeKg: 0, reps: 24 })
-    expect(groupByWeek([a, b], NOW)[0]?.summary).toBe("2 workouts · 124 reps")
+    expect(groupByWeek(sessions([a, b]), NOW)[0]?.summary).toBe("2 workouts · 124 reps")
   })
 
   it("keeps the input order inside a week", () => {
-    const [first] = groupByWeek([today2, today1], NOW)
-    expect(first?.items.map((item) => item.sessionId)).toEqual([today2.sessionId, today1.sessionId])
+    const [first] = groupByWeek(sessions([today2, today1]), NOW)
+    expect(first?.items).toEqual([session(today2), session(today1)])
   })
 
   it("returns no sections for no activities", () => {
@@ -109,15 +136,41 @@ describe("groupByWeek", () => {
 
   it("reads the week in the device zone: Sunday 22:30 UTC is already Monday in Vilnius", () => {
     const lateSunday = activity({ n: 7, startedAt: "2026-10-25T22:30:00.000Z" })
-    expect(groupByWeek([lateSunday], NOW)[0]?.label).toBe("This week")
+    expect(groupByWeek(sessions([lateSunday]), NOW)[0]?.label).toBe("This week")
+  })
+
+  it("puts an imported activity in its week and counts only sessions in the summary", () => {
+    const [first] = groupByWeek([session(today1), runItem, session(today2)], NOW)
+    expect(first?.items).toEqual([session(today1), runItem, session(today2)])
+    expect(first?.summary).toBe("2 workouts · 12,400 kg")
+  })
+
+  it("counts activities when a week holds only imported ones", () => {
+    const other: FeedItem = { _tag: "imported", activity: imported(2, "2026-10-20T05:00:00.000Z") }
+    const [, second] = groupByWeek([runItem, other], NOW)
+    expect(second?.summary).toBe("1 activity")
   })
 })
 
 describe("feedRows", () => {
   it("lists each header before its cards", () => {
-    const rows = feedRows(groupByWeek([today1, lastWeek], NOW))
+    const rows = feedRows(groupByWeek(sessions([today1, lastWeek]), NOW))
     expect(rows.map((row) => row._tag)).toEqual(["Header", "Card", "Header", "Card"])
     expect(new Set(rows.map((row) => row.key)).size).toBe(4)
+  })
+
+  it("gives an imported item an Imported row keyed by its id", () => {
+    const rows = feedRows(groupByWeek([session(today1), runItem], NOW))
+    expect(rows.slice(1)).toEqual([
+      { _tag: "Card", key: `activity-${today1.sessionId}`, activity: today1 },
+      { _tag: "Imported", key: `imported-${run.id}`, activity: run },
+    ])
+  })
+})
+
+describe("sessionOnly", () => {
+  it("keeps sessions and drops imported items", () => {
+    expect([session(today1), runItem].flatMap(sessionOnly)).toEqual([today1])
   })
 })
 

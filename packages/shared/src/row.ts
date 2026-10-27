@@ -100,6 +100,8 @@ export const ROW_TABLE = {
   set: "workout_set",
   programEnrollment: "program_enrollment",
   programDayCompletion: "program_day_completion",
+  importedActivity: "imported_activity",
+  dailyHealth: "daily_health",
 } as const satisfies { readonly [T in SyncTable]: string }
 
 /** The camelCase record keys of each table: the codec's columns, in field order. */
@@ -114,4 +116,6 @@ export const ROW_KEYS = {
   set: Struct.keys(WorkoutSetRow.from.fields),
   programEnrollment: Struct.keys(ProgramEnrollmentRow.from.fields),
   programDayCompletion: Struct.keys(ProgramDayCompletionRow.from.fields),
+  importedActivity: Struct.keys(ImportedActivityRow.from.fields),
+  dailyHealth: Struct.keys(DailyHealthRow.from.fields),
 } as const satisfies { readonly [T in SyncTable]: ReadonlyArray<string> }

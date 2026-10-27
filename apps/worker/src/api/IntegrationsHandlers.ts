@@ -1,20 +1,31 @@
-import { ActivityExportRepo, type ExportRow, IntegrationRepo } from "@tanren/db"
+import {
+  ActivityExportRepo,
+  SealedToken as DbSealedToken,
+  type ExportRow,
+  GarminImportRepo,
+  IntegrationRepo,
+} from "@tanren/db"
 import {
   type ActivityExport,
   DEFAULT_EXPORTS_LIMIT,
+  GarminTokenRejected,
+  IdGenerator,
   IntegrationNotConnected,
   type IntegrationsStatus,
   NotFound,
   type Provider,
   type ProviderStatus,
   type UserId,
+  Uuid,
 } from "@tanren/shared"
-import { Array as Arr, DateTime, Effect, Option, Predicate } from "effect"
+import { Array as Arr, DateTime, Effect, Option, Predicate, Redacted } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/http-api"
 import { makeLimiter } from "../auth/nativeAuthRoutes"
 import { WorkerConfig } from "../Config"
 import { startConnect } from "../integrations/connect"
 import { ExportQueue } from "../integrations/ExportQueue"
+import { GarminApi } from "../integrations/GarminApi"
+import { GarminPull, readCursor } from "../integrations/GarminPull"
 import { StravaApi } from "../integrations/StravaApi"
 import { SealedToken, TokenSeal } from "../integrations/TokenSeal"
 import type { PersistenceError } from "../repos"
@@ -41,8 +52,12 @@ const internal = <A, E, R>(
   )
 
 /** Providers with a card in the app; `Provider.literals` also holds ones still being built. */
-// garmin joins when GM-4 lands its connect endpoint
-const AVAILABLE_PROVIDERS: ReadonlyArray<Provider> = ["strava"]
+const AVAILABLE_PROVIDERS: ReadonlyArray<Provider> = ["strava", "garmin"]
+
+/** The connect handler's inline pull (ADR-0018 §4); the cron picks up whatever it did not finish. */
+export const GARMIN_CONNECT_PULL_TIMEOUT = "5 seconds"
+/** The account name when Garmin's profile call fails or has no display name. */
+const GARMIN_FALLBACK_NAME = "Garmin account"
 
 const currentUser = CurrentUser.use((user) => Effect.succeed(user.userId))
 
@@ -70,12 +85,37 @@ export const IntegrationsLive = HttpApiBuilder.group(
     const seal = yield* TokenSeal
     const queue = yield* ExportQueue
     const limit = yield* makeLimiter
+    const garmin = yield* GarminApi
+    const garminPull = yield* GarminPull
+    const garminImports = yield* GarminImportRepo
+    const ids = yield* IdGenerator
 
-    /** One `get` + one `counts` statement per provider. */
+    /** Garmin only: live import counts plus the cursor's last pull and error. */
+    const importsOf = (userId: UserId, provider: Provider, scope: Option.Option<string>) =>
+      provider === "garmin"
+        ? Effect.map(garminImports.counts(userId, provider), (counts) => {
+            const cursor = Option.flatMap(scope, readCursor)
+            return {
+              imports: {
+                lastPullAt: Option.flatMap(cursor, (c) => c.lastPullAt),
+                lastError: Option.flatMap(cursor, (c) => c.lastError),
+                activities: counts.activities,
+                days: counts.days,
+              },
+            }
+          })
+        : Effect.succeed({})
+
+    /** One `get` + one `counts` statement per provider (Garmin: one more for its imports). */
     const providerStatus = (userId: UserId, provider: Provider) =>
       Effect.gen(function* () {
         const row = yield* integrations.get(userId, provider)
         const counts = yield* exports.counts(userId, provider)
+        const imports = yield* importsOf(
+          userId,
+          provider,
+          Option.map(row, (r) => r.scope),
+        )
         const status: ProviderStatus = {
           provider,
           state: Option.match(row, {
@@ -88,8 +128,66 @@ export const IntegrationsLive = HttpApiBuilder.group(
           pendingExports: counts.pending,
           failedExports: counts.failed,
           blockedExports: counts.blocked,
+          ...imports,
         }
         return status
+      })
+
+    /**
+     * garmin.md §3 connect: validate the key with one exchange, seal key and JWT, upsert, pull
+     * inline. Logs carry the user id and a reason literal only, never the key, the JWT or the body.
+     */
+    const connectGarmin = (token: string) =>
+      Effect.gen(function* () {
+        const userId = yield* currentUser
+        yield* limit(`garmin-connect:${userId}`)
+        if (config.garminMode === "provider" && config.garminBaseUrl.length === 0) {
+          return yield* new GarminTokenRejected({ reason: "not-configured" })
+        }
+        const key = Redacted.make(token)
+        const exchanged = yield* garmin.exchange(key).pipe(
+          Effect.tapError((error) =>
+            Effect.logWarning(`[garmin] connect refused userId=${userId} reason=${error.reason}`),
+          ),
+          Effect.mapError(
+            (error) =>
+              new GarminTokenRejected({
+                reason:
+                  error.reason === "token_rejected" || error.reason === "rejected"
+                    ? "rejected"
+                    : "unreachable",
+              }),
+          ),
+        )
+        const displayName = yield* garmin.profile(exchanged.jwt).pipe(
+          Effect.map((profile) =>
+            Option.getOrElse(profile.displayName, () => GARMIN_FALLBACK_NAME),
+          ),
+          Effect.catch(() => Effect.succeed(GARMIN_FALLBACK_NAME)),
+        )
+        const access = yield* seal.seal(exchanged.jwt)
+        const refresh = yield* seal.seal(key)
+        const now = yield* DateTime.now
+        // A re-connect keeps the row's id and createdAt (the upsert's conflict clause).
+        yield* integrations.upsert({
+          id: Uuid.make(yield* ids.next),
+          userId,
+          provider: "garmin",
+          status: "active",
+          externalId: "personal",
+          displayName,
+          // Same `v1.<iv>.<ct>` string under TokenSeal's brand and the db column's brand.
+          accessToken: DbSealedToken.make(access),
+          refreshToken: DbSealedToken.make(refresh),
+          expiresAt: exchanged.expiresAt,
+          scope: "",
+          createdAt: now,
+          updatedAt: now,
+        })
+        yield* garminPull
+          .drainUser(userId)
+          .pipe(Effect.timeout(GARMIN_CONNECT_PULL_TIMEOUT), Effect.ignore)
+        return yield* providerStatus(userId, "garmin")
       })
 
     return handlers.handleAll({
@@ -128,6 +226,21 @@ export const IntegrationsLive = HttpApiBuilder.group(
               ),
             )
             yield* integrations.remove(userId, "strava")
+          }),
+        ),
+      garminConnect: ({ payload }) => internal(connectGarmin(payload.token)),
+      // garmin.md §4: the sealed key goes with the row; imported rows are soft-deleted (ruling 4).
+      garminDisconnect: () =>
+        internal(
+          Effect.gen(function* () {
+            const userId = yield* currentUser
+            const row = yield* integrations.get(userId, "garmin")
+            if (Option.isNone(row)) {
+              return yield* new IntegrationNotConnected({ provider: "garmin" })
+            }
+            const removed = yield* garminImports.softDeleteAll(userId, "garmin")
+            yield* integrations.remove(userId, "garmin")
+            yield* Effect.log(`[garmin] disconnected userId=${userId} imports=${removed}`)
           }),
         ),
       exports: ({ query }) =>

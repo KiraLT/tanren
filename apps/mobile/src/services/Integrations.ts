@@ -3,9 +3,11 @@ import {
   type ActivityExportId,
   ConnectRejected,
   ConnectResponse,
+  GarminTokenRejected,
   IntegrationsStatus,
+  ProviderStatus,
 } from "@tanren/shared"
-import { Context, Data, Effect, Layer, Schema } from "effect"
+import { Context, Data, Duration, Effect, Layer, Schema } from "effect"
 import {
   FetchHttpClient,
   HttpClient,
@@ -41,9 +43,26 @@ export interface IntegrationsShape {
   ) => Effect.Effect<ReadonlyArray<ActivityExport>, IntegrationsRequestFailed>
   /** `POST /integrations/strava/exports/retry { id }`: the row after one attempt. */
   readonly retry: (id: ActivityExportId) => Effect.Effect<ActivityExport, IntegrationsRequestFailed>
+  /**
+   * `POST /integrations/garmin/connect { token }` (trimmed): the Garmin status after the worker
+   * validated and sealed the token. A 400 `GarminTokenRejected` surfaces with its reason. The token
+   * is only ever the request body: never logged, stored or put in an error.
+   */
+  readonly connectGarmin: (
+    token: string,
+  ) => Effect.Effect<ProviderStatus, IntegrationsRequestFailed | GarminTokenRejected>
+  /** `DELETE /integrations/garmin` (204). */
+  readonly disconnectGarmin: Effect.Effect<void, IntegrationsRequestFailed>
 }
 
 const REQUEST_TIMEOUT = "5 seconds"
+
+/**
+ * Garmin connect only: the worker validates the token before answering (exchange 10 s + profile
+ * 10 s + inline first pull 5 s ≤ 25 s, `IntegrationsHandlers` connect), so the shared 5 s would
+ * report a slow success as offline. 30 s leaves headroom; every other call keeps `REQUEST_TIMEOUT`.
+ */
+export const GARMIN_CONNECT_TIMEOUT_SECONDS = 30
 
 const failed = (reason: IntegrationsFailure) => new IntegrationsRequestFailed({ reason })
 
@@ -71,6 +90,22 @@ const failureOfResponse = (
       )
     : Effect.succeed(failureOfHttp(cause))
 
+const stravaFailure = (cause: HttpClientError.HttpClientError) =>
+  Effect.flatMap(failureOfResponse(cause), Effect.fail)
+
+/** Garmin connect: a 400 carries `GarminTokenRejected`; an unreadable 400 is `server`. */
+const garminFailure = (
+  cause: HttpClientError.HttpClientError,
+): Effect.Effect<never, IntegrationsRequestFailed | GarminTokenRejected> =>
+  cause.reason._tag === "StatusCodeError" && cause.reason.response.status === 400
+    ? HttpClientResponse.schemaBodyJson(GarminTokenRejected)(cause.reason.response).pipe(
+        Effect.matchEffect({
+          onFailure: () => Effect.fail(failed("server")),
+          onSuccess: (rejected) => Effect.fail(rejected),
+        }),
+      )
+    : Effect.fail(failureOfHttp(cause))
+
 const ExportList = Schema.Array(ActivityExport)
 
 const make = (baseUrl: Effect.Effect<string>) =>
@@ -79,18 +114,24 @@ const make = (baseUrl: Effect.Effect<string>) =>
     const native = yield* NativeSession
 
     /** Same options as `Account`: session cookie (web) or Bearer (native), no trace headers. */
-    const send = (request: HttpClientRequest.HttpClientRequest) =>
-      withSession(request).pipe(
-        Effect.provideService(NativeSession, native),
-        Effect.flatMap((authorised) => client.execute(authorised)),
-        Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
-        Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-        Effect.catch((cause) => Effect.flatMap(failureOfResponse(cause), Effect.fail)),
-        Effect.timeoutOrElse({
-          duration: REQUEST_TIMEOUT,
-          orElse: () => Effect.fail(failed("offline")),
-        }),
-      )
+    const sendWith =
+      <E>(
+        recover: (cause: HttpClientError.HttpClientError) => Effect.Effect<never, E>,
+        timeout: Duration.Input = REQUEST_TIMEOUT,
+      ) =>
+      (request: HttpClientRequest.HttpClientRequest) =>
+        withSession(request).pipe(
+          Effect.provideService(NativeSession, native),
+          Effect.flatMap((authorised) => client.execute(authorised)),
+          Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
+          Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+          Effect.catch(recover),
+          Effect.timeoutOrElse({
+            duration: timeout,
+            orElse: () => Effect.fail(failed("offline")),
+          }),
+        )
+    const send = sendWith(stravaFailure)
 
     const decode =
       <S extends Schema.Top>(schema: S) =>
@@ -146,7 +187,35 @@ const make = (baseUrl: Effect.Effect<string>) =>
         Effect.flatMap(decode(ActivityExport)),
       )
 
-    return { status, connect, disconnect, exports, retry } satisfies IntegrationsShape
+    const connectGarmin = (token: string) =>
+      Effect.gen(function* () {
+        const base = yield* baseUrl
+        const request = yield* HttpClientRequest.post(`${base}/integrations/garmin/connect`).pipe(
+          HttpClientRequest.acceptJson,
+          HttpClientRequest.bodyJson({ token: token.trim() }),
+          Effect.mapError(() => failed("server")),
+        )
+        const response = yield* sendWith(
+          garminFailure,
+          Duration.seconds(GARMIN_CONNECT_TIMEOUT_SECONDS),
+        )(request)
+        return yield* decode(ProviderStatus)(response)
+      })
+
+    const disconnectGarmin = Effect.gen(function* () {
+      const base = yield* baseUrl
+      yield* send(HttpClientRequest.delete(`${base}/integrations/garmin`))
+    })
+
+    return {
+      status,
+      connect,
+      disconnect,
+      exports,
+      retry,
+      connectGarmin,
+      disconnectGarmin,
+    } satisfies IntegrationsShape
   })
 
 /** Settings > Integrations: the worker's provider status, connect, disconnect, exports, retry. */
@@ -161,6 +230,21 @@ export class Integrations extends Context.Service<Integrations, IntegrationsShap
     Layer.provide(Layer.mergeAll(FetchHttpClient.layer, NativeSession.layer)),
   )
 }
+
+/** When an action reloads the page's status: after a success, after a failure, or never. */
+export interface ReloadPolicy {
+  readonly onSuccess: boolean
+  readonly onFailure: boolean
+}
+
+/**
+ * Garmin connect reloads either way: a request that timed out on the client may have connected on
+ * the server, and the reload then shows Connected instead of a stale form.
+ */
+export const GARMIN_CONNECT_RELOAD: ReloadPolicy = { onSuccess: true, onFailure: true }
+
+export const shouldReload = (policy: ReloadPolicy, outcome: "success" | "failure"): boolean =>
+  outcome === "success" ? policy.onSuccess : policy.onFailure
 
 /** Where the provider sends the browser back to; the worker allow-lists it (design §4). */
 export type ReturnTarget =

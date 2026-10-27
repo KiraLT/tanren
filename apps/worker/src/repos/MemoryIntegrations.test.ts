@@ -99,3 +99,45 @@ describe("MemoryIntegrations IntegrationRepo refresh lease", () => {
     }).pipe(Effect.provide(MemoryIntegrations.layer)),
   )
 })
+
+describe("MemoryIntegrations IntegrationRepo Garmin cursor and work list", () => {
+  const garmin = (n: number, overrides: Partial<IntegrationRow> = {}): IntegrationRow => ({
+    id: Uuid.make(`00000000-0000-4000-8000-0000000000d${n}`),
+    userId: UserId.make(`00000000-0000-4000-8000-0000000000e${n}`),
+    provider: "garmin",
+    status: "active",
+    externalId: "personal",
+    displayName: "Garmin account",
+    accessToken: SealedToken.make("v1.iv.a"),
+    refreshToken: SealedToken.make("v1.iv.r"),
+    expiresAt: LATER,
+    scope: "",
+    createdAt: T0,
+    updatedAt: T0,
+    ...overrides,
+  })
+
+  it.effect("setCursor writes scope only, like D1", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const row = garmin(1)
+      yield* repo.upsert(row)
+      yield* repo.setCursor(row.id, '{"healthThrough":"2026-10-26"}')
+      expect(yield* repo.get(row.userId, "garmin")).toEqual(
+        Option.some({ ...row, scope: '{"healthThrough":"2026-10-26"}' }),
+      )
+    }).pipe(Effect.provide(MemoryIntegrations.layer)),
+  )
+
+  it.effect("listActive skips revoked rows and orders by updatedAt", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const newer = garmin(2, { updatedAt: LATER })
+      const older = garmin(3)
+      const revoked = garmin(4, { status: "revoked" })
+      yield* Effect.forEach([newer, older, revoked], repo.upsert)
+      const listed = yield* repo.listActive("garmin")
+      expect(listed.map((r) => r.id)).toEqual([older.id, newer.id])
+    }).pipe(Effect.provide(MemoryIntegrations.layer)),
+  )
+})

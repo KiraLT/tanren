@@ -5,9 +5,11 @@
  */
 import {
   CatalogId,
+  type DailyHealth,
   Exercise,
   ExerciseId,
   type IdGenerator,
+  type ImportedActivity,
   LOCATION_PRESETS,
   LocalDate,
   LocationId,
@@ -73,6 +75,9 @@ export interface SeedData {
   /** Empty: the seeded month has no program progress. */
   readonly programEnrollment: ReadonlyArray<ProgramEnrollment>
   readonly programDayCompletion: ReadonlyArray<ProgramDayCompletion>
+  /** Empty: imports come from a provider pull, never from the seed. */
+  readonly importedActivity: ReadonlyArray<ImportedActivity>
+  readonly dailyHealth: ReadonlyArray<DailyHealth>
 }
 
 const MINUTE = 60_000
@@ -536,6 +541,8 @@ const build = (options: SeedOptions) =>
       set: sets,
       programEnrollment: [],
       programDayCompletion: [],
+      importedActivity: [],
+      dailyHealth: [],
     } satisfies SeedData
   })
 

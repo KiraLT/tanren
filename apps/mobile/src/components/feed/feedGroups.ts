@@ -3,11 +3,13 @@ import {
   type ActivityExercise,
   type CatalogId,
   findCatalogExercise,
+  type ImportedActivity,
   LocalDate,
   type MuscleGroup,
   type Weekday,
 } from "@tanren/shared"
-import { Array as Arr, DateTime, Option } from "effect"
+import { Array as Arr, DateTime, Match, Option } from "effect"
+import type { FeedItem } from "../../services/FeedRepo"
 import { shiftDate, weekStartOf } from "../../services/progressMath"
 import { formatDayDate, weekdayLabel } from "../planFormat"
 import { formatVolume } from "../progress/progressFormat"
@@ -20,12 +22,13 @@ export interface FeedSection {
   readonly label: string
   /** "3 workouts · 12,400 kg" (reps when the week has no volume). */
   readonly summary: string
-  readonly items: ReadonlyArray<Activity>
+  readonly items: ReadonlyArray<FeedItem>
 }
 
 export type FeedRow =
   | { readonly _tag: "Header"; readonly key: string; readonly section: FeedSection }
   | { readonly _tag: "Card"; readonly key: string; readonly activity: Activity }
+  | { readonly _tag: "Imported"; readonly key: string; readonly activity: ImportedActivity }
 
 export interface StatTile {
   readonly value: string
@@ -174,8 +177,12 @@ export const activityLabel = (activity: Activity): string => {
   return parts.join(", ")
 }
 
-const weekKeyOf = (activity: Activity, zone: DateTime.TimeZone): string =>
-  weekStartOf(DateTime.setZone(activity.startedAt, zone))
+const weekKeyOf = (item: FeedItem, zone: DateTime.TimeZone): string =>
+  weekStartOf(DateTime.setZone(item.activity.startedAt, zone))
+
+/** The logged session of a feed item; imported provider activities yield nothing. */
+export const sessionOnly = (item: FeedItem): ReadonlyArray<Activity> =>
+  item._tag === "session" ? [item.activity] : []
 
 const labelFor = (key: string, thisWeek: string): string =>
   key === thisWeek
@@ -185,41 +192,59 @@ const labelFor = (key: string, thisWeek: string): string =>
       : // `key` is `weekStartOf` output (a `formatIsoDate`), which always parses.
         `Week of ${formatDayDate(LocalDate.make(key))}`
 
-const summaryFor = (items: ReadonlyArray<Activity>): string => {
-  const volume = Arr.reduce(items, 0, (total, item) => total + item.volumeKg)
-  const reps = Arr.reduce(items, 0, (total, item) => total + item.reps)
-  return `${plural(items.length, "workout", "workouts")} · ${volumeOrReps(volume, reps)}`
+/**
+ * The week's totals over its logged sessions only (garmin.md §6); a week of imported activities
+ * alone counts those instead ("2 activities"), never "0 workouts".
+ */
+const summaryFor = (items: ReadonlyArray<FeedItem>): string => {
+  const sessions = Arr.flatMap(items, sessionOnly)
+  if (sessions.length === 0) {
+    return plural(items.length, "activity", "activities")
+  }
+  const volume = Arr.reduce(sessions, 0, (total, item) => total + item.volumeKg)
+  const reps = Arr.reduce(sessions, 0, (total, item) => total + item.reps)
+  return `${plural(sessions.length, "workout", "workouts")} · ${volumeOrReps(volume, reps)}`
 }
 
 /**
- * Groups activities (newest first) under the local-Monday week they started in, sections in order
+ * Groups feed items (newest first) under the local-Monday week they started in, sections in order
  * of first appearance, cards in input order. `now` fixes both "this week" and the zone.
  */
 export const groupByWeek = (
-  activities: ReadonlyArray<Activity>,
+  items: ReadonlyArray<FeedItem>,
   now: DateTime.Zoned,
 ): ReadonlyArray<FeedSection> => {
   const thisWeek = weekStartOf(now)
-  const keyed = Arr.map(activities, (activity) => ({
-    activity,
-    key: weekKeyOf(activity, now.zone),
-  }))
+  const keyed = Arr.map(items, (item) => ({ item, key: weekKeyOf(item, now.zone) }))
   return Arr.map(Arr.dedupe(Arr.map(keyed, (entry) => entry.key)), (key) => {
-    const items = Arr.map(
+    const section = Arr.map(
       Arr.filter(keyed, (entry) => entry.key === key),
-      (entry) => entry.activity,
+      (entry) => entry.item,
     )
-    return { key, label: labelFor(key, thisWeek), summary: summaryFor(items), items }
+    return { key, label: labelFor(key, thisWeek), summary: summaryFor(section), items: section }
   })
 }
 
-/** The flat list the screen renders: a header row, then its cards, per section. */
-export const feedRows = (sections: ReadonlyArray<FeedSection>): ReadonlyArray<FeedRow> =>
-  Arr.flatMap(sections, (section) => [
-    { _tag: "Header" as const, key: `week-${section.key}`, section },
-    ...Arr.map(section.items, (activity) => ({
-      _tag: "Card" as const,
+const rowOf = (item: FeedItem): FeedRow =>
+  Match.valueTags(item, {
+    session: ({ activity }): FeedRow => ({
+      _tag: "Card",
       key: `activity-${activity.sessionId}`,
       activity,
-    })),
-  ])
+    }),
+    imported: ({ activity }): FeedRow => ({
+      _tag: "Imported",
+      key: `imported-${activity.id}`,
+      activity,
+    }),
+  })
+
+/** The flat list the screen renders: a header row, then its cards, per section. */
+export const feedRows = (sections: ReadonlyArray<FeedSection>): ReadonlyArray<FeedRow> =>
+  Arr.flatMap(
+    sections,
+    (section): ReadonlyArray<FeedRow> => [
+      { _tag: "Header", key: `week-${section.key}`, section },
+      ...Arr.map(section.items, rowOf),
+    ],
+  )

@@ -274,6 +274,7 @@ describe("seedMonth", () => {
     Effect.gen(function* () {
       const data = yield* run(1, endDate)
       expect([data.programEnrollment, data.programDayCompletion]).toEqual([[], []])
+      expect([data.importedActivity, data.dailyHealth]).toEqual([[], []])
     }),
   )
 })

@@ -17,10 +17,12 @@ import { randomUUID } from "expo-crypto"
 import { seedIfEmpty } from "../store/seed"
 import { Account } from "./Account"
 import { CurrentUser } from "./CurrentUser"
+import { DailyHealthRepo } from "./DailyHealthRepo"
 import { DataExporter } from "./DataExport"
 import { ExerciseLink } from "./ExerciseLink"
 import { FeedRepo } from "./FeedRepo"
 import { HistoryRepo } from "./HistoryRepo"
+import { ImportedActivityRepo } from "./ImportedActivityRepo"
 import { LocalStore } from "./LocalStore"
 import { PhaseAlerts } from "./PhaseAlerts"
 import { PlanWeekRepo } from "./PlanWeekRepo"
@@ -180,6 +182,8 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       ProfileRepo.layer,
       HistoryRepo.layer,
       FeedRepo.layer,
+      DailyHealthRepo.layer,
+      ImportedActivityRepo.layer,
       Account.layer,
       DataExporter.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),

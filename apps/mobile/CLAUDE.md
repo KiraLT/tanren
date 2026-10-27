@@ -362,7 +362,7 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   `NativeSession.clear`; hook `useAccountErasure`, UI Settings → Data → Delete account (inline danger confirm);
   web reloads to `/sign-in`, native `router.replace("/sign-in")`. Provided per call, not in `runtime.ts`.
 - `DataExporter` (`src/services/DataExport.ts`): named so because `DataExport` is the shared schema;
-  covers all 10 sync tables. Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
+  covers all 12 sync tables (v5 adds `imported_activity`, `daily_health`). Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
   "Export on the web app".
 - Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
   (`themePreferenceStore.web.ts`); native keeps it for the session only.
@@ -406,6 +406,46 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   items, so Loading/Empty/Failed stay one 600 column. `ActivityDetail layout="split"` shows four tiles
   in a row when the column is >= 480 inner (`tilesPerRow`), else 2x2 (below 1024 every split is 6/6).
   `/activity/[sessionId]` is `Page wide` + `Columns 7/5` from the same pieces at desktop.
+
+## v5 Garmin import (ADR-0023, docs/design/garmin.md; team garmin)
+
+- Data (pull-only, the app never writes or dirties these rows): local migration v4 adds `imported_activity`
+  + `daily_health` (indexes `imported_activity_started`, `daily_health_date`, dirty indexes for the generic
+  push scan); `LocalStore` members for both. `FeedRepo.activities(limit)` returns `ReadonlyArray<FeedItem>`
+  (`{_tag:"session"|"imported", activity}`, ≤ limit in total, `startedAt` desc then id desc; deleted rows
+  excluded); `activity(id)` stays session-only. `DailyHealthRepo.today(localDate)` → `useDailyHealth(localDate):
+  Option<DailyHealth>`; `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
+- Feed: `FeedRow` gains `Imported` (`feedGroups.ts`, `sessionOnly`); week summary counts sessions, a week of
+  only imports reads "N activities"; the desktop aside takes sessions only, so an imported card opens its own
+  route `/activity/imported/[id]` (one 600 column at every width). `ImportedCard` (`src/components/feed/`,
+  text in `importedText.ts`): 40 sport disc + title/caption head, 4 stats as `StatRow variant="plain"`
+  (the dense tile is 72 high and truncates "412 kcal" at 51.5 px/slot), "from Garmin"; 160 high at 390
+  (158 + 1 px Card border top/bottom). Card values come from `cardStats`: bare numbers ≤ 7 chars, the label
+  carries the meaning ("410" over "Calories", "152" over "Avg HR"; `formatDistanceCompact` drops the decimal
+  from 99,950 m); the detail and the spoken label keep units ("410 kcal"). Detail stat tiles sit on the bare
+  page (no Card: `surface` tiles on a `surface` Card are invisible). Sport glyphs `run`, `walk`, `bike`, `swim`
+  (+ existing `dumbbell`, `zap`, `more`).
+- Today: `HealthStrip` (`src/components/today/`) under the AppBar in `Empty` and `Ready` only (Ready through
+  `TodayReady`'s `banner?: ReactNode`); line = total kcal · steps · resting bpm, None values dropped, hidden
+  when all None; 36 high. Consumed by v6 nutrition: keep `daily_health` / `HealthStrip` shapes.
+- Settings: `ProviderList` has `garmin` (second row, before Apple Health); `/settings/integrations/garmin` =
+  `GarminCard` (paste field 48 high per design §8, token trimmed, component state only, cleared after every
+  attempt, secure-entry props; Connect disabled < 16 chars; Disconnect `variant="destructive"`; revoked banner
+  above the card). `Integrations.connectGarmin(token)` / `disconnectGarmin`; `useIntegrations` exposes
+  `garmin`, `useGarminDetail`; `ActionState` has `Rejected` (reason → `GARMIN_REJECT_COPY`). Connect has its own
+  30 s timeout (`GARMIN_CONNECT_TIMEOUT_SECONDS`; server exchange + profile + inline pull ≤ 25 s; every other
+  call 5 s), the button reads "Connecting… up to 30 s" and the field is not editable while busy, and a failed
+  connect reloads the status (`GARMIN_CONNECT_RELOAD`; `garminVisibleFailure` hides the banner when the reload
+  reads connected). A rejected connect keeps the pill "Not connected" (only the revoked status says "Token
+  rejected"). About copy is per scope (`ABOUT_BODIES` list / strava / garmin). Garmin idle subtitle "Imports
+  runs, rides and daily calories" (2 lines at 390, row 80 = Strava's); counts use NBSP ("2 activities").
+  GarminCard field and button are 324 wide at 390 (inner 326 − 1 px border each side).
+- Status: done (team garmin, 2026-10-27; GM-R APPROVE in 3 delta passes, GM-D fixes applied). Proven with
+  agent-browser on 9011/9012 console mode at 390 + 1280, light + dark (`docs/design/screens/UI-GM-*`, rows in
+  `UI-GM-rows.html`): connect → cron → sync → feed cards + strip → disconnect → cards and strip gone; strip
+  358x36 at top 56 (AppBar bottom 43). Open: Today Ready with the strip not driven (no plan on a fresh
+  account); revoked state has no console path (GM-Q1); the Worker's "today" is UTC, so the strip can be
+  missing 00:00–02:00 EET until the next pull after UTC midnight.
 
 ## Status
 

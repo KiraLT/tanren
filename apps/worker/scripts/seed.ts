@@ -86,6 +86,9 @@ const program = Effect.gen(function* () {
     // repository writes these tables; clients sync them.
     programEnrollment: Effect.void,
     programDayCompletion: Effect.void,
+    // Imports are written by the Garmin pull only (garmin.md §3); the seed has none.
+    importedActivity: Effect.void,
+    dailyHealth: Effect.void,
   }
   // Parents first: foreign keys are enforced by D1.
   yield* Effect.forEach(SYNC_TABLE_ORDER, (table) => writes[table], { discard: true })

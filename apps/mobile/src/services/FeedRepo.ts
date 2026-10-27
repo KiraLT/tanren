@@ -5,6 +5,8 @@ import {
   type DayNumber,
   type Exercise,
   ExerciseRow,
+  type ImportedActivity,
+  ImportedActivityRow,
   type Label,
   markPrs,
   PlannedSessionRow,
@@ -17,13 +19,44 @@ import {
   type WorkoutSet,
   WorkoutSetRow,
 } from "@tanren/shared"
-import { Array as Arr, Context, DateTime, Effect, Layer, Option, pipe, Record as Rec } from "effect"
+import {
+  Array as Arr,
+  Context,
+  DateTime,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Order,
+  pipe,
+  Record as Rec,
+} from "effect"
 import { decodeRecords, LocalStore } from "./LocalStore"
 import type { StoreError } from "./SqlDriver"
 
+/** One feed entry (garmin.md §6): a logged session or a pulled provider activity. */
+export type FeedItem =
+  | { readonly _tag: "session"; readonly activity: Activity }
+  | { readonly _tag: "imported"; readonly activity: ImportedActivity }
+
+const itemId = (item: FeedItem): string =>
+  Match.valueTags(item, {
+    session: ({ activity }) => activity.sessionId,
+    imported: ({ activity }) => activity.id,
+  })
+
+/** `startedAt` desc, then id desc (sessions and imports share one timeline). */
+export const FeedOrder: Order.Order<FeedItem> = Order.combine(
+  Order.mapInput(Order.flip(DateTime.Order), (item: FeedItem) => item.activity.startedAt),
+  Order.mapInput(Order.flip(Order.String), itemId),
+)
+
 export interface FeedRepoShape {
-  /** Live sessions with ≥ 1 live set, `startedAt` desc then id desc. The UI pages by `FEED_PAGE`. */
-  readonly activities: (limit: number) => Effect.Effect<ReadonlyArray<Activity>, StoreError>
+  /**
+   * The newest `limit` feed items: live sessions with ≥ 1 live set and live imported activities,
+   * `FeedOrder`. The UI pages by `FEED_PAGE`.
+   */
+  readonly activities: (limit: number) => Effect.Effect<ReadonlyArray<FeedItem>, StoreError>
   /** None when the session is missing, deleted or has no live set. */
   readonly activity: (id: SessionId) => Effect.Effect<Option.Option<Activity>, StoreError>
 }
@@ -158,15 +191,31 @@ export class FeedRepo extends Context.Service<FeedRepo, FeedRepoShape>()("@tanre
           )
         })
 
+      // The newest `limit` of each source, merged: enough for the newest `limit` of the union.
       const activities = (limit: number) =>
-        store
-          .all(
-            q(
-              `${FEED_SESSION} ORDER BY ws."startedAt" DESC, ws."id" DESC LIMIT ?`,
-              clampLimit(limit),
-            ),
-          )
-          .pipe(Effect.flatMap(decodeRecords(SessionRow)), Effect.flatMap(assemble))
+        Effect.gen(function* () {
+          const n = clampLimit(limit)
+          if (n === 0) {
+            return []
+          }
+          const sessions = yield* store
+            .all(q(`${FEED_SESSION} ORDER BY ws."startedAt" DESC, ws."id" DESC LIMIT ?`, n))
+            .pipe(Effect.flatMap(decodeRecords(SessionRow)), Effect.flatMap(assemble))
+          const imported = yield* store
+            .all(
+              q(
+                `SELECT * FROM "imported_activity" WHERE "deletedAt" IS NULL
+                 ORDER BY "startedAt" DESC, "id" DESC LIMIT ?`,
+                n,
+              ),
+            )
+            .pipe(Effect.flatMap(decodeRecords(ImportedActivityRow)))
+          const items: ReadonlyArray<FeedItem> = [
+            ...sessions.map((activity): FeedItem => ({ _tag: "session", activity })),
+            ...imported.map((activity): FeedItem => ({ _tag: "imported", activity })),
+          ]
+          return Arr.take(Arr.sort(items, FeedOrder), n)
+        })
 
       const activity = (id: SessionId) =>
         store

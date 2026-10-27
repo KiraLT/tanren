@@ -1,5 +1,7 @@
 import {
+  DailyHealthRow,
   ExerciseRow,
+  ImportedActivityRow,
   PlannedSessionRow,
   PlannedSetRow,
   PlanRow,
@@ -40,6 +42,9 @@ export const LocalChange = Schema.Union([
   recordMember("set", WorkoutSetRow),
   recordMember("programEnrollment", ProgramEnrollmentRow),
   recordMember("programDayCompletion", ProgramDayCompletionRow),
+  // Pull-only (garmin.md §9): applied from the server, never written or dirtied by the app.
+  recordMember("importedActivity", ImportedActivityRow),
+  recordMember("dailyHealth", DailyHealthRow),
 ])
 
 /**

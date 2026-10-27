@@ -138,6 +138,25 @@ set `env.production.vars.STRAVA_MODE` to `"provider"` in `apps/worker/wrangler.j
 - **O3** First real export on tanren.me (needs O1 + O2 and the deploy in §4): connect in Settings → Integrations →
   Strava, finish a session, check the activity on strava.com (SV-Q2 measures it).
 
+## §Garmin (owner steps O1 and O3; ADR-0023, `docs/design/garmin.md`, `docs/tasks/v5-garmin.md`)
+
+No Garmin secret exists server-side: each user pastes their own personal API key in Settings, and the Worker seals it with
+the existing `INTEGRATION_TOKEN_KEY` (§Strava secrets O2). The production vars are already in `apps/worker/wrangler.jsonc`
+`env.production.vars`: `GARMIN_MODE: "provider"` and `GARMIN_BASE_URL: "https://personal.connectapi.garmin.com"` (§2 / O2
+reads them from there; nothing to `secret put`). Local keeps `GARMIN_MODE: "console"`; `GARMIN_CONSOLE_FAIL` is never set in
+production (`Config.ts` refuses it outside console mode).
+
+- **Migration 0007 (`0007_garmin_import`: tables `imported_activity`, `daily_health`) is applied remotely by the Lead only**, at
+  the Garmin deploy and BEFORE the `wrangler deploy` in §4 (the cron and `Sync.pull` read the tables):
+  `pnpm exec wrangler d1 migrations apply tanren --env production --remote` from `apps/worker/` (packages/db/migrations 0000 … 0007).
+  Agents never run it.
+- **O1** (owner, after the GM-Q2 test): regenerate the personal API key that was used for testing (connect.garmin.com →
+  Settings → Personal API token), then connect the real one in Settings → Integrations → Garmin on tanren.me. Key lifetime is
+  30, 90, 180 or 365 days, chosen at creation and not readable via API; Garmin emails a week before expiry. An expired or
+  revoked key parks the integration as revoked in Settings until a new key is pasted.
+- **O3** First real import on tanren.me (needs the deploy in §4 and O1): paste the key, wait for the next 5-minute cron (or
+  open the app and sync), check that a recent activity's start time and today's calories match Garmin Connect.
+
 ## 4. Deploy
 
 ```
