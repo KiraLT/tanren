@@ -249,3 +249,104 @@ current phase (a few seconds of a hold), never a performed item-round.
 - A per-item target weight on `ProgramItem` for Claude to prescribe loads: not now; the prefill from
   history covers the owner's "at least when you go to exercise mode". Open question for the Lead.
 - Two-device resume (D2) and MCP `get_exercise_history` PR semantics for 0-kg sets (§2.7 VERIFY).
+
+## 6. Dynamic schedule (owner 19:07, "program should not be tied exactly to the day")
+
+### 6.1 What the code does today (grep 19:09)
+
+- `packages/shared/src/program.ts` `ProgramEnrollmentFields`: `startedOn: LocalDate` (:125), `currentDay` stored int 1..366 (:128), patchable (:147); `ProgramDayCompletion` one live row per `(enrollmentId, dayNumber)` (:157-159).
+- `apps/mobile/src/services/ProgramRepo.ts`: enrol writes `startedOn: localToday, currentDay: 1` (:436-438); `complete` accepts only `input.dayNumber === enrollment.currentDay` (`DayOutOfOrder`, :716-719) and sets `currentDay: dayNumber + 1` (:756) — nothing else ever moves it; `dueToday` (:373-387) = active ∧ day Some ∧ no completion with `localDate(completedAt) === today`. `schedule` and `startedOn` drive no display (`grep -rn "startedOn\|schedule" apps/mobile/src/player apps/mobile/app/programs` → editor copy only).
+- `apps/worker/src/mcp/programTools.ts` `summaryFrom` (:151-176) reports the stored `currentDay`, `completedDays`, `lastCompletedAt`.
+
+So the current day is **already sequence-based**: a missed calendar day never skips a program day. The
+gap is the other half of the owner's sentence — only Today's row hides after a completion; the Programs
+tab `DayCard` (`ProgramList.tsx` `ActiveSection`), the detail `DayCard` (`[programId].tsx`) and `play.tsx`
+offer "Start day N+1" the same day, and `complete` has no same-day guard, so testing day 1 and reopening
+the tab shows "Day 2" at once.
+
+### 6.2 Rule (D4)
+
+`currentDay` **stays a stored column** (one writer, `complete`; derived-from-completions would change the
+sync/LWW shape and the MCP summary for no behaviour gain, and a 2-device race on `currentDay` already
+resolves the same way completions do). Definition, stated once and used by Today, the Programs tab, the
+detail, the preview position and `get_program_progress`:
+
+- current day = `enrollment.currentDay` = first day without a live completion (invariant kept by `complete`;
+  a `DayOutOfOrder` test pins it, `ProgramRepo.test.ts:355`). A missed day stays due; nothing is skipped.
+- at most one completed day per local calendar day per enrollment: `ActiveProgram.doneToday: boolean`
+  (`liveCompletions` has a row with `localDate(completedAt) === localDate(now)`, the `dueToday` predicate
+  moved into `activeEnrollments`); `complete` fails with `StoreError(DayDoneToday)` when it is true;
+  `play.tsx` treats a `doneToday` enrollment like a non-active one (banner "Done for today. Day N is up
+  tomorrow."); `dueToday` keeps its filter via the same flag.
+
+### 6.3 State matrix additions (DayCard on the Programs tab and the detail; Today row unchanged = absent)
+
+| Row | Condition in | Keeps neighbours out | Shows |
+|-----|--------------|----------------------|-------|
+| Done for today | status `active`, day Some, `doneToday` true | `S` cannot be true (`complete` cleared it) | ring + name, line "Done for today · Day N tomorrow" (N = `currentDay`), pill **disabled** `Start day N` → replaced by a muted `StatusPill label="Done today"`; no primary button |
+| Start / Continue | `doneToday` false | §3.5 | as §3.5 |
+
+Writer of `doneToday`: `complete` (`programDayCompletion` insert with `completedAt: now`); it turns false at
+local midnight by the clock alone (the read is `now`-based, `useStoreVersion` re-reads on the next write or
+screen focus — VERIFY the tab re-reads on focus; if not, the engineer adds a focus-time re-read).
+MCP: `get_program_progress` keeps `currentDay`/`lastCompletedAt`; its description gains the sentence
+"`currentDay` is the first day not completed; days are sequential, a missed calendar day is not skipped,
+and at most one day completes per calendar day." No wire change.
+`ProgramEnrollmentPatch.currentDay` stays patchable only for sync (LWW carries `complete`'s result).
+
+## 7. Sets per exercise (owner 19:08, "each exercise has only 1 repetition? its very impractical")
+
+### 7.1 Finding (grep 19:12)
+
+`packages/shared/src/programs/Program.ts`: `RepsItem { kind, catalogId, reps, restSeconds }`, `ProgramDay
+{ rounds 1..5, items ≤ 12, restBetweenRoundsSeconds }` — there is **no per-exercise sets count**; the only
+repetition is the day-level circuit `rounds` (Core 30's model). `leanBuild.ts` `strengthDay`: `rounds: 3`,
+7 items, each ONE set of `mainReps`/`accessoryReps` (12/15 → 10/12 → 8/12 by block) with 45–90 s rest, run
+as a circuit (bench → incline → shoulder press → … → round 2). "1 repetition" = one set per exercise per
+round, interleaved with six other exercises — a circuit, not a gym day. Storage: days are JSON text
+(`packages/db/src/schema/program.ts:17` `days: text("days")`, mobile `migrations.ts:211` `"days" TEXT`) → a
+new optional item key is expand-only, **no D1 or store migration**.
+
+### 7.2 Model (D5): `RepsItem.sets`, optional, default 1
+
+```ts
+export const RepsItem = Schema.Struct({
+  kind: Schema.Literal("reps"), catalogId: CatalogId, reps: Reps, restSeconds: RestSeconds,
+  /** Straight sets of this exercise before the next item; `restSeconds` applies between them too. */
+  sets: Schema.Number.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 10 }))
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
+})
+```
+Minimal valid input `{ kind: "reps", catalogId, reps: 8, restSeconds: 90 }` decodes with `sets: 1` (test).
+`TimedItem` gets no `sets` (a hold is repeated by adding items). `mcp.ts` `ProgramItemInput` reps variant:
+`sets: Schema.optionalKey(IntBetween(1, 10))`; `write_program` / `update_program` descriptions add "`sets`
+(1–10, default 1) straight sets with `restSeconds` between them; `rounds` repeats the whole day as a circuit
+and is 1 for a gym day". `get_program` returns `sets` through the same `ProgramItem` schema.
+
+### 7.3 Player: steps
+
+One pure expansion feeds everything: `expandDay(day): ReadonlyArray<Step>` in `Program.ts`,
+`Step = { item, exerciseIndex /*0-based*/, exercises, set /*1-based*/, sets, restSeconds }` — for set `s <
+sets` the rest is `item.restSeconds`; after the last set the existing rule (item rest, or round rest after the
+last item of a round). `playerMachine.ts` indexes `config.steps` instead of `day.items` (`itemIndex` renamed
+`stepIndex`; `grep -rn "itemIndex" apps/mobile/src/player` lists the sites), `progress` returns `{ round,
+rounds, exercise, exercises, set, sets }`; `playerHeader.eyebrowLabel`: "Exercise 2/7 · Set 2/4", prefixed
+"Round r/n · " only when `rounds > 1`. Weights (§2) are entered per step, i.e. per set — each performed step
+logs one `workout_set`, which is what `historyFor` already does per item-round. `plannedItems` and
+`dayDurationSeconds` iterate `expandDay` (`SECONDS_PER_REP` unchanged). `mergeDay`/`reconcilePlan` key on
+step index. Snapshot (§3): `phase.stepIndex`; `restore` discards a snapshot whose `stepIndex >=
+steps.length` (a built-in changed under an open day). Preview `itemLine`: "4 × 8 reps · 120 s rest";
+`DayItems` trailing "4 × 8"; editor `ItemCard` adds a `CompactStepper` "sets" (1–10) for reps items.
+
+### 7.4 12-week program content (`leanBuild.ts`; no author or trademark, Amendment 22)
+
+Strength days: `rounds: 1`, `restBetweenRoundsSeconds: 0`; mains `sets: 4`, accessories `sets: 3`.
+Block 1 (weeks 1–4): mains 10 reps / 120 s, accessories 12 / 60 s, cardio main 20 min (1200 s).
+Block 2 (5–8): mains 8 / 120 s, accessories 12 / 75 s, cardio 25 min. Block 3 (9–12): mains 6 / 150 s,
+accessories 10 / 90 s, cardio 30 min. Cardio days keep the 5-min warm-up + core holds (≈ 28–38 min total).
+A push day in block 1 ≈ 12 main sets × (20 + 120) + 12 accessory sets × (24 + 60) ≈ 45 min. Update the
+`description` text ("cardio … from twenty to thirty minutes"). Built-ins are code (`BUILTIN_META`,
+`ProgramRepo.ts`), so every existing enrollment sees the new days at once; `currentDay` is untouched.
+Tests to change: `leanBuild.test.ts` assertions on `rounds`, reps per block and day minutes
+(`grep -n "toBe\|toEqual\|minutes\|rounds" packages/shared/src/programs/leanBuild.test.ts`) — the brief names
+them from that grep.
