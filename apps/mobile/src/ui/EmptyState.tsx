@@ -16,6 +16,11 @@ export interface EmptyStateProps {
   readonly title: string
   readonly body: string
   readonly action?: EmptyStateAction
+  /**
+   * Top-aligned under a sibling card (Today below the health module): no fill, no minimum height,
+   * no top padding, so the parent's gap is the whole distance. Default false: centred and filling.
+   */
+  readonly compact?: boolean
   /** Heading level of the title on web (default 1: the page title). Use 2 under an AppBar `h1`. */
   readonly headingLevel?: HeadingLevel
   readonly style?: StyleProp<ViewStyle>
@@ -29,19 +34,35 @@ export interface EmptyStateProps {
 const MIN_HEIGHT = 240
 
 /** Centred empty (or failed, with `icon="warning"`) state: title, muted body, one secondary action. */
-export function EmptyState({ icon, title, body, action, headingLevel, style }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+  compact = false,
+  headingLevel,
+  style,
+}: EmptyStateProps) {
   const { colors } = useTheme()
   return (
     <View
       style={[
-        {
-          flex: 1,
-          minHeight: MIN_HEIGHT,
-          alignItems: "center",
-          justifyContent: "center",
-          gap: space.md,
-          padding: space.xl,
-        },
+        compact
+          ? {
+              alignItems: "center",
+              justifyContent: "flex-start",
+              gap: space.md,
+              paddingHorizontal: space.xl,
+              paddingBottom: space.xl,
+            }
+          : {
+              flex: 1,
+              minHeight: MIN_HEIGHT,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: space.md,
+              padding: space.xl,
+            },
         style,
       ]}
     >

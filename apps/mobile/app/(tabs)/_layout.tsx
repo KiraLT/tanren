@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router"
+import { Platform } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { APP_NAV, Icon, sizes, space, stroke, type, useBreakpoint, useTheme } from "../../src/ui"
 
@@ -19,9 +20,16 @@ export default function TabsLayout() {
           : {
               // 56 px of bar (24 px glyph + 12/16 label + air) plus the home-indicator inset
               // (0 on web); the default 49 px bar squeezed the label and clipped descenders.
-              height: sizes.tabBar + insets.bottom,
               paddingTop: space.xs,
-              paddingBottom: insets.bottom,
+              ...(Platform.OS === "web"
+                ? {
+                    // `react-native-safe-area-context` reports 0 on web, so a home-screen PWA
+                    // takes the home-indicator inset from CSS `env()` (non-zero only with
+                    // `viewport-fit=cover` in public/index.html); RNW passes the string through.
+                    height: `calc(${sizes.tabBar}px + env(safe-area-inset-bottom))`,
+                    paddingBottom: "env(safe-area-inset-bottom)",
+                  }
+                : { height: sizes.tabBar + insets.bottom, paddingBottom: insets.bottom }),
               backgroundColor: colors.surfaceRaised,
               borderTopColor: colors.border,
               borderTopWidth: stroke.hairline,

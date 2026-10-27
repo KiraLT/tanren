@@ -13,6 +13,7 @@ import {
   freshnessLine,
   heroNumber,
   isStale,
+  isTrackerConnected,
   metaLine,
   ringFractions,
   ringsLabel,
@@ -207,6 +208,19 @@ describe("metaLine", () => {
 
   it("says Waiting for Garmin, not No tracker connected, when connected but not pulled today", () => {
     expect(metaLine(garminOff, NOW, VILNIUS, true)).toBe("Waiting for Garmin")
+  })
+
+  it("says Waiting for Garmin while the status loads when a local daily_health row exists", () => {
+    // Status Loading / offline → garminConnected false; an older daily_health row is in the store.
+    expect(metaLine(garminOff, NOW, VILNIUS, isTrackerConnected(false, true))).toBe(
+      "Waiting for Garmin",
+    )
+  })
+
+  it("says No tracker connected with neither the status nor a local daily_health row", () => {
+    expect(metaLine(garminOff, NOW, VILNIUS, isTrackerConnected(false, false))).toBe(
+      "No tracker connected",
+    )
   })
 
   it("keeps the line without targets", () => {

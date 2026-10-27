@@ -265,9 +265,23 @@ describe("insights (nutrition.md §5)", () => {
     const today = logged(1950, 76, "maintain")
     expect(insights({ today, week: [today], hour: 15 })).toContainEqual({
       rule: "protein_short",
-      text: "Protein 74 g short — a shake covers it",
+      text: "Protein 74 g short — spread protein over every meal",
     })
     expect(rules({ today, week: [today], hour: 14 })).not.toContain("protein_short")
+  })
+
+  it.each([
+    [115, "Protein 35 g short — a shake covers it"],
+    [114, "Protein 36 g short — two protein meals cover it"],
+    [80, "Protein 70 g short — two protein meals cover it"],
+    [79, "Protein 71 g short — spread protein over every meal"],
+    [0, "Protein 150 g short — spread protein over every meal"],
+  ])("protein_short: %i g eaten of 150 g → %s", (eaten, text) => {
+    const today = logged(1950, eaten, "maintain")
+    expect(insights({ today, week: [today], hour: 15 })).toContainEqual({
+      rule: "protein_short",
+      text,
+    })
   })
 
   it("protein_hit: nothing left", () => {

@@ -4,7 +4,7 @@ import { View } from "react-native"
 import { TodayPrograms, useDueToday } from "../../src/components/TodayPrograms"
 import { TodayReady } from "../../src/components/TodayReady"
 import { FinishWorkout } from "../../src/components/today/FinishWorkout"
-import { HealthModule } from "../../src/components/today/HealthModule"
+import { HealthModule, useHealthModuleShown } from "../../src/components/today/HealthModule"
 import { useLayoutMode } from "../../src/hooks/useLayoutMode"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
@@ -101,6 +101,28 @@ function ReadyBanner() {
   )
 }
 
+/**
+ * Nothing planned (PWA-2): with the health card shown, the card sits 16 below the AppBar and the
+ * empty state 24 below the card, top-aligned and compact; without the card it stays centred.
+ */
+function TodayEmpty() {
+  const healthShown = useHealthModuleShown()
+  return (
+    // With the card: a scrolling page (16 top padding, 24 section gap); without it the plain body,
+    // where the empty state fills and centres.
+    <Page header={<TodayBar />} scroll={healthShown} sectionGap={space.xl}>
+      <HealthModule />
+      <TodayPrograms />
+      <EmptyState
+        icon="calendar"
+        title="Nothing planned today"
+        body="Rest up. Your next session shows up here."
+        compact={healthShown}
+      />
+    </Page>
+  )
+}
+
 const renderState = Match.type<TodayState>().pipe(
   Match.tagsExhaustive({
     Loading: () => (
@@ -108,17 +130,7 @@ const renderState = Match.type<TodayState>().pipe(
         <TodaySkeleton />
       </Page>
     ),
-    Empty: () => (
-      <Page header={<TodayBar />}>
-        <HealthModule />
-        <TodayPrograms />
-        <EmptyState
-          icon="calendar"
-          title="Nothing planned today"
-          body="Rest up. Your next session shows up here."
-        />
-      </Page>
-    ),
+    Empty: () => <TodayEmpty />,
     Failed: ({ message }) => (
       <Page header={<TodayBar />}>
         <EmptyState icon="warning" title="Could not load today" body={message} />

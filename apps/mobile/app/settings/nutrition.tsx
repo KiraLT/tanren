@@ -33,7 +33,7 @@ import {
 } from "../../src/components/settings/nutritionSettings"
 import { SettingsSection } from "../../src/components/settings/SettingsSection"
 import { useNutritionSettings } from "../../src/components/settings/useNutritionSettings"
-import { useIntegrationsOverview } from "../../src/hooks/useIntegrations"
+import { useGarminConnected } from "../../src/hooks/useIntegrations"
 import { useProfileState } from "../../src/hooks/useProfile"
 import {
   AppBar,
@@ -407,9 +407,7 @@ function NutritionForm({ saved, garminConnected }: FormProps) {
 export default function NutritionScreen() {
   const router = useRouter()
   const state = useProfileState()
-  const { state: integrations } = useIntegrationsOverview()
-  const garminConnected =
-    integrations._tag === "Ready" && integrations.value.garmin.state === "connected"
+  const garminConnected = useGarminConnected()
   // A direct load has no history to go back to.
   const back = () => (router.canGoBack() ? router.back() : router.replace("/settings"))
   return (

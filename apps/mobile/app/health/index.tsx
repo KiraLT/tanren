@@ -27,7 +27,7 @@ import { localDateOf } from "../../src/components/planFormat"
 import { freshnessLine } from "../../src/components/today/healthModuleMath"
 import { useFoodEntryActions } from "../../src/hooks/useFoodEntryActions"
 import type { HistoryState } from "../../src/hooks/useHistory"
-import { useGarminConnected } from "../../src/hooks/useIntegrations"
+import { useTrackerConnected } from "../../src/hooks/useIntegrations"
 import { type NutritionDay, useNutritionDay } from "../../src/hooks/useNutritionDay"
 import { type HealthWeek, useNutritionWeek } from "../../src/hooks/useNutritionWeek"
 import {
@@ -73,12 +73,12 @@ function WeekBars({
   readonly today: LocalDate
 }) {
   const restingHr = restingHrWeek(week.health)
-  const garminConnected = useGarminConnected()
+  const trackerConnected = useTrackerConnected()
   return (
     <View style={{ gap: space.sm }}>
       <DayBars days={week.review.days} today={today} />
       <Text variant="caption" tone="muted">
-        {freshnessLine(day, new Date(), DateTime.zoneMakeLocal(), garminConnected)}
+        {freshnessLine(day, new Date(), DateTime.zoneMakeLocal(), trackerConnected)}
       </Text>
       <Card padding={rhythm.cardPadding} style={{ marginTop: space.sm }}>
         <View style={{ flexDirection: "row", gap: space.sm }}>

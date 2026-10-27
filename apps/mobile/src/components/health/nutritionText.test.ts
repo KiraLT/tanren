@@ -160,11 +160,11 @@ describe("moduleLabel", () => {
         baseDay,
         hero,
         "as of 14:05 · 8,420 steps",
-        Option.some("Protein 75 g short — a shake covers it"),
+        Option.some("Protein 74 g short — spread protein over every meal"),
       ),
     ).toBe(
       "Health today: Left today 620; eaten 1,420; burned 1,840; protein 96 of 170 g; " +
-        "as of 14:05 · 8,420 steps; Protein 75 g short — a shake covers it",
+        "as of 14:05 · 8,420 steps; Protein 74 g short — spread protein over every meal",
     )
   })
 

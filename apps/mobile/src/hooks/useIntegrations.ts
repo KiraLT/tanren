@@ -8,6 +8,7 @@ import {
   type GarminRejectReason,
   isBlocked,
 } from "../components/settings/integrationsCopy"
+import { isTrackerConnected } from "../components/today/healthModuleMath"
 import { FeedRepo } from "../services/FeedRepo"
 import {
   GARMIN_CONNECT_RELOAD,
@@ -18,7 +19,9 @@ import {
   type ReloadPolicy,
   shouldReload,
 } from "../services/Integrations"
+import { NutritionRepo } from "../services/NutritionRepo"
 import { runtime } from "../services/runtime"
+import { type StoreRead, useStoreRead } from "./useHistory"
 
 export const RECENT_EXPORTS = 20
 
@@ -216,6 +219,21 @@ export const useIntegrationsOverview = () => {
 export const useGarminConnected = (): boolean => {
   const { state } = useIntegrationsOverview()
   return state._tag === "Ready" && state.value.garmin.state === "connected"
+}
+
+/** Module-level reader: stable identity for `useStoreRead`. */
+const readHasDailyHealth: StoreRead<undefined, boolean> = () =>
+  NutritionRepo.use((repo) => repo.hasDailyHealth)
+
+/**
+ * Garmin connected per the server, or any live local `daily_health` row (offline / loading
+ * fallback, `isTrackerConnected`): the health module's "Waiting for Garmin" vs "No tracker
+ * connected" (health-module.md §6).
+ */
+export const useTrackerConnected = (): boolean => {
+  const garminConnected = useGarminConnected()
+  const { state } = useStoreRead(readHasDailyHealth, undefined)
+  return isTrackerConnected(garminConnected, state._tag === "Ready" && state.value)
 }
 
 /** Strava detail: status, recent exports, and the connect / disconnect / retry actions. */

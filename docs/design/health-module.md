@@ -122,7 +122,7 @@ which adds "kcal" after Eaten and a present Burned).
 | over budget (`kcalLeft` < 0) | outer full, `danger` | OVER TODAY · "−220" tone danger · same caption | Eaten tone danger | same | yes |
 | nothing logged (entries = 0, targets Some) | outer 0, inner 0 | LEFT TODAY · budget · "nothing logged yet" | 0 · burned · 0 / 155 g | same | yes |
 | Garmin off (`burned` None, targets Some) | as above | kcalLeft from budget (no eat-back) | Burned "—" | "No tracker connected" (steps/bpm dropped) | yes |
-| waiting for Garmin (connected, no `daily_health` row for the day yet, e.g. before the first pull) | unchanged | kcalLeft from budget (no eat-back) | Burned "—" | "Waiting for Garmin" | yes |
+| waiting for Garmin (connected — server status, or any live local `daily_health` row while the status loads or offline, PWA-2 — no `daily_health` row for the day yet, e.g. before the first pull) | unchanged | kcalLeft from budget (no eat-back) | Burned "—" | "Waiting for Garmin" | yes |
 | no profile (`targets` None), Garmin on | `empty` (tracks only) | BURNED TODAY · `burned` · "Set a goal for a budget" | Eaten (entries sum) · Burned · Protein "96 g" (no target) | "as of HH:MM · steps · bpm" | yes |
 | no profile, Garmin off, nothing logged | — | — | — | — | **hidden** (Today); `/health` keeps its `Off` EmptyState |
 | stale `burnedAsOf` (`isStale` = local date of `burnedAsOf` ≠ today) | unchanged | unchanged | Burned `valueTone="muted"` | "as of yesterday HH:MM · …" | yes |

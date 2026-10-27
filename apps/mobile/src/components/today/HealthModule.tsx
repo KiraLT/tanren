@@ -1,7 +1,7 @@
 import { Array as Arr, DateTime, Option } from "effect"
 import { useRouter } from "expo-router"
 import { type StyleProp, View, type ViewStyle } from "react-native"
-import { useGarminConnected } from "../../hooks/useIntegrations"
+import { useTrackerConnected } from "../../hooks/useIntegrations"
 import { useNutritionDay } from "../../hooks/useNutritionDay"
 import { Card, HealthRings, space, stroke, Text } from "../../ui"
 import { HealthStatRow } from "../health/HealthStats"
@@ -17,6 +17,15 @@ export interface HealthModuleProps {
 }
 
 /**
+ * True when `HealthModule` renders its card (Ready and not `moduleHidden`), so Today's empty state
+ * can sit directly under it instead of centring in the rest of the viewport (PWA-2).
+ */
+export const useHealthModuleShown = (): boolean => {
+  const state = useNutritionDay(localDateOf(new Date()))
+  return state._tag === "Ready" && !moduleHidden(state.value.day)
+}
+
+/**
  * Today's health card (health-module.md §3, merge direction): the double ring (eaten / budget
  * outside, protein / target inside) beside the "Left today" numeral; Eaten · Burned · Protein; the
  * steps caption with "as of HH:MM"; the first insight. The whole card opens `/health`. Renders
@@ -26,7 +35,7 @@ export interface HealthModuleProps {
 export function HealthModule({ style }: HealthModuleProps) {
   const router = useRouter()
   const state = useNutritionDay(localDateOf(new Date()))
-  const garminConnected = useGarminConnected()
+  const trackerConnected = useTrackerConnected()
   if (state._tag !== "Ready" || moduleHidden(state.value.day)) {
     return null
   }
@@ -34,7 +43,7 @@ export function HealthModule({ style }: HealthModuleProps) {
   const now = new Date()
   const fractions = ringFractions(day)
   const hero = heroNumber(day)
-  const meta = metaLine(day, now, DateTime.zoneMakeLocal(), garminConnected)
+  const meta = metaLine(day, now, DateTime.zoneMakeLocal(), trackerConnected)
   const insight = Option.map(Arr.head(insights), (first) => first.text)
   return (
     <Card

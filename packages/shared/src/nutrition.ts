@@ -339,6 +339,20 @@ export const formatInt = (n: number): string =>
 
 const insight = (rule: InsightRule, text: string): Insight => ({ rule, text })
 
+/**
+ * The protein_short line, scaled to the gap (PWA-2): one shake (~30 g) only covers a small gap;
+ * a larger one needs whole meals.
+ */
+const proteinShortText = (gramsLeft: number): string => {
+  const hint =
+    gramsLeft <= 35
+      ? "a shake covers it"
+      : gramsLeft <= 70
+        ? "two protein meals cover it"
+        : "spread protein over every meal"
+  return `Protein ${formatInt(gramsLeft)} g short — ${hint}`
+}
+
 const when = (cond: boolean, make: () => Insight): Option.Option<Insight> =>
   cond ? Option.some(make()) : Option.none()
 
@@ -376,7 +390,7 @@ export const insights = (input: InsightInput): ReadonlyArray<Insight> => {
           insight(
             "protein_short",
             // Exact grams (Lead 17:00): the /health card shows "78 / 155 g" beside it.
-            `Protein ${formatInt(Math.round(proteinLeft))} g short — a shake covers it`,
+            proteinShortText(Math.round(proteinLeft)),
           ),
         ),
         when(Option.isSome(today.proteinLeftG) && proteinLeft <= 0, () =>

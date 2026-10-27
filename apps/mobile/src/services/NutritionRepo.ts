@@ -47,6 +47,11 @@ export interface NutritionRepoShape {
   readonly week: (
     weekStart: LocalDate,
   ) => Effect.Effect<HealthWeek, StoreError, DateTime.CurrentTimeZone>
+  /**
+   * True when any live `daily_health` row exists: only a connected tracker writes them, so it
+   * stands in for "tracker connected" while the server status is loading or offline (PWA-2).
+   */
+  readonly hasDailyHealth: Effect.Effect<boolean, StoreError>
 }
 
 const HEALTH = `SELECT * FROM "daily_health" WHERE "deletedAt" IS NULL AND "date" >= ? AND "date" <= ?
@@ -56,6 +61,8 @@ const WORKOUTS = `SELECT COUNT(*) AS "n" FROM "workout_session" WHERE "deletedAt
   AND "finishedAt" IS NOT NULL AND "finishedAt" >= ? AND "finishedAt" < ?`
 const ACTIVITIES = `SELECT * FROM "imported_activity" WHERE "deletedAt" IS NULL
   AND "startedAt" >= ? AND "startedAt" < ? ORDER BY "startedAt" DESC, "id" DESC`
+
+const ANY_HEALTH = `SELECT 1 AS "n" FROM "daily_health" WHERE "deletedAt" IS NULL LIMIT 1`
 
 const CountRow = Schema.Struct({ n: Schema.Number })
 
@@ -200,7 +207,11 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
           return { review, activities, health }
         })
 
-      return NutritionRepo.of({ day, week })
+      const hasDailyHealth = store
+        .all({ sql: ANY_HEALTH, params: [] })
+        .pipe(Effect.map(Arr.isReadonlyArrayNonEmpty))
+
+      return NutritionRepo.of({ day, week, hasDailyHealth })
     }),
   )
 }

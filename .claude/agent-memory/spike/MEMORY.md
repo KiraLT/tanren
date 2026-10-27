@@ -1,1 +1,2 @@
 - [agent-browser UI check](reference_agent_browser.md) — driving Expo web headless: offline via `set offline`, zsh function wrapper, Chrome in ~
+- [Native bundle debug](reference_native_bundle_debug.md) — no Xcode/simctl here; readable iOS export, Expo error rewrite map, Node VM bundle harness

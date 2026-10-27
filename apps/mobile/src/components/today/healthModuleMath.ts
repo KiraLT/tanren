@@ -91,6 +91,14 @@ const dayPrefix = (asOf: DateTime.Zoned, now: DateTime.Zoned): string => {
 }
 
 /**
+ * "A tracker is connected" for row 3 (§6): the server says Garmin is connected, or the local store
+ * already holds a live `daily_health` row (only a connected tracker writes them), so a connected
+ * user does not read "No tracker connected" while the status loads or the device is offline.
+ */
+export const isTrackerConnected = (garminConnected: boolean, anyDailyHealthRow: boolean): boolean =>
+  garminConnected || anyDailyHealthRow
+
+/**
  * Row 3 without a `daily_health` row for the day (§6): Garmin connected but not pulled yet this
  * morning, or no tracker at all.
  */

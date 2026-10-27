@@ -75,6 +75,7 @@ const health = (
   n: number,
   date: string,
   values: { readonly total: number | null; readonly active: number | null },
+  deletedAt: string | null = null,
 ) =>
   Schema.decodeUnknownEffect(Schema.Array(SyncChange))([
     {
@@ -84,7 +85,7 @@ const health = (
         userId: LOCAL_USER_ID,
         createdAt: "2026-10-27T06:00:00.000Z",
         updatedAt: "2026-10-27T06:00:00.000Z",
-        deletedAt: null,
+        deletedAt,
         provider: "garmin",
         date,
         totalCalories: values.total,
@@ -417,6 +418,30 @@ describe("NutritionRepo.week plan and insights", () => {
       const ahead = yield* NutritionRepo.use((repo) => repo.week(LocalDate.make("2026-11-02")))
       expect(current.review.insights.map((insight) => insight.rule)).toEqual(["nothing_logged"])
       expect([ahead.review.insights, ahead.review.workoutsPlanned]).toEqual([[], 0])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("NutritionRepo.hasDailyHealth", () => {
+  const hasDailyHealth = NutritionRepo.use((repo) => repo.hasDailyHealth)
+
+  it.effect("is false on a store with no daily_health row", () =>
+    Effect.gen(function* () {
+      expect(yield* hasDailyHealth).toBe(false)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("is true once any live daily_health row exists, whatever its date", () =>
+    Effect.gen(function* () {
+      yield* health(901, "2026-09-01", { total: 2100, active: 300 })
+      expect(yield* hasDailyHealth).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("ignores a tombstoned daily_health row (tracker disconnected)", () =>
+    Effect.gen(function* () {
+      yield* health(902, "2026-09-01", { total: 2100, active: 300 }, "2026-10-01T00:00:00.000Z")
+      expect(yield* hasDailyHealth).toBe(false)
     }).pipe(Effect.provide(TestLayer)),
   )
 })

@@ -4,7 +4,8 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!-- viewport-fit=cover makes env(safe-area-inset-*) non-zero in a home-screen PWA (tab bar inset, PWA-2). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
     <title>%WEB_TITLE%</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#16181D" />
@@ -71,6 +72,9 @@
       html,
       body {
         height: 100%;
+        /* expo-font's @font-face has no font-weight, so a fontWeight 800 title on the Barlow face
+           got a synthetic bold smear (the halo on "Today" in the iPhone PWA, PWA-2). */
+        font-synthesis: none;
       }
       /* These styles disable body scrolling if you are using <ScrollView> */
       body {
