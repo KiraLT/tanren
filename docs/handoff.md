@@ -1,8 +1,9 @@
-# Handoff — 2026-10-27 20:45
+# Handoff — 2026-10-27 21:00
 
 ## Where we are
-Production = 2fa8713 (DEPLOY-23 20:39, QA-22 PASS 20:44: routes, manifest, COOP/COEP, API, new bundle strings, SW,
-no console errors; web version 504f6e78). Owner asked to reopen the home-screen app twice. HEAD = 1a99e43. Committed since the deploy:
+Production = 8d202af (DEPLOY-24 20:57, QA-23 PASS 20:59: routes, API, new bundle `entry-5ebe3a29…`, SW; a signed-out
+visit sends only `get-session`; DEPLOY-23 2fa8713 at 20:39 before it). Owner asked to reopen the home-screen app twice. HEAD = 49fc849 (adds 2b88e7c refocus, 65784bb WT-2, 859262f PROG-F2, dcdb37d CLAUDE.md diet, 83d45bd EM-22, 8d202af NAV-F2,
+49fc849 claude-md-check in the gate). Committed since the deploy:
 bef2267 PROG-2 resume an unfinished program day · aac5628 PROG-2b tests · be62051 NAV-1b You "This week" card +
 visible Start failure · 7c969ce PROG-4 dynamic schedule + NAV-3e Up-next "Continue day N" · 86209a6 process (EM-21,
 index hook, gallery v14) · 5c3b2ed WT-1 weight entry (tap to type, step by equipment, per-exercise override) ·
