@@ -1,0 +1,4 @@
+Contact: mailto:hello@tanren.me
+Expires: 2027-10-27T00:00:00.000Z
+Preferred-Languages: en, lt
+Canonical: https://tanren.me/.well-known/security.txt

@@ -46,6 +46,7 @@ export const magicLinkEmail = (input: MagicLinkEmailInput): MagicLinkEmailConten
   const hint = Option.fromNullishOr(input.supportHint)
   const intro = `Tap the button to sign in. The link works once and expires in ${minutesLabel(expiresInMinutes)}.`
   const footer = "You asked for this link on tanren.me. If you didn't, ignore this email."
+  const legalLine = "Tanren · tanren.me/privacy · tanren.me/terms · hello@tanren.me"
   const subject = `Sign in to ${appName}`
   const button = `Sign in to ${appName}`
 
@@ -57,6 +58,7 @@ export const magicLinkEmail = (input: MagicLinkEmailInput): MagicLinkEmailConten
     url,
     "",
     footer,
+    legalLine,
     ...Option.match(hint, { onNone: () => [], onSome: (value) => ["", value] }),
     "",
   ].join("\n")
@@ -90,7 +92,7 @@ export const magicLinkEmail = (input: MagicLinkEmailInput): MagicLinkEmailConten
 </td></tr>
 <tr><td style="padding:0 0 4px;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};">Button not working? Paste this link into your browser:</td></tr>
 <tr><td style="padding:0 0 24px;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};word-break:break-all;">${escapeHtml(url)}</td></tr>
-<tr><td style="border-top:1px solid ${RULE};padding:16px 0 0;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};">${escapeHtml(footer)}</td></tr>
+<tr><td style="border-top:1px solid ${RULE};padding:16px 0 0;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};">${escapeHtml(footer)}<br>${escapeHtml(legalLine)}</td></tr>
 ${hintRow}
 </table>
 </td></tr>

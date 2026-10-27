@@ -52,6 +52,12 @@ describe("magicLinkEmail", () => {
     expect(text).toContain("If you didn't, ignore this email.")
   })
 
+  it("shows the legal footer line in both parts", () => {
+    const line = "Tanren · tanren.me/privacy · tanren.me/terms · hello@tanren.me"
+    expect(text).toContain(line)
+    expect(html).toContain(`<br>${line}`)
+  })
+
   it("escapes the app name and an optional support hint", () => {
     const out = magicLinkEmail({
       ...base,
