@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import { useBreakpoint } from "../hooks/useLayoutMode"
 import { APP_NAV, isActivePath } from "./appNav"
-import { APP_BAR_TITLE_SLOT } from "./controls"
+import { APP_BAR_TITLE_SLOT, eyebrowRingState } from "./controls"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { TimerRing } from "./TimerRing"
@@ -92,12 +92,15 @@ export function AppBar({
     active: typeof link.href === "string" && isActivePath(pathname, link.href),
   }))
   // One line with the nav (the slot is fixed, the bar height must not vary by title); else 2.
+  const eyebrowRing = eyebrowRingState(eyebrow?.progress)
   const titleBlock = (
     <View style={{ flex: 1 }}>
       {eyebrow === undefined ? null : (
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          {eyebrow.progress === undefined ? null : (
-            <TimerRing progress={eyebrow.progress} size={sizes.ringSm} />
+          {eyebrowRing === "none" ? null : eyebrowRing === "ring" ? (
+            <TimerRing progress={eyebrow?.progress ?? 0} size={sizes.ringSm} />
+          ) : (
+            <View style={{ width: sizes.ringSm, height: sizes.ringSm }} />
           )}
           <Text variant="caption" tone="muted" numberOfLines={1}>
             {eyebrow.label}

@@ -1,11 +1,12 @@
 import { Pressable, type StyleProp, type ViewStyle } from "react-native"
+import { filledDiscStyle } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { usePressableInteraction } from "./interaction"
 import { useTheme } from "./theme"
 import { radius, sizes } from "./tokens"
 
 export type IconButtonSize = "md" | "lg"
-/** `plain`: glyph only (surface tint on press/hover); `filled`: a `surface` disc. */
+/** `plain`: glyph only (surface tint on press/hover); `filled`: a `surface` disc with a hairline border. */
 export type IconButtonVariant = "plain" | "filled"
 
 const boxes: { readonly [S in IconButtonSize]: number } = { md: sizes.tap, lg: sizes.controlLg }
@@ -48,11 +49,10 @@ export function IconButton({
           borderRadius: radius.full,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: filled ? colors.surface : "transparent",
         },
-        (pressed || (hovered && !disabled)) && {
-          backgroundColor: filled ? colors.surfaceRaised : colors.surface,
-        },
+        filled
+          ? filledDiscStyle(colors, pressed || (hovered && !disabled))
+          : { backgroundColor: pressed || (hovered && !disabled) ? colors.surface : "transparent" },
         disabled && { opacity: 0.4 },
         focusStyle,
         style,
