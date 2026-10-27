@@ -150,6 +150,10 @@ pnpm typecheck  =  pnpm typecheck:root  &&  pnpm -r typecheck
 
 It must be green before any task is reported done. Run it from the repo root and paste the
 trimmed output into the engineer report.
+Known noise: `MaxListenersExceededWarning: Possible EventEmitter memory leak detected … [Socket]`
+on every run is vitest 5.0.5's fork pool piping each worker's stdout/stderr to the parent
+(`Readable.pipe` → `ForksPoolWorker.start`), not repo code; exit stays 0. Report it as "known
+noise", never as a failure, and do not investigate it (SPK-ML, 2026-10-27).
 `pnpm check:claude-md` (`scripts/claude-md-check.sh`, ≈ 2 s, one grep pass over tracked files +
 `comm`) fails when a backticked identifier in any `CLAUDE.md` exists nowhere in the tree; run it
 after editing a `CLAUDE.md` line, and when the token is real in the doc but absent from the tree

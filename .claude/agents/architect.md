@@ -257,6 +257,10 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   lands in the foundation task (DESK-0), so the siblings are disjoint and
   run in parallel instead of serially on one engineer (DESK-1 → DESK-2 cost
   one 12-min box of wall-clock, 2026-10-27).
+- A Done-when that claims "390 untouched" names one 390 capture per route
+  whose file the task edits, never one control route: DESK-D listed one 390
+  Home shot and DESK-0 moved the Activity header 8 px through a shared
+  `FeedList` margin, found only in review (2026-10-27).
 - Stubbed foundations have an owner: when a foundation task stubs a seed,
   fixture or handler (`foodEntry: Effect.void`, no `daily_health` rows), the
   sheet names the task that fills it before the first capture that needs

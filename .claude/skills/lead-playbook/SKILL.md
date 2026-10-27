@@ -141,7 +141,11 @@ task sheet. Tactics, in order of payoff:
    into EQ-2 made EQ-1 wait 5 min after EQ-C reported and shipped
    compile-compat decode defaults that later wiped `locations`; a default
    added only to keep fixtures compiling is named in the brief as a
-   reviewer flag.
+   reviewer flag. When a design chain is serial on one shared symbol
+   (DESK-1 → DESK-2 on the `summary` prop), ask the architect to move the
+   symbol into the foundation task BEFORE dispatch (architect.md "after X"
+   rule); the DESK chain ran D 4.5 → 0 9 → 1 7 → 2 3 → R 2 min serial on one
+   engineer, ≈ 25 min wall-clock (2026-10-27).
 4. **Time boxes and a clear bar** in every brief (see Cost discipline).
    Thoroughness beyond the bar is waste, not quality.
 5. **Pre-write briefs** (`docs/tasks/step-N-briefs.md`) so dispatch is a
@@ -484,6 +488,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
 - [ ] (any new or moved on-screen element) `ui-check` at 390, plus 1280 when the screen has a `Columns` layout: paste the
       element's bounding box and its neighbours' (prev.bottom ≤ new.top; new.bottom ≤ next.top, or "last") and open the
       PNG; a snapshot line proves presence only (TODAY-FIN shipped the Finish button floating over Set 2; EM batch 6, P3)
+- [ ] (brief claims "phone / 390 unchanged") one 390 before/after capture per ROUTE whose file the task edits, routes
+      named here (`Routes: home, activity, you`), never one control route: a shared component renders at every width
+      (DESK-0 moved the Activity header 8 px behind one Home control shot; DESK-R, 2026-10-27)
 - [ ] (bundled assets or generated files) size budget as a number + the command that measures it
       (`du -ch apps/mobile/assets/illustrations/*.webp | tail -1` <= 3 MB — a glob of the shipped
       files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
@@ -558,6 +565,10 @@ the background (or a sonnet release engineer); metric: no acceptance lag
 > 5 min while a deploy runs (DEPLOY-2 by hand made REV-PL/LOGO-3/LAND-1/
 PROG-3 wait 10–12 min each). Keep ≤ 8 live agents until the lockstep-gap
 cause (22:32–22:51, every agent idle together) is known.
+(8) **Package `CLAUDE.md` diets** (DESK-R nit, 2026-10-27): a report that shrinks a
+`CLAUDE.md` lists every deleted fact with its reason (engineer.md 15); when the reason
+is the size budget, the commit message carries `budget cut: <fact>` so the fact stays
+findable in `git log` ("Not built: a second user on one device" vanished silently).
 (8) **Path-list commits while another stream is live** (EM batch 12, P2):
 before `git add <99 paths>`, check that no listed file changed after the live
 stream's dispatch — `stat -f %m` (or `find <paths> -newer <marker>`) against

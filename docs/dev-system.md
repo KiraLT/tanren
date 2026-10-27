@@ -24,7 +24,9 @@ match this document (or change this document deliberately, via ADR).
    functional rules, typecheck and tests. Hooks format files as they are
    written so agents never argue with the formatter.
 5. **Verify, don't trust.** Engineer reports include the commands they ran
-   and the output. A reviewer re-reads the diff. QA re-runs the gate. The
+   and the output. A reviewer re-reads the diff. Its first move on any component rendered on a second
+   surface is a side-by-side of both surfaces' handlers and targets (one behaviour per card; DESK-R found Home
+   and Activity opening the same in-progress card differently, 2026-10-27). QA re-runs the gate. The
    Lead reports outcomes to the owner faithfully, failures included.
 6. **Decisions are written down.** Anything architectural goes in an ADR.
    The plan (`docs/plan.md`) is the constitution; deviations from it need the

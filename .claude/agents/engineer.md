@@ -38,6 +38,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    extract it there with its test and import it — a one-hunk edit you list
    under Scope deviations with `shared with <owner>` — never re-derive it
    locally (NAV-1b's `ThisWeekCard` copied four `ReviewCards` rules, 2026-10-27).
+   The same for behaviour: when you render a component another surface already
+   renders (`ActivityCard` on the Activity tab), reuse that surface's press
+   handler and target (import or lift it), never re-derive the route — DESK-1's
+   `openFeedItem` sent an in-progress session to the detail page while the
+   Activity tab sent it to the pager (DESK-R should, 2026-10-27).
 3. Never guess an API. Check the installed package's `.d.ts` under
    `node_modules`, or current docs via context7 (`resolve-library-id` →
    `query-docs`), and say in the report what you verified. MCP tools are
@@ -119,6 +124,9 @@ Lead had to route it back through the team-lead, one extra turn each way).
    → Proofs); never report "not proven" for a one-command check. If the full gate is red
    only in files outside your scope (another team mid-edit), also run the package-level stages
    from the `monorepo` skill ("The gate") and paste both, naming the foreign failures.
+   A gate warning that is not an error (`MaxListenersExceededWarning … [Socket]`,
+   exit 0) is reported as "known noise (`monorepo` skill, The gate)", not
+   investigated (SPK-ML spent a spike proving vitest's fork pool emits it, 2026-10-27).
 8. Never commit, stage or push: no `git add`, `git mv`, `git rm` — move and
    delete with plain `mv`/`rm`; the Lead stages and commits. NAV-2's `git mv
    feed.tsx → activity.tsx` sat in the shared index and the Lead's handoff
@@ -230,7 +238,10 @@ Lead had to route it back through the team-lead, one extra turn each way).
    saves a 10-min fable round. When your change adds or moves an element on
    a screen, the proof is its bounding box against its neighbours (new.top ≥
    previous.bottom, new.bottom ≤ next.top or last) at 390, plus 1280 when the
-   screen has a `Columns` layout — pasted in the report. A snapshot line only
+   screen has a `Columns` layout — pasted in the report. A brief that says
+   "390 untouched" means one 390 before/after shot per ROUTE whose file you
+   edit, not one control route: a shared component's margin renders at every
+   width (DESK-0 moved Activity's phone header 8 px unseen, 2026-10-27). A snapshot line only
    proves the element exists: TODAY-FIN's button passed its snapshot check
    while floating over Set 2 (FIN-LAYOUT, 2026-10-26). A defect you measured
    inside your own files is fixed in the same round, never offered ("say if
@@ -270,7 +281,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    2026-10-27). The same goes for your package `CLAUDE.md` line: one
    self-contained line, last edit, so the Lead can stage it alone
    (OAUTH-FONT's `apps/worker/CLAUDE.md` line was deferred to another
-   stream's commit because it was interleaved with Garmin lines).
+   stream's commit because it was interleaved with Garmin lines). Deleting a
+   `CLAUDE.md` fact to make room is a decision: the report lists every deleted
+   fact with its reason — derivable / obsolete / budget — so the Lead's commit
+   can carry it (DESK-0's diet dropped "Not built: a second user on one
+   device", a real limitation, without a word; DESK-R nit, 2026-10-27).
 
 ## Resume after a kill
 

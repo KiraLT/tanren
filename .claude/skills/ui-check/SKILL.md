@@ -55,6 +55,13 @@ ab eval 'fetch("http://localhost:8787/api/auth/sign-in/magic-link",{method:"POST
 L=$(sed 's/\x1b\[[0-9;]*m//g' $S/<task>-wrangler.log | grep -o "http://localhost:8787/api/auth/magic-link/verify[^ ]*" | tail -1)
 # seeded Health week: DayBars are Mon–Sun, so the default seed (end Tue 27 Oct) shows 2 burned bars + "upcoming";
 # all 7 need `pnpm db:seed -- --end <a Sunday> --persist-to $D` plus a browser fake date on that Sunday (INT-N e2e, 2026-10-27)
+# nutrition / health captures (DayBars, WeekChartCard, TrackerCard, Health): the signed-out demo seed
+# (`apps/mobile/src/store/seed.ts`) writes NO `food_entry` / `daily_health` rows — a dev-server empty store can never
+# show them; use the seeded worker + magic-link sign-in. From a shell instead of `ab eval` (DESK-1 recipe, 2026-10-27):
+# curl -s -X POST localhost:8787/api/auth/sign-in/magic-link -H 'content-type: application/json' \
+#   -H 'Origin: http://localhost:8081' -d '{"email":"dev@tanren.local","callbackURL":"http://localhost:8081/home"}'
+# (the Origin header must be in ALLOWED_ORIGINS or trustedOrigins rejects), then `ab open "$L"` in a FRESH
+# `--session <task>`: a reused session's cookie jar hides the redirect and shoots the sign-in form.
 ab open "$L"                                  # verify link → cookie set → redirected to callbackURL
 ab eval 'fetch("http://localhost:8787/api/auth/get-session",{credentials:"include"}).then(r=>r.text())'   # user json, not null
 ab find role button click --name "Log set 1: …"

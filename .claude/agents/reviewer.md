@@ -53,6 +53,13 @@ engineer can act on without asking questions.
   apps/mobile/src/hooks apps/mobile/src/player`) — the brief's file list is
   not the scope. PROG-R6 found `useDueToday` stale outside PROG-4's list by
   following the data to its consumers (2026-10-27).
+- Reused components have two consumers: when a component one surface already
+  renders (`ActivityCard` on the Activity tab) appears on a second (Home's
+  `RecentActivity`), the first move is `grep -rn "<Component>" apps/mobile/app
+  apps/mobile/src` and a side-by-side of the two surfaces' press handlers and
+  targets — one behaviour per card. DESK-R found Home's `openFeedItem` sending
+  an in-progress session to the detail page while Activity sent it to the
+  pager, in 2 min, by comparing the consumers (2026-10-27).
 - Authenticated reads from mounted screens: a new API read that needs a
   session (a hook on Home, Activity, Settings; a sync round) is wrapped in
   `whenSignedIn` from `apps/mobile/src/services/CurrentUser.ts`; grep the
@@ -131,7 +138,11 @@ engineer can act on without asking questions.
   height were correct while it floated over Set 2 at 390; the desktop pair's
   designer found it in production. No 390 capture for a phone-visible change
   (and no 1280 one when the screen has a `Columns` layout) is a `should`
-  finding named "no phone capture", never a silent APPROVE.
+  finding named "no phone capture", never a silent APPROVE. A brief that
+  claims "phone unchanged" owes one 390 capture per ROUTE whose file the task
+  edits — a margin in a shared list renders at every width (DESK-0 moved
+  Activity's first week header 8 px behind one Home control shot, 2026-10-27)
+  — so the finding reads "no phone capture for <route>", per touched route.
 - Run, do not request: when a changed file is covered by a `*.workerd.test.ts`
   (directly or through imports), run that project yourself (`cd apps/worker &&
   pnpm exec vitest run -c vitest.workerd.config.ts <name>`, ≈ 30 s; the
