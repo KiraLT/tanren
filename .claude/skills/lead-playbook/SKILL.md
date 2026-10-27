@@ -68,6 +68,13 @@ lost 16 min (23:16 → 23:32) because the five side streams started in one
 turn after the owner's nudge although every input existed at fan-out.
 After any EM or retro edit to a role file, forward the deltas to live
 team-leads by SendMessage (they run on the file they were spawned with).
+A skill defect reported by any agent (a recipe grep returns empty, a captured
+screen is the wrong one) is fixed in the skill in the same turn AND the fixed
+line is SendMessage'd to every live agent dispatched with the old text: the
+ui-check magic-link grep cost HOTFIX-1, INT-N and HM-3 a round trip each while
+HM-2/HM-3 ran on the stale recipe (16:32–16:38, 2026-10-27; EM batch 16 P1).
+A report whose Decisions carry `CONFLICT:` is ruled on before the designer or
+QA round is dispatched; HM-3's unflagged spec departure cost F1 + r2 (P4).
 A side stream that changes a shared schema or the `Env`/`EnvVars` type
 updates every consumer's fixtures and test vars in the same task (the brief
 greps the symbol across `apps/` and `packages/`); live teams get the file
@@ -375,6 +382,10 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
   from a structural count, not a fixed-context grep (EQ-C: 19 was 24).
 
 ## Scope
+In: <a brief that names the file of a UI row, label or copy string gets it from
+  `grep -rn "<title constant>" apps/mobile` in the dispatch turn and pastes file:line — INT-N-a's
+  `NutritionSection.tsx` pointer was wrong, the row was `app/settings/nutrition.tsx:337`
+  (EM batch 16, P2)>
 In: <files / modules you own in this brief — name the component that *renders* the thing being
 changed, found by grep (`grep -rn SetList apps/mobile/src`), not the file a diagnosis cites:
 FIN-LAYOUT's "TodayReady.tsx only" was wrong and the engineer rightly deviated (EM batch 6, P4).
@@ -422,6 +433,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
       `wc -c` for one file) — IMG-2 read "a few MB" and shipped 11 MB
 - [ ] every proof names the output that would fail it; a check that cannot fail is not
+- [ ] (auth) done-criteria copy the design's post-revoke truth table (ADR-0022: access tokens
+      outlive a revoke ≤ 15 min by design); "old access token is 401" (STLS-F5) contradicted the
+      ADR and cost the engineer a flagged non-criterion (EM batch 16, P3)
 - [ ] no legacy left behind (plan Amendment 23): the replacement deleted what it replaced — no shim,
       alias, dual path, `legacy`/`old` name, dead export or "remove later" marker (`grep -rn "deprecated\|legacy\|TODO remove" <paths>` → 0);
       a schema/wire change the running Worker cannot serve is split expand → migrate → deploy → contract a criterion
