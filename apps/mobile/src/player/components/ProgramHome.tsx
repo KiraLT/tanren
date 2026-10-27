@@ -1,7 +1,7 @@
 import type { Program, ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
-import { View } from "react-native"
+import { Pressable, View, type ViewStyle } from "react-native"
 import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import {
@@ -130,6 +130,8 @@ interface DayCardProps {
   readonly onResume: () => void
   /** The Resume pill: primary on the detail hero (default), secondary in the tab's list. */
   readonly resumeVariant?: ButtonVariant
+  /** When given, the header (ring + name) opens the current day's read-only preview. */
+  readonly onOpenDay?: () => void
 }
 
 /** The enrolled program: progress ring, name, "Day 2 of 30 · …" and the one primary pill. */
@@ -140,32 +142,53 @@ export function DayCard({
   paused,
   onResume,
   resumeVariant = "primary",
+  onOpenDay,
 }: DayCardProps) {
   const total = program.days.length
+  const headerContent = (
+    <>
+      <ProgressRing
+        size="md"
+        stroke={3}
+        progress={programProgress(day.dayNumber, total)}
+        accessibilityLabel={`${program.name}, ${daysDone(day.dayNumber, total)} of ${total} days done`}
+      >
+        <Text variant="headline" tabular>
+          {String(day.dayNumber)}
+        </Text>
+      </ProgressRing>
+      <View style={{ flex: 1, gap: space.xs }}>
+        <Text variant="title2" headingLevel={2}>
+          {program.name}
+        </Text>
+        <Text variant="subhead" tone="muted">
+          {dayCardLine(day, total)}
+        </Text>
+        {paused ? <StatusPill tone="muted" label="Paused" /> : null}
+      </View>
+    </>
+  )
+  const headerStyle: ViewStyle = {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    minHeight: sizes.tap,
+  }
   return (
     <Card>
       <View style={{ gap: space.lg }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <ProgressRing
-            size="md"
-            stroke={3}
-            progress={programProgress(day.dayNumber, total)}
-            accessibilityLabel={`${program.name}, ${daysDone(day.dayNumber, total)} of ${total} days done`}
+        {onOpenDay === undefined ? (
+          <View style={headerStyle}>{headerContent}</View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Preview day ${day.dayNumber} of ${program.name}`}
+            onPress={onOpenDay}
+            style={headerStyle}
           >
-            <Text variant="headline" tabular>
-              {String(day.dayNumber)}
-            </Text>
-          </ProgressRing>
-          <View style={{ flex: 1, gap: space.xs }}>
-            <Text variant="title2" headingLevel={2}>
-              {program.name}
-            </Text>
-            <Text variant="subhead" tone="muted">
-              {dayCardLine(day, total)}
-            </Text>
-            {paused ? <StatusPill tone="muted" label="Paused" /> : null}
-          </View>
-        </View>
+            {headerContent}
+          </Pressable>
+        )}
         {paused ? (
           <Button
             label="Resume"

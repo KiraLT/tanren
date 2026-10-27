@@ -19,10 +19,12 @@ interface ActiveSectionProps {
   readonly active: ReadonlyArray<ActiveProgram>
   readonly onStart: (enrollmentId: string) => void
   readonly onResume: (entry: ActiveProgram) => void
+  /** The card's name area: open the read-only preview of the enrollment's current day. */
+  readonly onOpenDay: (entry: ActiveProgram) => void
 }
 
 /** "Active": one `DayCard` per running (active or paused) enrollment; nothing when none run. */
-export function ActiveSection({ active, onStart, onResume }: ActiveSectionProps) {
+export function ActiveSection({ active, onStart, onResume, onOpenDay }: ActiveSectionProps) {
   if (Arr.isReadonlyArrayEmpty(active)) {
     return null
   }
@@ -41,6 +43,7 @@ export function ActiveSection({ active, onStart, onResume }: ActiveSectionProps)
                 paused={entry.enrollment.status === "paused"}
                 onStart={() => onStart(entry.enrollment.id)}
                 onResume={() => onResume(entry)}
+                onOpenDay={() => onOpenDay(entry)}
                 resumeVariant="raised"
               />
             ),

@@ -61,6 +61,16 @@ export default function ProgramsScreen() {
             onResume={(entry) => {
               setStatus(entry.enrollment.id, "active")
             }}
+            onOpenDay={(entry) =>
+              // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+              router.push({
+                pathname: "/programs/[programId]/day/[n]",
+                params: {
+                  programId: entry.enrollment.programId,
+                  n: String(entry.enrollment.currentDay),
+                },
+              })
+            }
           />
         )
         const list = (

@@ -1,12 +1,22 @@
 import { Array as Arr, DateTime, Effect, Exit, Option } from "effect"
 import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
-import { View } from "react-native"
+import { Pressable, View } from "react-native"
 import { dayMinutes } from "../player/programDays"
 import { useStoreVersion } from "../player/usePrograms"
 import { type ActiveProgram, ProgramRepo } from "../services/ProgramRepo"
 import { runtime } from "../services/runtime"
-import { Button, ListGroup, ListRow, rhythm, space, Text } from "../ui"
+import {
+  Button,
+  ListGroup,
+  radius,
+  rhythm,
+  sizes,
+  space,
+  Text,
+  usePressableInteraction,
+  useTheme,
+} from "../ui"
 
 /** Active programs whose next day is not yet done today; empty while loading or on a read failure. */
 export const useDueToday = (): ReadonlyArray<ActiveProgram> => {
@@ -36,6 +46,64 @@ const dueSubtitle = ({ day }: ActiveProgram): string =>
     onSome: (today) => `Day ${today.dayNumber} · ≈ ${dayMinutes(today)} min`,
   })
 
+interface DueRowProps {
+  readonly entry: ActiveProgram
+  readonly onOpen: () => void
+  readonly onStart: () => void
+}
+
+/**
+ * A `ListRow`-shaped row with two sibling targets: the title column opens the day preview, the
+ * "Start" pill opens the player. Not a `ListRow` with `onPress`: that wraps `trailing` in its own
+ * Pressable, and web would render a button inside a button.
+ */
+function DueRow({ entry, onOpen, onStart }: DueRowProps) {
+  const { colors } = useTheme()
+  const { hovered, handlers, focusStyle } = usePressableInteraction()
+  return (
+    <View
+      style={{
+        minHeight: sizes.tap + 2 * space.sm,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: space.md,
+        paddingHorizontal: space.lg,
+        paddingVertical: space.sm,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${entry.program.name}, ${dueSubtitle(entry)}, opens the day preview`}
+        onPress={onOpen}
+        {...handlers}
+        style={({ pressed }) => [
+          {
+            flex: 1,
+            minHeight: sizes.tap,
+            justifyContent: "center",
+            gap: 2,
+            borderRadius: radius.sm,
+            ...(hovered || pressed ? { backgroundColor: colors.surfaceRaised } : {}),
+          },
+          focusStyle,
+        ]}
+      >
+        <Text variant="headline">{entry.program.name}</Text>
+        <Text variant="subhead" tone="muted">
+          {dueSubtitle(entry)}
+        </Text>
+      </Pressable>
+      <Button
+        size="sm"
+        variant="primary"
+        label="Start"
+        accessibilityLabel={`Start ${entry.program.name}`}
+        onPress={onStart}
+      />
+    </View>
+  )
+}
+
 /**
  * Today's "Programs due": one row per active program with a day left to do, "Start" opens the
  * player. Renders nothing when no program is due.
@@ -53,25 +121,25 @@ export function TodayPrograms() {
       </Text>
       <ListGroup>
         {Arr.map(due, (entry) => (
-          <ListRow
+          <DueRow
             key={entry.enrollment.id}
-            title={entry.program.name}
-            subtitle={dueSubtitle(entry)}
-            accessibilityLabel={`${entry.program.name}, ${dueSubtitle(entry)}`}
-            trailing={
-              <Button
-                size="sm"
-                variant="primary"
-                label="Start"
-                accessibilityLabel={`Start ${entry.program.name}`}
-                onPress={() =>
-                  // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-                  router.push({
-                    pathname: "/programs/play",
-                    params: { enrollmentId: entry.enrollment.id },
-                  })
-                }
-              />
+            entry={entry}
+            onOpen={() =>
+              // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+              router.push({
+                pathname: "/programs/[programId]/day/[n]",
+                params: {
+                  programId: entry.enrollment.programId,
+                  n: String(entry.enrollment.currentDay),
+                },
+              })
+            }
+            onStart={() =>
+              // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+              router.push({
+                pathname: "/programs/play",
+                params: { enrollmentId: entry.enrollment.id },
+              })
             }
           />
         ))}
