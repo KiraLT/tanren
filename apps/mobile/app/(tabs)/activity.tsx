@@ -65,7 +65,7 @@ function FeedList({ items, limit, selected, onOpen, onOpenImported, onLoadMore }
       ),
     [items],
   )
-  const renderRow = ({ item }: { readonly item: FeedRow }) =>
+  const renderRow = ({ item, index }: { readonly item: FeedRow; readonly index: number }) =>
     Match.value(item).pipe(
       Match.tagsExhaustive({
         Header: ({ section }) => (
@@ -73,7 +73,8 @@ function FeedList({ items, limit, selected, onOpen, onOpenImported, onLoadMore }
             accessibilityRole="header"
             style={{
               height: HEADER_HEIGHT,
-              marginTop: space.xl,
+              // The first header sits `space.lg` down, level with the aside's first child (Page frame).
+              marginTop: index === 0 ? space.lg : space.xl,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
@@ -153,7 +154,7 @@ export default function ActivityScreen() {
   const aside = Option.match(shown, {
     onNone: () => undefined,
     onSome: (activity) => (
-      <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: space.lg }}>
         <ActivityDetail key={activity.sessionId} activity={activity} layout={layout} />
       </ScrollView>
     ),

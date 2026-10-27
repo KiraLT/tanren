@@ -2,7 +2,7 @@
 
 Expo SDK 58 + Expo Router app (iPhone via Expo Go, web via `expo start --web`): an offline-first logger on a local
 expo-sqlite store with batched push/pull sync. Contracts live in `docs/design/` (`ls` it; `local-dev.md` §6a is the phone
-recipe) and ADRs, not here. History is `git log` + `docs/tasks/*`.
+recipe) and ADRs, not here.
 
 ## Boundaries
 
@@ -40,6 +40,7 @@ recipe) and ADRs, not here. History is `git log` + `docs/tasks/*`.
 - `src/ui/`: pure style tables each have a test; `iconPaths.ts` has no `chevronUp` (rotate `chevronDown`); `useConfirm`
   (`Confirm.tsx`): native Alert, Forge alertdialog on web (bare `Alert.alert` is a no-op on web).
 - `src/services/`: `Integrations` and `AccountErasure` are provided per call, not in `runtime.ts`.
+- `Page` owns the desktop aside frame (top `space.lg`, sides `gutter.desktop`): an aside never pads its own top or sides.
 
 ## Local store contract
 
@@ -54,11 +55,11 @@ recipe) and ADRs, not here. History is `git log` + `docs/tasks/*`.
   would back-date `finishedAt`).
 - Sync (`SyncEngine.background` via `useSync`): on mount, every 60 s, and `PUSH_DEBOUNCE` 500 ms after `requestSync`. Pull applies a
   row only if strictly newer; push conflicts tie to the server; marks apply only if `updatedAt` is unchanged; an undecodable dirty
-  row gets `_rejected = "invalid"`, not retried. Transport methods are `sendChanges`/`fetchChanges` (noMutation flags own
-  `push`/`sort`/… names; see the `monorepo` skill).
+  row gets `_rejected = "invalid"`, not retried. Transport methods are `sendChanges`/`fetchChanges`. Signed out makes no API call:
+  sync rounds and `useGarminConnected` run via `whenSignedIn`; only the gate's `get-session` probe calls out.
 - Owner: `CurrentUser.signedIn` resolves once per runtime (dev `EXPO_PUBLIC_DEV_USER_ID`, else Better Auth / `NativeSession`, else
   stored `sync_state.ownerUserId`). Signed out: rows carry `LOCAL_USER_ID` and the demo seed runs; signed in:
-  `SyncEngine.rekeyLocalUser` moves them first. Not built: a second user on one device; reads have no `userId` filter.
+  `SyncEngine.rekeyLocalUser` moves them first.
 
 ## Expo facts
 
@@ -114,15 +115,15 @@ kept per exercise in `exercise_step` (v9, `StepRepo`).
 - `NutritionRepo.day(date)` / `.week(monday)` read in `CurrentTimeZone` (insights read the 7 days ENDING the date). Budget = goal
   intake (burn is information); eat-back only when `eatBackActive`; insights ≤ 3.
 - `HealthModule` (→ `/health`): `metaLine` never shows bpm (resting HR only on `/health`, plan Amendment 26); 358 × 214 without an
-  insight, 236 with one line, 252 when it wraps. Settings → Nutrition: the draft is seeded once (a pull mid-edit is overwritten by
-  Save; known limit).
+  insight, 236 with one line. Settings → Nutrition: the draft is seeded once (a pull mid-edit is lost on
+  Save).
 
 ## Illustrations and brand
 
 - Generated, not drawn: `pnpm images:generate [--only <id,…> | --all] [--transparent]` → `images:shrink` → `images:map` (rewrites
   `images.ts`); `muscle:generate`; `logo:generate --w1-export <png>` rebuilds the icon set without a paid run. Key =
-  `OPENAI_API_KEY` in git-ignored `.env.images`. `gpt-image-1` is refused for this account: use `gpt-image-1.5`, `background:
-  "opaque"` for icons. The safety filter refuses some ids at random: rerun them.
+  `OPENAI_API_KEY` in git-ignored `.env.images`. Use `gpt-image-1.5` (`gpt-image-1` is refused), `background:
+  "opaque"` for icons; rerun ids the safety filter refuses.
 - PWA: `manifest.json` + `index.html` colours = brand graphite `#16181D`; `public/index.html` needs its `biome-ignore
   lint/a11y/useValidLang` comment re-added after a re-`expo customize`. `scripts/serviceWorker.ts` writes `dist/sw.js` AFTER
   `expo export`.

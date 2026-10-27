@@ -209,7 +209,8 @@ function CollapsedFilterBar({ state, dispatch, count, location }: CatalogFilterB
 function ExpandedFilterBar({ state, dispatch, count, location }: CatalogFilterBarProps) {
   const { colors } = useTheme()
   return (
-    <View style={{ gap: space.sm, paddingVertical: space.md }}>
+    // `space.lg` on top: level with the aside's first child, which `Page` puts `space.lg` down.
+    <View style={{ gap: space.sm, paddingTop: space.lg, paddingBottom: space.md }}>
       {Option.match(location, {
         onNone: () => null,
         onSome: (active) => (

@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { useLayoutMode } from "../../hooks/useLayoutMode"
 import type { PlanWeekState, PlanWeekView } from "../../hooks/usePlanWeek"
-import { Card, EmptyState, gutter, Page, rhythm, Skeleton, sizes, space, Text } from "../../ui"
+import { Card, EmptyState, Page, rhythm, Skeleton, sizes, space, Text } from "../../ui"
 import { PlannedSessionCard } from "../PlannedSessionCard"
 import { PlanWeek, WeekStats } from "../PlanWeek"
 import { localDateOf } from "../planFormat"
@@ -105,9 +105,7 @@ function PlanReady({ view, header }: PlanReadyProps) {
       />
     ),
     onSome: (item) => (
-      <ScrollView
-        contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg, gap: space.lg }}
-      >
+      <ScrollView contentContainerStyle={{ paddingBottom: space.lg, gap: space.lg }}>
         <PlannedSessionCard item={item} />
         {/* Desktop only: the phone shows the same numbers under the week header (PlanWeek). */}
         <View style={{ gap: rhythm.labelToGroup }}>

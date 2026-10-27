@@ -102,8 +102,7 @@ function TodayAside({ exercises, index, onSelect, current, rest, top }: TodayAsi
     <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
-          padding: gutter[breakpoint],
-          paddingTop: space.xl,
+          paddingBottom: gutter[breakpoint],
           gap: space.md,
         }}
       >

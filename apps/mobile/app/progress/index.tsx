@@ -13,7 +13,6 @@ import {
 import {
   AppBar,
   EmptyState,
-  gutter,
   IconButton,
   ListGroup,
   Page,
@@ -89,7 +88,7 @@ export default function ProgressScreen() {
   const aside = Option.match(selected, {
     onNone: () => <EmptyState title="Nothing to chart yet" body="Log a set to see its history." />,
     onSome: (id) => (
-      <ScrollView contentContainerStyle={{ padding: gutter.desktop, paddingTop: space.lg }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: space.lg }}>
         <ExerciseDetail key={id} exerciseId={id} />
       </ScrollView>
     ),

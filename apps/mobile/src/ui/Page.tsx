@@ -27,6 +27,9 @@ export interface PageProps {
  * Full-bleed `bg` screen (it also covers the web `<body>`), a centred column capped at
  * `contentMaxWidth`, and at desktop (`columnsFor`) a `pageMaxWidth` page: main column plus `aside`
  * split by `split`, or one wide main body (`wide`, children lay out their own `<Columns>`).
+ * `Page` owns the aside frame (`paddingTop: space.lg`, `paddingHorizontal: gutter.desktop`): an
+ * aside never sets its own top or horizontal padding; `Page` aligns its first child with the
+ * column's first child.
  */
 export function Page({
   children,
@@ -86,10 +89,15 @@ export function Page({
               role="complementary"
               style={{
                 flex: 1,
+                paddingTop: space.lg,
+                paddingHorizontal: gutter.desktop,
                 borderLeftWidth: stroke.hairline,
                 borderLeftColor: colors.border,
               }}
             >
+              {/* The aside frame: `space.lg` on top matches the main body's `paddingVertical`, so
+                  the aside's first child lines up with the column's first child; an aside never
+                  sets its own top or horizontal padding (desktop-fill.md §4). */}
               {/* Pinned by construction (ui-polish D2, verified at 1280x800 and 900x800): the page
                   is viewport-high and only the main body scrolls, so this column's top stays at
                   the same y while main scrolls and no `position: sticky` is needed. An aside taller

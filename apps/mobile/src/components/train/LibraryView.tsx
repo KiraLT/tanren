@@ -38,7 +38,7 @@ export function LibraryView({ header }: { readonly header: ReactNode }) {
       <EmptyState icon="dumbbell" headingLevel={2} title="Pick an exercise" body={LIBRARY_ROLE} />
     ),
     onSome: (entry) => (
-      <View style={{ flex: 1, paddingHorizontal: gutter.desktop }}>
+      <View style={{ flex: 1 }}>
         <CatalogDetail key={entry.catalogId} entry={entry} inline={inline} />
       </View>
     ),
