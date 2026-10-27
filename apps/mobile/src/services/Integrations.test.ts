@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
-import { ActivityExportId, type GarminTokenRejected } from "@tanren/shared"
+import { ActivityExportId, type GarminTokenRejected, UserId } from "@tanren/shared"
 import { DateTime, Deferred, Effect, Fiber, Layer, Option, Predicate, Ref, Result } from "effect"
 import { FetchHttpClient } from "effect/http"
 import { TestClock } from "effect/testing"
+import { CurrentUser, whenSignedIn } from "./CurrentUser"
 import {
   GARMIN_CONNECT_RELOAD,
   GARMIN_CONNECT_TIMEOUT_SECONDS,
@@ -534,4 +535,32 @@ describe("shouldReload", () => {
   it("follows the policy for an action that reloads only on success", () => {
     expect(shouldReload({ onSuccess: true, onFailure: false }, "failure")).toBe(false)
   })
+})
+
+describe("Integrations.status behind whenSignedIn (NAV-F2)", () => {
+  const guarded = (signedIn: Option.Option<UserId>) => (integrations: IntegrationsShape) =>
+    whenSignedIn(Effect.as(integrations.status, true), false).pipe(
+      Effect.provide(CurrentUser.layerTest(signedIn)),
+    )
+
+  it.effect("signed out: no request reaches the worker", () =>
+    Effect.gen(function* () {
+      const { result, calls } = yield* scenario(guarded(Option.none()), () => json(CONNECTED))
+      expect(result).toEqual(Result.succeed(false))
+      expect(calls).toEqual([])
+    }),
+  )
+
+  it.effect("signed in: GET /integrations as before", () =>
+    Effect.gen(function* () {
+      const { result, calls } = yield* scenario(
+        guarded(Option.some(UserId.make("00000000-0000-4000-8000-0000000000aa"))),
+        () => json(CONNECTED),
+      )
+      expect(result).toEqual(Result.succeed(true))
+      expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
+        "GET http://api.test/integrations",
+      ])
+    }),
+  )
 })

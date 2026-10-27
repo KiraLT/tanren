@@ -32,6 +32,7 @@ import {
   rekeyStatements,
   writeCursor,
 } from "../store/syncQueries"
+import { type CurrentUser, whenSignedIn } from "./CurrentUser"
 import { encodeChange, LocalChange, LocalStore } from "./LocalStore"
 import { SqlDriver, type SqlRecord, type SqlStatement, StoreError } from "./SqlDriver"
 import { StoreEvents } from "./StoreEvents"
@@ -98,8 +99,9 @@ export interface SyncEngineShape {
   /**
    * Syncs at once, then forever: waits `SYNC_INTERVAL` or a `requestSync` + `PUSH_DEBOUNCE`, and
    * syncs again (`syncOnceExclusive`). A failed round (offline) is reported, not retried early.
+   * While `CurrentUser.signedIn` is `None` every round is skipped: no request, no report.
    */
-  readonly background: (report: SyncReport) => Effect.Effect<never>
+  readonly background: (report: SyncReport) => Effect.Effect<never, never, CurrentUser>
 }
 
 interface Pushed {
@@ -335,12 +337,15 @@ export class SyncEngine extends Context.Service<SyncEngine, SyncEngineShape>()(
         Effect.andThen(Effect.sleep(PUSH_DEBOUNCE)),
         Effect.andThen(Queue.clear(wake)),
       )
+      /** Signed out, a round is skipped unreported: no account, no session, nothing to sync. */
       const round = (report: SyncReport) =>
-        report.started.pipe(
-          Effect.andThen(Effect.exit(syncOnceExclusive)),
-          Effect.flatMap(report.finished),
-          Effect.andThen(Effect.race(requested, Effect.sleep(SYNC_INTERVAL))),
-        )
+        whenSignedIn(
+          report.started.pipe(
+            Effect.andThen(Effect.exit(syncOnceExclusive)),
+            Effect.flatMap(report.finished),
+          ),
+          undefined,
+        ).pipe(Effect.andThen(Effect.race(requested, Effect.sleep(SYNC_INTERVAL))))
 
       return SyncEngine.of({
         syncOnce,

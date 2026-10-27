@@ -11,6 +11,7 @@ import {
   parseDevUserId,
   resolveSignedIn,
   SessionBody,
+  whenSignedIn,
 } from "./CurrentUser"
 import { NativeSession } from "./NativeSession"
 
@@ -191,6 +192,30 @@ describe("currentUserFrom", () => {
       yield* Effect.yieldNow
       yield* current.refresh
       expect(yield* Fiber.join(subscriber)).toEqual([Option.none(), Option.some(USER)])
+    }),
+  )
+})
+
+describe("whenSignedIn (NAV-F2)", () => {
+  const counted = (runs: Ref.Ref<number>) => Ref.update(runs, (n) => n + 1).pipe(Effect.as("ran"))
+
+  it.effect("signed out: the fallback, and the effect never runs", () =>
+    Effect.gen(function* () {
+      const runs = yield* Ref.make(0)
+      const value = yield* whenSignedIn(counted(runs), "skipped").pipe(
+        Effect.provide(CurrentUser.layerTest(Option.none())),
+      )
+      expect([value, yield* Ref.get(runs)]).toEqual(["skipped", 0])
+    }),
+  )
+
+  it.effect("signed in: the effect runs once", () =>
+    Effect.gen(function* () {
+      const runs = yield* Ref.make(0)
+      const value = yield* whenSignedIn(counted(runs), "skipped").pipe(
+        Effect.provide(CurrentUser.layerTest(Option.some(USER))),
+      )
+      expect([value, yield* Ref.get(runs)]).toEqual(["ran", 1])
     }),
   )
 })

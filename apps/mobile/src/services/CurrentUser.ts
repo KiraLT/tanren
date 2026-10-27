@@ -157,6 +157,19 @@ export class CurrentUser extends Context.Service<CurrentUser, CurrentUserShape>(
     )
 }
 
+/**
+ * `effect` only while someone is signed in; else `orElse`, without running it. Authenticated API
+ * reads (the sync loop, the integrations status) go through it, so a signed-out device (the web
+ * landing's hidden navigator, local demo mode) sends nothing that would only come back 401 (NAV-F2).
+ */
+export const whenSignedIn = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  orElse: A,
+): Effect.Effect<A, E, R | CurrentUser> =>
+  CurrentUser.use((user) => user.signedIn).pipe(
+    Effect.flatMap((signedIn) => (Option.isSome(signedIn) ? effect : Effect.succeed(orElse))),
+  )
+
 /** Owner of new local rows: the signed-in user, else `LOCAL_USER_ID`. */
 export const ownerId = (currentUser: CurrentUserShape): Effect.Effect<UserId> =>
   currentUser.signedIn.pipe(Effect.map(Option.getOrElse(() => LOCAL_USER_ID)))

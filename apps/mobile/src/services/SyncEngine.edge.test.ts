@@ -347,21 +347,31 @@ describe("SyncEngine edges", () => {
   )
 })
 
-/** Records every push request, then delegates to the mock server as `LOCAL_USER_ID`. */
-const recording = (sent: Ref.Ref<ReadonlyArray<PushRequest>>) =>
+/** The account `backgroundPhone` is signed in as: `background` syncs only with one (NAV-F2). */
+const BACKGROUND_USER = UserId.make("00000000-0000-4000-8000-0000000000bb")
+
+/** Records every push request and counts pulls, then delegates to the mock server as `userId`. */
+const recording = (
+  sent: Ref.Ref<ReadonlyArray<PushRequest>>,
+  userId: UserId,
+  pulls?: Ref.Ref<number>,
+) =>
   Layer.effect(
     SyncTransport,
     Effect.gen(function* () {
       const inner = yield* SyncTransport
       return SyncTransport.of({
-        fetchChanges: inner.fetchChanges,
+        fetchChanges: (request) =>
+          (pulls === undefined ? Effect.void : Ref.update(pulls, (n) => n + 1)).pipe(
+            Effect.andThen(inner.fetchChanges(request)),
+          ),
         sendChanges: (request) =>
           Ref.update(sent, (all) => [...all, request]).pipe(
             Effect.andThen(inner.sendChanges(request)),
           ),
       })
     }),
-  ).pipe(Layer.provide(MockSyncServer.transport(LOCAL_USER_ID)))
+  ).pipe(Layer.provide(MockSyncServer.transport(userId)))
 
 /** What `useLogSet` runs: the local write, then a sync request. */
 const logSetAndRequest = (weightKg: number) =>
@@ -380,7 +390,10 @@ const backgroundPhone = Effect.gen(function* () {
   const sent = yield* Ref.make<ReadonlyArray<PushRequest>>([])
   const failedRounds = yield* Ref.make(0)
   const firstRound = yield* Deferred.make<void>()
-  const phone = yield* openPhone({ transport: recording(sent) })
+  const phone = yield* openPhone({
+    transport: recording(sent, BACKGROUND_USER),
+    signedIn: BACKGROUND_USER,
+  })
   yield* Effect.forkChild(
     phone.run(
       SyncEngine.use((engine) =>
@@ -450,6 +463,64 @@ describe("SyncEngine.background", () => {
         yield* TestClock.adjust("1 second")
         expect(yield* setsPerPush).toEqual([1, 1])
         expect(yield* Ref.get(failedRounds)).toBe(2)
+      }),
+    ),
+  )
+})
+
+describe("SyncEngine.background signed out (NAV-F2)", () => {
+  it.effect("a device with no account sends no push and no pull, and reports no round", () =>
+    withServer(
+      Effect.gen(function* () {
+        const sent = yield* Ref.make<ReadonlyArray<PushRequest>>([])
+        const pulls = yield* Ref.make(0)
+        const rounds = yield* Ref.make(0)
+        const phone = yield* openPhone({ transport: recording(sent, LOCAL_USER_ID, pulls) })
+        const fiber = yield* Effect.forkChild(
+          phone.run(
+            SyncEngine.use((engine) =>
+              engine.background({
+                started: Ref.update(rounds, (n) => n + 1),
+                finished: () => Effect.void,
+              }),
+            ),
+          ),
+        )
+        yield* phone.run(logSetAndRequest(50))
+        yield* TestClock.adjust("3 minutes")
+        expect([
+          (yield* Ref.get(sent)).length,
+          yield* Ref.get(pulls),
+          yield* Ref.get(rounds),
+        ]).toEqual([0, 0, 0])
+        yield* Fiber.interrupt(fiber)
+      }),
+    ),
+  )
+
+  it.effect("the same device signed in pulls on its first round", () =>
+    withServer(
+      Effect.gen(function* () {
+        const sent = yield* Ref.make<ReadonlyArray<PushRequest>>([])
+        const pulls = yield* Ref.make(0)
+        const phone = yield* openPhone({
+          transport: recording(sent, BACKGROUND_USER, pulls),
+          signedIn: BACKGROUND_USER,
+        })
+        const firstRound = yield* Deferred.make<void>()
+        const fiber = yield* Effect.forkChild(
+          phone.run(
+            SyncEngine.use((engine) =>
+              engine.background({
+                started: Effect.void,
+                finished: () => Deferred.succeed(firstRound, undefined).pipe(Effect.asVoid),
+              }),
+            ),
+          ),
+        )
+        yield* Deferred.await(firstRound)
+        expect(yield* Ref.get(pulls)).toBe(1)
+        yield* Fiber.interrupt(fiber)
       }),
     ),
   )

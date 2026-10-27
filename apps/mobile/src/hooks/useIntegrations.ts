@@ -9,6 +9,7 @@ import {
   isBlocked,
 } from "../components/settings/integrationsCopy"
 import { isTrackerConnected } from "../components/today/healthModuleMath"
+import { type CurrentUser, whenSignedIn } from "../services/CurrentUser"
 import { FeedRepo } from "../services/FeedRepo"
 import {
   GARMIN_CONNECT_RELOAD,
@@ -137,7 +138,7 @@ const failedActionOf = (cause: Cause.Cause<unknown>, action: ActionName): Action
     },
   )
 
-type Requirements = Integrations | FeedRepo | DateTime.CurrentTimeZone
+type Requirements = Integrations | FeedRepo | DateTime.CurrentTimeZone | CurrentUser
 
 /** Runs an Integrations effect on the app runtime with the service's own layer. */
 const run = <A, E>(effect: Effect.Effect<A, E, Requirements>, signal?: AbortSignal) =>
@@ -217,9 +218,15 @@ export const useIntegrationsOverview = () => {
  * health module's "Waiting for Garmin" vs "No tracker connected" (health-module.md §6).
  */
 export const useGarminConnected = (): boolean => {
-  const { state } = useIntegrationsOverview()
-  return state._tag === "Ready" && state.value.garmin.state === "connected"
+  const { state } = useFocusLoad(loadGarminConnected)
+  return state._tag === "Ready" && state.value
 }
+
+/** Signed out: `false` without asking the worker (Home sits behind the web landing, NAV-F2). */
+const loadGarminConnected = whenSignedIn(
+  loadOverview.pipe(Effect.map((overview) => overview.garmin.state === "connected")),
+  false,
+)
 
 /** Module-level reader: stable identity for `useStoreRead`. */
 const readHasDailyHealth: StoreRead<undefined, boolean> = () =>
