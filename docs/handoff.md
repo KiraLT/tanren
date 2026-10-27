@@ -60,6 +60,14 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   production `NATIVE_RETURN_PREFIXES` is live too. OPEN: the claude.ai app's document URL is unconfirmed — if the
   owner's consent screen shows Unknown with "document hosted on claude.ai", widen the `/oauth/` prefix (one-line change
   in knownClients.ts + test) and redeploy.
+- **Garmin + legal planning wave** (plan Amendments 18 + 19, dispatched 13:40): spike G1 probes Garmin's Personal API
+  with the owner's TEST token (stored only at `scratchpad/secrets/garmin.token`, mode 600, never committed; the owner
+  regenerates it after testing) → `docs/research/2026-10-27-garmin-personal-api.md`; architect Garmin → ADR-0023 +
+  `docs/design/garmin.md` + `docs/tasks/v5-garmin.md` (Settings paste-token row, sealed token, cron pull into synced
+  `imported_activity` / `daily_health`, feed cards; migration **0007** after STLS's 0006 is committed); architect legal →
+  ADR-0024 + `docs/design/legal.md` (draft Privacy Policy + Terms with `[OWNER]` markers, `/privacy` + `/terms` public
+  pages, landing/sign-in/About/consent links, `hello@tanren.me` via Cloudflare Email Routing) + `docs/tasks/v5-legal.md`.
+  Engineering for both starts after the STLS W2 commit (shared files, migration order).
 - **Auth v2 wave** (plan Amendments 16 + 17, dispatched 12:45): spike S1 → `docs/research/mcp-client-identities.md`
   (CIMD in workers-oauth-provider 1.2.3, the Claude/ChatGPT client ids, trust model), spike S2 →
   `docs/research/stateless-sessions.md` (Better Auth stateless options with a symmetric secret; what the OAuth
@@ -126,6 +134,14 @@ on AC). Retro verdict: throughput high (9 streams,
    light-scheme colour set, eyebrow repeats the name; dark captures for the Plan logged line) — or the next
    feature the owner names; the v4 backlog is otherwise empty.
 3. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.
+3a. Parked, owner-asked 2026-10-27 13:15: **Garmin**. Garmin reopened its Connect Developer Program on 2026-10-21 with a
+   free **Personal** tier: instant key + access tokens from https://connect.garmin.com/app/settings/personalApiToken,
+   own data only, pull-only Activity (JSON + .FIT), Health and Women's Health JSON; Training/Courses (push a workout to
+   the watch) are business tiers only (Starter: free, apply via form, push-only, limited users). Fit for Tanren: the
+   Worker pulls the owner's activities + daily health on the existing `*/5` cron with the personal token as a Worker
+   secret → feed cards for runs/calories (ADR + spike on token lifetime, rate limits, history depth, which the public
+   pages do not state). Alternatives noted: Apple Health bridge (native build), Strava bridge (parked keys); MyFitnessPal
+   has no public API. Sources: developer.garmin.com/gc-developer-program/overview/, dcrainmaker 2026-10 revamp article.
 4. Design notes parked: landing light-scheme illustration amber vs rust primary (one colour set, D1),
    eyebrow repeats the name; landing `contentH` probe is the measure (`docH` = viewport on `Page scroll`).
 5. Process: forward role-file deltas to any team-lead spawned before the last EM batch in the same turn the

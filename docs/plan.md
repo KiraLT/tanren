@@ -236,3 +236,28 @@ Recorded 2026-10-19, from the owner's kickoff message:
    the design keeps short access-token lifetimes and one integer per user
    (a token generation in D1) that bumps on disconnect / sign-out everywhere;
    the architect validates or overrides (ADR-0022).
+18. **Legitimate business surface** (2026-10-27 13:30, owner, verbatim): "Also
+   think how to make https://tanren.me like legit business. I think you need
+   to include privacy policy and terms and conditions pages." Lead reading:
+   public `/privacy` and `/terms` pages on tanren.me (reachable signed out,
+   linked from the landing footer, the sign-in page, the OAuth consent page
+   and Settings → About), honest plain-language texts drafted by the
+   architect for the owner's review (data stored, where, third parties,
+   cookies, retention and deletion, contact, governing law, "not medical
+   advice"), a business footer (operator name, contact address such as
+   `hello@tanren.me` via Cloudflare Email Routing), "last updated" dates,
+   and whatever else a connector reviewer or an API program (Strava, Garmin)
+   expects of a real product (ADR-0024, `docs/design/legal.md`,
+   `docs/tasks/v5-legal.md`).
+19. **Garmin integration, personal token** (2026-10-27 13:30, owner, verbatim):
+   "Also add Garmin integrations where you need to enter your personal API
+   token (https://connect.garmin.com/app/settings/personalApiToken)." The
+   owner supplied a personal token for testing only ("use only for testing,
+   do not add to the code"); it lives outside the repo and is never
+   committed. Lead reading: Settings → Integrations gains a Garmin row where
+   the owner pastes the personal API token; the Worker validates it against
+   Garmin, seals it like the Strava tokens, and pulls activities and daily
+   health on the existing cron into the feed (runs, walks, rides with
+   duration, distance, calories, heart rate) and the day's calories;
+   disconnect removes the token (ADR-0023, `docs/design/garmin.md`,
+   `docs/tasks/v5-garmin.md`; spike G1 first on the real API).
