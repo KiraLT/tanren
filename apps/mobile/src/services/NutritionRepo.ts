@@ -1,5 +1,6 @@
 import {
   buildDayTotals,
+  closedWeekInsights,
   type DailyHealth,
   DailyHealthRow,
   type DayTotals,
@@ -16,8 +17,7 @@ import {
 import { Array as Arr, Context, DateTime, Effect, Layer, Option, pipe, Schema } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
 import { liveFoodEntries } from "./FoodEntryRepo"
-import { decodeRecords, LocalStore } from "./LocalStore"
-import { PlanWeekRepo } from "./PlanWeekRepo"
+import { decodeRecords, LocalStore, type LocalStoreShape } from "./LocalStore"
 import { shiftDate } from "./progressMath"
 import type { StoreError } from "./SqlDriver"
 
@@ -37,7 +37,7 @@ export interface HealthWeek {
   readonly health: ReadonlyArray<DailyHealth>
 }
 
-/** Both read the device zone per call (`DateTime.CurrentTimeZone`), like `PlanWeekRepo.currentWeek`. */
+/** Both read the device zone per call (`DateTime.CurrentTimeZone`). */
 export interface NutritionRepoShape {
   /** The local date's totals (device zone midnight to midnight) and its insights. */
   readonly day: (
@@ -57,14 +57,40 @@ export interface NutritionRepoShape {
 const HEALTH = `SELECT * FROM "daily_health" WHERE "deletedAt" IS NULL AND "date" >= ? AND "date" <= ?
   ORDER BY "updatedAt" DESC`
 const PROFILE = `SELECT * FROM "profile" WHERE "id" = ? AND "deletedAt" IS NULL LIMIT 1`
+/** The MCP rule (`get_week_review`): sessions started in the week with `finishedAt` set. */
 const WORKOUTS = `SELECT COUNT(*) AS "n" FROM "workout_session" WHERE "deletedAt" IS NULL
-  AND "finishedAt" IS NOT NULL AND "finishedAt" >= ? AND "finishedAt" < ?`
+  AND "finishedAt" IS NOT NULL AND "startedAt" >= ? AND "startedAt" < ?`
+/**
+ * Live planned sessions of the active plan's week whose 7 days contain the Monday: `weekStart` in
+ * `(monday − 7, monday]`, the Worker's `get_week_review` rule (plan weeks start on any weekday).
+ */
+const PLANNED = `SELECT COUNT(*) AS "n" FROM "planned_session" WHERE "deletedAt" IS NULL
+  AND "planWeekId" = (SELECT pw."id" FROM "plan_week" pw JOIN "plan" p ON p."id" = pw."planId"
+    WHERE p."status" = 'active' AND p."deletedAt" IS NULL AND pw."deletedAt" IS NULL
+      AND pw."weekStart" <= ? AND pw."weekStart" > ?
+    ORDER BY pw."weekStart" DESC, pw."id" LIMIT 1)`
 const ACTIVITIES = `SELECT * FROM "imported_activity" WHERE "deletedAt" IS NULL
   AND "startedAt" >= ? AND "startedAt" < ? ORDER BY "startedAt" DESC, "id" DESC`
 
 const ANY_HEALTH = `SELECT 1 AS "n" FROM "daily_health" WHERE "deletedAt" IS NULL LIMIT 1`
 
 const CountRow = Schema.Struct({ n: Schema.Number })
+
+/** The `n` of a `COUNT(*) AS "n"` statement (0 when no row comes back). */
+export const countOf = (
+  store: LocalStoreShape,
+  sql: string,
+  params: ReadonlyArray<string>,
+): Effect.Effect<number, StoreError> =>
+  store.all({ sql, params }).pipe(
+    Effect.flatMap(decodeRecords(CountRow)),
+    Effect.map((rows) =>
+      Option.getOrElse(
+        Option.map(Arr.head(rows), (row) => row.n),
+        () => 0,
+      ),
+    ),
+  )
 
 const datesFrom = (first: LocalDate, count: number): Arr.NonEmptyReadonlyArray<LocalDate> =>
   Arr.map(Arr.range(0, count - 1), (offset) => LocalDate.make(shiftDate(first, offset)))
@@ -80,7 +106,7 @@ const midnight = (date: LocalDate, zone: DateTime.TimeZone): DateTime.Utc => {
 }
 
 /** `[local midnight of first, local midnight of first + days)` as instants. */
-const rangeOf = (first: LocalDate, days: number, zone: DateTime.TimeZone) => ({
+export const rangeOf = (first: LocalDate, days: number, zone: DateTime.TimeZone) => ({
   from: midnight(first, zone),
   to: midnight(LocalDate.make(shiftDate(first, days)), zone),
 })
@@ -91,12 +117,12 @@ const localDateIn = (instant: DateTime.DateTime, zone: DateTime.TimeZone): Local
 export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoShape>()(
   "@tanren/NutritionRepo",
 ) {
-  /** Needs `LocalStore`, `CurrentUser` and `PlanWeekRepo`. ≤ 5 own SELECTs per call. */
+  /** Needs `LocalStore` and `CurrentUser`. ≤ 6 SELECTs per call. */
   static readonly layer = Layer.effect(
     this,
     Effect.gen(function* () {
       const store = yield* LocalStore
-      const plans = yield* PlanWeekRepo
+      const count = (sql: string, params: ReadonlyArray<string>) => countOf(store, sql, params)
       const owner = ownerId(yield* CurrentUser)
 
       /** `DayTotals` for `count` consecutive dates from `first`: 3 SELECTs. */
@@ -142,7 +168,8 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
 
       /**
        * Insights for a week (design §5): judged on the current date with the hour now when the
-       * week contains it, on Sunday at 23:00 for a past week, and none for a week still ahead.
+       * week contains it, only the `week_*` rules for a past week (its days are over, NAV-F1),
+       * and none for a week still ahead.
        */
       const weekInsights = (
         days: Arr.NonEmptyReadonlyArray<DayTotals>,
@@ -154,7 +181,7 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
           : Option.match(
               Arr.findFirst(days, (d) => d.date === todayDate),
               {
-                onNone: () => insights({ today: Arr.lastNonEmpty(days), week: days, hour: 23 }),
+                onNone: () => closedWeekInsights(days),
                 onSome: (today) =>
                   insights({ today, week: days, hour: DateTime.getPart(now, "hour") }),
               },
@@ -166,27 +193,14 @@ export class NutritionRepo extends Context.Service<NutritionRepo, NutritionRepoS
           const { days, health } = yield* daysFrom(weekStart, 7, zone)
           const { from, to } = rangeOf(weekStart, 7, zone)
           const bounds = [DateTime.formatIso(from), DateTime.formatIso(to)]
-          const workoutsDone = yield* store.all({ sql: WORKOUTS, params: bounds }).pipe(
-            Effect.flatMap(decodeRecords(CountRow)),
-            Effect.map((rows) =>
-              Option.getOrElse(
-                Option.map(Arr.head(rows), (row) => row.n),
-                () => 0,
-              ),
-            ),
-          )
+          const workoutsDone = yield* count(WORKOUTS, bounds)
           const activities = yield* store
             .all({ sql: ACTIVITIES, params: bounds })
             .pipe(Effect.flatMap(decodeRecords(ImportedActivityRow)))
-          const current = yield* plans.currentWeek
-          const workoutsPlanned = Option.match(
-            Option.filter(current, (view) => view.week.weekStart === weekStart),
-            {
-              onNone: () => 0,
-              onSome: (view) =>
-                Arr.reduce(view.days, view.unscheduled.length, (n, d) => n + d.sessions.length),
-            },
-          )
+          const workoutsPlanned = yield* count(PLANNED, [
+            weekStart,
+            LocalDate.make(shiftDate(weekStart, -7)),
+          ])
           const now = DateTime.setZone(yield* DateTime.now, zone)
           const summary = weekSummary(days)
           const review: WeekReview = {

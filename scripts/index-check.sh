@@ -57,6 +57,20 @@ for p in $PKGS; do
 done
 wait
 
+# Tab routes: Expo's typed routes live in git-ignored .expo/types, so tsc cannot see a staged route
+# rename (a `today.tsx` → `home.tsx` rename once slipped into a commit with `APP_NAV` still saying
+# `today`). The names in APP_NAV must equal the (tabs) route files minus _layout, in the INDEX copy.
+tabs_nav=$(grep -o 'name: "[a-z]*"' "$T/apps/mobile/src/ui/appNav.ts" | sed 's/name: "\(.*\)"/\1/' | sort)
+tabs_files=$(for f in "$T/apps/mobile/app/(tabs)"/*.tsx(N); do [ "${f:t:r}" = "_layout" ] || echo "${f:t:r}"; done | sort)
+if [ "$tabs_nav" = "$tabs_files" ]; then
+  echo "ok    tabs"
+else
+  echo "FAIL  tabs"
+  echo "APP_NAV names:      $(echo $tabs_nav)"
+  echo "(tabs)/*.tsx files: $(echo $tabs_files)"
+  : >"$T/failed-tabs"
+fi
+
 if [ -n "$(echo "$T"/failed-*(N))" ]; then
   echo "== first 30 error lines"
   cat "$T"/out-*.log | grep -E "error|Error|ERR_" | head -30

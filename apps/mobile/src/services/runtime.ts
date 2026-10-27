@@ -34,6 +34,7 @@ import { StoreEvents } from "./StoreEvents"
 import { SyncEngine } from "./SyncEngine"
 import { SyncTransport } from "./SyncTransport"
 import { TodayRepo } from "./TodayRepo"
+import { WeekReviewRepo } from "./WeekReviewRepo"
 
 /**
  * Device ids from expo-crypto: Hermes may lack `crypto.randomUUID`. A generated string is always
@@ -185,7 +186,8 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       FeedRepo.layer,
       ImportedActivityRepo.layer,
       FoodEntryRepo.layer,
-      NutritionRepo.layer.pipe(Layer.provide(PlanWeekRepo.layer)),
+      NutritionRepo.layer,
+      WeekReviewRepo.layer.pipe(Layer.provide(Layer.mergeAll(NutritionRepo.layer, FeedRepo.layer))),
       Account.layer,
       DataExporter.layer,
       SyncEngine.layerNoDeps.pipe(Layer.provide(SyncTransport.layer)),

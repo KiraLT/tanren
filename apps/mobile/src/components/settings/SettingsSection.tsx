@@ -14,7 +14,7 @@ export interface SettingsSectionProps {
 export function SettingsSection({ title, children }: SettingsSectionProps) {
   return (
     <View style={{ gap: rhythm.labelToGroup }}>
-      <Text variant="headline" accessibilityRole="header">
+      <Text variant="headline" headingLevel={2}>
         {title}
       </Text>
       <ListGroup>{children}</ListGroup>

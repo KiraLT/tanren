@@ -5,6 +5,7 @@ import { DailyHealth } from "./garmin"
 import { DailyHealthId, FoodEntryId, UserId } from "./ids"
 import {
   buildDayTotals,
+  closedWeekInsights,
   DayTotals,
   dayTotals,
   FoodEntry,
@@ -357,6 +358,20 @@ describe("insights (nutrition.md §5)", () => {
       budgetKcal: Option.none(),
     })
     expect(rules({ today: off, week: [off], hour: 22 })).toEqual(["nothing_logged"])
+  })
+})
+
+describe("closedWeekInsights (NAV-F1)", () => {
+  it("keeps only week_* rules, even when per-day rules would fire on the last day", () => {
+    const low = logged(1400, 40, "gain_muscle")
+    const week = [low, low, low, low, low, low, day({})] as const
+    expect(rules({ today: week[6], week, hour: 23 })).toContain("nothing_logged")
+    expect(closedWeekInsights(week).map((i) => i.rule)).toEqual(["week_protein_low"])
+  })
+
+  it("is empty when the week's last day has no targets", () => {
+    const off = day({ targets: Option.none() })
+    expect(closedWeekInsights([off])).toEqual([])
   })
 })
 

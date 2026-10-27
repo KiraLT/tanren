@@ -356,6 +356,37 @@ const proteinShortText = (gramsLeft: number): string => {
 const when = (cond: boolean, make: () => Insight): Option.Option<Insight> =>
   cond ? Option.some(make()) : Option.none()
 
+/** The week group: first match of `week_streak`, `week_protein_low`. */
+const weeklyInsight = (
+  week: ReadonlyArray<DayTotals>,
+  targets: DayTargets,
+): Option.Option<Insight> => {
+  const summary = weekSummary(week)
+  return Option.firstSomeOf([
+    when(summary.daysOnKcalTarget >= 5, () =>
+      insight("week_streak", `${summary.daysOnKcalTarget} of 7 days on target this week`),
+    ),
+    when(summary.daysLogged >= 3 && summary.proteinAvgG < 0.8 * targets.proteinG, () =>
+      insight(
+        "week_protein_low",
+        `Protein averaged ${formatInt(summary.proteinAvgG)} g of ${formatInt(targets.proteinG)} g: plan a protein source per meal`,
+      ),
+    ),
+  ])
+}
+
+/**
+ * Insights for a week that has ended (NAV-F1): only the `week_*` rules, judged on the week's last
+ * day. The per-day rules ("1,261 kcal to go") are meaningless once the day is over.
+ */
+export const closedWeekInsights = (
+  week: Arr.NonEmptyReadonlyArray<DayTotals>,
+): ReadonlyArray<Insight> =>
+  Option.match(Arr.lastNonEmpty(week).targets, {
+    onNone: () => [],
+    onSome: (targets) => Arr.getSomes([weeklyInsight(week, targets)]),
+  })
+
 /** ≤ 3 insights, first match per group, in group order kcal, protein, logging, week. Pure. */
 export const insights = (input: InsightInput): ReadonlyArray<Insight> => {
   const { today, week, hour } = input
@@ -367,7 +398,6 @@ export const insights = (input: InsightInput): ReadonlyArray<Insight> => {
     onSome: (targets) => {
       const kcalLeft = Option.getOrElse(today.kcalLeft, () => 0)
       const proteinLeft = Option.getOrElse(today.proteinLeftG, () => 0)
-      const summary = weekSummary(week)
       const kcal = Option.firstSomeOf([
         when(Option.isSome(today.kcalLeft) && kcalLeft < -100, () =>
           insight("kcal_over", `${formatInt(-kcalLeft)} kcal over target today`),
@@ -397,18 +427,7 @@ export const insights = (input: InsightInput): ReadonlyArray<Insight> => {
           insight("protein_hit", "Protein target hit"),
         ),
       ])
-      const weekly = Option.firstSomeOf([
-        when(summary.daysOnKcalTarget >= 5, () =>
-          insight("week_streak", `${summary.daysOnKcalTarget} of 7 days on target this week`),
-        ),
-        when(summary.daysLogged >= 3 && summary.proteinAvgG < 0.8 * targets.proteinG, () =>
-          insight(
-            "week_protein_low",
-            `Protein averaged ${formatInt(summary.proteinAvgG)} g of ${formatInt(targets.proteinG)} g: plan a protein source per meal`,
-          ),
-        ),
-      ])
-      return [kcal, protein, logging, weekly]
+      return [kcal, protein, logging, weeklyInsight(week, targets)]
     },
   })
   return Arr.take(Arr.getSomes(groups), 3)

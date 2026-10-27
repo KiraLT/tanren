@@ -7,17 +7,12 @@ import { CurrentUser } from "./CurrentUser"
 import { FoodEntryRepo } from "./FoodEntryRepo"
 import { LocalStore } from "./LocalStore"
 import { NutritionRepo } from "./NutritionRepo"
-import { PlanWeekRepo } from "./PlanWeekRepo"
 import { ProfileRepo } from "./ProfileRepo"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
 import { StoreEvents } from "./StoreEvents"
 
 /** Europe/Vilnius is UTC+2 on these dates (DST ended 2026-10-25). */
-const TestLayer = Layer.mergeAll(
-  NutritionRepo.layer.pipe(Layer.provide(PlanWeekRepo.layer)),
-  FoodEntryRepo.layer,
-  ProfileRepo.layer,
-).pipe(
+const TestLayer = Layer.mergeAll(NutritionRepo.layer, FoodEntryRepo.layer, ProfileRepo.layer).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
       LocalStore.layerNoDeps.pipe(
@@ -307,6 +302,8 @@ describe("NutritionRepo.week activities and workouts", () => {
         workout(21, "2026-10-27T08:00:00.000Z", "2026-10-27T09:00:00.000Z"),
         workout(22, "2026-10-28T08:00:00.000Z", null),
         workout(23, "2026-10-25T08:00:00.000Z", "2026-10-25T09:00:00.000Z"),
+        // Started Sunday 25 Oct 23:30 local, finished in the week: out (the start decides).
+        workout(24, "2026-10-25T21:30:00.000Z", "2026-10-25T22:30:00.000Z"),
       ])
       const { review, activities } = yield* NutritionRepo.use((repo) =>
         repo.week(LocalDate.make("2026-10-26")),
@@ -409,6 +406,26 @@ describe("NutritionRepo.week plan and insights", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect(
+    "counts a past week from the plan week whose weekStart is in (monday − 7, monday]",
+    () =>
+      Effect.gen(function* () {
+        yield* atTwoPm
+        // The same plan, its week moved to Tuesday 20 Oct: it belongs to Monday 26 Oct's review
+        // ((19 Oct, 26 Oct]), not to the past week of Monday 19 Oct ((12 Oct, 19 Oct]).
+        yield* writeWire(
+          mondayPlan.map((change) =>
+            change.table === "planWeek"
+              ? { ...change, row: { ...change.row, weekStart: "2026-10-20" } }
+              : change,
+          ),
+        )
+        const past = yield* NutritionRepo.use((repo) => repo.week(LocalDate.make("2026-10-19")))
+        const next = yield* NutritionRepo.use((repo) => repo.week(LocalDate.make("2026-10-26")))
+        expect([past.review.workoutsPlanned, next.review.workoutsPlanned]).toEqual([0, 3])
+      }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("plans nothing and judges nothing for a week entirely after today", () =>
     Effect.gen(function* () {
       yield* atTwoPm
@@ -442,6 +459,31 @@ describe("NutritionRepo.hasDailyHealth", () => {
     Effect.gen(function* () {
       yield* health(902, "2026-09-01", { total: 2100, active: 300 }, "2026-10-01T00:00:00.000Z")
       expect(yield* hasDailyHealth).toBe(false)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("NutritionRepo.week insights by week state (NAV-F1)", () => {
+  it.effect("a closed week keeps only the week_* rules", () =>
+    Effect.gen(function* () {
+      yield* atTwoPm
+      yield* setNutrition(Option.some(nutrition(false)))
+      // Three logged days at 50 g protein: week_protein_low. Sunday 25 Oct is empty and judged at
+      // 23:00, which used to add nothing_logged and kcal_under_gain to the retrospective.
+      yield* eat("2026-10-20T10:00:00.000Z", 1000, 50)
+      yield* eat("2026-10-21T10:00:00.000Z", 1000, 50)
+      yield* eat("2026-10-22T10:00:00.000Z", 1000, 50)
+      const past = yield* NutritionRepo.use((repo) => repo.week(LocalDate.make("2026-10-19")))
+      expect(past.review.insights.map((insight) => insight.rule)).toEqual(["week_protein_low"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("the current week still judges today's rules", () =>
+    Effect.gen(function* () {
+      yield* atTwoPm
+      yield* setNutrition(Option.some(nutrition(false)))
+      const current = yield* NutritionRepo.use((repo) => repo.week(LocalDate.make("2026-10-26")))
+      expect(current.review.insights.map((insight) => insight.rule)).toEqual(["nothing_logged"])
     }).pipe(Effect.provide(TestLayer)),
   )
 })
