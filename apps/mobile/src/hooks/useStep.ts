@@ -16,6 +16,21 @@ export interface StepState {
 }
 
 /**
+ * The override of `key`, re-read on every store change; a failed read emits None (the default) and
+ * the stream keeps going, so a later write is still picked up.
+ */
+export const overrideChanges = (key: StepKey) =>
+  StoreEvents.use((events) =>
+    Effect.succeed(
+      Stream.mapEffect(events.changes, () =>
+        StepRepo.use((repo) => repo.get(key)).pipe(
+          Effect.catch(() => Effect.succeed(Option.none<number>())),
+        ),
+      ),
+    ),
+  )
+
+/**
  * The weight step of one exercise (weight-entry.md §2): the device override from `StepRepo`, re-read
  * after every store write, else `stepKgFor(equipment)`. A failed read or write keeps the default
  * (the step is a convenience, never a blocker).
@@ -26,11 +41,9 @@ export const useStep = (key: StepKey, equipment: ReadonlyArray<CatalogEquipment>
   useEffect(() => {
     // The stream emits the current store version first, so the first read runs at once.
     const cancel = runtime.runCallback(
-      StoreEvents.use((events) =>
-        Stream.runForEach(events.changes, () =>
-          StepRepo.use((repo) => repo.get(key)).pipe(
-            Effect.flatMap((value) => Effect.sync(() => setOverride(value))),
-          ),
+      overrideChanges(key).pipe(
+        Effect.flatMap((changes) =>
+          Stream.runForEach(changes, (value) => Effect.sync(() => setOverride(value))),
         ),
       ),
       { onExit: () => undefined },

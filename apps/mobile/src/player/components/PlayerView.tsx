@@ -242,6 +242,8 @@ export function PlayerView({
               Option.isSome(item) && isWeighted(item.value) && Option.isSome(draft) ? (
                 <View style={{ alignSelf: "stretch", gap: space.lg }}>
                   <WeightedEntry
+                    // A swap changes the id: remount so the previous exercise's override never shows.
+                    key={item.value.catalogId}
                     catalogId={item.value.catalogId}
                     entry={draft.value}
                     disabled={paused}

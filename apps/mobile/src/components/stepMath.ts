@@ -4,8 +4,8 @@ import type { CatalogEquipment, CatalogId } from "@tanren/shared"
 import { findCatalogExercise } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 
-export const WEIGHT_STEP_KG = 2.5
-export const REPS_STEP = 1
+const WEIGHT_STEP_KG = 2.5
+const REPS_STEP = 1
 
 export type StepDirection = 1 | -1
 
@@ -92,7 +92,6 @@ interface EntrySpec {
 
 const WEIGHT_ENTRY: EntrySpec = { min: 0, max: 500, snap: 0.25 }
 const REPS_ENTRY: EntrySpec = { min: 1, max: 100, snap: 1 }
-const SECONDS_ENTRY: EntrySpec = { min: 5, max: 3600, snap: 5 }
 
 /** The typed number (`,` accepted as the decimal point), None when empty or not a finite number. */
 const typedNumber = (raw: string): Option.Option<number> => {
@@ -121,10 +120,7 @@ const exactWith =
 export const parseWeight = parseWith(WEIGHT_ENTRY)
 /** Direct entry, reps: clamp 1–100, whole number; empty or not a number keeps `previous`. */
 export const parseReps = parseWith(REPS_ENTRY)
-/** Direct entry, seconds: clamp 5–3600, snap to 5; empty or not a number keeps `previous`. */
-export const parseSeconds = parseWith(SECONDS_ENTRY)
 
 /** True when the draft commits as typed (no clamp, snap or fallback): §4 "Invalid draft" is its negation. */
 export const isExactWeight = exactWith(WEIGHT_ENTRY)
 export const isExactReps = exactWith(REPS_ENTRY)
-export const isExactSeconds = exactWith(SECONDS_ENTRY)

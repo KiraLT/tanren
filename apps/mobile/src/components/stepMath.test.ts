@@ -6,7 +6,6 @@ import {
   formatKg,
   isExactWeight,
   parseReps,
-  parseSeconds,
   parseWeight,
   STEP_RULES,
   stepKgFor,
@@ -101,13 +100,12 @@ describe("direct entry parsers", () => {
     expect(parseWeight("Infinity", 20)).toBe(20)
   })
 
-  it("parses reps and seconds", () => {
+  it("parses reps (rounding, not fallback) and clamps exponent and negative weights", () => {
     expect(parseReps("0", 8)).toBe(1)
-    expect(parseReps("7.6", 8)).toBe(8)
-    expect(parseReps("abc", 8)).toBe(8)
-    expect(parseSeconds("7", 30)).toBe(5)
-    expect(parseSeconds("62", 30)).toBe(60)
-    expect(parseSeconds("", 30)).toBe(30)
+    expect(parseReps("7.6", 5)).toBe(8)
+    expect(parseReps("abc", 5)).toBe(5)
+    expect(parseWeight("1e3", 20)).toBe(500)
+    expect(parseWeight("-5", 20)).toBe(0)
   })
 
   it("never returns NaN", () => {
