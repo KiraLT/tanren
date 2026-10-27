@@ -111,6 +111,7 @@ function ProgramPage({
                         onResume={() => setStatus(enrollment.id, "active")}
                         inProgress={inProgress}
                         doneToday={doneToday}
+                        eyebrow
                         onOpenDay={() =>
                           // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
                           router.push({

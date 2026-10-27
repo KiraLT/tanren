@@ -37,8 +37,14 @@ import {
   weekWindow,
 } from "../programDays"
 
-/** Height of a desktop section-label row ("Program" / "Days"): 28, so both columns align. */
-const SECTION_LABEL_HEIGHT = sizes.labelRow
+/** The desktop "Program" eyebrow: same caption row as the "Days" label on the right (no minHeight). */
+function ProgramEyebrow() {
+  return (
+    <Text variant="caption" tone="muted" headingLevel={2} style={{ paddingHorizontal: space.lg }}>
+      Program
+    </Text>
+  )
+}
 
 /** "≈ 15 min" from the planned length. */
 export const approxMinutes = (day: ProgramDay): string => `≈ ${dayMinutes(day)} min`
@@ -69,19 +75,10 @@ export function EnrolCard({
 }: EnrolCardProps) {
   const desktop = useBreakpoint() === "desktop"
   return (
-    // Desktop: a "Program" eyebrow (same 28-px slot as the "Days" label on the right) so both
+    // Desktop: a "Program" eyebrow (same row as the "Days" label on the right) so both
     // columns' first card starts at the same y.
     <View style={{ gap: desktop ? rhythm.labelToGroup : 0 }}>
-      {desktop ? (
-        <Text
-          variant="caption"
-          tone="muted"
-          headingLevel={2}
-          style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
-        >
-          Program
-        </Text>
-      ) : null}
+      {desktop ? <ProgramEyebrow /> : null}
       <Card>
         <View style={{ gap: space.lg }}>
           <View
@@ -141,6 +138,8 @@ interface DayCardProps {
    * muted "Done today" pill in place of the primary button (programs-player-v2 §6.3).
    */
   readonly doneToday?: boolean
+  /** Detail page, two columns: the desktop "Program" eyebrow slot so the card lines up with "Days". */
+  readonly eyebrow?: boolean
 }
 
 /** The enrolled program: progress ring, name, "Day 2 of 30 · …" and the one primary pill. */
@@ -154,7 +153,9 @@ export function DayCard({
   onOpenDay,
   inProgress = Option.none(),
   doneToday = false,
+  eyebrow = false,
 }: DayCardProps) {
+  const desktop = useBreakpoint() === "desktop"
   const total = program.days.length
   const done = doneToday && !paused
   const line = done
@@ -192,7 +193,7 @@ export function DayCard({
     gap: space.md,
     minHeight: sizes.tap,
   }
-  return (
+  const card = (
     <Card>
       <View style={{ gap: space.lg }}>
         {onOpenDay === undefined ? (
@@ -239,6 +240,15 @@ export function DayCard({
         )}
       </View>
     </Card>
+  )
+  if (!(eyebrow && desktop)) {
+    return card
+  }
+  return (
+    <View style={{ gap: rhythm.labelToGroup }}>
+      <ProgramEyebrow />
+      {card}
+    </View>
   )
 }
 
