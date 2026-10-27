@@ -19,49 +19,91 @@
    "name": "Logo",
    "tile": "l",
    "order": [
+    "wordmark.png",
+    "wordmark-paper.png",
     "mark.png",
     "mark-paper.png",
     "icon.png",
-    "adaptive-icon.png",
-    "splash-icon.png",
-    "favicon.png"
+    "favicon.png",
+    "og.png",
+    "wordmark-ink.svg",
+    "wordmark-paper.svg",
+    "mark.svg",
+    "mark-ink.svg",
+    "mark-paper.svg"
    ],
    "files": {
+    "wordmark.png": {
+     "name": "wordmark.png",
+     "blob": "40368b9e850ffde4481255e0bd87d4dc",
+     "size": 70053,
+     "type": "image/png"
+    },
+    "wordmark-paper.png": {
+     "name": "wordmark-paper.png",
+     "blob": "93fb300053905de81c6f147f94eb2d93",
+     "size": 72454,
+     "type": "image/png"
+    },
     "mark.png": {
      "name": "mark.png",
-     "blob": "633ede923ca06fbb1e236318cfe23b39",
-     "size": 14453,
+     "blob": "c6d2becf27a12d95371b5347c55809f9",
+     "size": 15475,
      "type": "image/png"
     },
     "mark-paper.png": {
      "name": "mark-paper.png",
-     "blob": "3b8f79df87fdbf9b59ea6d56961d255f",
-     "size": 10037,
+     "blob": "1541f2dc3f8546b49a0ca03ae89dceb5",
+     "size": 15743,
      "type": "image/png"
     },
     "icon.png": {
      "name": "icon.png",
-     "blob": "d9587f1d8727ecbfa6f78589e8ae2648",
-     "size": 21724,
-     "type": "image/png"
-    },
-    "adaptive-icon.png": {
-     "name": "adaptive-icon.png",
-     "blob": "d40deb514ce040a97772522a0fd21525",
-     "size": 20686,
-     "type": "image/png"
-    },
-    "splash-icon.png": {
-     "name": "splash-icon.png",
-     "blob": "9c9908c920d4ff45857675728f579098",
-     "size": 14453,
+     "blob": "fdbb4115fbf12acd0730800193dd22dd",
+     "size": 30700,
      "type": "image/png"
     },
     "favicon.png": {
      "name": "favicon.png",
-     "blob": "ecea9fec1c012170870929905a6cec41",
-     "size": 1724,
+     "blob": "759eac59762d25054c1feb4f09d28229",
+     "size": 1414,
      "type": "image/png"
+    },
+    "og.png": {
+     "name": "og.png",
+     "blob": "40d49fef6a7f53985c909ed6392edd6f",
+     "size": 12904,
+     "type": "image/png"
+    },
+    "wordmark-ink.svg": {
+     "name": "wordmark-ink.svg",
+     "blob": "749a2d6a90a68b12529cdd6d21931ff5",
+     "size": 115707,
+     "type": "image/svg+xml"
+    },
+    "wordmark-paper.svg": {
+     "name": "wordmark-paper.svg",
+     "blob": "e65906e36aa4b90436cc3211afe8b02b",
+     "size": 115707,
+     "type": "image/svg+xml"
+    },
+    "mark.svg": {
+     "name": "mark.svg",
+     "blob": "436a839eeb069cd89de5275f8e5f9e6b",
+     "size": 30281,
+     "type": "image/svg+xml"
+    },
+    "mark-ink.svg": {
+     "name": "mark-ink.svg",
+     "blob": "edead5bbae1e5f9fff4fb496a62e9679",
+     "size": 30276,
+     "type": "image/svg+xml"
+    },
+    "mark-paper.svg": {
+     "name": "mark-paper.svg",
+     "blob": "5408acf3d5b83db4a86d65776b3db930",
+     "size": 30276,
+     "type": "image/svg+xml"
     }
    }
   },
@@ -411,8 +453,8 @@
  },
  "lastChange": {
   "by": "Lukas",
-  "at": "2026-10-26T20:53:27Z",
+  "at": "2026-10-27T09:03:30Z",
   "via": "Claude Code",
-  "note": "BRAND-1: final mark set (icon, adaptive, splash, favicon, mark, mark-paper) replaces the interim J3 render"
+  "note": "BRAND-3: W1 wordmark + the T mark replace the 力 set (LOGO-4, plan Amendment 15)"
  }
 }

@@ -1,6 +1,6 @@
 ## Name and meaning
 
-Tanren is 鍛錬 (たんれん, *tan-ren*): "forging", and by extension disciplined training, the tempering of steel and of a person. Say it *TAHN-ren*, two even syllables. Write it **Tanren** in running text (one word, capital T, never "TanRen" or "tanren" mid-sentence), **TANREN** only as the wordmark (Logo system), and 鍛錬 only beside the Latin name, never alone in UI. The mark is a different character: 力 (*chikara*, strength, power), the thing the forging produces.
+Tanren is 鍛錬 (たんれん, *tan-ren*): "forging", and by extension disciplined training, the tempering of steel and of a person. Say it *TAHN-ren*, two even syllables. Write it **Tanren** in running text (one word, capital T, never "TanRen" or "tanren" mid-sentence), **TANREN** only as the wordmark (Logo system), and 鍛錬 only beside the Latin name, never alone in UI. The mark is the T of the lettered wordmark, with the amber hook that stands for the heat.
 
 ## Principles
 
@@ -28,13 +28,15 @@ Numbers are data, not prose: `100 kg x 5`, `3:00`, `0/5`, `4,110 kg`. Dates in t
 
 ## Logo system
 
-**Mark: 力 in two brush strokes** (owner's pick 2026-10-26, candidate J3). The first stroke is off-white on graphite; the hooked second stroke is amber, the heat in the forge. 力 means strength; paired with the name 鍛錬, the mark says what the training produces and the name says how. Considered and set aside: J2 (both strokes neutral) and J1 (the M8 ring as brush strokes). The final set lives in the Logo asset group: `icon.png` (iOS 1024, opaque graphite #16181D), `adaptive-icon.png`, `splash-icon.png`, `favicon.png` (48), and the two marks. **Two-file rule**: `mark.png` (transparent, off-white first stroke) on dark surfaces; the `mark-paper.png` tile at radius 12 on light surfaces, as the sign-in screen does at 48 px. A traced SVG of the mark is still to come.
+**Wordmark W1** (owner's pick 2026-10-27): `TANREN` brush-lettered in one ink weight, with a single amber hook off the crossbar of the T, the heat in the forge. It is the full-name logo wherever the name appears: sign-in, the landing hero, the brandbook cover, social images.
 
-**Wordmark**: `TANREN` in Barlow Condensed ExtraBold, uppercase, letter-spacing 4 px at 22-34 px (the one permitted use of caps and tracking in the system, ratified 2026-10-26; the sign-in screen and the email header use it). Colour `text` on `bg`; `on-accent` only inside an accent block.
+**The mark is the T from W1**: crossbar, stem and the amber hook, cut from the same file, so it is the wordmark's own first letter. It stands alone as the app icon, adaptive icon, splash, favicon, PWA icons and the landing footer. The 力 kanji mark is superseded.
 
-**Clear space** around mark and wordmark: the cap height of the wordmark (or a quarter of the mark's width). **Minimum sizes**: mark 24 px (the tab bar is the smallest surface), wordmark 80 px wide. **Lockup**: mark left of the wordmark, gap = half the mark's width, baselines aligned to the mark's foot.
+**Colourways, two-file rule.** On dark grounds (graphite #16181D) the ink is off-white #F6F4EF and the hook amber #F59E0B: `wordmark.png`, `mark.png`, `icon.png`, `wordmark-paper.svg`, `mark-paper.svg`. On light grounds (paper #F6F4EF, white) the ink is graphite and the hook burnt-orange #C2410C: `wordmark-paper.png`, `mark-paper.png`, `wordmark-ink.svg`, `mark-ink.svg`. `mark.svg` takes `currentColor` for the ink and keeps the amber hook. PNG names follow the app (`*-paper.png` is for paper grounds); SVG names follow the ink (`*-paper.svg` is paper-coloured ink, for dark grounds). Every file is transparent except `icon.png` and `favicon.png`, which carry the graphite ground.
 
-**Don't**: recolour the strokes (amber hook only), outline the mark, place it on a photo or a gradient, letter-space anything else, set the wordmark in the system font, or show 鍛錬 without the Latin name.
+**Clear space**: the height of the wordmark's E on every side of the wordmark; a quarter of the T's width around the mark. **Minimum sizes**: wordmark 24 px high on screen (about 107 px wide), 20 mm wide in print; mark 16 px (the favicon is the 16-32 px case and stays legible at 32). In the app: sign-in 56 px high, landing hero 32 px high, landing footer mark 24 px.
+
+**Don't**: typeset `TANREN` in a font next to the mark (the lettered W1 is the only full-name logo); recolour the hook, add a second accent, or put the dark-ground files on paper; stretch, outline, add a glow or shadow, or redraw the T separately from the wordmark.
 
 ## Colour
 
@@ -74,9 +76,9 @@ Reduced. `fast` 120 ms press feedback, `base` 200 ms state and colour changes (d
 
 ## Surfaces for marketing
 
-- **App icon**: the 力 mark on graphite, 1024 x 1024, no alpha for iOS, the strokes inside the central 80 % (safe zone for the rounded mask); Android adaptive icon foreground on a graphite background layer; favicon 32 and 16 from the same mark; splash = mark centred on `bg` of the current theme.
-- **Email** (magic link): fixed light colours with `color-scheme: light`, a 480 px paper card (#F6F4EF, 1 px #E4DFD4 rule, radius 16) on white; `TANREN` wordmark 22 px tracked 4 in the header; body 16/24 ink #1F1D1A; one ember pill button (#C2410C, white 16/20 600, radius 999); muted 12/18 #6B665E footer. Table layout, inline styles only.
-- **OG image**: 1200 x 630, graphite `bg` #0F1113, the mark at 240 px left, wordmark + one line of `body` copy in `text-muted` right, amber only in the mark's hook. Same composition on paper for light contexts.
+- **App icon**: the T mark on graphite, 1024 x 1024, T at 60 % of the canvas, no alpha for iOS; Android adaptive icon foreground on a graphite background layer (T at 58 %); favicon 32 and 16 from the same mark; splash = mark centred on `bg` of the current theme.
+- **Email** (magic link): fixed light colours with `color-scheme: light`, a 480 px paper card (#F6F4EF, 1 px #E4DFD4 rule, radius 16) on white; the wordmark in the header is the W1 lettered PNG (`wordmark-paper.png` on the paper card), no typeset `TANREN`; body 16/24 ink #1F1D1A; one ember pill button (#C2410C, white 16/20 600, radius 999); muted 12/18 #6B665E footer. Table layout, inline styles only.
+- **OG image**: done (`public/og.png`, 1200 x 630, graphite, the paper lockup 760 wide, centred). Same composition on paper for light contexts.
 
 ## Don'ts (the native-slop tells)
 
