@@ -786,6 +786,50 @@
         "UI-LEGAL-signin-1280-dark.png"
       ],
       "title": "Legal pages and entry points (390 and 1280, light and dark)"
+    },
+    {
+      "badges": [
+        "OA1",
+        "OA2",
+        "OA5",
+        "OA7",
+        "OA8",
+        "OA9",
+        "OA3",
+        "OA4",
+        "OA6"
+      ],
+      "id": "oauth",
+      "shots": [
+        "UI-OAUTH-consent-known-390-light.png",
+        "UI-OAUTH-consent-known-390-dark.png",
+        "UI-OAUTH-mcp-390-light.png",
+        "UI-OAUTH-consent-unknown-390-light.png",
+        "UI-OAUTH-error-390-dark.png",
+        "UI-OAUTH-login-390-light.png",
+        "UI-OAUTH-consent-known-1280-light.png",
+        "UI-OAUTH-consent-known-1280-dark.png",
+        "UI-OAUTH-mcp-1280-dark.png"
+      ],
+      "title": "OAuth consent and MCP root (api / mcp Worker pages)"
+    },
+    {
+      "badges": [
+        "AD1",
+        "AD2",
+        "AD3",
+        "AD4",
+        "AD5"
+      ],
+      "id": "legal2",
+      "shots": [
+        "UI-LEGAL2-row.png",
+        "UI-LEGAL2-confirm.png",
+        "UI-LEGAL2-confirm-1280-light.png",
+        "UI-LEGAL2-confirm-390-dark.png",
+        "UI-LEGAL2-failed-390-light.png"
+      ],
+      "title": "Delete account (Settings → Data, 390 light)"
     }
   ]
 }
