@@ -113,16 +113,23 @@ const betterAuthRoutes = (betterAuth: Layer.Layer<BetterAuth, never, WorkerConfi
 interface AuthLayers {
   readonly sessions: Layer.Layer<Sessions, never, WorkerConfig>
   readonly routes: ReturnType<typeof betterAuthRoutes>
+  /** Real sessions: writes need the `user` row (STLS-F3); a fixed test identity has none. */
+  readonly authentication: typeof Authentication.layer | typeof Authentication.layerFixed
 }
 
 const authLayers = (mode: AuthMode): AuthLayers =>
   Match.value(mode).pipe(
     Match.tagsExhaustive({
-      Fixed: ({ sessions }): AuthLayers => ({ sessions, routes: Layer.empty }),
+      Fixed: ({ sessions }): AuthLayers => ({
+        sessions,
+        routes: Layer.empty,
+        authentication: Authentication.layerFixed,
+      }),
       BetterAuth: ({ betterAuth }): AuthLayers => ({
         // App JWT first (no D1), then the Better Auth cookie (auth-v2.md §4).
         sessions: SessionsLive.pipe(Layer.provide(betterAuth)),
         routes: betterAuthRoutes(betterAuth),
+        authentication: Authentication.layer,
       }),
     }),
   )
@@ -143,7 +150,7 @@ export const makeApp = (env: EnvVars, services: AppServices): App => {
   )
   const api = HttpApiBuilder.layer(Api).pipe(
     Layer.provide(HandlersLive),
-    Layer.provide(Authentication.layer),
+    Layer.provide(auth.authentication),
     Layer.provide(Sync.layer),
     Layer.provide(
       Layer.mergeAll(shared, auth.sessions, services.exports ?? ExportQueue.layerDisabled),

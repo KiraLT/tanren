@@ -160,3 +160,7 @@ across waves is promised.
 - [ ] `docs/design/native-auth.md` may still describe the native token as a Better Auth session token (STLS-6 note) · doc check
 - [ ] Follow-ups: STLS-F2 single-use consent handle (optional); old `SessionToken` export in `packages/shared/src/nativeAuth.ts` now unused by mobile · grep `SessionToken` → delete
 - [ ] Lead: STLS-D deploy after STLS-Q (production KV binding removal in the same deploy; O1 reconnect).
+
+## Follow-ups
+
+- 2026-10-27 STLS-F3 (engineer): writes need the `user` row — `api/Authentication.ts` (`layer` checks via `UserTokens`, `layerFixed` for the Fixed test mode), `app.ts` picks per AuthMode; `auth/deletedUser.workerd.test.ts`: app JWT and cookie-cache after delete → push 401, GET 200; ADR-0022 amendment line. MCP writes are NOT covered (separate `McpAuth`, no shared middleware).

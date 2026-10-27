@@ -80,3 +80,7 @@ Evidence: `docs/research/2026-10-27-stateless-sessions.md` (S2), `2026-10-27-mcp
   cost the owner asked to remove. Not decided here: Durable Object / Cache-API gen caching.
 - Refresh-token rotation with a D1 `refresh_family` table: more state for a single-user app; revisit
   if the app ever has more than the owner.
+
+## Amendments
+
+- 2026-10-27 STLS-F3: writes check the user row exists; reads stay stateless — a deleted user's tokens fail writes immediately (`Authentication.layer`: any method but GET/HEAD/OPTIONS → `UserTokens.tokenGens`, gone → 401; `/sync/pull` is a POST and pays the one read too).
