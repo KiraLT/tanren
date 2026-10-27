@@ -1,10 +1,8 @@
 # Handoff — 2026-10-27 19:20
 
 ## Where we are
-Production = 68a5d9a (DEPLOY-19 18:04: health module fixes, iPhone home-screen safe areas, protein bands,
-compact Today empty state). HEAD = 82dedaa plus an uncommitted FREE-1 set (start a workout without a plan,
-ADR-0028; FREE-R APPROVE; a 5-item should/nit fix round is running) and PROG-1 (program row opens the day
-preview, running). Committed since DEPLOY-19: confirm dialogs on 8 dangerous actions (cc3f0d1), Today empty
+Production = 9da64b8 (DEPLOY-20 18:51 real clock: confirm dialogs, free workout, Today copy with a program
+due, insight wrap, program row press; DEPLOY-19 18:04 before it). HEAD = 2125273 (CONFIRM-F label fix, after the deploy). Live: PROG-3 weights (opus), NAV-2 Train hub (opus). Committed since DEPLOY-19: confirm dialogs on 8 dangerous actions (cc3f0d1), Today empty
 copy when a program is due (2c014ea), insight wraps to two lines (027295a), CLAUDE.md diets (e24fc6a,
 1465092), retro v6 + playbook P1–P7 (562683f, d223867), designs with briefs: free workout (ADR-0028),
 navigation v2 (ADR-0029; owner confirmed Merge 19:07: Home · Train · Activity · You, no Start tab button,
@@ -36,10 +34,9 @@ Live agents and resume ids: `$S/live-agents.txt` (session scratchpad); every eve
 - `docs/design/navigation-v2.md` still says "Feed"; ADR-0029 (Activity) wins.
 
 ## Next actions (in order)
-1. FREE-1 fix-round report → commit (index-check) → QA-20 ui-check (mid-navigation chain dark, second tab,
-   Today Empty / Free-empty / Free) → `scripts/deploy.sh` → verify headless → tell the owner to reopen the
-   home-screen app twice (the service worker activates the new export on the next launch).
-2. PROG-1 report → commit. Then in parallel: NAV-2 Train hub (opus, `docs/tasks/navigation-briefs.md`;
+1. PROG-3 report → PROG-R-style review → commit → PROG-5 sets per exercise; NAV-2 report → review → commit
+   → NAV-1 You + Activity rename. Deploy after each reviewed set (`scripts/deploy.sh`, verify headless).
+2. Running now in parallel: NAV-2 Train hub (opus, `docs/tasks/navigation-briefs.md`;
    the Activity rename happens once, in NAV-1 or NAV-2) and PROG-3 weights + stats (opus 20,
    `docs/tasks/programs-player-briefs.md`). Then PROG-2 resume → PROG-4 dynamic schedule → PROG-5 sets per
    exercise + 12-week content; NAV-1 You → NAV-3 Home → NAV-4 weekly review → NAV-R / NAV-Q. R line
