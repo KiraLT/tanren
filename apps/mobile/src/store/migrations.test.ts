@@ -395,3 +395,33 @@ describe("migrations v8", () => {
     }).pipe(Effect.provide(nodeSqlDriverLayer)),
   )
 })
+
+describe("migrations v9", () => {
+  it.effect("upgrades a v8 store in place: exercise_step exists, empty, rows kept", () =>
+    Effect.gen(function* () {
+      const driver = yield* SqlDriver
+      yield* driver.batch([
+        ...MIGRATIONS.slice(0, 8)
+          .flat()
+          .map((sql) => ({ sql, params: [] })),
+        { sql: "PRAGMA user_version = 8", params: [] },
+        {
+          sql: `INSERT INTO "free_workout" ("localDate", "exerciseIds") VALUES ('2026-10-27', '[]')`,
+          params: [],
+        },
+      ])
+      yield* migrate(driver)
+      expect(yield* userVersion(driver)).toBe(MIGRATIONS.length)
+      const columns = yield* driver.all({ sql: `PRAGMA table_info("exercise_step")`, params: [] })
+      expect(columns.map((row) => [row.name, row.type, row.pk, row.notnull])).toEqual([
+        ["key", "TEXT", 1, 1],
+        ["stepKg", "REAL", 0, 1],
+        ["updatedAt", "TEXT", 0, 1],
+      ])
+      expect(yield* driver.all({ sql: `SELECT * FROM "exercise_step"`, params: [] })).toEqual([])
+      expect(
+        yield* driver.all({ sql: `SELECT "localDate" FROM "free_workout"`, params: [] }),
+      ).toEqual([{ localDate: "2026-10-27" }])
+    }).pipe(Effect.provide(nodeSqlDriverLayer)),
+  )
+})

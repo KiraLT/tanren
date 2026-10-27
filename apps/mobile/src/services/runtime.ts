@@ -31,6 +31,7 @@ import { PlanWeekRepo } from "./PlanWeekRepo"
 import { ProfileRepo } from "./ProfileRepo"
 import { ProgramRepo } from "./ProgramRepo"
 import { DATABASE_NAME, SqlDriver, StoreError } from "./SqlDriver"
+import { StepRepo } from "./StepRepo"
 import { StoreEvents } from "./StoreEvents"
 import { SyncEngine } from "./SyncEngine"
 import { SyncTransport } from "./SyncTransport"
@@ -184,6 +185,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       ),
       PlanWeekRepo.layer,
       ProfileRepo.layer,
+      StepRepo.layer,
       HistoryRepo.layer,
       FeedRepo.layer,
       ImportedActivityRepo.layer,

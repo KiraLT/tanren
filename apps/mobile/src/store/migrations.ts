@@ -243,8 +243,21 @@ const v8: ReadonlyArray<string> = [
 )`,
 ]
 
+/**
+ * v9 (docs/design/weight-entry.md §2, D2): the ± step override per exercise, device-local like v7/v8
+ * (no `userId`, no sync columns, never pushed); `key` is `catalog:<CatalogId>` or
+ * `exercise:<ExerciseId>` (`StepRepo`).
+ */
+const v9: ReadonlyArray<string> = [
+  `CREATE TABLE IF NOT EXISTS "exercise_step" (
+  "key" TEXT PRIMARY KEY NOT NULL,
+  "stepKg" REAL NOT NULL,
+  "updatedAt" TEXT NOT NULL
+)`,
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6, v7, v8]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6, v7, v8, v9]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

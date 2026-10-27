@@ -1,9 +1,20 @@
-import { formatInt, type ProgramDay, type ProgramItem } from "@tanren/shared"
+import { type CatalogId, formatInt, type ProgramDay, type ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { ScrollView, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { formatKg, stepReps, stepWeight } from "../../components/stepMath"
+import {
+  equipmentOf,
+  formatKg,
+  isExactReps,
+  isExactWeight,
+  parseReps,
+  parseWeight,
+  STEP_OPTIONS_KG,
+  stepReps,
+  stepWeight,
+} from "../../components/stepMath"
 import type { CompletionState } from "../../hooks/usePlayer"
+import { useStep } from "../../hooks/useStep"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import type { SetEntry } from "../../services/ProgramRepo"
 import {
@@ -48,6 +59,59 @@ const phaseLabel = (paused: boolean, resting: boolean): string => {
     return "Paused"
   }
   return resting ? "Rest" : "Work"
+}
+
+interface WeightedEntryProps {
+  readonly catalogId: CatalogId
+  readonly entry: SetEntry
+  readonly disabled: boolean
+  readonly onAdjust: (entry: SetEntry) => void
+}
+
+/**
+ * kg × reps steppers on the draft (§2.2) with direct entry and the per-exercise step
+ * (weight-entry.md §3): the key is the item's catalog id, which `mergeDay` already swapped.
+ */
+function WeightedEntry({ catalogId, entry, disabled, onAdjust }: WeightedEntryProps) {
+  const step = useStep(`catalog:${catalogId}`, equipmentOf(Option.some(catalogId)))
+  return (
+    <>
+      <Stepper
+        label="Weight"
+        size="lg"
+        valueText={formatKg(entry.weightKg)}
+        unit="kg"
+        spokenUnit="kilograms"
+        disabled={disabled}
+        onDecrement={() =>
+          onAdjust({ ...entry, weightKg: stepWeight(entry.weightKg, -1, step.stepKg) })
+        }
+        onIncrement={() =>
+          onAdjust({ ...entry, weightKg: stepWeight(entry.weightKg, 1, step.stepKg) })
+        }
+        onCommit={(raw) => onAdjust({ ...entry, weightKg: parseWeight(raw, entry.weightKg) })}
+        isDraftExact={isExactWeight}
+        step={{
+          stepKg: step.stepKg,
+          isOverride: step.isOverride,
+          options: STEP_OPTIONS_KG,
+          onPick: step.setStep,
+        }}
+      />
+      <Stepper
+        label="Reps"
+        size="lg"
+        valueText={String(entry.reps)}
+        unit="reps"
+        inputMode="numeric"
+        disabled={disabled}
+        onDecrement={() => onAdjust({ ...entry, reps: Math.max(1, stepReps(entry.reps, -1)) })}
+        onIncrement={() => onAdjust({ ...entry, reps: stepReps(entry.reps, 1) })}
+        onCommit={(raw) => onAdjust({ ...entry, reps: parseReps(raw, entry.reps) })}
+        isDraftExact={isExactReps}
+      />
+    </>
+  )
 }
 
 interface PlayerViewProps {
@@ -175,36 +239,13 @@ export function PlayerView({
             onNone: () => doneButton,
             onSome: (count) =>
               // A weighted reps item (§2.2): kg × reps steppers on the draft, then Done.
-              Option.exists(item, isWeighted) && Option.isSome(draft) ? (
+              Option.isSome(item) && isWeighted(item.value) && Option.isSome(draft) ? (
                 <View style={{ alignSelf: "stretch", gap: space.lg }}>
-                  <Stepper
-                    label="Weight"
-                    size="lg"
-                    valueText={formatKg(draft.value.weightKg)}
-                    unit="kg"
+                  <WeightedEntry
+                    catalogId={item.value.catalogId}
+                    entry={draft.value}
                     disabled={paused}
-                    onDecrement={() =>
-                      onAdjust({ ...draft.value, weightKg: stepWeight(draft.value.weightKg, -1) })
-                    }
-                    onIncrement={() =>
-                      onAdjust({ ...draft.value, weightKg: stepWeight(draft.value.weightKg, 1) })
-                    }
-                  />
-                  <Stepper
-                    label="Reps"
-                    size="lg"
-                    valueText={String(draft.value.reps)}
-                    unit="reps"
-                    disabled={paused}
-                    onDecrement={() =>
-                      onAdjust({
-                        ...draft.value,
-                        reps: Math.max(1, stepReps(draft.value.reps, -1)),
-                      })
-                    }
-                    onIncrement={() =>
-                      onAdjust({ ...draft.value, reps: stepReps(draft.value.reps, 1) })
-                    }
+                    onAdjust={onAdjust}
                   />
                   {doneButton}
                 </View>

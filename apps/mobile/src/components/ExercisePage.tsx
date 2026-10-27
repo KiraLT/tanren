@@ -2,8 +2,10 @@ import { Array as Arr, Option } from "effect"
 import { type ReactNode, useState } from "react"
 import { ScrollView, View } from "react-native"
 import { formatClock } from "../hooks/restClock"
+import { useStep } from "../hooks/useStep"
 import type { LogSetInput, TodayExercise } from "../hooks/useToday"
 import { ExerciseIllustration } from "../library/ExerciseIllustration"
+import { stepKeyOf } from "../services/StepRepo"
 import {
   Button,
   gutter,
@@ -22,7 +24,17 @@ import {
 } from "../ui"
 import { exerciseStats } from "./exerciseStats"
 import { SetList } from "./SetList"
-import { formatKg, stepReps, stepWeight } from "./stepMath"
+import {
+  equipmentOf,
+  formatKg,
+  isExactReps,
+  isExactWeight,
+  parseReps,
+  parseWeight,
+  STEP_OPTIONS_KG,
+  stepReps,
+  stepWeight,
+} from "./stepMath"
 import { illustrationIdFor, lastSetText } from "./todayHeader"
 
 interface ExercisePageProps {
@@ -62,6 +74,7 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
     : "xl"
   const [weightKg, setWeightKg] = useState(item.prefill.weightKg)
   const [reps, setReps] = useState(item.prefill.reps)
+  const step = useStep(stepKeyOf(item.exercise), equipmentOf(item.exercise.catalogId))
   const setNumber = item.loggedSets.length + 1
   const log = () => {
     const plannedSetId = Option.map(Arr.get(item.plannedSets, item.loggedSets.length), (s) => s.id)
@@ -87,8 +100,17 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
           size={stepperSize}
           valueText={formatKg(weightKg)}
           unit="kg"
-          onDecrement={() => setWeightKg(stepWeight(weightKg, -1))}
-          onIncrement={() => setWeightKg(stepWeight(weightKg, 1))}
+          spokenUnit="kilograms"
+          onDecrement={() => setWeightKg((kg) => stepWeight(kg, -1, step.stepKg))}
+          onIncrement={() => setWeightKg((kg) => stepWeight(kg, 1, step.stepKg))}
+          onCommit={(raw) => setWeightKg((kg) => parseWeight(raw, kg))}
+          isDraftExact={isExactWeight}
+          step={{
+            stepKg: step.stepKg,
+            isOverride: step.isOverride,
+            options: STEP_OPTIONS_KG,
+            onPick: step.setStep,
+          }}
           style={phone ? undefined : { paddingBottom: space.sm }}
         />
         <Stepper
@@ -96,8 +118,11 @@ function SetEntry({ item, pending, logSet, onLogged }: SetEntryProps) {
           size={stepperSize}
           valueText={String(reps)}
           unit="reps"
-          onDecrement={() => setReps(stepReps(reps, -1))}
-          onIncrement={() => setReps(stepReps(reps, 1))}
+          inputMode="numeric"
+          onDecrement={() => setReps((count) => stepReps(count, -1))}
+          onIncrement={() => setReps((count) => stepReps(count, 1))}
+          onCommit={(raw) => setReps((count) => parseReps(raw, count))}
+          isDraftExact={isExactReps}
           style={
             phone
               ? undefined
