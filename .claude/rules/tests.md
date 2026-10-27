@@ -16,7 +16,11 @@ paths:
   message or the failing path), and encode→decode round-trip. No snapshot
   tests for schemas. Every `Patch` schema: `{}` decodes to an object with
   zero keys and a one-key input decodes to exactly that key (a field with a
-  decoding default inside a derived Patch wiped `locations` in v3). Typed failures: `Effect.flip(eff)` (the error becomes the
+  decoding default inside a derived Patch wiped `locations` in v3). A
+  decoding default added to a STORED shape (`withDecodingDefaultKey`) changes its canonical
+  encoding: every encode/round-trip fixture of that shape, across packages, must gain the key —
+  PROG-5's `RepsItem.sets` touched `program.test.ts`, `sync.test.ts` and `DataExport.test.ts`;
+  list those fixtures in the brief and the report (2026-10-27). Typed failures: `Effect.flip(eff)` (the error becomes the
   value) or `Effect.result(eff)` + `Result.isFailure`.
 - Services: provide test Layers, per test with `.pipe(Effect.provide(L))` or
   shared with `layer(L)("name", (it) => { it.effect(...) })` (one build and

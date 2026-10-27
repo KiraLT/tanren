@@ -5,4 +5,4 @@
 - [agent-browser needs --session](feedback_agent_browser_session.md) — default session is shared with other agents; screenshot showed a foreign page
 - [db:reset and scratch D1 proofs](feedback_db_reset_rm.md) — db:reset does not prompt but wipes the shared D1; scratch --persist-to proofs (d1 execute --local on it is allowed); never --remote, never deploy --dry-run
 - [USDA FDC: use the SR Legacy CSV](reference_usda_fdc.md) — DEMO_KEY is 10 req then 429 for 11 h; bulk zip needs no key
-- [noMutation matches substrings](feedback_nomutation_substring.md) — `x.prefill()` is flagged (regex unanchored); rename design names containing fill/sort/push
+- [Grit regex is a substring match](feedback_nomutation_substring.md) — anchor `r"^…$"`; noMutation anchored in PROG-F1, `prefill` legal now, exact mutator names still flagged

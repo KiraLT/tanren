@@ -1,11 +1,11 @@
 ---
 name: nomutation-substring
-description: The noMutation GritQL regex is unanchored — any method name CONTAINING push/pop/shift/sort/reverse/fill/splice (prefill, unshiftX, resort) is flagged at the call site
+description: GritQL `r"…"` matches are SUBSTRING searches on the node text; noMutation's method regexes were anchored with ^…$ in PROG-F1 (2026-10-27), so only exact mutator names are flagged now
 metadata:
   type: feedback
 ---
 
-`.biome/noMutation.grit` matches `$method <: r"push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin"` without anchors, so `repo.prefill(ids)` fails lint even though the design named it `prefill` (PROG-3, 2026-10-27; renamed to `lastLoads`).
+A GritQL `$x <: r"push|sort"` matches any node whose text CONTAINS the pattern (proved in PROG-F1: before anchoring, `loads.prefill()`, `.backfill()`, `.pushed()`, `.sorted()`, `.unshiftLater()` were 5 plugin errors in the negative fixture). `.biome/noMutation.grit` now uses `r"^(?:push|…|copyWithin)$"` (and the quoted twin `^["']…["']$`), so `prefill` is legal again; exact names (`push`, `sort`, `fill`, …) are still flagged.
 
-**Why:** the rule is syntactic and substring-based; suppressing is reserved for third-party calls.
-**How to apply:** before adopting a design-given service method name, check it for those substrings; if it hits, rename and report a `CONFLICT:` line (rule wins over the design).
+**Why:** PROG-3 had to rename a design's `prefill` to `lastLoads` because of the unanchored regex.
+**How to apply:** when writing or reviewing any `.grit` regex, anchor it with `^…$` unless a substring match is intended; still never name an own method exactly after an Array mutator.

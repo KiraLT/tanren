@@ -332,6 +332,12 @@ staged rename into a handoff commit); engineers never stage. The index-check
 cannot see Expo's typed routes, so it now also compares `APP_NAV` with the
 `(tabs)/*.tsx` files in the index.
 
+Overlap rule (EM batch 20): a follow-on task may start in files an unreviewed
+task just wrote when the regions are disjoint and named in both briefs, every
+write is an Edit (never a whole-file Write), reports mark `shared with`, and the
+Lead groups commits by file ownership (`git apply --cached` for a shared file's
+own hunks); never when the earlier reviewer may still request a rewrite.
+
 The process is a product too, and the owner's standing instruction is Kaizen:
 many small improvements, continuously, from evidence, by every role. Nobody
 waits for a retro to fix a brief, a rule or a skill that just caused friction.

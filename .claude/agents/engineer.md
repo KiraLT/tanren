@@ -142,6 +142,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    `mktemp -d`, not copy + `rm -rf`); put probe files in `$S`, not in the
    repo; delete single files with plain `rm <file>`. Before any Bash call
    with `&&`/`;`, scan every sub-command against that list.
+   A built-in safety check (separate from the ask list) also denies a compound command whose
+   targets are a shell variable path (`T=$(mktemp -d …); mkdir -p "$T/…"; : > "$T/…"`): NAV-F1's
+   negative proof of a script branch was denied this way (2026-10-27). Spell scratch paths out
+   literally (`$S/<task>-fixture/…`) and, when a proof is denied, report the branch as UNTESTED
+   with the denied command quoted — never claim it ran, never wait for approval (NAV-F1 did this right).
    A copy, worktree or checkout-index tree that links the real `node_modules`
    is off-limits to package managers, installers and codegen: never run
    `pnpm`/`npm`/`npx`/`drizzle-kit generate`/`expo install` inside it — with
@@ -289,6 +294,9 @@ the Lead fixed the line at 16:38 (2026-10-27).
   2026-10-26: mobile-B's `settings.tsx` was committed with that import and
   HEAD did not build for ~1 h). One `git status --short` over your added
   files before the report is the whole check.
+  `shared with` also goes on any file `git status --short` already showed modified before your
+  first edit (another live task is in it even when the brief did not say). End the section with
+  `Committable now: yes | no (<which path waits on what>)` — the Lead lands on that line.
 - `## Decisions` — anything you chose that the brief left open, with the
   reason. Flag the ones the Lead should ratify. When the brief, the design
   spec and a rule disagree (or the spec contradicts itself), the first

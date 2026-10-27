@@ -50,7 +50,7 @@ cd ../mobile; CI=1 nohup node_modules/.bin/expo start --web --port 8081 > $S/<ta
 # wait for "Ready on" in the wrangler log and "Waiting on" in the expo log; curl -i localhost:8787/health → 200
 ab() { agent-browser --session <task> "$@"; }
 ab open http://localhost:8081/today
-ab eval 'fetch("http://localhost:8787/api/auth/sign-in/magic-link",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({email:"dev@tanren.local",callbackURL:"http://localhost:8081/today"})}).then(r=>r.status)'
+ab eval 'fetch("http://localhost:8787/api/auth/sign-in/magic-link",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({email:"dev@tanren.local",callbackURL:"http://localhost:8081/home"})}).then(r=>r.status)'
 # the log line reads `magic link for dev@tanren.local (Sign in to Tanren): http…` (subject in parentheses since v5):
 L=$(sed 's/\x1b\[[0-9;]*m//g' $S/<task>-wrangler.log | grep -o "http://localhost:8787/api/auth/magic-link/verify[^ ]*" | tail -1)
 # seeded Health week: DayBars are Mon–Sun, so the default seed (end Tue 27 Oct) shows 2 burned bars + "upcoming";
@@ -174,7 +174,14 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   Bundled" four times on 2026-10-27 (NAV-2 twice, CONFIRM-2, PROG-1): after editing a served file or
   adding a route, restart with `expo start --clear` before measuring and confirm the snapshot shows a
   string the edit introduced — a "Web Bundled" line does not prove a fresh bundle; a
-  `(tabs)` route not listed in `APP_NAV` redirects to `/today`.
+  `(tabs)` route not listed in `APP_NAV` redirects to `/home` (NAV-3). A shot taken from a stale
+  bundle is not a proof — retake it (NAV-3b's Done-row shot still read "1 sets" after the fix, 2026-10-27).
+  Local-only run (PROG-3, NAV-3, 2026-10-27): `EXPO_PUBLIC_DEV_USER_ID=<uuid>
+  EXPO_PUBLIC_API_URL=http://127.0.0.1:1 expo start --port <n> --clear` — a dead API URL keeps sync
+  quiet; a signed-out EMPTY store shows the Landing on every route. `DEV_USER_ID` skips the demo seed
+  and the signed-out seed hides behind the Landing, so a dev store WITH a plan (planned Up-next row,
+  1280 aside with data) needs the seeded worker + sign-in (Full stack recipe above), not a dev flag;
+  NAV-3 and NAV-3b both shipped the planned/aside shots uncaptured for this reason.
   Today with sets on a dev server (FIN-LAYOUT, 2026-10-26): `EXPO_PUBLIC_DEV_USER_ID` skips the seed, so
   Today reads "Nothing planned today"; start signed out instead, log sets with a DOM click (`ab eval
   'document.querySelector("[aria-label^=\"Log set\"]").click()'`; the landing covers Today until a set

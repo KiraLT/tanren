@@ -16,3 +16,4 @@
 - [EM batch watchlist 2026-10-27m](project_em-batch-watchlist-2026-10-27m.md) — items 101–104: package CLAUDE.md export tours, line budget dodged by long lines, stale "known gaps"/"asserts" claims, mobile 56k pending
 - [EM batch watchlist 2026-10-27n](project_em-batch-watchlist-2026-10-27n.md) — items 105–108: nudges hit finished agents (Lead latency), opus+ui-check 4 turns/min, consequence-copy truth, one-package greps
 - [EM batch watchlist 2026-10-27o](project_em-batch-watchlist-2026-10-27o.md) — items 109–114: staged sweeps, untracked heredocs, future-task code comments, nested ListRow buttons, Metro stale bundles, reviewer boxes 6–8
+- [EM batch watchlist 2026-10-27p](project_em-batch-watchlist-2026-10-27p.md) — items 115–120: retyped dispatch numbers, decoding-default fixture ripple, shared-with/Committable markers absent, $VAR safety-check denial, reviewer actuals ≈ 2 min, overlap into unreviewed files

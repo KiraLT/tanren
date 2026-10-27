@@ -409,6 +409,10 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
   said "returns false when already planned" from `Effect<boolean>` and the
   code returned true on both paths. Lists ("the 19 machine entries") come
   from a structural count, not a fixed-context grep (EQ-C: 19 was 24).
+- numbers in a dispatch message (set schemes, limits, counts, durations) are pasted from the
+  design or sheet with the grep that found them, never retyped from memory: the PROG-5 message
+  said mains "12 → 10 → 8" while design §7.4 and the sheet said 10 → 8 → 6; the engineer followed
+  the design and PROG-R3 spent a check on it (2026-10-27).
 
 ## Scope
 In: <a brief that names the file of a UI row, label or copy string gets it from
@@ -461,6 +465,8 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
 
 ## Done when
 - [ ] <behavioural criterion>
+- [ ] <one checkbox per state-matrix or spec-§ row, each NAMED ("Done today row renders after Finish"),
+      never "each §6 row": NAV-3 shipped without the Done-today state, NAV-R3 blocked on it (2026-10-27)>
 - [ ] `pnpm check` is green (paste output; company mode: if red only outside your scope, also the
       package-level stages from the `monorepo` skill, foreign failures named). When other
       engineers are live in the same package, the criterion is "own files green (vitest on
@@ -573,6 +579,20 @@ content into HEAD (COMMIT-SWEEP, EM batch 19, 2026-10-27). This
 replaces the mtime arithmetic above as the gate (two leaks on 2026-10-27);
 the mtime check stays as the way to find which hunks to drop.
 
+Overlapping a follow-on into UNREVIEWED files (batch 20: PROG-5 in PROG-3's files before the
+PROG-3 commit; NAV-1/NAV-3 on `appNav.ts`, `activity.tsx`, `progress/index.tsx`; NAV-4/NAV-F1 on
+`NutritionRepo.ts`) is allowed when: the regions are disjoint and named in both briefs, both
+engineers Edit (never Write/rewrite) the shared file, every report carries `shared with <task>`,
+and the Lead commits the group by file ownership (one commit per overlapping set, never per
+task). Cost: three multi-task commits instead of six; benefit: no serial wait on the review.
+It is never allowed when the earlier task's reviewer may still request a rewrite of that file.
+
+Signing stall: `op-ssh-sign` "failed to fill whole buffer" = 1Password locked after an
+auto-update (`pgrep -fl 1Password` shows `--just-updated`). Ask the owner in bold to unlock,
+keep the index as staged, start one background loop `until git commit -F $S/msg -- <paths>; do
+sleep 120; done` (≤ 30 min) and STAGE NOTHING ELSE until it lands (19:17–19:33 and 19:47–19:53,
+2026-10-27: 16 + 6 min, landed on retries 4 and 3). Never commit unsigned or change signing config.
+
 ## Big diffs: fan the review out
 
 For diffs over roughly 800 lines (the same threshold as Cost discipline), or
@@ -614,8 +634,9 @@ leftovers (retro v6, P4).
 
 Reviewer boxes: an opus reviewer over one engineer's 3–6-file diff finishes
 in 2–2.5 min (NAV-R 2.1 min / 20 tool uses, PROG-R 2.5 / 16, CONFIRM-R 6,
-2026-10-27); box it at 6–8 min, not 10–12, so the nudge threshold and the
-Lead's wait estimate match reality. Keep the review brief's "Committable now:
+2026-10-27; batch 20: PROG-R3 2.5 of 10, PROG-R4 ~1 of 6, NAV-R2 2 of 8 for TWO tasks,
+NAV-R3 1.5 of 8); box it at 5 min (6 for a two-task review), never 8–12, so the nudge
+threshold and the Lead's wait estimate match reality. Keep the review brief's "Committable now:
 yes/no" line — both reviews answered it directly and the Lead landed on it.
 
 ## Bookkeeping
