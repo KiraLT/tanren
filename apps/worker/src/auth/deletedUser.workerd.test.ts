@@ -106,6 +106,10 @@ describe("a deleted user cannot write within the token window (STLS-F3)", () => 
     expect(push.status).toBe(401)
     expect(await sessionRows(after)).toBe(0) // nothing re-created under the erased id
     expect(read.status).toBe(200) // reads stay stateless (0 user reads)
+    // ADR-0022 amendment: `/sync/pull` is a POST, so it pays the user-row read and is refused too.
+    const pull = await send(app, "/sync/pull", bearer, { since: null, limit: 500 })
+    console.log("STLS-F3 app JWT after delete: POST /sync/pull", pull.status)
+    expect(pull.status).toBe(401)
   })
 
   it("web cookie-cache session: push 401 and GET 200 after the user row is gone", async () => {
