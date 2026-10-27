@@ -1,6 +1,7 @@
 import { Match, Option } from "effect"
 import { useRouter } from "expo-router"
 import { Pressable, View } from "react-native"
+import { WORKOUT_HREF } from "../../hooks/useStartWorkout"
 import type { FeedItem } from "../../services/FeedRepo"
 import {
   Button,
@@ -16,15 +17,20 @@ import { ActivityCard } from "../feed/ActivityCard"
 import { formatDurationCompact } from "../feed/feedGroups"
 import { ImportedCard } from "../feed/ImportedCard"
 
-/** A feed item's own page: a session's detail or an imported card. */
+/**
+ * A feed item's own page, as the Activity tab opens it: an in-progress session is today's, so it
+ * opens Home's pager; a finished one its detail; an imported card its page.
+ */
 const openFeedItem = (router: ReturnType<typeof useRouter>, item: FeedItem): void =>
   Match.valueTags(item, {
     session: ({ activity }) =>
-      // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
-      router.push({
-        pathname: "/activity/[sessionId]",
-        params: { sessionId: activity.sessionId },
-      }),
+      activity.status === "inProgress"
+        ? router.navigate(WORKOUT_HREF)
+        : // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
+          router.push({
+            pathname: "/activity/[sessionId]",
+            params: { sessionId: activity.sessionId },
+          }),
     imported: ({ activity }) =>
       // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
       router.push({ pathname: "/activity/imported/[id]", params: { id: activity.id } }),

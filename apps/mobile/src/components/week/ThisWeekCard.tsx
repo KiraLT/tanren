@@ -86,12 +86,15 @@ export function ThisWeekCard({
     { label: "Volume", value: formatVolume(volumeKg) },
     { label: "PRs", value: String(prs) },
   ]
-  // Label-in-name: the accessible name reads the tiles' own strings.
+  const bars = variant === "rings" && weekHasNutritionData(summary.days)
+  // Label-in-name: the accessible name reads the tiles' own strings; the card's label hides the
+  // bars' per-day labels, so it names the chart (the review page reads it day by day).
   const spoken = [sessions, ...rest].map((item) => `${item.label} ${item.value}`).join(", ")
+  const chart = bars ? ", eaten vs burned per day shown" : ""
   return (
     <Card
       onPress={() => router.navigate("/review")}
-      accessibilityLabel={`This week: ${spoken}. Opens the weekly review`}
+      accessibilityLabel={`This week: ${spoken}${chart}. Opens the weekly review`}
     >
       <View style={{ gap: variant === "rings" ? space.lg : space.sm }}>
         <Text variant="caption" tone="muted" headingLevel={2}>
@@ -100,9 +103,7 @@ export function ThisWeekCard({
         {variant === "rings" ? <Rings summary={summary} /> : null}
         <StatRow variant="tile" items={variant === "rings" ? rest : [sessions, ...rest]} />
         {/* desktop-fill.md §3: the week's bars in the same card, only when some day has data. */}
-        {variant === "rings" && weekHasNutritionData(summary.days) ? (
-          <DayBars days={summary.days} today={localDateOf(new Date())} />
-        ) : null}
+        {bars ? <DayBars days={summary.days} today={localDateOf(new Date())} /> : null}
       </View>
     </Card>
   )

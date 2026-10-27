@@ -115,7 +115,8 @@ const pagerFor = Match.type<TodayState>().pipe(
  * Home (ADR-0029, navigation-v2.md §2 Merge, §3, §6): the Up-next card with the one Start pill,
  * the health module, "This week" and the latest activity. At desktop (desktop-fill.md §2) the
  * column shows the three newest feed items instead of the teaser, and the aside holds the health
- * module, the programs due, the week's eaten vs burned chart (only with data) and the tracker tiles. The Start pill opens the pager at `/home?workout=1`.
+ * module, the programs due, the week's eaten vs burned chart (only with data) and the tracker
+ * tiles. The Start pill opens the pager at `/home?workout=1`.
  */
 export default function HomeScreen() {
   const { state } = useToday()

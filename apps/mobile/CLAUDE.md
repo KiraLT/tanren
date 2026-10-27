@@ -59,7 +59,7 @@ recipe) and ADRs, not here.
   sync rounds and `useGarminConnected` run via `whenSignedIn`; only the gate's `get-session` probe calls out.
 - Owner: `CurrentUser.signedIn` resolves once per runtime (dev `EXPO_PUBLIC_DEV_USER_ID`, else Better Auth / `NativeSession`, else
   stored `sync_state.ownerUserId`). Signed out: rows carry `LOCAL_USER_ID` and the demo seed runs; signed in:
-  `SyncEngine.rekeyLocalUser` moves them first.
+  `SyncEngine.rekeyLocalUser` moves them first. Not built: a second user on one device; reads have no `userId` filter.
 
 ## Expo facts
 
@@ -110,12 +110,12 @@ kept per exercise in `exercise_step` (v9, `StepRepo`).
 
 - `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`; `activity(id)` is session-only. `HistoryRepo` serves only
   Progress (a PR strictly beats every earlier set).
-- Garmin (`GarminCard`): the token is component state, cleared after every attempt; Connect has its own 30 s timeout
-  (`GARMIN_CONNECT_TIMEOUT_SECONDS`, others 5 s). The Worker's "today" is UTC: Today can read "Burned: no data" 00:00–02:00 EET.
+- Garmin (`GarminCard`): the token is component state, cleared after every attempt; Connect has its own 30 s timeout.
+  The Worker's "today" is UTC: Today can read "Burned: no data" 00:00–02:00 EET.
 - `NutritionRepo.day(date)` / `.week(monday)` read in `CurrentTimeZone` (insights read the 7 days ENDING the date). Budget = goal
   intake (burn is information); eat-back only when `eatBackActive`; insights ≤ 3.
-- `HealthModule` (→ `/health`): `metaLine` never shows bpm (resting HR only on `/health`, plan Amendment 26). Settings → Nutrition: the draft is seeded once (a pull mid-edit is lost on
-  Save).
+- `HealthModule` (→ `/health`): `metaLine` never shows bpm (resting HR only on `/health`, plan Amendment 26). Settings →
+  Nutrition: the draft is seeded once (a pull mid-edit is lost on Save).
 
 ## Illustrations and brand
 

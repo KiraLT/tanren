@@ -56,6 +56,7 @@ interface FeedListProps {
 }
 
 function FeedList({ items, limit, selected, onOpen, onOpenImported, onLoadMore }: FeedListProps) {
+  const desktop = useBreakpoint() === "desktop"
   // Grouping reads the clock once per data change; a list kept open past midnight regroups on the
   // next store write.
   const rows = useMemo(
@@ -73,8 +74,8 @@ function FeedList({ items, limit, selected, onOpen, onOpenImported, onLoadMore }
             accessibilityRole="header"
             style={{
               height: HEADER_HEIGHT,
-              // The first header sits `space.lg` down, level with the aside's first child (Page frame).
-              marginTop: index === 0 ? space.lg : space.xl,
+              // Desktop: the first header sits `space.lg` down, level with the aside's first child.
+              marginTop: desktop && index === 0 ? space.lg : space.xl,
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
