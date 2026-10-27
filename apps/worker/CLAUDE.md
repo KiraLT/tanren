@@ -1,187 +1,126 @@
 # @tanren/worker
 
-The Cloudflare Worker: REST API (`@effect/platform` HttpApi), Better Auth
-(magic link), the batched sync endpoint, static web hosting, and the MCP
-server (stateless `createMcpHandler` from the Cloudflare Agents SDK, ADR-0010, not `McpAgent`). The
-Worker's default export is `{ fetch, scheduled }`: `fetch` is the router in `oauth/provider.ts` over a stateless OAuth
-authorization server written in Effect (ADR-0022: Tanren JWTs, no KV, no library) that guards `/mcp` and serves the OAuth
-endpoints and authorize pages; `scheduled` is the cron (Strava export drain, then Garmin pull).
+The Cloudflare Worker: REST API (HttpApi), Better Auth (magic link), batched sync, static web hosting, the
+stateless MCP server (`createMcpHandler`, ADR-0010, not `McpAgent`) and a stateless OAuth authorization server
+in Effect (ADR-0022: Tanren JWTs, no KV, no library). Default export = `{ fetch, scheduled }`: `fetch` is
+`makeRouter` (`oauth/provider.ts`: CORS, discovery, `/oauth/*`, `/authorize*`, `/mcp`, then the app); `scheduled`
+is the cron (Strava export drain, then Garmin pull). Domains: `api.tanren.me`, `mcp.tanren.me`, `tanren.me` (web).
 
-Domains: `api.tanren.me` (REST), `mcp.tanren.me` (MCP), `tanren.me` (web).
+Contracts live in `docs/design/`, not here: `mcp.md`, `oauth.md` (superseded), `auth-v2.md` (ADR-0022),
+`integrations.md` (ADR-0018), `garmin.md` (ADR-0023), `native-auth.md`, `legal.md` (ADR-0024), `nutrition.md`
+(ADR-0025), `programs-mcp.md` (ADR-0026), `deploy.md`.
 
 ## Boundaries
 
 - Depends on `@tanren/shared`, `@tanren/db`. Never imports from `apps/mobile`.
-- Effect everywhere except two thin adapters that run an Effect program: the MCP adapter
-  (`mcp/server.ts`: the `McpServer` instance + `createMcpHandler` call) and the Worker entry
-  (`index.ts`, which calls the `oauth/provider.ts` router). Biome's `noClass` override excludes only
-  `src/mcp/**` and `src/index.ts`, so `src/oauth/**` declares no class. `@cloudflare/workers-oauth-provider`
-  and `OAUTH_KV` were removed by ADR-0022 (history: `docs/design/oauth.md`, superseded banner).
-- `jose` (HS256 JWTs) is value-imported only by `auth/Tokens.ts`; everything else goes through the `Tokens` service.
-- Bindings and secrets come from `wrangler` config / `.dev.vars`; agents do
-  not read `.dev.vars`.
+- Effect everywhere except two thin adapters that run an Effect program: `mcp/server.ts` (`McpServer` +
+  `createMcpHandler`) and `index.ts`. Biome's `noClass` override excludes only `src/mcp/**` and `src/index.ts`,
+  so `src/oauth/**` declares no class. `@cloudflare/workers-oauth-provider` and `OAUTH_KV` are gone (ADR-0022).
+- `jose` is value-imported only by `auth/Tokens.ts`; everyone else uses the `Tokens` service.
+- Bindings and secrets come from `wrangler` config / `.dev.vars`, which agents never read.
 
 ## Layout
 
+`ls src/*` and module headers give the exports; this is the map plus the gotcha per directory.
+
 ```
-src/
-  index.ts            Worker entry: default export = `{ fetch, scheduled }`: `fetch` calls `makeRouter(env, config, { app, mcp, authorize }, persistence)`
-                      (`oauth/provider.ts`: CORS preflight, discovery, `/oauth/{register,token}`, `/authorize*`, `/mcp`, then `app`); `scheduled` = `ctx.waitUntil(scheduledRun.run())` (cron: Strava export drain, then Garmin pull; one slim runtime per isolate, GM-F2);
-                      `app` = makeApp(env, { BetterAuth.layer(env.DB), d1Persistence(env.DB) }), `mcp` = makeMcp(…, McpAuth.layerLive)
-  app.ts              makeApp: HttpApi layer + auth mode + persistence → { handler }; memoryPersistence / d1Persistence
-  Env.ts, Config.ts   `Env` interface + config/guard (incl. `STRAVA_MODE`, `STRAVA_CLIENT_ID`, `STRAVA_CONSOLE_FAIL` vars and the
-                      `STRAVA_CLIENT_SECRET` / `INTEGRATION_TOKEN_KEY` secrets: `console` is allowed in every environment (it only logs;
-                      production runs it until the owner has a Strava app, O2), `provider` needs the secret, the fake local key is
-                      refused outside local)
-  integrations/       Strava export (ADR-0018, docs/design/integrations.md): TokenSeal.ts (AES-256-GCM seal/open of provider tokens, wire
-                      `v1.<iv>.<ct>`) · StravaApi.ts (port: exchangeCode/refresh/createActivity/revoke; `layerHttp`/`layerLive` real,
-                      `layerConsole` logs `[strava:console] …`, `STRAVA_CONSOLE_FAIL=inactive` simulates a lapsed app; 403 or an
-                      inactive-looking 4xx → `app_inactive`) · ExportQueue.ts (enqueueCompleted + drain: claim → token refresh → send →
-                      settle; backoff +1 m/+5 m/+30 m/+2 h, 5th failure `dead`, `blocked` retried every 12 h) · activityText.ts (pure: session →
-                      Strava activity name/start/elapsed/description) · scheduled.ts (`makeScheduled(scheduledLayer(env))`: export drain, 10 rows per run, then `GarminPull.drain`, 1 user per run; each drain has its own `catchCause`, so one failing never blocks the other; GM-F2: `scheduledLayer` holds only the drains' ports (7 repos + SyncStore on one D1 client, Strava, Garmin, TokenSeal, IdGenerator, WorkerConfig; no Better Auth/OAuth/MCP/HttpApi), built lazily by a `ManagedRuntime` once per isolate and reused by every tick — never build the cron's layers per invocation) ·
-                      Garmin import (ADR-0023, docs/design/garmin.md; `GARMIN_MODE` `console` default | `provider`, `GARMIN_BASE_URL`, `GARMIN_CONSOLE_FAIL=rejected` console only; no server-side Garmin secret, the user's key is sealed with `INTEGRATION_TOKEN_KEY`): GarminApi.ts (port: `exchange` key → 24 h JWT, profile, activities list, daily summary; `layerHttp`/`layerLive` real, `layerConsole` = 2 activities + 7 days, `layer` picks by `GARMIN_MODE`; `GarminApiError`) ·
-                      GarminPull.ts (`GarminPull.drain({ max })`: per user ≤ 10 Garmin calls and ≤ 2 activity pages of 50, 7-day dailies, 30-day back-fill walked in 10-day windows (GM-F1: Workers Free 10 ms CPU per cron run), cursor in the integration row, daily 404 → no row; writes through `GarminImportRepo`; `layerDisabled`) ·
-                      connect.ts (`startConnect`: allow-list `returnTo` ≤ 300 chars, signed 10-min `state`, authorize URL with
-                      `approval_prompt=force`; console mode → our own callback with `code=console`; refused outside local) ·
-                      callbackRoutes.ts (plain `HttpRouter` `GET /integrations/strava/callback`: verify state, exchange code, upsert, 303 or
-                      HTML; limiter keyed by `cf-connecting-ip`; 400 "Strava is not connected yet" for console outside local) ·
-                      returnTo.ts (`isAllowedIntegrationReturnTo`, `MAX_RETURN_TO`)
-  cloudflareEnv.d.ts  the `Cloudflare.Env` declare-merge (typed `cloudflare:workers` env). Never name a .d.ts after a
-                      sibling .ts basename: on case-insensitive macOS `env.d.ts` next to `Env.ts` is silently dropped by tsc
-  api/                HttpApi from `effect/http-api` (NOT @effect/platform): Api, Authentication, Handlers · IntegrationsApi.ts (group:
-                      `GET /integrations`, `POST /integrations/strava/connect`, `DELETE /integrations/strava`, exports list + retry) ·
-                      IntegrationsHandlers.ts (connect limiter keyed `strava-connect:<userId>`)
-  repos/              re-exports the @tanren/db ports + D1Layer + PersistenceError; MemoryStore + Repositories.layerMemory (Node tests) ·
-                      MemoryIntegrations.ts (in-memory `IntegrationRepo`/`ActivityExportRepo` for Node tests) ·
-                      MemoryGarminImport.ts (in-memory `GarminImportRepo` for Node tests; the D1 `GarminImportRepo` lives in `packages/db/src/repositories/GarminImport.ts`: upsert imported activities / daily health through `SyncStore`, skip unchanged live rows) ·
-                      MemoryTokens.ts (in-memory `UserTokens` + `OAuthCodeUseRepo` for Node tests: every user exists at generation 0) ·
-                      MemoryFoodEntry.ts (in-memory `FoodEntryRepo` on the shared `MemoryStore`, so `SyncStoreMemory` pulls see it; checks ownership → `Forbidden` and totals = `totalsOf(items)` itself, because `MemoryStore.put` does neither; reached through `Repositories.layerMemory`/`layerMemoryNoDeps`; `GarminImportRepo` is NOT in that layer: tool tests add `MemoryGarminImport.layer`)
-  time/               localDate.ts (v6 nutrition, ADR-0025): the ONE local-day module — `zoneOf(timezone)` (invalid/absent → UTC), `localDayOf`, `localHourOf`, `addDays`, `dayRange(date, zone)` (half-open UTC `[local midnight, next local midnight)`, DST-correct: 25-h day tested), `weekOf` (Mon–Sun); MCP nutrition tools and `GarminPull` use it (G-F1: dailies of local yesterday + today in the profile zone, no profile → UTC)
-  auth/               Tokens.ts (ONE service for all 7 token kinds: app access/refresh, MCP access/refresh, auth code, consent handle,
-                      DCR client id; HS256 JWTs via `jose`, keys = WebCrypto HKDF sub-keys of `BETTER_AUTH_SECRET` (no new secret), `kid`,
-                      exact `aud`/`iss`, 60 s skew, clock = Effect `DateTime.now`) · tokenRoutes.ts (`POST /api/token/{refresh,revoke,
-                      revoke-mcp}`: refresh body `RefreshRequest`, no cookie read; revokes bump `appTokenGen` / `mcpTokenGen`, answer 204;
-                      every response `no-store`, every rejection 401 `TokenRejected`) ·
-                      Sessions port, SessionsLive (JWT-first: a Bearer app JWT → `Tokens.verifyApp`, 0 D1 reads; else Better Auth
-                      `getSession`, whose `cookieCache` is `jwt`, `maxAge` 900 s), BetterAuth (lazy `Effect.cached` instance),
-                      Email (MagicLinkEmail, EmailSendFailed, EmailSenderShape), EmailSender (console locally,
-                      Resend via `makeResendSender`), magicLinkEmail (pure `{ subject, text, html }`: table layout, inline
-                      styles, escaped url, fixed light colours; `resendBody` calls it), authRoutes (store/build/request failure → 503
-                      `SessionStoreUnavailable`, `EmailSendFailed` → 502 `EmailDeliveryFailed`, defect → 500 `InternalError`)
-  sync/               Sync (push = db SyncStore.apply, then for a completed session `ExportQueue.enqueueCompleted` + `drain(1)` within 5 s,
-                      never failing the push; pull + serverTime); SyncStoreMemory (Node fake, no LWW). Imports (`importedActivity`, `dailyHealth`)
-                      are pull-only synced tables: `Sync.push` rejects them `forbidden` (`PULL_ONLY`, before `SyncStore.apply`), only the Worker's
-                      own `GarminImportRepo` writes them, and MCP never reads them
-  mcp/                tools.ts (7 read tools incl. `search_exercises` (`availableAt`: 1 D1 statement), `get_profile` and `list_activities`; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
-                      writeTools.ts (`write_plan_week`, `log_session`, `update_profile`) · nutritionTools.ts (`get_nutrition_day`, `get_week_review` read; `log_food`, `delete_food_entry` write: 13 tools in all, a read-only grant lists 8; `nutritionTools.workerd.test.ts` proves them through `/mcp`) · McpAuth.ts (identity port → `McpPrincipal`) ·
-                      programTools.ts (ADR-0026, programs-mcp.md §3: `list_programs`, `get_program`, `get_program_progress` read; `write_program`, `update_program`, `delete_program`, `enroll_program`, `set_enrollment_status`, `swap_exercise` write over `UserProgramRepo`; built-ins `core-30`/`lean-build-12` are read-only → `Forbidden`; programs are 1–84 days; `update_program`/`write_program` retry once on a `conflict <id>` `PersistenceError`; 23 tools in all, a read-only grant lists 12; `NotFound.id` is a plain string for slugs; `programTools.workerd.test.ts` proves them through `/mcp`) · `list_activities` (tools.ts, N-S4, plan Amendment 24: live Garmin-imported activities of the period, newest first, ≤ 200, via `GarminImportRepo.listActivities`; `get_overview` gains `imported` totals) ·
-                      server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime) · McpLanding.ts (GET/HEAD `/` on the MCP host: static help page naming the connector URL)
-  oauth/              the stateless authorization server (ADR-0022, docs/design/auth-v2.md §5; no KV, no DO, no library).
-                      provider.ts (`makeRouter`: the Worker's fetch router, CORS, `statelessOAuth` hook) · authorize.ts (`/authorize` pages:
-                      Better Auth magic-link login → consent) · OAuthApi.ts (the six-method port; `layerStateless` over
-                      `Tokens` + `ClientResolver`, `layerFake` for Node tests) · pages.ts (HTML pages in the Forge frame: `shell`
-                      = wordmark + column + legal footer, `PAGE_CSP` sent by every `/authorize*` page; assets.ts holds the W1
-                      wordmark as a 5 KB alpha-mask `data:` PNG, OAUTH-UI; fontRoute.ts serves `GET /oauth/assets/barlow-condensed-800.woff2`
-                      (Latin-subset Barlow Condensed 800, OFL, a wrangler `rules` Data module typed by `fonts/fontModules.d.ts`; called
-                      from `index.ts` before the router; the h1 face, `font-src 'self'`, OAUTH-FONT) · knownClients.ts (IDENT-1 trust:
-                      host equality against `TRUSTED_CLIENT_HOSTS`) · clients.ts (`ClientResolver`: CIMD fetch for an https `client_id`
-                      with a path — 5 s timeout, 5 KiB cap, no redirects, JSON, cached in a named Cache API cache ≤ 1 h; else a DCR client-id
-                      JWT; canonical-URL checks; stateless `POST /oauth/register`) · consent.ts (consent handle JWT with a nonce, the
-                      `__Host-tanren-consent` binding cookie, `parseAuthorization`, `ConsentDescription`) · token.ts
-                      (`POST /oauth/token`: code exchange checks signature → client/redirect → PKCE S256 → generation, burns in
-                      `oauth_code_use` LAST; `refresh_token` grant checks `mcpTokenGen`) · metadata.ts (RFC 8414 AS metadata + RFC 9728
-                      protected-resource metadata)
-  testing/            workerdSetup.ts (applies every migration in `packages/db/migrations`, read as a whole directory by `vitest.workerd.config.ts`, before each workerd test file), env.d.ts (TEST_MIGRATIONS,
-                      test project only), fixtures.ts (shared `envVars` for Node + workerd tests), countingD1.ts (counts D1
-                      executions, for statement-budget assertions)
-  *.workerd.test.ts   tests that run inside workerd on a migrated D1 (project @tanren/worker-workerd); `index.workerd.test.ts`
-                      boots the real default export of `src/index.ts`; `oauth/oauth.workerd.test.ts` is the OAuth flow test
-scripts/seed.ts       local seed runner (tsx; typed by tsconfig.scripts.json with @types/node)
-scripts/smoke.ts      `pnpm smoke:worker --port <n> --log <wrangler output file>` against a running dev server
-vitest.config.ts      Node project `@tanren/worker` (excludes *.workerd.test.ts)
-vitest.workerd.config.ts  workerd project `@tanren/worker-workerd` (@cloudflare/vitest-plugin, wrangler.test.jsonc)
-wrangler.jsonc        top level = local: D1 `DB` (db `tanren`), migrations_dir ../../packages/db/migrations (no KV: removed by ADR-0022), fake
-                      local vars incl. `MCP_RESOURCE_URL`; `env.production` = routes api./mcp.tanren.me + own vars/ids (docs/design/deploy.md §2)
-wrangler.test.jsonc   test-only D1 binding, local vars (so a workerd test can boot src/index.ts) + TEST_MIGRATIONS
-wrangler.web.jsonc    static-assets Worker `tanren-web` (`env.production` route tanren.me)
-tsconfig.json         production + Node tests (workers-types only; excludes src/testing, *.workerd.test.ts)
-tsconfig.test.json    workerd tests, src/testing, vitest configs (+ @cloudflare/vitest-plugin/types)
-tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
+Env.ts, Config.ts     `Env` + decoded config / startup guard. `STRAVA_MODE` / `GARMIN_MODE`: `console` (default; only logs / fakes 2 activities
+                      + 7 days; allowed everywhere incl. production) | `provider` (Strava needs `STRAVA_CLIENT_SECRET`; Garmin has no server
+                      secret, the user's key is sealed with `INTEGRATION_TOKEN_KEY`, whose fake local value is refused outside local).
+                      `STRAVA_CONSOLE_FAIL=inactive` / `GARMIN_CONSOLE_FAIL=rejected` work in console mode only. `NATIVE_RETURN_PREFIXES`
+                      pins URL *prefixes* (`exp://`, `exps://u.expo.dev/<projectId>/`, not a host: all EAS projects share `u.expo.dev`)
+                      a native code may be sent to; unset = local simulator only.
+cloudflareEnv.d.ts    the `Cloudflare.Env` declare-merge. Never name a .d.ts after a sibling .ts basename: on case-insensitive macOS
+                      `env.d.ts` next to `Env.ts` is silently dropped by tsc.
+api/                  HttpApi from `effect/http-api` (NOT `@effect/platform`); `AccountApi` = `POST /api/account/delete` (legal.md §1.7).
+auth/                 `Tokens.ts` is the ONE service for all 7 token kinds (app, MCP, auth code, consent, DCR client id): HS256 JWTs signed
+                      with WebCrypto HKDF sub-keys of `BETTER_AUTH_SECRET` (no new secret; changing an HKDF `info` invalidates every token
+                      it signs). `Sessions` is JWT-first (Bearer app JWT → 0 D1 reads). Revokes bump
+                      `appTokenGen` / `mcpTokenGen`; a burned refresh token re-sent within 30 s still gets a fresh pair. `BetterAuth` is a
+                      lazy `Effect.cached` instance on the built-in memory adapter: never import `better-auth/adapters/memory`, its
+                      `export *` is `undefined` under wrangler's bundle. Native sign-in: `nativeAuthRoutes.ts` (native-auth.md).
+oauth/                the stateless AS (auth-v2.md §5). Trust = host equality against `TRUSTED_CLIENT_HOSTS`; an https `client_id` with a
+                      path is resolved by CIMD fetch (5 s, 5 KiB, no redirects, Cache API ≤ 1 h), else it is a DCR client-id JWT. `token.ts`
+                      checks signature → client/redirect → PKCE S256 → generation and burns the code in `oauth_code_use` LAST. Every
+                      `/authorize*` page sends `PAGE_CSP`; `fontRoute.ts` serves the woff2 as a wrangler `rules` Data module (typed by
+                      `fonts/fontModules.d.ts`), called from `index.ts` before the router.
+mcp/                  `server.ts` = the only `McpServer`, one per request; `McpRoute.ts` (lazy ManagedRuntime). Tools in `tools.ts`,
+                      `writeTools.ts`, `nutritionTools.ts`, `programTools.ts` — 23 in all, a read-only grant lists 12; each tool file has a
+                      `*.workerd.test.ts` proving it through `/mcp`. Built-in programs `core-30` / `lean-build-12` are read-only →
+                      `Forbidden`; `write_program` / `update_program` retry once on a `conflict <id>` `PersistenceError`; `NotFound.id` is
+                      a plain string for slugs.
+integrations/         Strava: 403 or an inactive-looking 4xx → `app_inactive`; `blocked` rows retry every 12 h, never `dead`; console mode
+                      answers its own callback with `code=console`, refused outside local. Garmin (`GarminPull.ts`): per user ≤ 10 calls,
+                      ≤ 2 activity pages of 50, 7-day dailies, 30-day back-fill in 10-day windows (Workers Free 10 ms CPU per cron run);
+                      daily 404 → no row; writes only through `GarminImportRepo`. `scheduled.ts`: export
+                      drain 10 rows, then Garmin 1 user, each under its own `catchCause`; `scheduledLayer` holds only the drains' ports in
+                      a `ManagedRuntime` built once per isolate — never build the cron's layers per invocation (GM-F2).
+sync/                 push = `SyncStore.apply`, then for a completed session `ExportQueue.enqueueCompleted` + `drain(1)` within 5 s, never
+                      failing the push. `importedActivity` and `dailyHealth` are pull-only: `Sync.push` rejects them `forbidden` (`PULL_ONLY`,
+                      before `apply`); only `GarminImportRepo` writes them. `SyncStoreMemory` (Node fake) has no LWW, no parent checks,
+                      never reports conflicts — push rules are proven only in the db workerd project.
+time/localDate.ts     the ONE local-day module (`zoneOf` invalid/absent → UTC, `dayRange` half-open UTC + DST-correct, `weekOf` Mon–Sun).
+                      Never add a second one.
+repos/                re-exports the `@tanren/db` ports; `Memory*.ts` fakes behind `Repositories.layerMemory` (Node tests only). `MemoryFoodEntry`
+                      checks ownership and totals itself because `MemoryStore.put` does neither; `GarminImportRepo` is NOT in `layerMemory`
+                      (tool tests add `MemoryGarminImport.layer`); `MemoryTokens`: every user exists at generation 0.
+testing/              `workerdSetup.ts` applies every `packages/db/migrations` file before each workerd test file; `countingD1.ts` counts
+                      D1 executions incl. batch members.
+scripts/              `seed.ts`, `smoke.ts` (`pnpm smoke:worker --port <n> --log <wrangler output>`), `deployPreflight*.ts`.
+vitest / wrangler /   Node project `@tanren/worker` (excludes `*.workerd.test.ts`) + workerd project `@tanren/worker-workerd` on
+tsconfig variants     `wrangler.test.jsonc`; `wrangler.jsonc` top level = local, `env.production` = deploy.md §2; `wrangler.web.jsonc` =
+                      static-assets Worker `tanren-web`; `typecheck` runs all 3 tsconfigs.
 ```
 
-- `makeApp` → `HttpRouter.toWebHandler` builds every layer eagerly, and `src/index.ts` calls it at module
-  scope, where workerd forbids I/O (and the clock reads 1970). A layer must never start I/O while it is
-  built: create clients lazily inside the request (hardening H3: `betterAuth()` starts a schema check on
-  construction, which logged `[Better Auth] Could not validate the database schema` at every startup).
-
-- Persistence and auth both run on `env.DB` (auth tables = migration 0001). `layerMemory` variants are for Node tests only.
-- Sync rules (LWW, clamp, per-change rejection) belong to `@tanren/db`'s `SyncStore`; never re-implement them here.
+- `makeApp` builds every layer eagerly and `src/index.ts` calls it at module scope, where workerd forbids I/O
+  (and the clock reads 1970). A layer must never start I/O while it is built: create clients lazily inside the
+  request (H3: `betterAuth()` runs a schema check on construction → `Could not validate the database schema` at every startup).
+- Persistence and auth both run on `env.DB`. Sync rules (LWW, clamp, per-change
+  rejection) belong to `@tanren/db`'s `SyncStore`; never re-implement them here.
 - Two Vitest projects. Node (`makeApp(env, …).handler(new Request(…))`) proves logic fast; workerd
-  (`*.workerd.test.ts`, real D1 via `d1Persistence(env.DB)`) proves the bundle runs: wrangler's esbuild
-  and workerd resolve imports differently (step 3: `better-auth/adapters/memory` re-export was `undefined`
-  under workerd while 45 Node tests passed). Put anything that touches bindings, imports from a new
-  package, or `src/index.ts` / `src/app.ts` / `src/auth/**` behind a workerd test. Until the workerd
-  project covers auth routes, those tasks also end with the smoke and paste it:
-  `pnpm -F @tanren/worker exec wrangler dev --port <spare> &` → `curl -i localhost:<spare>/health`
-  (expect 200) → one route behind `Authentication` (expect 401, never 500) → kill only that PID.
-- Native sign-in (`auth/nativeAuthRoutes.ts`, docs/design/native-auth.md §2.3): `/api/native/begin`,
-  `/auth/native/complete`, `/api/native/session` are rate-limited in isolate memory (10/min/route/IP,
-  429 `NativeRateLimited`). That is weak (one counter per isolate); the production upgrade is the Workers
-  rate-limiting binding (`ratelimits` in `wrangler.jsonc`, `env.<BINDING>.limit({ key })`) or a Cloudflare
-  WAF rate-limiting rule (owner). `NATIVE_RETURN_PREFIXES` pins the URL prefixes (`exp://` + `exps://u.expo.dev/<projectId>/`, not a host:
-  all EAS projects share `u.expo.dev`) a code may be sent to.
+  (`*.workerd.test.ts`, real D1) proves the bundle runs: wrangler's esbuild and workerd resolve imports
+  differently (a re-export was `undefined` only under workerd). Anything that touches
+  bindings, imports from a new package, or `src/index.ts` / `src/app.ts` / `src/auth/**` goes behind a
+  workerd test, and the task ends with the smoke, pasted: `pnpm -F @tanren/worker exec wrangler dev --port
+  <spare> &` → `curl -i localhost:<spare>/health` (200) → one route behind `Authentication` (401, never 500)
+  → kill only that PID.
+- Security tests of `/api/auth/*` belong in `*.workerd.test.ts`: Better Auth skips its origin check under
+  `NODE_ENV=test` (Node vitest). Its limiter is forced on in production from our `ENVIRONMENT` (`rateLimitFor`);
+  its own switch is `NODE_ENV === "production"`, which the Worker never sets.
+- Native sign-in routes (`/api/native/*`, `/auth/native/complete`) are rate-limited in isolate memory (10/min/route/IP,
+  429 `NativeRateLimited`): weak, one counter per isolate; upgrade = Workers `ratelimits` binding or a WAF rule (owner).
 - Dev server: use a spare port when 8787 is busy (`wrangler dev --port`). Never kill processes you did not start.
-- Known gaps: `SyncStoreMemory` (Node fake) has no LWW, no parent checks and never reports conflicts, so push
-  rules are proven only in the db workerd project. The Better Auth limiter is enabled only when
-  `NODE_ENV === "production"`, which the deployed Worker does not set (`auth/rateLimit.workerd.test.ts` stubs
-  it) → needs `rateLimit: { enabled: true }` or a `NODE_ENV` var (escalated). Security tests of `/api/auth/*`
-  belong in `*.workerd.test.ts`: Better Auth skips its origin check under `NODE_ENV=test` (Node vitest).
-- History (steps 3–5, INT-A, stateless auth, STLS-F5): ADR-0022 (+ amendment), `docs/design/auth-v2.md`,
-  `docs/tasks/step-2.md` Log and `git log`, not this file.
 
-## MCP (`/mcp`; contracts `docs/design/mcp.md`, `docs/design/oauth.md`)
+## MCP (`/mcp`; contract `docs/design/mcp.md`)
 
-- The MCP host serves the connector at `/mcp` only (`MCP_RESOURCE_URL`, the RFC 8707 resource); `/` is a
-  static help page; `metadata.ts` serves the protected-resource document on the MCP host at both the `/mcp`
-  path form and the root form `/.well-known/oauth-protected-resource` (MCP-ROOT, 2026-10-27). `makeRouter`
-  (`oauth/provider.ts`) returns `{ fetch, dispose }`; the connector URL for the Claude app is `https://mcp.tanren.me/mcp`.
-- Stateless `createMcpHandler` (`agents/mcp/server`) + `McpServer` (`@modelcontextprotocol/server` v2); not
-  `McpAgent`, no Durable Object, no session state (ADR-0010). `McpAuth` validates the bearer (no library);
-  `makeRouter` sends the exact path `/mcp` to `mcp.handle(request, env, ctx)` before `app.handler`; `/authorize`
-  and below go to `authorize.handle`.
-- Identity: `McpAuth.resolve(request, ctx) → Option<McpPrincipal>` (`{ userId, scopes }`). `layerJwt`
-  verifies an MCP access JWT with `Tokens.verifyMcp` (signature, `aud` = `MCP_RESOURCE_URL`, `exp`; 0 D1 reads, so a
-  revoked grant's access token lives out its 15 minutes); `layerDevToken` = `Authorization: Bearer <DEV_MCP_TOKEN>`
-  (constant-time compare) with `ENVIRONMENT=local` → `DEV_PRINCIPAL` (seed user, all scopes); `layerLive`
-  (the Worker) tries the JWT, then the dev token; `layerFixed` for tests. `None` → 401 with the
-  `WWW-Authenticate: Bearer realm="OAuth", resource_metadata=…` challenge, empty body, before the SDK runs.
-  Never cookies, never `Sessions`. `McpRoute.ts` sets `allowedHostnames` to the hostname of
-  `MCP_RESOURCE_URL` (`mcp.tanren.me` in production; the SDK default allowlist is localhost/workers.dev only).
-- Scopes: `createServer({ principal, run })` → `toolsFor(principal)` registers the read tools only with
-  `tanren:read` and the write tools (`writeTools.ts`) only with `tanren:write`; otherwise they are an unknown
-  tool. The 401 challenge and the metadata advertise both scopes (so clients ask for both via the 401 `scope`
-  and `scopes_supported`) but do not enforce them; `toolsFor` is the enforcement. An empty requested
-  scope is treated as both scopes on the consent page; the grant is ticked ∩ requested ∩ `MCP_SCOPES`.
-- Tools: `Tool` (`kind: "read" | …`) erased with `eraseTool` to `AnyTool`; `call(userId, rawArgs)` decodes once (→ `ValidationError`), runs, encodes to JSON.
-  `inputSchema = toStandardJSONSchemaV1(toStandardSchemaV1(toEncoded(input)))` so the SDK validates and
-  advertises the wire shape and never hands decoded values to `call`. A non-object result (`get_current_plan`
-  → null) goes out as text only, no `structuredContent`. Typed errors → `isError` text; `PersistenceError` and
-  defects are logged and shown as `storage unavailable` / `internal error`.
-- D1 budget (Free: 50 statements per invocation): `get_overview` ≤ 6 (5 + the imported summary), via `SessionRepo.listSetsInRange`;
-  `testing/countingD1.ts` counts executions incl. batch members in workerd (`get_overview` = 6;
-  `write_plan_week` 4 sessions × 6 sets: new week 37, replace 37 (planned-set ids stable by `order`);
-  6×8: 63 / 63; `log_session` 20 sets: create 25, replace 46 — `mcp/writeTools.workerd.test.ts`). Workers
-  Free allows 50 external subrequests but 1000 to Cloudflare services (D1) per invocation (Cloudflare
-  changelog 2026-02-11); whether one `batch()` is one subrequest is not documented — keep tools well under 50.
-- Clients send `accept: application/json, text/event-stream` (else -32000) and, in workerd tests, a `host`
-  header; 2025-era protocol replies are SSE `data:` lines.
-- Local attach without touching user config: `claude -p "…" --mcp-config <file> --strict-mcp-config
+- The MCP host serves the connector at `/mcp` only (`MCP_RESOURCE_URL`, the RFC 8707 resource; Claude app URL
+  `https://mcp.tanren.me/mcp`); `/` is a help page; the protected-resource document is served at both
+  `/.well-known/oauth-protected-resource/mcp` and the root form. `makeRouter` sends the exact path `/mcp` to
+  `mcp.handle` before `app.handler`.
+- Identity: `McpAuth.resolve → Option<McpPrincipal>`; `layerJwt` verifies the MCP access JWT with 0 D1 reads (a
+  revoked grant's token lives out its 15 min); `layerDevToken` = `Bearer <DEV_MCP_TOKEN>` (constant-time compare)
+  only with `ENVIRONMENT=local` → seed user, all scopes. `None` → 401 + `WWW-Authenticate: Bearer realm="OAuth",
+  resource_metadata=…`, empty body, before the SDK runs. Never cookies, never `Sessions`. `McpRoute.ts` sets
+  `allowedHostnames` to the `MCP_RESOURCE_URL` hostname (SDK default: localhost/workers.dev only).
+- Scopes: `toolsFor(principal)` registers read tools only with `tanren:read`, write tools only with `tanren:write`
+  (otherwise: unknown tool); it is the only enforcement — challenge and metadata merely advertise both. Empty
+  requested scope = both on the consent page; the grant is ticked ∩ requested ∩ `MCP_SCOPES`.
+- Tools: `call(userId, rawArgs)` decodes once (→ `ValidationError`), runs, encodes to JSON; `inputSchema =
+  toStandardJSONSchemaV1(toStandardSchemaV1(toEncoded(input)))`, so the SDK validates the wire shape and `call` never
+  sees decoded values. A non-object result (`get_current_plan` → null) is text only, no `structuredContent`. Typed
+  errors → `isError` text; `PersistenceError` and defects → `storage unavailable` / `internal error`.
+- D1 budget (Free: 50 statements per invocation): `get_overview` ≤ 6 is asserted in `index.workerd.test.ts`; the
+  write tools' replace-path counts are printed (not budgeted) by `mcp/writeTools.workerd.test.ts` via `countingD1`.
+  Whether one `batch()` counts as one subrequest is not documented — keep tools well under 50.
+- Clients send `accept: application/json, text/event-stream` (else -32000) and, in workerd tests, a `host` header;
+  replies are SSE `data:` lines.
+- Local attach (no user config): `claude -p "…" --mcp-config <file> --strict-mcp-config
   --allowedTools mcp__tanren-local__get_overview` with `{"mcpServers":{"tanren-local":{"type":"http","url":
-  "http://localhost:<port>/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`.
-  `claude` may not be on PATH in agent shells (VS Code ships a binary under the extension's
-  `resources/native-binary/`).
+  "http://localhost:<port>/mcp","headers":{"Authorization":"Bearer local-dev-only-mcp-token"}}}}`. `claude` may not
+  be on PATH in agent shells (VS Code ships one under the extension's `resources/native-binary/`).
 
 ## Commands
 
-`pnpm -F @tanren/worker check` (package gate: biome → typecheck incl. scripts → both test projects) ·
-`dev` · `test` · `typecheck` · `pnpm deploy:preflight [--skip-gate]` (root; owner-run read-only pre-deploy checklist, `scripts/deployPreflight*.ts`) · `pnpm db:migrate` · `pnpm db:seed` · `pnpm db:reset` (root; local D1 only)
+`pnpm -F @tanren/worker check` (package gate: biome → typecheck incl. scripts → both test projects) · `dev` ·
+`test` · `typecheck` · root: `pnpm deploy:preflight [--skip-gate]` (read-only), `pnpm db:migrate` ·
+`db:seed` · `db:reset` (local D1 only)

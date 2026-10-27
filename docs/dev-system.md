@@ -148,7 +148,7 @@ Hooks (`.claude/settings.json`):
 | Layer | File | Loaded | Budget |
 | --- | --- | --- | --- |
 | Project brief + hard rules + team model | `CLAUDE.md` | always, every role | ≤ 150 lines |
-| Package context | `apps/*/CLAUDE.md`, `packages/*/CLAUDE.md` | when working in the package | ≤ 80 lines |
+| Package context | `apps/*/CLAUDE.md`, `packages/*/CLAUDE.md` | when working in the package | ≤ 80 lines **and ≤ 12k chars** (`wc -c`; lines are not a budget when they run to 300 chars). A team-lead whose Docs step would push a file over moves the contract into its design doc and leaves a one-line pointer; per-file export lists never go in — `ls src/*` and module headers give them (/doctor 2026-10-27: worker 22k → 12k, mobile 56k). |
 | Code-kind rules | `.claude/rules/*.md` with `paths:` | when matching files are touched | ≤ 60 lines each |
 | Process know-how | `.claude/skills/lead-playbook`, `/plan-step`, … | Lead, on demand | — |
 | Domain know-how | `.claude/skills/effect-conventions`, `monorepo`, `cloudflare-workers`, `expo-mobile` | engineers, on demand or preloaded | long form OK, with `references/` |

@@ -13,3 +13,4 @@
 - [EM batch watchlist 2026-10-27k](project_em-batch-watchlist-2026-10-27k.md) — retro v6 items 91–96: commit-as-gate ×3 (77 min), HM set unreviewed, direction sheet first, reload windows, connector tool count, long-resume tokens
 - [EM batch watchlist 2026-10-27j](project_em-batch-watchlist-2026-10-27j.md) — items 86–90: spec-vs-rule/self conflicts, HM fast pattern, ledger skew + post-revoke truth table, skill recipe fix in-task, Committable-now lines
 - [EM batch watchlist 2026-10-27l](project_em-batch-watchlist-2026-10-27l.md) — items 97–100: UI rows w/ two producers, pnpm in shared-node_modules copies, cross-package question scoped out, live-agents.txt unwritten
+- [EM batch watchlist 2026-10-27m](project_em-batch-watchlist-2026-10-27m.md) — items 101–104: package CLAUDE.md export tours, line budget dodged by long lines, stale "known gaps"/"asserts" claims, mobile 56k pending
