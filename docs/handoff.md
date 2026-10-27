@@ -65,7 +65,8 @@ on AC). Retro verdict: throughput high (9 streams,
 3 deploys, 64 acceptances in 3 h), process quality medium (≈ 30 min lost to Lead stalls + lockstep gaps).
 
 ## Owner-gated (exact steps)
-1. **Strava** (O1–O3 in `docs/design/deploy.md`): keep the subscription; API app at strava.com/settings/api
+1. **Strava** — PARKED by the owner 2026-10-27 11:20 ("skip for now, I will create later"); production stays
+   in console mode, nothing to do until keys appear. When they do (O1–O3 in `docs/design/deploy.md`): API app at strava.com/settings/api
    with callback domain `api.tanren.me`; paste `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` → the Lead runs
    `pnpm exec wrangler secret put STRAVA_CLIENT_SECRET --env production` from `apps/worker`, sets the id and
    `STRAVA_MODE: "provider"` in `wrangler.jsonc` `env.production.vars`, redeploys, then SV-Q2 (first real
@@ -75,19 +76,25 @@ on AC). Retro verdict: throughput high (9 streams,
 3. **Wordmark**: picked (W1; the T from W1 is the mark, plan Amendment 15) and shipped (LOGO-4, BRAND-2b).
    Owner: look at gallery section `logo-4` (T1–T7: sheet, drift comparison, sign-in and landing) and say if
    the T reads well as the app icon; the brandbook artifact still shows 力 until BRAND-3.
-4. **Claude connector**: add `https://mcp.tanren.me` as a custom connector in the Claude app, sign in via
-   the magic link.
+4. **Claude connector**: add **`https://mcp.tanren.me/mcp`** (the `/mcp` path, not the bare origin — the
+   origin answered 404 on 2026-10-27; MCP-ROOT gives it a help page) as a custom connector in the Claude app,
+   then sign in via the magic link in the OAuth window. Checks: `/.well-known/oauth-authorization-server` 200,
+   `/mcp` 401 with `www-authenticate` naming the protected-resource metadata.
 5. **EAS**: `eas init` in `apps/mobile` → project id for `NATIVE_RETURN_PREFIXES` (native sign-in return)
    and EAS Update; Expo Go 58 on the iPhone when the store has it.
-6. **Resend**: rotate the API key pasted in chat; confirm the domain shows verified.
+6. **Resend**: key rotated by the owner 2026-10-27 11:20. The production Worker still holds the OLD key as the
+   `RESEND_API_KEY` secret unless it was updated too → magic-link emails fail until
+   `cd apps/worker && pnpm exec wrangler secret put RESEND_API_KEY --env production` (paste the new key at the
+   prompt, never in chat) — owner or Lead with the owner present; then request a magic link on tanren.me once
+   and confirm the email arrives.
 7. **Restart Claude Code** only when the Lead says the streams are quiet (hooks snapshot at startup; the
    owner-registered `em-cadence.sh` becomes active then).
 8. Later: Apple Health needs the native dev build (Apple Developer account).
-9. **Permission patterns** (EM batch 7, P5): `Bash(wrangler deploy:*)` / `Bash(wrangler d1 execute:*)` in
-   `.claude/settings.json` match only the bare `wrangler` spelling; `pnpm exec wrangler …` and
-   `node_modules/.bin/wrangler …` bypass the ask (that is also why the Lead's background deploy script runs
-   without prompts). Owner's call: add those spellings (then `deploy.sh` must run in the foreground with you
-   present) or keep the gap and rely on the role files, which forbid subagents from deploying.
+9. **Permissions** — decided by the owner 2026-10-27 11:20 (`.claude/settings.json`): `Bash(wrangler:*)`,
+   `Bash(pnpm:*)` and `Bash(git commit:*)` are allowed outright; `ask` holds only `rm -r*` variants; `deny` only
+   the env files; `git push|reset|checkout`, `eas *` and the Cloudflare MCP `execute` are unlisted (auto-mode
+   classifier). Consequence: nothing stops a subagent from deploying except the role files and briefs — keep the
+   "Forbidden" line in every brief and charter, and keep deploys Lead-run from clean worktrees.
 
 ## Next actions (in order)
 1. EM batch 8 after the next ≥ 4 commits (two since batch 7: PLAN-LOG reviewed, docs).

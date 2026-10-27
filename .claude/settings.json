@@ -104,21 +104,9 @@
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./**/.dev.vars)",
-      "Read(./**/.dev.vars.*)",
-      "Bash(git push --force:*)"
+      "Read(./**/.dev.vars.*)"
     ],
     "ask": [
-      "Bash(git push:*)",
-      "Bash(git reset:*)",
-      "Bash(git checkout:*)",
-      "Bash(rm -rf:*)",
-      "Bash(wrangler deploy:*)",
-      "Bash(wrangler d1 execute:*)",
-      "Bash(eas:*)",
-      "Bash(wrangler login:*)",
-      "Bash(wrangler secret:*)",
-      "Bash(wrangler d1 migrations apply:*--remote*)",
-      "mcp__plugin_cloudflare_cloudflare__execute",
       "Bash(rm -r:*)",
       "Bash(rm -fr:*)",
       "Bash(rm -Rf:*)"
