@@ -8,7 +8,15 @@ import {
 } from "@tanren/shared"
 import { DateTime, Option } from "effect"
 import { shiftDate } from "../../services/progressMath"
-import { nextWeekStart, previousWeekStart, reviewSummary } from "./reviewMath"
+import {
+  kcalTone,
+  nextWeekStart,
+  previousWeekStart,
+  reviewSummary,
+  sessionRatio,
+  sessionsCentre,
+  targetFraction,
+} from "./reviewMath"
 
 const MONDAY = LocalDate.make("2026-10-19")
 
@@ -178,5 +186,27 @@ describe("week navigation", () => {
     const monday = LocalDate.make("2026-12-28")
     expect(nextWeekStart(monday)).toBe("2027-01-04")
     expect(previousWeekStart(nextWeekStart(monday))).toBe(monday)
+  })
+})
+
+describe("ring helpers", () => {
+  it("fills the sessions ring by plan, or fully for any session without one", () => {
+    expect(sessionRatio(3, 4)).toBe(0.75)
+    expect(sessionRatio(0, 0)).toBe(0)
+    expect(sessionRatio(2, 0)).toBe(1)
+    expect(sessionsCentre(3, 4)).toBe("3/4")
+    expect(sessionsCentre(2, 0)).toBe("2")
+  })
+
+  it("measures against an optional, positive target", () => {
+    expect(targetFraction(1500, Option.some(2000))).toBe(0.75)
+    expect(targetFraction(1500, Option.none())).toBe(0)
+    expect(targetFraction(1500, Option.some(0))).toBe(0)
+  })
+
+  it("turns the kcal ring danger only above 110 %", () => {
+    expect(kcalTone(1.1)).toBe("accent")
+    expect(kcalTone(1.11)).toBe("danger")
+    expect(kcalTone(0)).toBe("accent")
   })
 })

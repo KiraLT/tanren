@@ -121,3 +121,22 @@ export const previousWeekStart = (weekStart: LocalDate): LocalDate =>
 /** The Monday a week later. */
 export const nextWeekStart = (weekStart: LocalDate): LocalDate =>
   LocalDate.make(shiftDate(weekStart, 7))
+
+/** The double ring (avg kcal outside, protein inside) on `/review` and You's week card. */
+export const NUTRITION_RING = { size: 104, stroke: 10 } as const
+
+/** Sessions ring fill: done / planned; without a plan any session fills it. */
+export const sessionRatio = (done: number, planned: number): number =>
+  planned === 0 ? (done > 0 ? 1 : 0) : done / planned
+
+/** Sessions ring centre: "3/4", or "3" without a plan. */
+export const sessionsCentre = (done: number, planned: number): string =>
+  planned === 0 ? String(done) : `${done}/${planned}`
+
+/** `value` as a fraction of an optional target: 0 without one or with a non-positive target. */
+export const targetFraction = (value: number, target: Option.Option<number>): number =>
+  Option.match(target, { onNone: () => 0, onSome: (t) => (t <= 0 ? 0 : value / t) })
+
+/** The kcal ring turns danger above 110 % of the target. */
+export const kcalTone = (fraction: number): "accent" | "danger" =>
+  fraction > 1.1 ? "danger" : "accent"

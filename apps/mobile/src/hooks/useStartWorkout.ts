@@ -1,11 +1,12 @@
 import type { Activity } from "@tanren/shared"
-import { Array as Arr, DateTime, Match } from "effect"
+import { Array as Arr, DateTime, Match, Option } from "effect"
 import { useRouter } from "expo-router"
 import { useCallback } from "react"
 import { inLocalZone } from "../components/feed/feedGroups"
 import { localDateOf } from "../components/planFormat"
 import { useDueToday } from "../components/TodayPrograms"
 import { finishedOn, type StartTarget, startLabel, startTarget } from "../components/today/upNext"
+import type { FeedItem } from "../services/FeedRepo"
 import type { ActiveProgram } from "../services/ProgramRepo"
 import { useFeed } from "./useFeed"
 import { type TodayState, useFreeWorkoutActions, useToday } from "./useToday"
@@ -25,11 +26,18 @@ export const WORKOUT_HREF = { pathname: "/home", params: { workout: "1" } } as c
 /** Newest feed items read for "Done today": more workouts than anyone finishes in one day. */
 const DONE_LOOKBACK = 10
 
-/** Today's finished workouts (local day), newest first, from the feed (navigation-v2.md §6). */
-export const useDoneToday = (): ReadonlyArray<Activity> => {
+export interface TodayFeed {
+  /** Today's finished workouts (local day), newest first (navigation-v2.md §6). */
+  readonly done: ReadonlyArray<Activity>
+  /** The newest feed item (Home's latest-activity teaser); none while loading or empty. */
+  readonly latest: Option.Option<FeedItem>
+}
+
+/** One feed read for Home's "Done today" and latest activity (and Start's `Done` target). */
+export const useTodayFeed = (): TodayFeed => {
   const { state } = useFeed(DONE_LOOKBACK)
   if (state._tag !== "Ready") {
-    return []
+    return { done: [], latest: Option.none() }
   }
   const sessions = Arr.flatMap(state.value, (item) =>
     item._tag === "session"
@@ -41,7 +49,10 @@ export const useDoneToday = (): ReadonlyArray<Activity> => {
         ]
       : [],
   )
-  return finishedOn(sessions, localDateOf(new Date()))
+  return {
+    done: finishedOn(sessions, localDateOf(new Date())),
+    latest: Arr.head(state.value),
+  }
 }
 
 type Router = ReturnType<typeof useRouter>
@@ -98,4 +109,4 @@ export const useStartAction = (
 
 /** The shared Start for screens that do not read Today themselves (Train, the desktop AppBar). */
 export const useStartWorkout = (): StartWorkout =>
-  useStartAction(useToday().state, useDueToday(), useDoneToday().length)
+  useStartAction(useToday().state, useDueToday(), useTodayFeed().done.length)

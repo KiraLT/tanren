@@ -2,8 +2,18 @@ import { Match } from "effect"
 import { type Href, useRouter } from "expo-router"
 import { View } from "react-native"
 import { SettingsSection } from "../../src/components/settings/SettingsSection"
+import { ThisWeekCard } from "../../src/components/week/ThisWeekCard"
 import { type AccountState, useAccount } from "../../src/hooks/useAccount"
-import { AppBar, Columns, IconButton, type IconName, ListRow, Page, rhythm } from "../../src/ui"
+import {
+  AppBar,
+  Columns,
+  IconButton,
+  type IconName,
+  ListRow,
+  Page,
+  rhythm,
+  useBreakpoint,
+} from "../../src/ui"
 
 interface HubRow {
   readonly title: string
@@ -73,6 +83,8 @@ const accountTitle = (account: AccountState): string =>
 export default function YouScreen() {
   const router = useRouter()
   const { account } = useAccount()
+  // One week read per screen: the tiles card below desktop, the rings card on top of Setup at desktop.
+  const desktop = useBreakpoint() === "desktop"
   const open = (href: Href) => () => router.navigate(href)
   const group = ({ title, rows }: HubGroup) => (
     <SettingsSection title={title}>
@@ -105,6 +117,7 @@ export default function YouScreen() {
         split="6/6"
         main={
           <View style={{ gap: rhythm.groupToLabel }}>
+            {desktop ? null : <ThisWeekCard />}
             <SettingsSection title="Account">
               <ListRow
                 icon="user"
@@ -116,12 +129,15 @@ export default function YouScreen() {
               />
             </SettingsSection>
             {group(INSIGHTS)}
+            {/* At desktop About balances the columns against the week card on top of Setup. */}
+            {desktop ? group(ABOUT) : null}
           </View>
         }
         side={
           <View style={{ gap: rhythm.groupToLabel }}>
+            {desktop ? <ThisWeekCard variant="rings" /> : null}
             {group(SETUP)}
-            {group(ABOUT)}
+            {desktop ? null : group(ABOUT)}
           </View>
         }
       />

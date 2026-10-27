@@ -7,7 +7,7 @@ export {
   breakpointFor,
   useBreakpoint,
 } from "../hooks/useLayoutMode"
-export { AppBar, AppBarStartContext } from "./AppBar"
+export { AppBar, AppBarNoticeContext, AppBarStartContext } from "./AppBar"
 export { APP_NAV } from "./appNav"
 export { Banner } from "./Banner"
 export { Button, type ButtonSize, type ButtonVariant } from "./Button"

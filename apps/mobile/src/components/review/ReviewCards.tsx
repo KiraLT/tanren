@@ -6,7 +6,14 @@ import { Card, HealthRings, ProgressRing, rhythm, SegmentBar, StatRow, space, Te
 import { DayBars } from "../health/DayBars"
 import { WEEK_DAYS } from "../health/dayBarMath"
 import { formatVolume } from "../volumeFormat"
-import type { ReviewSummary } from "./reviewMath"
+import {
+  kcalTone,
+  NUTRITION_RING,
+  type ReviewSummary,
+  sessionRatio,
+  sessionsCentre,
+  targetFraction,
+} from "./reviewMath"
 
 /** Ring diameter beside the card's text block: 88 + 16 gap leaves 222 of a 326 card at 390. */
 const RING = 88
@@ -72,8 +79,8 @@ function DaysMeter({ label, hit }: { readonly label: string; readonly hit: numbe
 /** Sessions vs plan as a ring and dots, then volume, PRs and program days as tiles. */
 export function TrainingCard({ training }: Pick<ReviewSummary, "training">) {
   const { done, planned } = training
-  const ratio = planned === 0 ? (done > 0 ? 1 : 0) : done / planned
-  const centre = planned === 0 ? String(done) : `${done}/${planned}`
+  const ratio = sessionRatio(done, planned)
+  const centre = sessionsCentre(done, planned)
   const line =
     planned === 0
       ? `${done} ${done === 1 ? "session" : "sessions"}, no plan this week`
@@ -114,12 +121,6 @@ export function TrainingCard({ training }: Pick<ReviewSummary, "training">) {
   )
 }
 
-const fraction = (value: number, target: Option.Option<number>): number =>
-  Option.match(target, {
-    onNone: () => 0,
-    onSome: (t) => (t <= 0 ? 0 : value / t),
-  })
-
 const vsTarget = (value: string, target: Option.Option<number>, unit: string): string =>
   Option.match(target, {
     onNone: () => `${value}${unit}`,
@@ -131,8 +132,8 @@ export function NutritionCard({ nutrition }: Pick<ReviewSummary, "nutrition">) {
   return Option.match(nutrition, {
     onNone: () => <ReviewCard title="Nutrition" caption="No food logged this week" />,
     onSome: (n) => {
-      const kcal = fraction(n.avgKcal, n.targetKcal)
-      const protein = fraction(n.avgProteinG, n.targetProteinG)
+      const kcal = targetFraction(n.avgKcal, n.targetKcal)
+      const protein = targetFraction(n.avgProteinG, n.targetProteinG)
       const kcalText = vsTarget(formatInt(n.avgKcal), n.targetKcal, " kcal")
       const proteinText = vsTarget(formatInt(n.avgProteinG), n.targetProteinG, " g")
       return (
@@ -143,9 +144,9 @@ export function NutritionCard({ nutrition }: Pick<ReviewSummary, "nutrition">) {
           <Hero
             visual={
               <HealthRings
-                size={104}
-                stroke={10}
-                outer={{ progress: kcal, tone: kcal > 1.1 ? "danger" : "accent" }}
+                size={NUTRITION_RING.size}
+                stroke={NUTRITION_RING.stroke}
+                outer={{ progress: kcal, tone: kcalTone(kcal) }}
                 inner={{ progress: protein, tone: "success" }}
                 empty={n.daysLogged === 0}
                 accessibilityLabel={`Average ${kcalText}, protein ${proteinText}`}

@@ -1,14 +1,11 @@
 import { Match, Option } from "effect"
 import { useRouter } from "expo-router"
 import { Pressable, View } from "react-native"
-import { useFeed } from "../../hooks/useFeed"
-import { useWeekReview } from "../../hooks/useWeekReview"
 import type { FeedItem } from "../../services/FeedRepo"
 import {
   Button,
   Card,
   radius,
-  StatRow,
   sizes,
   space,
   Text,
@@ -16,43 +13,6 @@ import {
   useTheme,
 } from "../../ui"
 import { formatDurationCompact } from "../feed/feedGroups"
-import { weekStartFor } from "../health/dayBarMath"
-import { localDateOf } from "../planFormat"
-import { formatVolume } from "../volumeFormat"
-
-/**
- * "This week" (navigation-v2.md §2 Merge): sessions done / planned, volume and PRs of the local
- * Mon–Sun week, the same `WeekReviewRepo` numbers the Weekly review shows. Nothing while loading
- * or on a read failure (the review page carries the error).
- */
-export function ThisWeekCard() {
-  const router = useRouter()
-  const state = useWeekReview(weekStartFor(localDateOf(new Date())))
-  if (state._tag !== "Ready") {
-    return null
-  }
-  const { done, planned, volumeKg, prs } = state.value.training
-  const items = [
-    { label: "Sessions", value: planned > 0 ? `${done} / ${planned}` : String(done) },
-    { label: "Volume", value: formatVolume(volumeKg) },
-    { label: "PRs", value: String(prs) },
-  ]
-  // Label-in-name: the accessible name reads the tiles' own strings.
-  const spoken = items.map((item) => `${item.label} ${item.value}`).join(", ")
-  return (
-    <Card
-      onPress={() => router.navigate("/review")}
-      accessibilityLabel={`This week: ${spoken}. Opens the weekly review`}
-    >
-      <View style={{ gap: space.sm }}>
-        <Text variant="caption" tone="muted" headingLevel={2}>
-          This week
-        </Text>
-        <StatRow variant="tile" items={items} />
-      </View>
-    </Card>
-  )
-}
 
 /** Title and "52 min · 18 sets · 2 PRs" of the newest feed item. */
 const teaserText = (item: FeedItem): { readonly title: string; readonly line: string } =>
@@ -76,23 +36,15 @@ const teaserText = (item: FeedItem): { readonly title: string; readonly line: st
 
 /**
  * The latest activity teaser: the newest feed item (title + one stat line, opens its detail) and
- * a sibling "See all" to Activity. Not rendered without an item.
+ * a sibling "See all" to Activity. Home passes the item from its one feed read (`useTodayFeed`).
  */
-export function LatestActivityCard() {
+export function LatestActivityCard({ item }: { readonly item: FeedItem }) {
   const router = useRouter()
   const { colors } = useTheme()
   const { hovered, handlers, focusStyle } = usePressableInteraction()
-  const { state } = useFeed(1)
-  if (state._tag !== "Ready") {
-    return null
-  }
-  const first = state.value[0]
-  if (first === undefined) {
-    return null
-  }
-  const { title, line } = teaserText(first)
+  const { title, line } = teaserText(item)
   const open = () =>
-    Match.valueTags(first, {
+    Match.valueTags(item, {
       session: ({ activity }) =>
         // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
         router.push({

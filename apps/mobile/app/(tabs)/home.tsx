@@ -1,4 +1,4 @@
-import { Array as Arr, Match } from "effect"
+import { Array as Arr, Match, Option } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { View } from "react-native"
 import { formatDayDate, localDateOf } from "../../src/components/planFormat"
@@ -8,11 +8,12 @@ import { FinishWorkout } from "../../src/components/today/FinishWorkout"
 import { FreeFooter } from "../../src/components/today/FreeFooter"
 import { FREE_WORKOUT_TITLE } from "../../src/components/today/freeWorkoutCopy"
 import { HealthModule } from "../../src/components/today/HealthModule"
-import { LatestActivityCard, ThisWeekCard } from "../../src/components/today/HomeCards"
+import { LatestActivityCard } from "../../src/components/today/HomeCards"
 import { UpNextCard } from "../../src/components/today/UpNextCard"
+import { ThisWeekCard } from "../../src/components/week/ThisWeekCard"
 import { SIGN_IN_SUPPORTED, SIGN_IN_WEB_ONLY_NOTICE } from "../../src/hooks/useSendMagicLink"
 import { useSignedIn } from "../../src/hooks/useSignedIn"
-import { useDoneToday, useStartAction } from "../../src/hooks/useStartWorkout"
+import { useStartAction, useTodayFeed } from "../../src/hooks/useStartWorkout"
 import { type TodayState, useToday } from "../../src/hooks/useToday"
 import { AppBar, gutter, IconButton, Page, space, Text, useBreakpoint } from "../../src/ui"
 
@@ -114,7 +115,7 @@ const pagerFor = Match.type<TodayState>().pipe(
 export default function HomeScreen() {
   const { state } = useToday()
   const due = useDueToday()
-  const done = useDoneToday()
+  const { done, latest } = useTodayFeed()
   const action = useStartAction(state, due, done.length)
   const params = useLocalSearchParams<{ workout?: string | string[] }>()
   const desktop = useBreakpoint() === "desktop"
@@ -152,7 +153,10 @@ export default function HomeScreen() {
       {desktop ? null : <HealthModule />}
       {desktop ? null : programs}
       <ThisWeekCard />
-      <LatestActivityCard />
+      {Option.match(latest, {
+        onNone: () => null,
+        onSome: (item) => <LatestActivityCard item={item} />,
+      })}
     </Page>
   )
 }

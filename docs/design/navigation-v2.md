@@ -70,7 +70,7 @@ Tabs: **Home · Train · Activity · You** (icons `home`, `dumbbell`, `flame`, `
 | Home | `(tabs)/home.tsx` | AppBar "Home" (date as eyebrow) · **Up next** card: planned session or due program day with a primary "Start" pill; if neither, the FREE-D start card ("Start a workout" primary + "Pick a program" secondary) · `HealthModule` (unchanged, states per health-module.md §6) · "This week" strip (sessions done / planned, volume) · latest feed card teaser ("See all" → Activity) |
 | Train | `(tabs)/train.tsx` | AppBar "Train" with trailing primary "Start" (`StartButton` size `sm`: a 36-px pill inside a 44-px target, so the bar stays 61 px; **arrives with NAV-3**, which builds the shared start flow, see "As built") · `SegmentedControl` Plan · Programs · Library (`?view=plan\|programs\|library`, default `plan` when a plan week exists else `programs`) · the existing `PlanWeek` / `ProgramHome` / `CatalogList` bodies |
 | Activity | `(tabs)/activity.tsx` | unchanged cards; AppBar trailing = none (gear and chart removed) |
-| You | `(tabs)/you.tsx` | AppBar "You" (gear → `/settings`) · profile header card (name, goal label, active location pill) · stat tiles: this week sessions · volume · streak (3 tiles 103 px each, see §7) · `ListGroup` "Insights": Progress → `/progress`, Health → `/health`, Weekly review → `/review` (new, N-S4 data) · `ListGroup` "Setup": Nutrition goals → `/settings/nutrition`, Equipment & locations → `/settings` (location section) , Integrations → `/settings/integrations` · `ListGroup` "About": Privacy, Terms, Sign out |
+| You | `(tabs)/you.tsx` | AppBar "You" (gear → `/settings`) · profile header card (name, goal label, active location pill) · stat tiles: this week sessions · volume · PRs (streak once a streak number exists; 3 tiles 103 px each, see §7) · `ListGroup` "Insights": Progress → `/progress`, Health → `/health`, Weekly review → `/review` (new, N-S4 data) · `ListGroup` "Setup": Nutrition goals → `/settings/nutrition`, Equipment & locations → `/settings` (location section) , Integrations → `/settings/integrations` · `ListGroup` "About": Privacy, Terms, Sign out |
 
 **No Start button in the tab bar** (owner 19:07). Where Start lives: the one primary control on Home's Up-next card and on Train's AppBar; both open the FREE-D start
 flow (planned session → `/today`-equivalent player; program day → `programs/play`; free → `TodayRepo.openSession`).
@@ -107,8 +107,9 @@ the trailing edge (hidden on `/train`, whose own bar has it, and on `/home`, whe
 (`sizes.contentMaxWidth`, `tokens.ts`), aside 480 (`sizes.asideMaxWidth`), gutter 32 (`gutter.desktop`), sum
 600 + 32 + 480 = 1112 ≤ 1216 content width (1280 − 2·32). Per route: Home = column (Up next, week strip, feed
 teaser) / aside (HealthModule, due programs); Train = column (segmented body) / aside (active enrollment card or
-the week's muscle map); Activity unchanged (feed.md §5); You = column (header, tiles, groups) / aside (Progress sparkline
-card + Health tiles, both links). Loading/Empty/Failed states of every tab keep the same frame (`wide` column +
+the week's muscle map); Activity unchanged (feed.md §5); You = column: header, This-week card (tiles) at phone widths,
+Account/Insights/Setup groups; at 1280 the This-week rings card tops the Setup column and About sits under
+Insights so both columns end level. Loading/Empty/Failed states of every tab keep the same frame (`wide` column +
 empty aside), never a different width (UI-D rule d).
 
 ## 4. Growth rules (next 12 months)
@@ -159,7 +160,7 @@ FREE-D's open free session (`TodayRepo.openSession`, plannedSessionId None — V
 
 ## 7. Width arithmetic (390, gutter 16 → 358 content)
 
-- You stat tiles: 3 × 106 + 2 × 12 (`space.md`) = 342 ≤ 358 ✓ (tile = `StatRow variant="tile"`, caption + headline).
+- You stat tiles (sessions · volume · PRs; streak once a streak number exists): 3 × 106 + 2 × 12 (`space.md`) = 342 ≤ 358 ✓ (tile = `StatRow variant="tile"`, caption + headline).
 - Train `SegmentedControl` 3 options at 358: 3 × 119 ✓ (≤ 4 options rule).
 - `ListRow` two-line = 22 + 20 + 2·8 + 2 = 60; one-line = 22 + 2·11 + 2 = 46 (chevron rows in You).
 - Tab bar: `sizes.tabBar` 56 + safe-area, four tabs at 97.5 each.

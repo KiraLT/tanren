@@ -1,7 +1,14 @@
-import { Array as Arr } from "effect"
+import { Array as Arr, Option } from "effect"
 import { type Href, Link, usePathname } from "expo-router"
-import { createContext, type ReactNode, useContext } from "react"
-import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react"
+import {
+  AccessibilityInfo,
+  Platform,
+  Pressable,
+  type StyleProp,
+  View,
+  type ViewStyle,
+} from "react-native"
 import { useBreakpoint } from "../hooks/useLayoutMode"
 import { APP_NAV, isActivePath } from "./appNav"
 import { APP_BAR_TITLE_SLOT, eyebrowRingState } from "./controls"
@@ -47,6 +54,15 @@ export interface AppBarProps {
  * primitive needs no store hook. Shown with the nav links, never on `/train` or `/home`.
  */
 export const AppBarStartContext = createContext<ReactNode>(null)
+
+/**
+ * The bar's notice setter (NAV-3d): a control inside the bar (the Start pill) reports a failure as
+ * `Some(text)` and the bar shows it as one danger caption under its row, outside the 44-px slot;
+ * `None` clears it. Outside an `AppBar` the default ignores the call.
+ */
+export const AppBarNoticeContext = createContext<(notice: Option.Option<string>) => void>(
+  () => undefined,
+)
 
 function NavLink({ item }: { readonly item: AppBarNavItem }) {
   const { colors } = useTheme()
@@ -96,6 +112,14 @@ export function AppBar({
   const pathname = usePathname()
   const showNav = nav && breakpoint === "desktop"
   const start = useContext(AppBarStartContext)
+  const [notice, setNotice] = useState<Option.Option<string>>(Option.none())
+  // iOS VoiceOver does not read a newly mounted alert Text; web keeps `role=alert`.
+  const noticeText = Option.getOrUndefined(notice)
+  useEffect(() => {
+    if (noticeText !== undefined && Platform.OS !== "web") {
+      AccessibilityInfo.announceForAccessibility(noticeText)
+    }
+  }, [noticeText])
   // One Start per screen (§4 rule 3): Train's bar and Home's Up-next card carry their own.
   const showStart = showNav && !isActivePath(pathname, "/train") && !isActivePath(pathname, "/home")
   const items: ReadonlyArray<AppBarNavItem> = Arr.map(APP_NAV, (link) => ({
@@ -129,7 +153,7 @@ export function AppBar({
       )}
     </View>
   )
-  return (
+  const bar = (
     <View
       testID="app-bar"
       style={[
@@ -179,5 +203,24 @@ export function AppBar({
       {showStart ? start : null}
       {trailing}
     </View>
+  )
+  return (
+    <AppBarNoticeContext.Provider value={setNotice}>
+      {bar}
+      {Option.match(notice, {
+        onNone: () => null,
+        onSome: (text) => (
+          <Text
+            variant="caption"
+            tone="danger"
+            accessibilityRole="alert"
+            numberOfLines={1}
+            style={{ paddingHorizontal: gutter[breakpoint], paddingTop: space.sm }}
+          >
+            {text}
+          </Text>
+        ),
+      })}
+    </AppBarNoticeContext.Provider>
   )
 }
