@@ -23,7 +23,7 @@ condition, not a commit).
    review, nutrition goals, equipment, integrations, settings, legal) — with the fifth slot reserved; a new feature
    is a card on Home, a row in You or a segment in Train, never a tab; desktop renders the same four links plus a
    Start button in the AppBar (research `docs/research/2026-10-27-navigation-ia.md`, `docs/design/navigation-v2.md`,
-   `docs/tasks/navigation-briefs.md`; owner picked ___ of A / B / Merge on ___).
+   `docs/tasks/navigation-briefs.md`; pick: Merge (Lead default 19:00, ADR-0029; the owner can override by message)).
 
 ## NAV-0 — ADR + pick (architect, fable, 5 min)
 After the owner's word: `docs/adr/0029-navigation-hubs.md` (accepted, Lead delegation) recording the pick, the

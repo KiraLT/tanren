@@ -396,7 +396,11 @@ Recorded 2026-10-19, from the owner's kickoff message:
    You or similar), the desktop nav, growth rules (new features land as cards
    or hub rows, never new tabs) and a route-migration plan; the owner picks
    from a contact sheet (`docs/research/2026-10-27-navigation-ia.md`,
-   `docs/design/navigation-v2.md`, NAV-D).
+   `docs/design/navigation-v2.md`, NAV-D). Pick: the owner was asked at
+   18:50 (A / B / Merge); with no answer by 19:00 the Lead took the
+   architect's recommendation, Merge — Home · Train · Feed · You, Start as the
+   hero pill, fifth slot reserved — under Amendment 3 (ADR-0029); the owner
+   overrides by message.
 31. **Program player: preview on press, weights per set, resume** (2026-10-27
    18:41, owner, verbatim): "More feedback: when I click on active program
    name I expect go to preview. / There is no ability to track weights for
