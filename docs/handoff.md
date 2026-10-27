@@ -5,8 +5,10 @@ Older session history lives in git (`git log -- docs/handoff.md`); this file hol
 
 ## Where we are (2026-10-27 10:05)
 **Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
-mcp.tanren.me (MCP). Production = commit `e34ca1e` (= HEAD), deployed 09:50 from a clean worktree whose
-root gate was green (156 files, 1948 tests). Live features: Forge design, designed magic-link email,
+mcp.tanren.me (MCP). Production = commit `7678246` (= HEAD), deployed 10:55 (DEPLOY-5) from a clean worktree
+whose root gate was green (159 files, 1994 tests); D1 migration 0005 applied remotely; the `*/5` Strava-drain
+cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: W1 wordmark + the T
+mark as app/PWA icons (plan Amendment 15), OG image + metas, polish round 5, Forge design, designed magic-link email,
 sign-in gate (ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated
 illustrations), Feed tab + activity detail + `/progress` (ADR-0017), guided programs with rep-count items
 (ADR-0020: 15 of 24 Core 30 moves count reps), **Finish workout** on Today (inline after the set list on
@@ -30,18 +32,21 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
-## Live at hand-off (2026-10-27 10:05; resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
-- **Polish round 5** team-lead (sonnet) dispatched 10:00, hard stop ≈ 11:05: charter + team sheet in
-  `docs/tasks/v3-design/team-desktop-r5.md` (R5a ∥ R5b ∥ R5c → REV-R5 → captures at 390 and 1280 → fable
-  designer; badges Q1–Qn; fragment `docs/design/screens/UI-P5-rows.html`). On PASS: the Lead commits, inserts
-  the fragment into the gallery source before `<footer>`, publishes gallery v12 to the same URL, then DEPLOY-5.
-- EM batch 6 done 09:58 (fable, 7.5 min): reviewer "Layout proofs" (open the PNG, box order), engineer item 14
-  (box order at 390 pasted in the report), ui-check Today-with-sets recipe + designer states reachable before a
-  round, expo-mobile derived-writes rule (after a complete pull, under the lock). P1–P4 applied to the
-  lead-playbook (commit before the owner leaves + `ssh-add -l` check, watchdog group liveness, 390 box-order
-  Done-when, `In:` names the rendering component); deltas forwarded to the r5 team-lead.
-- Done this morning: FIN-LAYOUT + handoff committed `e34ca1e` after the owner unlocked 1Password ("retry");
-  DEPLOY-4 live and verified (Verified above). Auto-finish known limit: an offline device that never completes
+## Live at hand-off (2026-10-27 11:00; resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
+- DEPLOY-5 DONE 10:55 (`MIGRATE=1 scratchpad/deploy.sh`): migration 0005 applied to production D1 (✅ in the log),
+  Worker version 74509783 with `schedule: */5 * * * *` registered (no 10063), web version db23adb9; verified
+  `/health` ok, `og.png` 200 + og metas in index.html, `icon-192.png` = the repo's T icon (3335 B).
+- Play re-shoot done (shooter, 1 min): `UI-P5-play-*` re-captured at `7678246`; disc = outlined 56 px at 1280
+  light, empty ring gone. Nit for the next polish round: at 1280 the eyebrow keeps its 28 px slot at progress 0
+  (eyebrow x 148 vs title x 120); at 390 both are flush.
+- Gallery v12 (sections `polish-r5` Q1–Q45 and `logo-4` T1–T7) published from the repo source
+  `docs/design/screens/tanren-screens.html`; `gallery.mjs` defaults to the scratchpad copy, so pass the repo path
+  as the first argument (GAL-3 fixes the default).
+- Done this morning (all committed): FIN-LAYOUT `e34ca1e` + DEPLOY-4; EM batch 6 (`4e74a28`); SF-1 Strava
+  follow-ups reviewed (`be3261a` → `4ccea78`: refresh lease, planned-session names, optional `?limit`); polish
+  round 5 PASS (`4447765`) + Player light fixes (`7678246`); LOGO-4 W1 wordmark + T mark (`499b1a9`, plan
+  Amendment 15) + BRAND-2b OG image (`6633431`); WD-1 workers_dev off (`8215fb9`); workers.dev subdomain
+  `tanren-me` created via the Cloudflare MCP. Auto-finish known limit: an offline device that never completes
   a pull never auto-closes.
 ## Experiment for the next step (retro 2026-10-26-v4-evening)
 Wave dispatch + background deploy. Metrics that decide it: zero Lead acceptance edges > 5 min; team-lead
@@ -57,14 +62,11 @@ on AC). Retro verdict: throughput high (9 streams,
    `pnpm exec wrangler secret put STRAVA_CLIENT_SECRET --env production` from `apps/worker`, sets the id and
    `STRAVA_MODE: "provider"` in `wrangler.jsonc` `env.production.vars`, redeploys, then SV-Q2 (first real
    export: `start_date_local`, Weight Training, "View on Strava").
-2. **Cron trigger**: the account has no workers.dev subdomain, so `wrangler deploy` ends with error 10063
-   (script deploys, cron for the Strava drain is not set). Owner: open the Workers page in the Cloudflare
-   dashboard once (creates it) OR `/mcp` to re-authorise the Cloudflare MCP (token expired 23:00) so the Lead
-   creates it via the API; then redeploy the Worker.
-3. **Wordmark pick**: gallery section "wordmark", W1–W6 (+ sign-in mock). Lead's pick W2 lockup / W1 alone.
-   On a letter → LOGO-4: `--final`-style high-quality run of the winner, transparent ink + off-white
-   exports to `assets/brand/`, swap sign-in (`app/sign-in.tsx`), landing hero (`src/components/landing/
-   Landing.tsx`), brandbook Logo group; BRAND-2b OG image 1200×630 from the lockup.
+2. **Cron trigger**: done on the Lead's side 2026-10-27 (subdomain `tanren-me` created via the MCP; DEPLOY-5
+   registers the `*/5` cron). Owner: nothing, unless DEPLOY-5's log still shows 10063.
+3. **Wordmark**: picked (W1; the T from W1 is the mark, plan Amendment 15) and shipped (LOGO-4, BRAND-2b).
+   Owner: look at gallery section `logo-4` (T1–T7: sheet, drift comparison, sign-in and landing) and say if
+   the T reads well as the app icon; the brandbook artifact still shows 力 until BRAND-3.
 4. **Claude connector**: add `https://mcp.tanren.me` as a custom connector in the Claude app, sign in via
    the magic link.
 5. **EAS**: `eas init` in `apps/mobile` → project id for `NATIVE_RETURN_PREFIXES` (native sign-in return)
@@ -75,16 +77,18 @@ on AC). Retro verdict: throughput high (9 streams,
 8. Later: Apple Health needs the native dev build (Apple Developer account).
 
 ## Next actions (in order)
-1. Accept polish round 5 (Live above): commit, gallery v12, DEPLOY-5 from a clean worktree, verify the
-   `plan-*.js` / `feed-*.js` / `library-*.js` chunks. Accept EM batch 6 and apply its proposals.
-2. Strava follow-ups in `docs/tasks/v4-strava.md` (refresh lease, planned-session name, typed 400 on
-   `GET …/exports`) as one worker engineer; no owner input needed; disjoint from r5 (apps/worker only).
-3. LOGO-4 + BRAND-2b when the owner picks a letter; wire the SVG mark into the AppBar / landing header.
+1. Verify DEPLOY-5 (Live above), republish the gallery after the play re-shoot, commit the docs; EM batch 7
+   (r5 process notes: round-1 box proofs, dev server vanished mid-run, persist copies need 0005, gallery.json
+   rewrite; WD-1 24 min on an 8-min box; SF-1 `d1 execute --local` rule slip).
+2. PLAN-LOG (brief ready in `docs/tasks/v4-polish-briefs.md`): logged sets/volume on the Plan week summary.
+3. BRAND-3: rebuild the brandbook artifact (https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa) from
+   `docs/design/brandbook/project/**` with the W1 wordmark and the T mark; GAL-3: `gallery.mjs` default HTML →
+   the repo file.
 4. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.
 5. Design notes parked: landing light-scheme illustration amber vs rust primary (one colour set, D1),
    eyebrow repeats the name; landing `contentH` probe is the measure (`docH` = viewport on `Page scroll`).
-6. Process: EM batch 6 is due at the next ≥ 4 commits (hook); forward role-file deltas to any team-lead
-   spawned before the last EM batch.
+6. Process: forward role-file deltas to any team-lead spawned before the last EM batch (r5 received batch 6's
+   deltas after its children were briefed; the shooter supplied the box proofs).
 
 ## Deploy recipe (Lead-run; owner lifted the ban 2026-10-26, dev-system §13)
 `scratchpad/deploy.sh` (recreate from this if purged): `git worktree remove --force $S/deploy-wt; git worktree

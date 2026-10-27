@@ -2,6 +2,335 @@
   "sections": [
     {
       "badges": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10"
+      ],
+      "id": "light",
+      "shots": [
+        "today-390-light.png",
+        "library-390-light.png",
+        "library-back-squat-390-light.png",
+        "programs-390-light.png",
+        "player-390-light.png",
+        "plan-390-light.png",
+        "progress-390-light.png",
+        "progress-back-squat-390-light.png",
+        "settings-390-light.png",
+        "settings-edit-home-390-light.png"
+      ],
+      "title": "Phone, light"
+    },
+    {
+      "badges": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9",
+        "D10"
+      ],
+      "id": "dark",
+      "shots": [
+        "today-390-dark.png",
+        "library-390-dark.png",
+        "library-back-squat-390-dark.png",
+        "programs-390-dark.png",
+        "player-390-dark.png",
+        "plan-390-dark.png",
+        "progress-390-dark.png",
+        "progress-back-squat-390-dark.png",
+        "settings-390-dark.png",
+        "settings-edit-home-390-dark.png"
+      ],
+      "title": "Phone, dark"
+    },
+    {
+      "badges": [
+        "DW1",
+        "DW2",
+        "DW3",
+        "DW4",
+        "DW5",
+        "DW6",
+        "DW7"
+      ],
+      "id": "desktop",
+      "shots": [
+        "today-1280-light.png",
+        "library-back-squat-1280-light.png",
+        "programs-1280-light.png",
+        "progress-back-squat-1280-light.png",
+        "settings-1280-light.png",
+        "today-1280-dark.png",
+        "library-back-squat-1280-dark.png"
+      ],
+      "title": "Desktop, 1280"
+    },
+    {
+      "badges": [
+        "X1",
+        "X2",
+        "X3",
+        "X4",
+        "X5",
+        "X6",
+        "X7",
+        "X8",
+        "X9",
+        "X10",
+        "X11"
+      ],
+      "id": "desktop2",
+      "shots": [
+        "dx-today-1280.png",
+        "dx-library-1280.png",
+        "dx-library-goblet-squat-1280.png",
+        "dx-programs-1280.png",
+        "dx-programs-enrolled-1280.png",
+        "dx-player-1280.png",
+        "dx-plan-1280.png",
+        "dx-progress-1280.png",
+        "dx-progress-back-squat-1280.png",
+        "dx-settings-1280.png",
+        "dx-settings-edit-home-1280.png"
+      ],
+      "title": "Desktop, two columns (1280)"
+    },
+    {
+      "badges": [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A1d",
+        "A2d",
+        "A3d",
+        "A4d",
+        "A5d",
+        "A6d"
+      ],
+      "id": "polish-a1",
+      "shots": [
+        "pa2-today-light.png",
+        "pa2-plan-light.png",
+        "pa2-player-light.png",
+        "pa2-player-rest-light.png",
+        "pa2-programs-light.png",
+        "pa2-programs-enrolled-light.png",
+        "pa2-today-dark.png",
+        "pa2-plan-dark.png",
+        "pa2-player-dark.png",
+        "pa2-player-rest-dark.png",
+        "pa2-programs-dark.png",
+        "pa2-programs-enrolled-dark.png"
+      ],
+      "title": "Polish, mobile-A, round 2 (designer pass)"
+    },
+    {
+      "badges": [
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+        "P9",
+        "P10"
+      ],
+      "id": "polish-d1",
+      "shots": [
+        "pd1-today.png",
+        "pd1-library.png",
+        "pd1-library-detail.png",
+        "pd1-programs.png",
+        "pd1-player.png",
+        "pd1-plan.png",
+        "pd1-progress.png",
+        "pd1-progress-detail.png",
+        "pd1-settings.png",
+        "pd1-location.png"
+      ],
+      "title": "Polish, desktop, round 1 (1280)"
+    },
+    {
+      "badges": [
+        "F1",
+        "F2",
+        "F3",
+        "F1d",
+        "F2d",
+        "F3d",
+        "FW1",
+        "FW2",
+        "FW3"
+      ],
+      "id": "feed",
+      "shots": [
+        "UI-FEED-feed-390-light.png",
+        "UI-FEED-activity-390-light.png",
+        "UI-FEED-progress-390-light.png",
+        "UI-FEED-feed-390-dark.png",
+        "UI-FEED-activity-390-dark.png",
+        "UI-FEED-progress-390-dark.png",
+        "UI-FEED-feed-1280-light.png",
+        "UI-FEED-activity-1280-light.png",
+        "UI-FEED-progress-1280-light.png"
+      ],
+      "title": "Feed (FEED-1…7, QA PASS 22:27)"
+    },
+    {
+      "badges": [
+        "L1",
+        "L2",
+        "LM1",
+        "LM2",
+        "LW1",
+        "LW2"
+      ],
+      "id": "signin",
+      "shots": [
+        "UI-SIGNIN-390-light.png",
+        "UI-SIGNIN-390-dark.png",
+        "UI-SIGNIN-mark-390-light.png",
+        "UI-SIGNIN-mark-390-dark.png",
+        "UI-SIGNIN-1280-light.png",
+        "UI-SIGNIN-1280-dark.png"
+      ],
+      "title": "Sign-in with the final 力 mark (LOGO-2)"
+    },
+    {
+      "badges": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5",
+        "M6",
+        "M7",
+        "M8",
+        "M9",
+        "M10",
+        "M11",
+        "M1d",
+        "M2d",
+        "M3d",
+        "M4d",
+        "M5d",
+        "M6d",
+        "M7d",
+        "M8d",
+        "M9d",
+        "M10d",
+        "M11d",
+        "MW1"
+      ],
+      "id": "mobile-b-r2",
+      "shots": [
+        "UI-PmobileB-r2-library-390-light.png",
+        "UI-PmobileB-r2-library-filtered-390-light.png",
+        "UI-PmobileB-r2-library-sheet-390-light.png",
+        "UI-PmobileB-r2-library-detail-390-light.png",
+        "UI-PmobileB-r2-library-detail-nohistory-390-light.png",
+        "UI-PmobileB-r2-progress-detail-390-light.png",
+        "UI-PmobileB-r2-progress-detail-sessions-390-light.png",
+        "UI-PmobileB-r2-progress-detail-tooltip-first-390-light.png",
+        "UI-PmobileB-r2-progress-detail-tooltip-last-390-light.png",
+        "UI-PmobileB-r2-settings-390-light.png",
+        "UI-PmobileB-r2-location-390-light.png",
+        "UI-PmobileB-r2-library-390-dark.png",
+        "UI-PmobileB-r2-library-filtered-390-dark.png",
+        "UI-PmobileB-r2-library-sheet-390-dark.png",
+        "UI-PmobileB-r2-library-detail-390-dark.png",
+        "UI-PmobileB-r2-library-detail-nohistory-390-dark.png",
+        "UI-PmobileB-r2-progress-detail-390-dark.png",
+        "UI-PmobileB-r2-progress-detail-sessions-390-dark.png",
+        "UI-PmobileB-r2-progress-detail-tooltip-first-390-dark.png",
+        "UI-PmobileB-r2-progress-detail-tooltip-last-390-dark.png",
+        "UI-PmobileB-r2-settings-390-dark.png",
+        "UI-PmobileB-r2-location-390-dark.png",
+        "UI-PmobileB-r2-progress-detail-1280-light.png"
+      ],
+      "title": "Mobile-B round 2 PASS (Library, Library detail, Progress, Progress detail, Settings, Location)"
+    },
+    {
+      "badges": [
+        "W1",
+        "W2",
+        "W3",
+        "W4",
+        "W5",
+        "W6",
+        "mock"
+      ],
+      "id": "wordmark",
+      "shots": [
+        "LOGO-3-wordmark-sheet.png",
+        "LOGO-3-wordmark-signin-mock.png"
+      ],
+      "title": "Lettered wordmark candidates (LOGO-3)"
+    },
+    {
+      "badges": [
+        "S1",
+        "S2",
+        "S4",
+        "S3"
+      ],
+      "id": "integrations",
+      "shots": [
+        "UI-SV-integrations-390-light.png",
+        "UI-SV-integrations-390-dark.png",
+        "UI-SV-integrations-list-390-light.png",
+        "UI-SV-integrations-1280-light.png"
+      ],
+      "title": "Settings → Integrations (Strava, console mode)"
+    },
+    {
+      "badges": [
+        "R1",
+        "R2"
+      ],
+      "id": "prog3",
+      "shots": [
+        "UI-PROG3-player-reps-390-light.png",
+        "UI-PROG3-player-reps-1280-light.png"
+      ],
+      "title": "Program player: rep-count items (ADR-0020)"
+    },
+    {
+      "badges": [
+        "LA1",
+        "LA2",
+        "LA3",
+        "LA4"
+      ],
+      "id": "landing",
+      "shots": [
+        "UI-LAND-390-light.png",
+        "UI-LAND-390-dark.png",
+        "UI-LAND-1280-light.png",
+        "UI-LAND-1280-dark.png"
+      ],
+      "title": "Landing, signed out"
+    },
+    {
+      "badges": [
         "K1",
         "K2",
         "K3",
@@ -131,6 +460,126 @@
         "UI-Pdesktop-r4-activity-900-light.png"
       ],
       "title": "Desktop round 4 (1280 and 900, light and dark)"
+    },
+    {
+      "badges": [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q7",
+        "Q8",
+        "Q9",
+        "Q10",
+        "Q11",
+        "Q12",
+        "Q13",
+        "Q14",
+        "Q15",
+        "Q16",
+        "Q17",
+        "Q18",
+        "Q19",
+        "Q20",
+        "Q21",
+        "Q22",
+        "Q23",
+        "Q24",
+        "Q25",
+        "Q26",
+        "Q27",
+        "Q28",
+        "Q29",
+        "Q30",
+        "Q31",
+        "Q32",
+        "Q33",
+        "Q34",
+        "Q35",
+        "Q36",
+        "Q37",
+        "Q38",
+        "Q39",
+        "Q40",
+        "Q41",
+        "Q42",
+        "Q43",
+        "Q44",
+        "Q45"
+      ],
+      "id": "polish-r5",
+      "shots": [
+        "UI-P5-feed-1280-light.png",
+        "UI-P5-feed-1280-dark.png",
+        "UI-P5-feed-390-light.png",
+        "UI-P5-feed-390-dark.png",
+        "UI-P5-activity-1280-light.png",
+        "UI-P5-activity-1280-dark.png",
+        "UI-P5-activity-390-light.png",
+        "UI-P5-activity-390-dark.png",
+        "UI-P5-plan-1280-light.png",
+        "UI-P5-plan-1280-dark.png",
+        "UI-P5-plan-390-light.png",
+        "UI-P5-plan-390-dark.png",
+        "UI-P5-programs-1280-light.png",
+        "UI-P5-programs-1280-dark.png",
+        "UI-P5-programs-390-light.png",
+        "UI-P5-programs-390-dark.png",
+        "UI-P5-play-1280-light.png",
+        "UI-P5-play-1280-dark.png",
+        "UI-P5-play-390-light.png",
+        "UI-P5-play-390-dark.png",
+        "UI-P5-library-1280-light.png",
+        "UI-P5-library-1280-dark.png",
+        "UI-P5-library-390-light.png",
+        "UI-P5-library-390-dark.png",
+        "UI-P5-library-detail-1280-light.png",
+        "UI-P5-library-detail-1280-dark.png",
+        "UI-P5-library-detail-390-light.png",
+        "UI-P5-library-detail-390-dark.png",
+        "UI-P5-progress-1280-light.png",
+        "UI-P5-progress-1280-dark.png",
+        "UI-P5-progress-390-light.png",
+        "UI-P5-progress-390-dark.png",
+        "UI-P5-progress-detail-1280-light.png",
+        "UI-P5-progress-detail-1280-dark.png",
+        "UI-P5-progress-detail-390-light.png",
+        "UI-P5-progress-detail-390-dark.png",
+        "UI-P5-integrations-1280-light.png",
+        "UI-P5-integrations-1280-dark.png",
+        "UI-P5-integrations-390-light.png",
+        "UI-P5-integrations-390-dark.png",
+        "UI-P5-progress-detail-hover-first-1280-light.png",
+        "UI-P5-progress-detail-hover-last-1280-light.png",
+        "UI-P5-progress-detail-hover-first-1280-dark.png",
+        "UI-P5-progress-detail-hover-last-1280-dark.png",
+        "UI-P5-feed-390-clip-light.png"
+      ],
+      "title": "Polish round 5 (390 and 1280, light and dark), round 2 capture"
+    },
+    {
+      "badges": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "id": "logo-4",
+      "shots": [
+        "LOGO-4-sheet.png",
+        "LOGO-4-sign-in-390-light.png",
+        "LOGO-4-sign-in-390-dark.png",
+        "LOGO-4-landing-390-light.png",
+        "LOGO-4-landing-390-dark.png",
+        "LOGO-4-drift.png",
+        "LOGO-4-landing-1280-light.png"
+      ],
+      "title": "Final W1 wordmark and the T mark (LOGO-4)"
     }
   ]
 }
