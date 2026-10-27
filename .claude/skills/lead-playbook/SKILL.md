@@ -15,7 +15,10 @@ comes back, and keep `docs/` truthful. Full rationale: `docs/dev-system.md`.
 in a scalar (`curl $R` and `git add -- $R5` each cost a round trip on
 2026-10-27). Use arrays — `R=(-s -o /dev/null); curl "${R[@]}"`;
 `F=(a b); git add -- "${F[@]}"` — or run `setopt shwordsplit` once per
-command (EM batch 7, P1).
+command (EM batch 7, P1). Bash-isms fail inside a retry loop too: `read -a`
+is bash (zsh: `read -A`, arrays 1-based); when a loop keeps failing, read its
+error text before blaming the known cause — a `read -a` failure sat in the
+signing retry loop on 2026-10-27 20:22 until the owner typed "retry".
 
 0. Start `caffeinate -i -t 14400` in the background (Bash, `run_in_background`)
    and ask the owner to keep the Mac on AC: on 2026-10-26 the Mac idle-slept
@@ -178,6 +181,16 @@ task sheet. Tactics, in order of payoff:
    FIRST (profile, then fix): GM-F2 (6 min + a deploy) attacked layer build,
    which spike GM-F3a then measured at 0.28 ms; the post-GM-F2 ticks did
    drop to 12–15 ms, but by luck, not by diagnosis (EM batch 14, P2).
+11. **Commit at land points only** (experiment, retro 2026-10-27 evening).
+   27 commits in 91 min: 49 of the Lead's 131 tool calls were git mechanics
+   and every Lead-latency edge ≥ 3 min fell inside a commit burst. A land
+   point is a deploy base, a shared-file release a live task is waiting for,
+   or the hour mark; Log, handoff and gallery edits ride in the next land-
+   point commit, never alone; an APPROVE's `should`s ride with the next task
+   on those files (or one sweep per hour), a dedicated fix round only for a
+   blocking or deploy-blocking finding. Metric for the next step: Lead
+   commits per hour ≤ 8 (was 18) and report → dependent-dispatch latency
+   p90 ≤ 2 min (was 6), with rounds > 1 and leak incidents unchanged.
 
 ## Unattended mode (owner away; set 2026-10-21 00:35 for 8 h)
 
@@ -642,6 +655,13 @@ pre-written briefs, until the workflow supports interim escalations and
 parallel integration tasks.
 
 ## Review → fix loop
+
+**A landed report's reviewer is the Lead's next tool call** — before any
+commit, Log line or gallery publish. Evening of 2026-10-27: in the quiet hour
+the report → dependent-dispatch latency was 1 min; in the 20:25–20:37 burst
+(three reports, four commits, a policy change) PROG-4, WT-1 and SIGN-1 waited
+3–6 min each for a reviewer who then needed 1.3–1.5, and each engineer sat
+parked 7–9 min per fix round. Commits can wait; a parked opus cannot.
 
 A review brief carries the engineer's Verification section verbatim (gate
 tail, runtime output, counts, capture boxes, file names), never a paraphrase

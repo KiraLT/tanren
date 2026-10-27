@@ -58,7 +58,11 @@ failures, incidents and the critical-path ratio, plus (retro v6, 2026-10-27)
 commit-gated idle minutes per stream (chain idle where the only pending input
 was a commit or an already-landed report), HOLD→GO minutes per team-lead, and
 the Lead-latency distribution (transcript end → dependent dispatch start, as
-median / p90 / max, never a mean); name the top three wastes
+median / p90 / max, never a mean), plus the Lead's own tool-call mix in the
+window (git/index/signing Bash calls ÷ all Lead tool calls, from the
+main-session `~/.claude/projects/<project>/<session>.jsonl`; 49 of 131 on
+2026-10-27 20:00–21:31) and the fix-round parking time (engineer report → fix
+dispatch, review time stated separately); name the top three wastes
 with evidence; apply the system edits you can make yourself (as in Mode 1)
 and propose the rest (.claude/settings.json, hooks, docs/dev-system.md, root CLAUDE.md, this file, gate) to the Lead as exact old→new text; set one
 measurable experiment for the next step. Write

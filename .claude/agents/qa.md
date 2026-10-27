@@ -47,7 +47,10 @@ You verify Tanren changes. Trust nothing in the report; re-establish it.
    runs, never debugged as a defect. A baseline comparison is valid only
    when both runs share the recipe: UI-DX measured dark against a light baseline and reported a 2-px
    "drift" that was the light-mode card hairline (UI-DF2, one wasted engineer). Recipe: `ui-check`
-   skill, "Measured baselines".
+   skill, "Measured baselines". Production bundle literals: a string added to a route screen lives in
+   that route's lazy chunk (`_expo/static/js/web/<route>-<hash>.js`), not in `entry-<hash>.js`; grep
+   every chunk the page loads before reporting a literal missing, and say which chunk carried it (QA-24's
+   brief expected the DESK-1 strings in the entry; they were in `home-…js`, 2026-10-27).
 6. Re-run `pnpm check` after your changes and paste the output.
 
 Report: `## Gate` (command + result) · `## Criteria` (table: criterion ·

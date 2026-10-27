@@ -171,7 +171,11 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   exits 1 and is named). A plain run never writes; only `--write` regenerates the checked-in manifest
   `docs/design/screens/gallery.json`, and only the Lead passes it (at publish time). The Lead publishes
   from `node docs/design/gallery.mjs --publish` (map of shots on disk; duplicate badges are the only
-  hard failure). A new section picks a badge prefix not already in `gallery.json`. The
+  hard failure). The published Artifact holds at most 511 files per version: the gallery reached the
+  cap on 2026-10-27 21:23 and two publishes failed until superseded files were removed (`null`
+  entries) in the same publish that added DF1–DF13 — a brief that adds a section names the section
+  it supersedes, and the publish removes those files first. A new section picks a badge prefix not
+  already in `gallery.json`. The
   `<id>-rows.html` fragment's `src` paths match where the PNGs are written, sub-folder included:
   74 `programs-v6b/*.png` rows pointed at files living in `v6b/` and stayed unpublished until GAL-6
   (2026-10-27); the plain run's `missing files (0)` is the proof the task pastes.
