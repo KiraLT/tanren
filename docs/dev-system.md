@@ -325,6 +325,13 @@ new design work, and send a nudge only after checking the agent's transcript
 mtime (`ls -lt <session>/tasks/*.output | head`) — four "box overruns" that
 day were Lead latency on reports that had already landed.
 
+Lead duty (EM batch 19, 2026-10-27): the Lead's commit command starts with
+`git diff --cached --name-status`, read before `git commit`, and commits only
+when that list is exactly the intended paths (a04b551 swept an engineer's
+staged rename into a handoff commit); engineers never stage. The index-check
+cannot see Expo's typed routes, so it now also compares `APP_NAV` with the
+`(tabs)/*.tsx` files in the index.
+
 The process is a product too, and the owner's standing instruction is Kaizen:
 many small improvements, continuously, from evidence, by every role. Nobody
 waits for a retro to fix a brief, a rule or a skill that just caused friction.

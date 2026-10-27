@@ -135,6 +135,14 @@ engineer can act on without asking questions.
   (rename, NOT NULL without default, dropped column still read, token format
   the live code rejects) is `blocking` unless the task is explicitly the
   expand or the contract half of expand → migrate → deploy → contract.
+- A diff that renames or deletes a route file: check whether HEAD already
+  holds part of the change (`git log -1 --stat -- <old> <new>`, `git show
+  HEAD:<new> | head`) — an engineer's staged `git mv` can be swept into
+  another commit (a04b551 carried `activity.tsx` with the old `feed` content
+  while `APP_NAV` still said `feed`, 2026-10-27). Report it as
+  `blocking · HEAD inconsistent` naming the commit, so the Lead lands the
+  fixing commit first; a task-id comment that defers work to a later task
+  ("until NAV-1 …") is a remove-later marker under the leftovers rule.
 - UI diffs that touch several screens on shared primitives: cross-screen
   consistency before per-file reading. For each changed primitive, list its
   call-sites (`grep -rn "<Primitive" apps/mobile/src apps/mobile/app`) and

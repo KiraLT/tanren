@@ -188,7 +188,7 @@ store (`migrations.ts:211`) → no migration; `playerMachine.ts` `enterWork` rea
 `ProgramDayInput`; `dayPreviewLines.ts` `itemLine(item)`; `ItemCard.tsx` uses `CompactStepper` for reps/seconds.
 Do: design §7.2 schema (decoding default 1), §7.3 `expandDay` + `Step`, machine on steps (`stepIndex`),
 `progress`/eyebrow copy, `plannedItems`/`dayDurationSeconds` over steps, preview and editor lines, MCP
-input + descriptions, §7.4 content. Sentence case; no author names (`grep -rn -i "labrada" packages apps docs`
+input + descriptions, §7.4 content. Sentence case; no author or trademark names (plan Amendment 22 names what to avoid; never write those words anywhere, not even in a grep: `grep` for them
 → nothing).
 Tests: minimal reps item decodes with `sets: 1`; `sets: 11` fails; `expandDay` of `{ sets: 3, rest 90 }` then a
 timed item yields 4 steps with rests 90, 90, 90, <timed's>; machine: start → next ×3 on a 3-set item stays on
@@ -202,3 +202,28 @@ steppers still showing the set-1 weight → Finish → Feed card lists one set p
 `docs/design/screens/UI-PROG-{10,11}-390-dark.png`. VERIFY in the report: `Schema.withDecodingDefaultKey`
 on a union member decodes/encodes round-trip in the installed effect version (else `Schema.optionalKey` +
 `setsOf(item)` helper, and say so); `swaps.ts` `applySwaps` copies `sets` through.
+
+## PROG-F1 — Unit-aware PRs and set text everywhere (engineer / opus, time box 15 min)
+
+Design: `docs/design/programs-player-v2.md` §2.9. Starts after PROG-R's fixes land (PROG-3's files are final).
+Scope In: `packages/shared/src/activity.ts` (+`activity.test.ts`), `apps/mobile/src/services/FeedRepo.ts`,
+`apps/mobile/src/components/progress/progressFormat.ts` (+test), `apps/mobile/src/components/feed/detailText.ts`,
+`apps/mobile/src/library/catalogFormat.ts`, `.biome/noMutation.grit` (+ its plugin self-test fixture),
+`apps/mobile/src/ui/confirmLayout.ts`. Out: the player (`src/player/*`, `usePlayer.ts`), `ProgramRepo.ts`.
+Facts (grep 19:13): `markPrs` at `activity.ts:62` called by `FeedRepo.ts:85`; `formatSetText(weightKg, reps,
+unit?: SeriesUnit)` at `progressFormat.ts:66`; unit-less callers `detailText.ts:41,54` and `catalogFormat.ts:146`;
+the `noMutation.grit` method pattern is `r"push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin"` (line 69,
+unanchored, hence the `lastLoads` rename); `confirmLayout.ts:13` doc example says "Delete everything".
+Do: (1) `markPrs` takes the exercise's unit (kg: 0-kg sets never PR; s: max seconds; reps: unchanged) and
+`FeedRepo` passes it; (2) `formatSetText` `unit` required, callers pass it (plank "45 s" in Activity detail and
+Library); (3) `get_exercise_history` summary: VERIFY whether it marks 0-kg PRs; fix if it shares `markPrs`, else
+report as a question; (4) anchor the grit method pattern (`^(?:push|…|copyWithin)$`) so `prefill` and other
+names containing "fill" stop matching, keep the quoted-key branch (line 72) consistent, and re-run the plugin
+self-test; (5) `confirmLayout.ts:13` example becomes the delete-account dialog's real label "Delete all".
+Tests: name the changed assertions from `grep -n "isPr\|toEqual\|toBe" packages/shared/src/activity.test.ts
+apps/mobile/src/components/progress/progressFormat.test.ts`; new: a 0-kg set of a `kg` exercise is not a PR,
+a plank's 45 s beats 30 s as seconds and prints "45 s"; plugin self-test: `prefill(...)` not flagged,
+`xs.fill(0)` still flagged. Questions to mark in the report if not greppable: whether the grit `r"…"` match
+runs on the bare identifier (anchors safe) or on text with surrounding tokens.
+Done when: `pnpm check` green with output; `grep -rn "formatSetText(" apps/mobile/src` shows every call with a
+unit. Time box: 15 min.

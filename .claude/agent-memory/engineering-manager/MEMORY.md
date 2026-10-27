@@ -15,3 +15,4 @@
 - [EM batch watchlist 2026-10-27l](project_em-batch-watchlist-2026-10-27l.md) — items 97–100: UI rows w/ two producers, pnpm in shared-node_modules copies, cross-package question scoped out, live-agents.txt unwritten
 - [EM batch watchlist 2026-10-27m](project_em-batch-watchlist-2026-10-27m.md) — items 101–104: package CLAUDE.md export tours, line budget dodged by long lines, stale "known gaps"/"asserts" claims, mobile 56k pending
 - [EM batch watchlist 2026-10-27n](project_em-batch-watchlist-2026-10-27n.md) — items 105–108: nudges hit finished agents (Lead latency), opus+ui-check 4 turns/min, consequence-copy truth, one-package greps
+- [EM batch watchlist 2026-10-27o](project_em-batch-watchlist-2026-10-27o.md) — items 109–114: staged sweeps, untracked heredocs, future-task code comments, nested ListRow buttons, Metro stale bundles, reviewer boxes 6–8

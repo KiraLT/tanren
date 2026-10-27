@@ -170,7 +170,10 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   against a local worker (the exported-build recipe above). Done activities without a worker: Programs →
   "Start day N" with `EXPO_PUBLIC_PLAYER_SPEED=60` at `expo start` (≈ 20 s per day), or the seeded worker
   with your own `--persist-to` copy. `ab close` ends the browser profile and the local store with it: shoot
-  everything you need before closing. Metro needs `expo start --clear` after a route file is added; a
+  everything you need before closing. Metro served stale bundles after edits while still logging "Web
+  Bundled" four times on 2026-10-27 (NAV-2 twice, CONFIRM-2, PROG-1): after editing a served file or
+  adding a route, restart with `expo start --clear` before measuring and confirm the snapshot shows a
+  string the edit introduced — a "Web Bundled" line does not prove a fresh bundle; a
   `(tabs)` route not listed in `APP_NAV` redirects to `/today`.
   Today with sets on a dev server (FIN-LAYOUT, 2026-10-26): `EXPO_PUBLIC_DEV_USER_ID` skips the seed, so
   Today reads "Nothing planned today"; start signed out instead, log sets with a DOM click (`ab eval

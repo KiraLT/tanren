@@ -78,3 +78,14 @@ swap inside the player and a second default 12-week program.
   §7 program table; sheet tasks P-D1, P-M3, P-M4.
 - 2026-10-27 16:11, Lead: `EntityName` gains `"catalogExercise"` and `NotFound.id` widens from `Uuid` to `String` (catalog ids and built-in program ids are slugs; wire shape unchanged, REST still emits UUIDs).
 - 2026-10-27 16:19, Lead: `ProgramDays` / the MCP days array go from 1–60 to 1–84 (the 12-week default is 84 days; duplicating it must not truncate).
+
+## Amendments
+
+**Amendment (2026-10-27 19:07, owner: "Program should not be tied exactly to the day. It should be dynamic").**
+An enrollment's current day is sequential, not calendar-bound: `currentDay` (stored, written only by
+`complete`) is the first day without a live completion, a missed calendar day skips nothing, and at most one
+program day completes per local calendar day per enrollment (`complete` fails `DayDoneToday`; the Today row,
+the Programs tab card, the program detail and the player show "Done for today · Day N tomorrow" instead of
+Start). `startedOn` and `schedule` stay descriptive (editor and MCP metadata) and drive no display.
+`get_program_progress` keeps its shape; its description states the rule. Design
+`docs/design/programs-player-v2.md` §6; task PROG-4.

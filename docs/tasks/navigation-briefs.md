@@ -29,7 +29,14 @@ condition, not a commit).
 After the owner's word: `docs/adr/0029-navigation-hubs.md` (accepted, Lead delegation) recording the pick, the
 reserved fifth slot and the growth rules (navigation-v2.md §4); fill the blank in Amendment 30. Not an engineer task.
 
-## NAV-1 — Nav registry, You hub, Feed bar cleanup (engineer, sonnet, 25 min)
+## NAV-1 — Nav registry, You hub, Activity bar cleanup (engineer, sonnet, 25 min)
+Facts (19:05): the Feed → Activity rename is **done** (`app/(tabs)/activity.tsx`, `APP_NAV` entry `activity`; verify
+only). Do: (a) add `app/(tabs)/you.tsx` with rows Progress · Health · Weekly review (`/review`) · Settings ·
+Integrations · Account per ADR-0029; (b) append `{ name: "you", href: "/you", label: "You", icon: "user" }` to
+`APP_NAV`; (c) remove the gear and chart buttons from Activity's AppBar (`app/(tabs)/activity.tsx`) and the
+"Insights" section from `app/settings.tsx` (NAV-4's row, moved into You); (d) delete the comment
+`NAV-4: until NAV-1's You hub carries the "Weekly review" row` in `settings.tsx`. The bullets below that still say
+"rename" or "Feed" are history.
 Files: `apps/mobile/src/ui/appNav.ts`, `app/(tabs)/_layout.tsx`, `app/(tabs)/you.tsx` (new), `app/(tabs)/feed.tsx`,
 `src/components/you/YouScreen.tsx` (new, pure rows in `youRows.ts` + test), `apps/mobile/CLAUDE.md` Layout line,
 `expo-types.d.ts` (regenerate). Read: navigation-v2.md §2 merge table (You row), §3, §7.
@@ -44,7 +51,14 @@ Files: `apps/mobile/src/ui/appNav.ts`, `app/(tabs)/_layout.tsx`, `app/(tabs)/you
   every `ListRow` hit box ≥ 44 (`getBoundingClientRect`); `pnpm check` green.
 Time box: 25 min.
 
-## NAV-2 — Train hub (engineer, sonnet, 25 min)
+## NAV-2 — Train hub (engineer, sonnet, 25 min) — DONE 19:02
+As built (details in `docs/design/navigation-v2.md` §2 "As built"): `app/(tabs)/train.tsx` with `SegmentedControl`
+Plan · Programs · Library; `?view=` via `TRAIN_VIEWS` / `trainViewFor` (`src/components/train/trainView.ts`), default
+Plan while the week loads or has days, else Programs; segment taps write `router.setParams`; bodies in
+`src/components/train/{PlanView,ProgramsView,LibraryView}.tsx`; tab files deleted, no redirects. **No Start in the
+AppBar**: the trailing slot is Programs' "New program" button (Programs segment only) or a 44 px spacer (bar 61 px in
+every segment); Train's Start arrives with NAV-3.
+Original brief follows (history):
 Files: `app/(tabs)/train.tsx` (new), delete `app/(tabs)/plan.tsx`, `app/(tabs)/programs.tsx`,
 `app/(tabs)/library.tsx`; `src/ui/appNav.ts` (first entry `today` relabelled "Home" with icon `home`, second
 entry → `train` with icon `dumbbell`, `programs` and `library` entries deleted → three entries until NAV-1); every in-app push to `/plan`, `/programs`,
@@ -61,6 +75,12 @@ entry → `train` with icon `dumbbell`, `programs` and `library` entries deleted
 Time box: 25 min.
 
 ## NAV-3 — Home (engineer, sonnet, 30 min) — starts when FREE-D's files are final
+Facts (19:05): Home = `today.tsx` renamed (route `/home`); Up-next card with the Start pill; **also** the Start
+pill in Train's AppBar (NAV-2 left that slot to "New program" / spacer, keep the bar at 61 px; Start wins outside the
+Programs segment, VERIFY and report how the two share it); shared start flow: planned session, then due program day,
+then free workout (`useFreeWorkoutActions().start` exists in `src/components/today/`, hook in
+`src/hooks/useToday.ts`); Activity's empty state and any copy that calls the tab "Today" say Home
+(`grep -rn "Today" apps/mobile/app apps/mobile/src --include=*.tsx` for tab-name uses). No Start in the tab bar.
 Files: rename `app/(tabs)/today.tsx` → `app/(tabs)/home.tsx`; `src/components/today/UpNextCard.tsx` (new);
 `src/ui/appNav.ts` (first entry → `home`); `grep -rn '"/today"' apps/mobile` → `/home`; `apps/mobile/CLAUDE.md`;
 `expo-types.d.ts`; `src/ui/AppBar.tsx` (desktop trailing Start button, hidden on `/train`).
@@ -72,7 +92,10 @@ Files: rename `app/(tabs)/today.tsx` → `app/(tabs)/home.tsx`; `src/components/
   §3; `pnpm check` green.
 Time box: 30 min.
 
-## NAV-4 — Weekly review page (engineer, sonnet, 25 min) — IN this round (owner 19:07)
+## NAV-4 — Weekly review page (engineer, sonnet, 25 min) — DONE 19:05
+As built: root-Stack `/review`, current local Mon-Sun week + previous-week control, Training / Nutrition / Activity
+cards + `InsightList`, `WeekReviewRepo.week(weekStart)` via `useWeekReview`, row in Settings until NAV-1 (see
+`docs/design/navigation-v2.md` §2 "As built"). Original brief (history):
 Files: `app/review.tsx`, `src/components/review/*`, You row "Weekly review". Data: `get_week_review`'s shared
 schema (`grep -n "export const WeekReview" packages/shared/src/*.ts`) through the local store — VERIFY the mobile
 read path exists; if not, this is a design question for the Lead, not an engineer guess.
@@ -86,3 +109,19 @@ rows, hit boxes, heading levels, react.md rules. Blocks on any leftover push to 
 Every route of `apps/mobile/CLAUDE.md` Layout at 390 and 1280, light and dark, after NAV-R: tab count 4, Start
 present exactly once per screen, old URLs `/plan` `/programs` `/library` `/today` resolve to NotFound (expected),
 `/settings`, `/settings/integrations`, `/privacy`, `/terms` unchanged. Shots to the owner's gallery.
+
+## NAV-F1 — Retrospective insights for a finished week (engineer, sonnet, 10 min)
+Files: `apps/mobile/src/services/NutritionRepo.ts` (+ `NutritionRepo.test.ts`), `docs/design/nutrition.md` §5 (one sentence).
+Facts (grep 19:13): `weekInsights` (`NutritionRepo.ts:147`, called `:205` as `weekInsights(days, now,
+localDateIn(now, zone))`) runs `insights({ today: Arr.lastNonEmpty(days), week: days, hour: 23 })` for a week that has
+ended (the `onNone` branch), so Sunday's per-day rules fire on a past week ("1,261 kcal to go — add a meal" =
+`kcal_under_gain`; also `protein_short`, `protein_hit`, `kcal_over`, `kcal_under_lose`, `nothing_logged`);
+design §5 lists the eight ids: the two `week_*` ids are `week_streak` and `week_protein_low`.
+Do: for a week whose last day is before today's local date, emit only the `week_*` rules (a pure `weekRulesOnly`
+choice, no new rule ids); the current week and a future week are unchanged. `/review` and `/health` past weeks
+then read as a retrospective.
+Tests: a week ended yesterday returns no per-day rule id and keeps `week_streak` / `week_protein_low` when their
+conditions hold; the current week still returns both groups. `grep -n "weekInsights" NutritionRepo.test.ts` finds
+no direct test today (question: which test pins the past-week output? `grep -n "insights" NutritionRepo.test.ts`);
+name any assertion that changes.
+Done when: `pnpm check` green. Time box: 10 min.

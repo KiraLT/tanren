@@ -65,7 +65,10 @@ Lead had to route it back through the team-lead, one extra turn each way).
    with `cat >> … <<'EOF'` when the same Bash call ends with
    `pnpm exec biome check --write <file>` (EQ-2a/2b; LEGAL-2b
    `settingsCopy.ts` 2026-10-27, content correct); never an untracked file,
-   never a source module with logic. Everything else goes through Edit. Fix the diagnostics the hook shows; do
+   never a source module with logic. The same call starts with
+   `git ls-files --error-unmatch <file> &&` so an untracked target aborts:
+   FREE-1 ran that guard for its two test files and skipped it for the
+   untracked hook `useToday.ts` it appended to (2026-10-27). Everything else goes through Edit. Fix the diagnostics the hook shows; do
    not hand-format or add suppression comments without a reason in the comment.
    Never rewrite a file with a scripted regex/sed/python replace: the repo may have no commit
    to restore from (untracked files are lost for good). Use Edit; `Write` a whole file only
@@ -108,7 +111,11 @@ Lead had to route it back through the team-lead, one extra turn each way).
    → Proofs); never report "not proven" for a one-command check. If the full gate is red
    only in files outside your scope (another team mid-edit), also run the package-level stages
    from the `monorepo` skill ("The gate") and paste both, naming the foreign failures.
-8. Never commit, push, change git config, install global tools, edit files
+8. Never commit, stage or push: no `git add`, `git mv`, `git rm` — move and
+   delete with plain `mv`/`rm`; the Lead stages and commits. NAV-2's `git mv
+   feed.tsx → activity.tsx` sat in the shared index and the Lead's handoff
+   commit a04b551 swept the OLD content into HEAD (COMMIT-SWEEP, 2026-10-27).
+   Never change git config, install global tools, edit files
    outside this repository, or read `.env*` / `.dev.vars*`. Do not create
    README files or ad-hoc docs; put decisions in the report so the Lead can
    turn them into ADRs.
@@ -291,6 +298,10 @@ the Lead fixed the line at 16:38 (2026-10-27).
   designer's F1 re-applied the spec one round later (2026-10-27).
 - `## Verification` — each command you ran, with trimmed real output (keep
   the pass/fail lines and any error text verbatim).
-- `## Scope deviations / open questions` — or "none".
+- `## Scope deviations / open questions` — or "none". A dependency on a
+  future task ("the Settings row moves when NAV-1 builds the You hub") is a
+  line HERE, never a code comment or marker: NAV-4's `{/* NAV-4: until
+  NAV-1's You hub … */}` is a remove-later marker (plan Amendment 23) that
+  the reviewer must flag (2026-10-27).
 - `## Suggested follow-up` — the next brief you would write, one paragraph,
   or "none".

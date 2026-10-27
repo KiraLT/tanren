@@ -20,6 +20,11 @@ paths:
   start (two-column on wide viewports at step 7).
 - Accessibility: large tap targets for ± steppers and "Log set"; labels on
   every pressable.
+- `ListRow` with `onPress` wraps its whole body, `trailing` included, in a
+  `Pressable`: never render a `Button`, `IconButton` or `Pressable` in
+  `trailing` of a pressable row (a nested button on web, invalid DOM, two
+  hit targets). Put the action as a sibling of the row (PROG-1's `DueRow`,
+  2026-10-27) or make the row itself the only target.
 - Design system is normative: `docs/design/design-system.md` §1 (sentence
   case, no all-caps labels, no `letterSpacing`/`textTransform`, one accent)
   and §4 (`IconButton` 44 px minimum hit area, `sizes.tap`). Read those two

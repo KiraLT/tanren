@@ -422,7 +422,10 @@ For a cross-cutting guard (middleware, token check, write gate) name the choke p
 ("every `.middleware(Authentication)` group; every `registerTool`") plus "the file that wires its
 layer", not a file list — STLS-F3 and F4 each needed `app.ts` / `McpRoute.ts` outside their lists
 (EM batch 10, P2)>
-Out: <explicitly not this brief; leave notes instead>
+Out: <explicitly not this brief; leave notes instead. A question the brief asks ("report the
+  exact return-prefix value") whose answer lives in a package listed here is scoped IN, or its
+  follow-up agent is pre-briefed: EAS-1 scoped `apps/worker` out and became EAS-2 + EAS-3, two
+  serial opus follow-ups (≈ 10 min on the owner's path, 2026-10-27)>
 
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
@@ -558,7 +561,15 @@ update-index --cacheinfo 100644,$(git hash-object -w $S/f),<f>; git commit`.
 Before any commit while a team is live, run `scripts/index-check.sh` (it
 typechecks the INDEX in a temp checkout, ≈ 2 s on this machine, 1.6 s
 measured by GATE-IDX; retro v6 P2):
-red → fix the index with the `update-index` recipe, never commit. This
+red → fix the index with the `update-index` recipe, never commit. The
+index-check is blind to Expo typed routes (`.expo/types` is git-ignored): a
+route rename sitting in the index typechecks green. So, in the SAME shell
+command as `git commit`, `git diff --cached --name-status` must list exactly
+the intended paths; if it lists anything else (an engineer's `git mv`, a
+stray `git add`), commit with explicit paths — `git commit -- <paths>` takes
+only those and leaves the rest staged — never a bare `git commit`: the handoff
+commit a04b551 swept NAV-2's staged `feed.tsx → activity.tsx` with the old
+content into HEAD (COMMIT-SWEEP, EM batch 19, 2026-10-27). This
 replaces the mtime arithmetic above as the gate (two leaks on 2026-10-27);
 the mtime check stays as the way to find which hunks to drop.
 
@@ -600,6 +611,12 @@ of engineer tasks has an R line (a `reviewer`) before its commit. v6c
 HM-1…HM-3 reached DEPLOY-17 with the designer round and QA only; REV-HM run
 afterwards found a false "No tracker connected" state and two Amendment-23
 leftovers (retro v6, P4).
+
+Reviewer boxes: an opus reviewer over one engineer's 3–6-file diff finishes
+in 2–2.5 min (NAV-R 2.1 min / 20 tool uses, PROG-R 2.5 / 16, CONFIRM-R 6,
+2026-10-27); box it at 6–8 min, not 10–12, so the nudge threshold and the
+Lead's wait estimate match reality. Keep the review brief's "Committable now:
+yes/no" line — both reviews answered it directly and the Lead landed on it.
 
 ## Bookkeeping
 

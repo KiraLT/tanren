@@ -32,6 +32,11 @@ column `flex: 1` ≈ 326 − 8 gap − Start button (`sm` = 36 high, ≈ 72 wide
 `ListRow` = 22 + 20 + 2·8 + 2 = 60 ≥ 44. The row press and the button are ≥ 44 apart horizontally
 (button width ≥ 44 by `buttonTouchHeight`, `src/ui/controls.ts`).
 
+**As built (PROG-1, 2026-10-27).** The Today row is `DueRow` (`src/components/TodayPrograms.tsx`) with **sibling
+targets**: the title area is its own press target (opens the preview) and the Start `Button` is a separate sibling,
+not a `Button` inside `ListRow.trailing` (nested buttons are invalid on web). The table's `ListRow` + `trailing`
+wording above is superseded; the labels, `chevron` off and the width arithmetic hold.
+
 ## 2. Weights in the player (PROG-3)
 
 ### 2.1 `isLoaded` (shared, pure)
@@ -94,10 +99,10 @@ the program sets the rep target, history sets the load.
 the query now private in `TodayRepo.ts` `lastLiveSet` (`ORDER BY ws."loggedAt" DESC LIMIT 1`, live
 session and set). `TodayRepo` calls `HistoryRepo.lastSet` and `lastLiveSet` is deleted (one query site,
 Amendment 23). VERIFY the layer order in `src/services/runtime.ts` provides `HistoryRepo` to `TodayRepo`.
-`ProgramRepo` gains `readonly prefill: (catalogIds: ReadonlyArray<CatalogId>) => Effect.Effect<ReadonlyArray<{ readonly catalogId: CatalogId; readonly last: Option.Option<SetEntry> }>, StoreError>`
+`ProgramRepo` gains `readonly lastLoads: (catalogIds: ReadonlyArray<CatalogId>) => Effect.Effect<ReadonlyArray<{ readonly catalogId: CatalogId; readonly last: Option.Option<SetEntry> }>, StoreError>`
 = `ExerciseLink.ensure(catalogId)` → `HistoryRepo.lastSet` for the loaded ids only (`ensure` creates the
 `exercise` row when missing; that row is needed for logging anyway). `usePlayer` loads it once per
-`session.day` and passes it to `reduceRun` via `PlayerConfig.prefill` (a `ReadonlyMap<CatalogId, SetEntry>`).
+`session.day` and passes it to `reduceRun` via `RunConfig.prefill` (a `ReadonlyMap<CatalogId, SetEntry>`).
 
 ### 2.4 Logging (`ProgramRepo.complete`)
 
@@ -141,6 +146,34 @@ catalog link: `Option.flatMap(exercise.catalogId, findCatalog)` → `kind === "t
 "12 reps"; `HistoryRepo.test.ts` best-set expectations that relied on a 0-kg PR.
 MCP `get_exercise_history` (`packages/shared/src/activity.ts` summary) is out of scope here; VERIFY
 whether it marks 0-kg PRs and list it in the report as a follow-up question, do not change it.
+
+### 2.8 As built (PROG-3 and PROG-R, 2026-10-27; this section supersedes §2.2-§2.7 wherever they differ)
+
+- **Prefill method is `ProgramRepo.lastLoads`**, not `prefill`: `.biome/noMutation.grit` line 69 matches any method
+  name containing "fill" (unanchored `r"push|pop|...|fill|..."`). `RunConfig extends PlayerConfig { prefill, ids }`
+  lives in `src/player/cues.ts` (`playerMachine.ts` stayed untouched, as §2.2 said).
+- **Swap-aware**: prefill and `isWeighted` read the **run plan ids** per round (`RunConfig.ids`, helper `roundId` in
+  `cues.ts`; the day's item only when the plan is not loaded), never `day.items` alone (PROG-R blocking finding: a
+  swapped exercise would otherwise load the original's weight).
+- **Newest loaded set**: for a loaded exercise the prefill reads the newest set with `weightKg > 0`
+  (`HistoryRepo.lastSet(id, { loadedOnly: true })`); pre-PROG-3 program rows are `0 kg × reps` and must not win.
+  `HistoryRepo.lastSet` replaced `TodayRepo.lastLiveSet` (deleted, one query site).
+- `SetEntry`, `volumeOf`, `CompletionInput.entries` live in `src/services/ProgramRepo.ts`. The finish sheet
+  (`CompletionSheet`, `PlayerView.tsx`) shows tiles **Duration** and **Volume** (Volume only for weighted runs).
+- Progress list fallback: a kg exercise whose only sets are 0-kg reads "10 reps · no load"
+  (`formatSetText`, `progressFormat.ts`).
+- `isLoaded` lists: `packages/shared/src/catalog/loaded.ts` (`LOADED_EQUIPMENT`, `isLoadedEquipment`, `isLoaded`).
+
+### 2.9 Follow-up PROG-F1 (not built; brief in `docs/tasks/programs-player-briefs.md`)
+
+PROG-3 made `weekSeries` and `ExerciseDetail` unit-aware but left three call sites on the old behaviour:
+1. `markPrs` (`packages/shared/src/activity.ts:62`, used by `apps/mobile/src/services/FeedRepo.ts:85`) is not
+   unit-aware: a 0-kg set still becomes a PR in the Activity feed and a plank's seconds compare as reps.
+2. `formatSetText`'s `unit` is optional (`progressFormat.ts:66`); callers without it
+   (`src/components/feed/detailText.ts:41,54`, `src/library/catalogFormat.ts:146`) print a plank as "45 reps". Make
+   `unit` required and have the callers pass it (plank reads "45 s" everywhere).
+3. The MCP `get_exercise_history` summary (`packages/shared/src/activity.ts`) is the §2.7 VERIFY: does it mark 0-kg
+   PRs? Decide in the task and report.
 
 ## 3. Resume an unfinished day (PROG-2)
 
