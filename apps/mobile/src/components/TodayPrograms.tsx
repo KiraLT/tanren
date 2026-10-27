@@ -3,7 +3,7 @@ import { useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { Pressable, View } from "react-native"
 import { dayMinutes } from "../player/programDays"
-import { useStoreVersion } from "../player/usePrograms"
+import { useRefocusCount, useStoreVersion } from "../player/usePrograms"
 import {
   type ActiveProgram,
   continueLabel,
@@ -27,6 +27,8 @@ import {
 export const useDueToday = (): ReadonlyArray<ActiveProgram> => {
   const [due, setDue] = useState<ReadonlyArray<ActiveProgram>>([])
   const storeVersion = useStoreVersion()
+  // `dueToday` is clock-based: re-read on return to the screen as well as after a write (§6.3).
+  const refocus = useRefocusCount()
   useEffect(() => {
     const controller = new AbortController()
     runtime
@@ -40,7 +42,7 @@ export const useDueToday = (): ReadonlyArray<ActiveProgram> => {
         }
       })
     return () => controller.abort()
-  }, [storeVersion])
+  }, [storeVersion, refocus])
   return due
 }
 

@@ -45,6 +45,22 @@ export const useStoreVersion = (): number => {
   return storeVersion
 }
 
+/**
+ * Bumps each time the screen regains focus (blur → focus), never on the first focus, so a read
+ * effect that depends on it re-runs on return without a second read at mount. Tabs stay mounted:
+ * this is how `doneToday` clears after local midnight (programs-player-v2 §6.3).
+ */
+export const useRefocusCount = (): number => {
+  const [focuses, setFocuses] = useState(0)
+  useFocusEffect(
+    useCallback(() => {
+      setFocuses((count) => count + 1)
+    }, []),
+  )
+  // The first focus (mount) moves 0 → 1 and still reads 0: the mount read already ran.
+  return Math.max(0, focuses - 1)
+}
+
 export type ProgramDetailState =
   | { readonly _tag: "Loading" }
   | { readonly _tag: "Failed"; readonly message: string }
@@ -181,13 +197,7 @@ export const usePrograms = (): {
 } => {
   const [state, setState] = useState<ProgramsState>({ _tag: "Loading" })
   const storeVersion = useStoreVersion()
-  // Tabs stay mounted: re-read on focus so `doneToday` clears after local midnight (§6.3).
-  const [focusCount, setFocusCount] = useState(0)
-  useFocusEffect(
-    useCallback(() => {
-      setFocusCount((count) => count + 1)
-    }, []),
-  )
+  const refocus = useRefocusCount()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -206,7 +216,7 @@ export const usePrograms = (): {
       )
     })
     return () => controller.abort()
-  }, [storeVersion, focusCount])
+  }, [storeVersion, refocus])
 
   const setStatus = useCallback((enrollmentId: ProgramEnrollmentId, status: SettableStatus) => {
     return runtime
