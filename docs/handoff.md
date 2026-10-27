@@ -50,10 +50,16 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
 - MCP-ROOT done and live (DEPLOY-7 12:37, Worker 16e16920, web 54b5d055 after one transient 10013 retry):
   `https://mcp.tanren.me/` 200 help page (nosniff + CSP) naming the connector URL, root-form
   protected-resource metadata byte-identical to the `/mcp` form, `/mcp` still 401, api root still 404.
-- **IDENT-1** (engineer/opus, 15 min, dispatched 12:50 on spike S1's findings): `clientIdMetadataDocumentEnabled`
-  + compatibility flag `global_fetch_strictly_public`, `oauth/knownClients.ts` (claude.ai, claude.com, chatgpt.com
-  by host), consent page trust line vs "Unknown app" warning + "Allow anyway". Then REV-ID (opus), commit,
-  DEPLOY-8, and the owner retries the Claude app connector in published-identity mode.
+- IDENT-1 done and live (DEPLOY-8 12:55, Worker d5362f72): published client identities accepted
+  (`clientIdMetadataDocumentEnabled` + `global_fetch_strictly_public`); `oauth/knownClients.ts` marks a client Known
+  only when the document host is exactly claude.ai / claude.com / chatgpt.com, the path starts with `/oauth/` and the
+  redirect returns to that host (loopback only for the Claude Code document) — REV-ID's round-1 blocker was the Lead's
+  "host or subdomain" ruling (incident logged); consent shows "Verified app · <domain>. Only continue if you just
+  started this in <Name>." or the "Unknown app" block + "Allow anyway". Live checks: AS metadata advertises
+  `client_id_metadata_document_supported: true` + `none`; `/authorize` with the Claude Code identity → 200. EAS-1's
+  production `NATIVE_RETURN_PREFIXES` is live too. OPEN: the claude.ai app's document URL is unconfirmed — if the
+  owner's consent screen shows Unknown with "document hosted on claude.ai", widen the `/oauth/` prefix (one-line change
+  in knownClients.ts + test) and redeploy.
 - **Auth v2 wave** (plan Amendments 16 + 17, dispatched 12:45): spike S1 → `docs/research/mcp-client-identities.md`
   (CIMD in workers-oauth-provider 1.2.3, the Claude/ChatGPT client ids, trust model), spike S2 →
   `docs/research/stateless-sessions.md` (Better Auth stateless options with a symmetric secret; what the OAuth
