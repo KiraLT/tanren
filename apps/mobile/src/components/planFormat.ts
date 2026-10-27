@@ -2,6 +2,7 @@ import { LocalDate, type PlannedSet, type Weekday } from "@tanren/shared"
 import { Array as Arr, Equivalence, Match, Option } from "effect"
 import type { PlannedSessionStatus, PlanWeekView } from "../hooks/usePlanWeek"
 import { formatKg } from "./stepMath"
+import { formatVolume } from "./volumeFormat"
 
 /** The fields of a planned set the Plan screen prints. */
 export type SetTarget = Pick<PlannedSet, "targetWeightKg" | "targetReps" | "restSeconds">
@@ -215,17 +216,16 @@ export const weekSummary = (view: WeekSessions): WeekSummary => {
   }
 }
 
-/** "2,780 kg": whole kilograms with a comma thousands separator. */
-export const formatVolume = (kg: number): string =>
-  `${String(Math.round(kg)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} kg`
-
-/** The three stat slots under the Plan header: "Sessions 1/5 · Sets 5/13 · Volume 2,780 kg". */
+/**
+ * The three stat slots under the Plan header: "Sessions 1/5 · Planned sets 5/13 · Planned volume
+ * 2,780 kg". The numbers come from the plan, not from logged sets (the view carries none).
+ */
 export const weekStats = (
   summary: WeekSummary,
 ): ReadonlyArray<{ readonly label: string; readonly value: string }> => [
   { label: "Sessions", value: `${summary.sessionsDone}/${summary.sessionsTotal}` },
-  { label: "Sets", value: `${summary.setsDone}/${summary.setsTotal}` },
-  { label: "Volume", value: formatVolume(summary.volumeKg) },
+  { label: "Planned sets", value: `${summary.setsDone}/${summary.setsTotal}` },
+  { label: "Planned volume", value: formatVolume(summary.volumeKg) },
 ]
 
 /** "Back Squat · 3 × 5 @ 100 kg · rest 180 s"; just the name when the block has no sets. */

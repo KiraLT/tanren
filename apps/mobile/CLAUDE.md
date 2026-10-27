@@ -52,6 +52,10 @@ src/
               planWeekFixture (tests only), feed/; built on `src/ui`
 scripts/     generateIllustrations, shrinkImages, imageMap, contactSheet, muscleMapSheet, resolveTs
 assets/illustrations/  <catalogId>.webp (512x512) + style.md
+assets/brand/  W1 wordmark (PNG + SVG, ink and paper) and its T mark = icon set + PWA icons (LOGO-4, plan
+             Amendment 15); the superseded 力 set under candidates/final-kanji/. PNG→SVG traces run with a
+             potrace from a scratch install (BRAND-2a, LOGO-4), not a repo dependency; `scripts/generateLogo.ts
+             --w1-export <png>` rebuilds the set from the wordmark PNG without a paid run.
 public/_headers (COOP/COEP, copied into dist/ by `expo export`)
 expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vitest.config.ts
 ```
@@ -154,8 +158,8 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   Desktop round 4 (designer PASS, `docs/design/reviews/UI-Pdesktop-r4.md`; shared with Lead):
   stat rows are in-card tiles (`StatRow variant="tile"`, 72 high) on desktop for Today, Plan (aside,
   stacked) and Programs (enrolled `DayStats`); bare only at phone/tablet; `dense` (gap 8, padding 12)
-  when the Today block is 340 (900 window) so "10,000 kg" fits 3 x 108. Feed/Activity tiles are the
-  feed team's own, not `StatRow`. Additive `src/ui` props: `ListRow titleLines/subtitleLines/tabularTitle`,
+  when the Today block is 340 (900 window) so "10,000 kg" fits 3 x 108. (Feed/Activity tiles
+  became `StatRow variant="plain"` in round 5.) Additive `src/ui` props: `ListRow titleLines/subtitleLines/tabularTitle`,
   `ToggleChip compact` (Pressable stays 44 with `marginVertical -6`; RNW ignores `hitSlop`),
   `sizes.labelRow` 28 (Today aside "Sets · name" one row) and `sizes.upNextCard` 150. Plan aside adds an
   "Up next" card (`planUpNext.ts`: first `upcoming` session on a later day; renders nothing when none;
@@ -165,6 +169,21 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   64 (`logButton`), `lg` 56. Status: PASS 4 on every desktop screen opened; left for r5: Today 390 Finish
   button overlaps the set list (`footer` slot), Library empty pane, Player reps numeral/Finish tone,
   Programs day rows 64.
+  Polish round 5 (designer PASS 4 on every screen, `docs/design/reviews/UI-P5.md`; shared with Lead):
+  Feed/Activity stat tiles are now `StatRow variant="plain"` (title2 value over a muted caption, flex 1,
+  gap 12); `statValueVariant` (feedGroups.ts) steps a value longer than 8 chars to `headline` so
+  "1 h 10 min" fits a ~100 px tile at 390. `StatusPill align="center"` (opt-in, +2 marginTop) puts the
+  one-line Apple Health pill on the title baseline (Strava's two-line row is flex-start). `ToggleChip
+  variant="outline"` (pure style in `ui/chipVariant.ts`) is the Library location chip at both widths;
+  the local `LocationChip` is gone. Tokens: `stroke.ring` 10 / `stroke.ringSm` 3 (Player ring, 20 px
+  ring) and `tooltip {padX 12, labelRow 20, labelWidth 72}` (Sparkline tooltip); the strip now sits
+  below the card header (+32 px, empty when not hovered) and the pill is content-sized, clamped to the
+  plot (`tooltipWidth`/`tooltipLeft`). Plan week summary labels read "Planned sets / Planned volume";
+  logged figures need `loggedSets` in `PlanWeekView` (PLAN-LOG, Lead). `formatVolume` lives in the leaf
+  `components/volumeFormat.ts` (planFormat and progressFormat import it, never each other).
+  `cardStyle` keeps a 1 px border in dark (transparent) so light and dark cards measure the same.
+  Progress rows are one line (`rowDetail.ts fitRowDetail` clamps at the separator); Library detail
+  "Last done" carries a clock glyph; `clampSubtitle` cuts at a separator boundary. Status: PASS.
 - Theme and design: colours only from `useTheme().colors` / `useStyles` (`src/ui/colors.ts` is the one
   place with hex; light and dark follow the device or `useThemePreference`). Web hover/focus come
   from `usePressableInteraction` (`onHoverIn/Out` state, `:focus-visible` gated `outline*` ring in

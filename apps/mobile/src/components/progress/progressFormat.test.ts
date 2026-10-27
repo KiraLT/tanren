@@ -47,9 +47,8 @@ describe("formatting", () => {
     expect(formatSetText(0, 12)).toBe("12 reps")
   })
 
-  it("groups thousands of volume", () => {
+  it("re-exports formatVolume from the leaf module", () => {
     expect(formatVolume(4230)).toBe("4,230 kg")
-    expect(formatVolume(950.4)).toBe("950 kg")
   })
 
   it("prints a week by its Monday", () => {

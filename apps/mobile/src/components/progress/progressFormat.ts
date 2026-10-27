@@ -48,9 +48,8 @@ export const weekBarsHeading = (unit: SeriesUnit): string =>
 export const formatSetText = (weightKg: number, reps: number): string =>
   weightKg <= 0 ? `${reps} reps` : `${formatKg1(weightKg)} × ${reps}`
 
-/** "4,230 kg". */
-export const formatVolume = (kg: number): string =>
-  `${String(Math.round(kg)).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} kg`
+/** Re-exported so `WeekBars` and `feedGroups` keep importing it from here. */
+export { formatVolume } from "../volumeFormat"
 
 /** "21 Oct", in the device's local time. */
 export const formatLoggedDate = (at: DateTime.Utc): string =>

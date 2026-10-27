@@ -11,6 +11,7 @@ import {
   IconButton,
   sizes,
   space,
+  stroke,
   Text,
   TimerRing,
   useBreakpoint,
@@ -21,9 +22,6 @@ import { ringSpec } from "../playerRing"
 
 /** The work screen's illustration (ui-direction-final §7: 120 px, no tile of its own to compete with the ring). */
 const WORK_ILLUSTRATION = 120
-
-/** Phone ring thickness (ui-polish Player 4: 12 → 10); `TimerRing`'s default stays for wider screens. */
-const RING_STROKE = 10
 
 /** `TimerRing`'s default diameter: the reps block is at least this tall (`ring.size` when set). */
 const DEFAULT_RING_SIZE = 220
@@ -178,7 +176,7 @@ export function PlayerView({ day, state, remainingMs, send }: PlayerViewProps) {
             progress={fraction}
             tone={resting ? "success" : "accent"}
             accessibilityLabel={`${s} seconds left`}
-            {...(phone ? { strokeWidth: RING_STROKE } : {})}
+            {...(phone ? { strokeWidth: stroke.ring } : {})}
             {...(ring.size === undefined ? {} : { size: ring.size })}
           >
             <Text variant={ring.clock} accessibilityLabel={`Countdown ${s}`}>

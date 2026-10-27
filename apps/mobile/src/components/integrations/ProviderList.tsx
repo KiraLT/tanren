@@ -27,8 +27,10 @@ export function ProviderList({ strava, zone, onOpen }: ProviderListProps) {
       <ListRow
         icon="zap"
         title={APPLE_HEALTH.title}
-        trailing={<StatusPill label={APPLE_HEALTH.pill} tone="neutral" />}
-        disabled
+        trailing={<StatusPill label={APPLE_HEALTH.pill} tone="neutral" align="center" />}
+        // Not `disabled`: ListRow dims the whole row (`opacity` DISABLED_OPACITY, ListRow.tsx
+        // `base`), which dropped the pill text to about 2.1:1. The row has no `onPress`, so it
+        // is inert without the flag.
         accessibilityLabel={`${APPLE_HEALTH.title}, ${APPLE_HEALTH.pill}`}
       />
     </ListGroup>

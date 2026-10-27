@@ -3,7 +3,7 @@ import { useState } from "react"
 import { View } from "react-native"
 import Svg, { Circle, G, Polyline } from "react-native-svg"
 import type { ExerciseHistory } from "../../services/HistoryRepo"
-import { space, Text, useTheme } from "../../ui"
+import { space, Text, tooltip, useTheme } from "../../ui"
 import { ChartFrame } from "./ChartFrame"
 import { ChartHover, type HoverMark, TOOLTIP_STRIP } from "./ChartHover"
 import { columnCenters, hoverBand, sparklineShape, tooltipLeft } from "./chartGeometry"
@@ -16,9 +16,6 @@ const DOT_RADIUS = 5
 const RING_WIDTH = 2
 /** Room for a marker and its ring at the plot edges. */
 const PAD = DOT_RADIUS + RING_WIDTH + 1
-/** Date captions under the plot's first and last marker. */
-const LABEL_ROW = 20
-const LABEL_WIDTH = 72
 
 interface SparklineProps {
   /** `ExerciseHistory.e1RmTrend`: eight weeks, oldest first, `None` where nothing was logged. */
@@ -28,8 +25,9 @@ interface SparklineProps {
 /**
  * The weekly best e1RM as a 2 px line in one muted hue with 10 px markers on a surface ring; the
  * latest week is the accent. Weeks without sets leave a gap, a lone week is a dot. Date captions
- * under the first and last marker. Tooltip on hover: its strip overlaps the card's header row
- * (negative top margin) instead of leaving 32 px of blank above the line.
+ * under the first and last marker. Tooltip on hover: its 32 px strip sits below the card's header
+ * row, so the pill never covers the title or the trailing value (R5b: a negative top margin hid
+ * "Estimated 1RM" under the first marker and the latest value under the last).
  */
 export function Sparkline({ trend }: SparklineProps) {
   const { colors } = useTheme()
@@ -37,8 +35,11 @@ export function Sparkline({ trend }: SparklineProps) {
   const values = Arr.map(trend, (week) => week.e1Rm)
   const labels = sparklineEndLabels(trend)
   return (
-    <View style={{ marginTop: -TOOLTIP_STRIP }}>
-      <ChartFrame height={TOOLTIP_STRIP + PLOT + LABEL_ROW} accessibilityLabel={trendLabel(trend)}>
+    <View>
+      <ChartFrame
+        height={TOOLTIP_STRIP + PLOT + tooltip.labelRow}
+        accessibilityLabel={trendLabel(trend)}
+      >
         {(width) => {
           const shape = sparklineShape(values, { width, height: PLOT }, PAD)
           const centers = columnCenters(trend.length, width, PAD)
@@ -87,7 +88,7 @@ export function Sparkline({ trend }: SparklineProps) {
                     )
                   })}
                 </Svg>
-                <View style={{ height: LABEL_ROW, paddingTop: space.xs }}>
+                <View style={{ height: tooltip.labelRow, paddingTop: space.xs }}>
                   {Arr.map(labels, ({ index, text }) => (
                     <Text
                       key={index}
@@ -98,9 +99,9 @@ export function Sparkline({ trend }: SparklineProps) {
                       style={{
                         position: "absolute",
                         top: space.xs,
-                        width: LABEL_WIDTH,
+                        width: tooltip.labelWidth,
                         textAlign: "center",
-                        left: tooltipLeft(centers[index] ?? 0, LABEL_WIDTH, width),
+                        left: tooltipLeft(centers[index] ?? 0, tooltip.labelWidth, width),
                       }}
                     >
                       {text}

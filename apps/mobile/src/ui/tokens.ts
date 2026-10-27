@@ -24,8 +24,21 @@ export const gutter = { phone: 16, tablet: 24, desktop: 32 } as const
  */
 export const radius = { sm: 8, md: 12, lg: 16, full: 999 } as const
 
-/** Hairlines, outlines (todo discs, chips), icon strokes (inactive tab icons `iconThin`). */
-export const stroke = { hairline: 1, outline: 1.5, icon: 2, iconThin: 1.75 } as const
+/**
+ * Hairlines, outlines (todo discs, chips), icon strokes (inactive tab icons `iconThin`), and ring
+ * arcs: `ring` is the phone Player ring (ui-polish Player 4: 12 → 10), `ringSm` the 20 px app-bar ring.
+ */
+export const stroke = {
+  hairline: 1,
+  outline: 1.5,
+  icon: 2,
+  iconThin: 1.75,
+  ring: 10,
+  ringSm: 3,
+} as const
+
+/** Chart hover tooltip (Sparkline / ChartHover): horizontal padding, x-axis label row and slot width. */
+export const tooltip = { padX: 12, labelRow: 20, labelWidth: 72 } as const
 
 /** Durations in ms; 0 under reduced motion (`Theme.reducedMotion`). */
 export const motion = { fast: 120, base: 200, slow: 320 } as const

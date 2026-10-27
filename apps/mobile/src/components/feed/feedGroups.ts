@@ -59,6 +59,21 @@ export const formatDuration = (seconds: number): string => {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
 }
 
+/**
+ * `formatDuration` for a ~100 px stat tile: "1h 9m", "1h 10m", "2h", "12h 59m" (at most 7
+ * characters, so the tile keeps the 22 px step); under an hour it is `formatDuration` unchanged
+ * ("35 min", "0 min", "< 1 min").
+ */
+export const formatDurationCompact = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  if (hours < 1) {
+    return formatDuration(seconds)
+  }
+  const rest = minutes % 60
+  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`
+}
+
 const WEEKDAY_BY_INDEX: ReadonlyArray<Weekday> = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
 /** "26 Oct" in the zone of `at` (same text as `formatLoggedDate`, zone-explicit). */
@@ -79,10 +94,24 @@ const plural = (count: number, one: string, many: string): string =>
 const volumeOrReps = (volumeKg: number, reps: number): string =>
   volumeKg === 0 ? `${reps} reps` : formatVolume(volumeKg)
 
+/**
+ * Longest value (characters) a ~100 px phone tile shows at the 22 px `title2` step: "4,230 kg" and
+ * "17 sets" (8) fit with room; measured at 390, "1 h 10 min" (10) needs 108 and truncated, and
+ * "10,000 kg" (9) is within 3 px of the edge, so 9 and up take the 17 px `headline` step.
+ */
+export const TILE_VALUE_MAX_CHARS = 8
+
+/** Type step of a stat tile value: `headline` once it is too long for `title2` (by length). */
+export const statValueVariant = (value: string): "title2" | "headline" =>
+  value.length > TILE_VALUE_MAX_CHARS ? "headline" : "title2"
+
 /** The three card tiles (design §3): duration | volume or reps | sets and exercises. */
 export const statTiles = (activity: Activity): ReadonlyArray<StatTile> => [
   {
-    value: Option.match(activity.durationSeconds, { onNone: () => "—", onSome: formatDuration }),
+    value: Option.match(activity.durationSeconds, {
+      onNone: () => "—",
+      onSome: formatDurationCompact,
+    }),
     caption: "Duration",
   },
   {

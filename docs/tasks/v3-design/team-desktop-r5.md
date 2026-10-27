@@ -127,8 +127,31 @@ Header: dispatch 09:58 · hard stop 11:02 · ports web 8911 / API 8912 (probed f
 
 ### Log
 (HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome)
+- 09:58 · EM batch 6 deltas (engineer item 14 box order, reviewer Layout proofs, ui-check data states) forwarded: briefs of R5d-shoot carry them; R5a/b/c ran before the forward reached me (their reports lack box proofs; R5d-shoot supplied them)
+- 09:59→10:11 · R5a · engineer/sonnet · a7fe903b50a7e8fba · 137k · 16+47 · 2 · done; tokens stroke.ring 10 / ringSm 3 / tooltip {12,20,72}; labels Planned sets/volume; logged tile deferred (no data in PlanWeekView, Lead: PLAN-LOG); ui-polish no change
+- 09:59→10:11 · R5b · engineer/sonnet · a1f10aa715e9ac47b · 232k · 112+23 · 2 · done; ToggleChip outline, chipVariant.ts, rowDetail.ts, tooltip tokens, clock glyph; fix1: tooltip pill sized to content, desktop chip outline
+- 09:59→10:04 · R5c · engineer/sonnet · a8a9a645426fa0c55 · 166k · 45+16 · 2 · done; StatRow variant plain, StatusPill align; fix1 statValueVariant (headline when > 8 chars)
+- 10:11→10:12 · REV-R5 · reviewer/opus · a7748e5f417758155 · 96k · 10 · 1 · APPROVE (should: planFormat<->progressFormat cycle; Lead ruled blocking -> fixed by R5a fix1 via leaf volumeFormat.ts)
+- 10:12→10:23 · R5d-shoot · engineer/sonnet · a2ba2707c1dac888c · 168k · 71 · 1 · 42 PNG, Q1-Q42 fragment, Commit 4e74a28 dirty 52 (ran concurrently with REV-R5 to fit the hard stop)
+- 10:24→10:27 · R5d-design · architect/fable · a0424b5f869d21b55 · 93k · 28 · 1 · PASS (all 4): docs/design/reviews/UI-P5.md
+- 10:24→10:27 · fix1 (R5a cycle + controls.ts drift, R5b tooltip/chip, R5c tile) · resumed a7fe903.. a1f10aa.. a8a9a64.. · gate green 954 tests
+- 10:28 · fix2 dispatched; AppBar/IconButton need Lead grant (escalated 10:28, no reply by 10:42)
+- 10:28→10:29 · fix2 · resumed a1f10aa.. (R5b clampSubtitle at separators) + a8a9a64.. (R5c Apple Health row no longer dimmed: ListRow dims whole row incl. pill, ListRow read-only) · 957 tests
+- 10:28→10:33 · R5d-shoot r2 · resumed a2ba2707c1dac888c · Commit be3261a dirty 51 · all fixes verified, drift 0 px
+- 10:34→10:37 · R5d-design r2 · fresh ad23ebaa1d331cf18 · fable · PASS 4/4; fix: Duration font stepping makes tiles uneven -> formatDurationCompact
+- 10:37→10:38 · fix3 · resumed a8a9a64.. · formatDurationCompact ("1h 10m"), 961 tests
+- 10:38→10:40 · R5d-shoot r3 · resumed a2ba2707c1dac888c · feed+activity re-shot, Commit be3261a dirty 82; all tile values 22 px (16/17 cards probed), no clipped leaf
+- 10:41 · root `pnpm check` exit 0: 159 files, 1992 tests (SF-1 and logo streams' files in the tree, no reds)
 
 ### Decisions
+- Lead rulings 10:20 applied: PLAN-LOG deferred; controls.ts granted (cardStyle 1 px transparent border in dark, `granted by Lead 10:20`); ui-polish no change (checked §Player 1-5: line 47 "pause controlLg 56 -> stepperButton 64" concerns the pause disc; no `Button xl` sentence; xl 64 / lg 56 are recorded in apps/mobile/CLAUDE.md); TimerRing/StatRow(plain)/StatusPill(align)/RecentSession ratified; cycle fixed by leaf components/volumeFormat.ts (progressFormat re-exports).
+- Ran REV-R5 concurrently with R5d-shoot (fits the hard stop; fixes re-shot in r2/r3).
+- Apple Health row: `disabled` dropped in ProviderList (ListRow dims the whole row incl. the pill; ListRow is read-only for us). Designer accepted. Option for the Lead: ListRow `dimLeading` prop.
+- Feed Duration tile: formatDurationCompact ("1h 10m"); statValueVariant stays as safety net (> 8 chars -> headline).
+- Sparkline strip below the header (+32 px card, empty when not hovered); pill content-sized and clamped. chartGeometry.test.ts keeps the deep `../../ui/tokens` import (barrel pulls react-native into vitest).
+- apps/mobile/CLAUDE.md: "Polish round 5" paragraph added after Desktop round 4 + the stale "Feed/Activity tiles are not StatRow" line fixed (shared with Lead).
 - R5a TOKENS: src/ui/tokens.ts (exported via src/ui/index.ts): `stroke.ring` = 10 (phone Player ring; PlayerView consumes it, RING_STROKE deleted), `stroke.ringSm` = 3 (20 px ring; ringStrokeFor in TimerRing.tsx consumes it); `tooltip = { padX: 12, labelRow: 20, labelWidth: 72 }` (values of TOOLTIP_PAD_X in chartGeometry.ts and LABEL_ROW/LABEL_WIDTH in Sparkline.tsx, which R5b may now replace by `tooltip.*`).
 ### Escalations
+- OPEN 10:28: src/ui/AppBar.tsx (eyebrow ring renders empty at 0 %, 1280) and src/ui/IconButton.tsx (filled disc surface-on-surface in light: invisible play disc at 1280). Outside our paths; no grant received; not touched. Fix owner R5a a7fe903b50a7e8fba (5 min) + `play` re-shoot via a2ba2707c1dac888c (3 min).
+- PLAN-LOG (Lead's follow-up): loggedSets in PlanWeekView (services frozen).
 ### Integration checklist

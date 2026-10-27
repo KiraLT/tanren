@@ -1,14 +1,8 @@
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { Pressable, View } from "react-native"
-import { radius, space, stroke, Text, useTheme } from "../../ui"
-import {
-  TOOLTIP_MAX_WIDTH,
-  TOOLTIP_PAD_X,
-  tooltipCaption,
-  tooltipLeft,
-  tooltipWidth,
-} from "./chartGeometry"
+import { radius, space, stroke, Text, tooltip, useTheme } from "../../ui"
+import { tooltipCaption, tooltipLeft, tooltipWidth } from "./chartGeometry"
 
 /** Height (px) of the strip above the plot where the tooltip floats, so it never covers a mark. */
 export const TOOLTIP_STRIP = 32
@@ -57,10 +51,12 @@ function Tooltip({ mark, chartWidth }: TooltipProps) {
         // measured at left 0 (the full natural width), then pinned there and moved under the mark
         left: width > 0 ? tooltipLeft(mark.center, width, chartWidth) : 0,
         ...(width > 0 ? { width } : {}),
-        maxWidth: Math.min(TOOLTIP_MAX_WIDTH, chartWidth),
+        // sized to its text (no fixed cap); never wider than the plot, never narrower than a label slot
+        minWidth: Math.min(tooltip.labelWidth, chartWidth),
+        maxWidth: chartWidth,
         opacity: width > 0 ? 1 : 0,
         justifyContent: "center",
-        paddingHorizontal: TOOLTIP_PAD_X,
+        paddingHorizontal: tooltip.padX,
         height: TOOLTIP_STRIP - space.xs,
         borderRadius: radius.full,
         borderCurve: "continuous",

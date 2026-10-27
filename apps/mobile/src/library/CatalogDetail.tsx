@@ -132,6 +132,7 @@ export function CatalogHero({
 /** The "Last done" line for one logged exercise; drawn only once its history has loaded. */
 function LastDoneFor({ exerciseId }: { readonly exerciseId: ExerciseId }) {
   const { state } = useExerciseHistory(exerciseId)
+  const { colors } = useTheme()
   const text =
     state._tag === "Ready"
       ? Option.flatMap(state.value, (history) => lastDoneText(history.recent))
@@ -139,9 +140,18 @@ function LastDoneFor({ exerciseId }: { readonly exerciseId: ExerciseId }) {
   return Option.match(text, {
     onNone: () => null,
     onSome: (line) => (
-      <Text variant="subhead" tone="muted" tabular accessibilityLabel={line}>
-        {line}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+        <Icon name="clock" size={sizes.iconSm} color={colors.textMuted} />
+        <Text
+          variant="subhead"
+          tone="muted"
+          tabular
+          accessibilityLabel={line}
+          style={{ flexShrink: 1 }}
+        >
+          {line}
+        </Text>
+      </View>
     ),
   })
 }

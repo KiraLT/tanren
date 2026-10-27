@@ -7,7 +7,6 @@ import {
   formatDayShort,
   formatItemTarget,
   formatTarget,
-  formatVolume,
   formatWeekRange,
   type SetTarget,
   sessionLabel,
@@ -219,7 +218,7 @@ describe("weekSummary", () => {
 })
 
 describe("weekStats", () => {
-  it("formats the three slots with a thousands separator", () => {
+  it("labels the slots as planned figures, with a thousands separator", () => {
     const stats = weekStats({
       sessionsDone: 1,
       sessionsTotal: 5,
@@ -229,16 +228,24 @@ describe("weekStats", () => {
     })
     expect(stats).toEqual([
       { label: "Sessions", value: "1/5" },
-      { label: "Sets", value: "5/13" },
-      { label: "Volume", value: "4,110 kg" },
+      { label: "Planned sets", value: "5/13" },
+      { label: "Planned volume", value: "4,110 kg" },
     ])
   })
 
-  it("prints zero volume and small numbers plainly", () => {
-    expect(formatVolume(0)).toBe("0 kg")
-    expect(formatVolume(999.4)).toBe("999 kg")
-    expect(formatVolume(1000)).toBe("1,000 kg")
-    expect(formatVolume(1234567)).toBe("1,234,567 kg")
+  it("prints an empty week as zeros", () => {
+    const stats = weekStats({
+      sessionsDone: 0,
+      sessionsTotal: 0,
+      setsDone: 0,
+      setsTotal: 0,
+      volumeKg: 0,
+    })
+    expect(stats).toEqual([
+      { label: "Sessions", value: "0/0" },
+      { label: "Planned sets", value: "0/0" },
+      { label: "Planned volume", value: "0 kg" },
+    ])
   })
 })
 

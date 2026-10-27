@@ -34,6 +34,9 @@ import {
   weekWindow,
 } from "../programDays"
 
+/** Height of a desktop section-label row ("Program" / "What's inside"): 28, so both columns align. */
+const SECTION_LABEL_HEIGHT = sizes.labelRow
+
 /** "≈ 15 min" from the planned length. */
 export const approxMinutes = (day: ProgramDay): string => `≈ ${dayMinutes(day)} min`
 
@@ -61,7 +64,7 @@ export function EnrolCard({ program, enrolling, onEnrol }: EnrolCardProps) {
           variant="caption"
           tone="muted"
           accessibilityRole="header"
-          style={{ paddingHorizontal: space.lg, minHeight: space.xl + space.xs }}
+          style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
         >
           Program
         </Text>
@@ -128,7 +131,7 @@ export function ProgramInside({
         variant="caption"
         tone="muted"
         accessibilityRole="header"
-        style={{ paddingHorizontal: space.lg, minHeight: space.xl + space.xs }}
+        style={{ paddingHorizontal: space.lg, minHeight: SECTION_LABEL_HEIGHT }}
       >
         What's inside
       </Text>

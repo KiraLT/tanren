@@ -12,6 +12,8 @@ import {
   chipStyle,
   DISABLED_OPACITY,
   discStyle,
+  eyebrowRingState,
+  filledDiscStyle,
   listSeparatorStyle,
   numeralScale,
   pillForeground,
@@ -133,7 +135,16 @@ describe("Card", () => {
       borderWidth: 1,
       backgroundColor: lightColors.surface,
     })
-    expect(cardStyle("dark", darkColors, false, darkColors.surface).borderWidth).toBe(0)
+    expect(cardStyle("light", lightColors, false, lightColors.surface).borderColor).toBe(
+      lightColors.border,
+    )
+  })
+
+  it("dark keeps a 1 px transparent border so cards measure the same in both schemes", () => {
+    expect(cardStyle("dark", darkColors, false, darkColors.surface)).toMatchObject({
+      borderWidth: 1,
+      borderColor: "transparent",
+    })
   })
 
   it("selected: 1.5 accent outline on accentSoft", () => {
@@ -444,5 +455,27 @@ describe("statTileStyle", () => {
 
   it("fits three tiles of 166 in the 532 inner width of the Programs column", () => {
     expect(Math.floor(statSlotWidth(532, 3))).toBe(166)
+  })
+})
+
+describe("eyebrowRingState", () => {
+  it("draws the ring only once there is progress, keeping a 20 px slot at zero", () => {
+    expect(eyebrowRingState(undefined)).toBe("none")
+    expect(eyebrowRingState(0)).toBe("slot")
+    expect(eyebrowRingState(0.01)).toBe("ring")
+    expect(eyebrowRingState(1)).toBe("ring")
+  })
+})
+
+describe("filledDiscStyle", () => {
+  it("is a surface disc with a 1 px border, raised when pressed, in both schemes", () => {
+    ;[lightColors, darkColors].forEach((colors) => {
+      expect(filledDiscStyle(colors, false)).toEqual({
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+      })
+      expect(filledDiscStyle(colors, true).backgroundColor).toBe(colors.surfaceRaised)
+    })
   })
 })

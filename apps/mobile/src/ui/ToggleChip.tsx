@@ -1,4 +1,10 @@
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
+import {
+  type ChipVariant,
+  outlineChipStyle,
+  outlineGlyphColor,
+  outlineLabelStyle,
+} from "./chipVariant"
 import { chipColors, chipPressableStyle, chipStyle } from "./controls"
 import { Icon, type IconName } from "./Icon"
 import { Text } from "./Text"
@@ -19,6 +25,11 @@ export interface ToggleChipProps {
    * -6 px vertical margin (a real target on web too, where `hitSlop` is ignored). Default off.
    */
   readonly compact?: boolean
+  /**
+   * `solid` (default, unchanged): "on" is a filled pill. `outline`: "on" is an accent outline and
+   * glyph with a bolder label, for a toggle beside a facet row ("At <location>").
+   */
+  readonly variant?: ChipVariant
   /** Outer layout only (e.g. `alignSelf`); colours come from the theme. */
   readonly style?: StyleProp<ViewStyle>
 }
@@ -34,10 +45,13 @@ export function ToggleChip({
   icon,
   hitSlop,
   compact = false,
+  variant = "solid",
   style,
 }: ToggleChipProps) {
   const { colors, scheme } = useTheme()
+  const outline = variant === "outline"
   const foreground = chipColors(selected, scheme, colors).foreground
+  const glyph = outline ? outlineGlyphColor(selected, colors) : foreground
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -49,9 +63,16 @@ export function ToggleChip({
       onPress={onPress}
       style={({ pressed }) => [chipPressableStyle(compact), pressed && { opacity: 0.7 }, style]}
     >
-      <View style={chipStyle(selected, scheme, colors)}>
-        {icon === undefined ? null : <Icon name={icon} size={sizes.iconXs} color={foreground} />}
-        <Text variant="caption" style={{ color: foreground }}>
+      <View
+        style={
+          outline ? outlineChipStyle(selected, scheme, colors) : chipStyle(selected, scheme, colors)
+        }
+      >
+        {icon === undefined ? null : <Icon name={icon} size={sizes.iconXs} color={glyph} />}
+        <Text
+          variant="caption"
+          style={outline ? outlineLabelStyle(selected) : { color: foreground }}
+        >
           {label}
         </Text>
       </View>

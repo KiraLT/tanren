@@ -7,8 +7,9 @@ import {
   MuscleGroup,
   missingEquipment,
 } from "@tanren/shared"
-import { Array as Arr, type DateTime, Option, Order, Schema } from "effect"
+import { Array as Arr, Option, Order, Schema } from "effect"
 import { formatLoggedDate, formatSetText } from "../components/progress/progressFormat"
+import type { ExerciseHistory } from "../services/HistoryRepo"
 
 /** `"upperBack"` → `"Upper back"`, `"smithMachine"` → `"Smith machine"`. */
 export const humanize = (key: string): string => {
@@ -97,17 +98,34 @@ export const entrySubtitle = (entry: CatalogExercise): string =>
 export const subtitleMaxChars = (windowWidth: number): number =>
   Math.max(16, Math.floor((windowWidth - 132) / 7.6))
 
-/** `text` cut to `max` characters with a trailing "…" (kept whole when it fits). */
-export const clampSubtitle = (text: string, max: number): string =>
-  text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`
+/** Where a subtitle may be cut: before a " · " or ", " (the part after it is dropped whole). */
+const SUBTITLE_BOUNDARY = / · |, /g
 
-/** The slice of `ExerciseHistory["recent"]` the "Last done" row reads. */
-export interface RecentSession {
-  readonly session: { readonly startedAt: DateTime.Utc }
-  readonly sets: ReadonlyArray<{ readonly weightKg: number; readonly reps: number }>
+/**
+ * `text` kept whole when it fits `max` characters. Otherwise cut at the last " · " / ", " boundary
+ * whose head plus "…" fits, so the trailing equipment part goes first and a word is never split
+ * ("Chest, Triceps · Smith machine…", not "Chest, Triceps · Smith machine,…"). Only when no
+ * boundary fits (one long token, or a first part longer than `max`) is the text hard-cut with "…".
+ */
+export const clampSubtitle = (text: string, max: number): string => {
+  if (text.length <= max) {
+    return text
+  }
+  const cuts = Arr.reverse(
+    Arr.flatMap(Arr.fromIterable(text.matchAll(SUBTITLE_BOUNDARY)), (match) =>
+      match.index === undefined ? [] : [match.index],
+    ),
+  )
+  return Option.match(
+    Arr.findFirst(cuts, (at) => at > 0 && at + 1 <= max),
+    {
+      onSome: (at) => `${text.slice(0, at)}…`,
+      onNone: () => `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`,
+    },
+  )
 }
 
-type SetLoad = RecentSession["sets"][number]
+type SetLoad = ExerciseHistory["recent"][number]["sets"][number]
 
 const byLoadThenReps: Order.Order<SetLoad> = Order.combine(
   Order.mapInput(Order.Number, (set: SetLoad) => set.weightKg),
@@ -118,7 +136,7 @@ const byLoadThenReps: Order.Order<SetLoad> = Order.combine(
  * "Last done 18 Oct · 105 kg × 5": the newest session with sets (`recent` is newest first), its
  * heaviest set (more reps on a tie). `None` when there is no history, so the row is not drawn.
  */
-export const lastDoneText = (recent: ReadonlyArray<RecentSession>): Option.Option<string> =>
+export const lastDoneText = (recent: ExerciseHistory["recent"]): Option.Option<string> =>
   Option.flatMap(
     Arr.findFirst(recent, ({ sets }) => sets.length > 0),
     ({ session, sets }) =>

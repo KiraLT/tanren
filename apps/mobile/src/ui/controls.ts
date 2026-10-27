@@ -122,7 +122,10 @@ export const buttonHoverStyle = (variant: ButtonVariant, colors: ColorRoles): Vi
 
 // Card ----------------------------------------------------------------------------------------
 
-/** Flat `surface` card, radius 16: hairline border in light, none in dark (§4). */
+/**
+ * Flat `surface` card, radius 16: a 1 px hairline in light, a 1 px transparent border in dark (§4),
+ * so a card measures the same height in both schemes.
+ */
 export const cardStyle = (
   scheme: Scheme,
   colors: ColorRoles,
@@ -132,8 +135,8 @@ export const cardStyle = (
   borderRadius: radius.lg,
   borderCurve: "continuous",
   backgroundColor: selected ? colors.accentSoft : background,
-  borderWidth: selected ? stroke.outline : scheme === "light" ? stroke.hairline : 0,
-  borderColor: selected ? colors.accent : colors.border,
+  borderWidth: selected ? stroke.outline : stroke.hairline,
+  borderColor: selected ? colors.accent : scheme === "light" ? colors.border : "transparent",
 })
 
 export const CARD_PADDING = space.lg
@@ -466,3 +469,23 @@ export const STEPPER_XXL_MIN_INNER = 440
 /** `xxl` when the block is wide enough for the 96 numeral, else `xl`. */
 export const stepperSizeFor = (innerWidth: number): StepperSize =>
   innerWidth >= STEPPER_XXL_MIN_INNER ? "xxl" : "xl"
+
+/**
+ * The 20 px eyebrow ring of the app bar: `none` without a progress value, `slot` (an empty 20 px
+ * box that keeps the label where it is) at 0 where the ring would draw as an empty circle, `ring`
+ * once there is progress to show.
+ */
+export type EyebrowRing = "none" | "slot" | "ring"
+export const eyebrowRingState = (progress: number | undefined): EyebrowRing =>
+  progress === undefined ? "none" : progress > 0 ? "ring" : "slot"
+
+/**
+ * `IconButton variant="filled"` disc: `surface` with a 1 px `border` outline, so it reads on a `bg`
+ * page in light (`surface` is only 1.07:1 against it, `surfaceRaised` equals the page there);
+ * pressed or hovered it takes `surfaceRaised`.
+ */
+export const filledDiscStyle = (colors: ColorRoles, raised: boolean): ViewStyle => ({
+  backgroundColor: raised ? colors.surfaceRaised : colors.surface,
+  borderWidth: stroke.hairline,
+  borderColor: colors.border,
+})

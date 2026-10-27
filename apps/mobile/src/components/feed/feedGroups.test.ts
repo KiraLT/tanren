@@ -7,9 +7,12 @@ import {
   feedRows,
   formatClock,
   formatDuration,
+  formatDurationCompact,
   formatStamp,
   groupByWeek,
   statTiles,
+  statValueVariant,
+  TILE_VALUE_MAX_CHARS,
 } from "./feedGroups"
 
 const vilnius = (iso: string) => DateTime.makeZonedUnsafe(iso, { timeZone: "Europe/Vilnius" })
@@ -158,6 +161,64 @@ describe("statTiles", () => {
     )
     expect(tiles[0]).toEqual({ value: "—", caption: "Duration" })
     expect(tiles[1]).toEqual({ value: "124 reps", caption: "Reps" })
+  })
+
+  it("shows an hour-plus duration compactly so the tile keeps its size", () => {
+    const tiles = statTiles(
+      activity({ n: 13, startedAt: "2026-10-26T16:00:00.000Z", durationSeconds: 70 * 60 }),
+    )
+    expect(tiles[0]).toEqual({ value: "1h 10m", caption: "Duration" })
+  })
+
+  it("uses the singular for one set and one exercise", () => {
+    const tiles = statTiles(
+      activity({ n: 12, startedAt: "2026-10-26T16:00:00.000Z", sets: 1, exercises: 1 }),
+    )
+    expect(tiles[2]).toEqual({ value: "1 set", caption: "1 exercise" })
+  })
+})
+
+describe("formatDurationCompact", () => {
+  it("writes hours and minutes without the long units", () => {
+    expect(formatDurationCompact(9 * 60 + 3600)).toBe("1h 9m")
+    expect(formatDurationCompact(70 * 60)).toBe("1h 10m")
+    expect(formatDurationCompact(2 * 3600)).toBe("2h")
+    expect(formatDurationCompact(12 * 3600 + 59 * 60)).toBe("12h 59m")
+  })
+
+  it("keeps the under-an-hour forms of formatDuration", () => {
+    expect(formatDurationCompact(35 * 60)).toBe("35 min")
+    expect(formatDurationCompact(0)).toBe("0 min")
+    expect(formatDurationCompact(30)).toBe("< 1 min")
+  })
+
+  it("is at most 7 characters up to 99 hours", () => {
+    expect(formatDurationCompact(12 * 3600 + 59 * 60).length).toBeLessThanOrEqual(7)
+    expect(formatDurationCompact(99 * 3600 + 59 * 60).length).toBeLessThanOrEqual(7)
+  })
+})
+
+describe("statValueVariant", () => {
+  it("keeps title2 for short values (17 sets, 8,111 kg, 124 reps, 1 h)", () => {
+    const values = ["17 sets", "8,111 kg", "124 reps", "4,230 kg", "1 h", "—", "48 min"]
+    expect(values.map(statValueVariant)).toEqual(values.map(() => "title2"))
+  })
+
+  it("keeps title2 for every compact duration, two-digit minutes and hours included", () => {
+    expect(statValueVariant("1h 10m")).toBe("title2")
+    expect(statValueVariant(formatDurationCompact(76 * 60))).toBe("title2") // "1h 16m"
+    expect(statValueVariant(formatDurationCompact(12 * 3600 + 59 * 60))).toBe("title2") // "12h 59m"
+  })
+
+  it("steps to headline for the long form and long volumes (safety net)", () => {
+    expect(statValueVariant(formatDuration(70 * 60))).toBe("headline") // "1 h 10 min"
+    expect(statValueVariant("10,000 kg")).toBe("headline")
+    expect(statValueVariant("100,000 kg")).toBe("headline")
+  })
+
+  it("changes exactly at the limit", () => {
+    expect(statValueVariant("x".repeat(TILE_VALUE_MAX_CHARS))).toBe("title2")
+    expect(statValueVariant("x".repeat(TILE_VALUE_MAX_CHARS + 1))).toBe("headline")
   })
 })
 

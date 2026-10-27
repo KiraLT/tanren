@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 import { formatClock } from "../hooks/restClock"
-import { formatVolume } from "./planFormat"
+import { formatVolume } from "./volumeFormat"
 
 /** The part of a `TodayExercise` the desktop stat row reads. */
 export interface ExerciseStatsInput {

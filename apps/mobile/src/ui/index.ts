@@ -80,5 +80,6 @@ export {
   stroke,
   type Tone,
   type TypeVariant,
+  tooltip,
   type,
 } from "./tokens"

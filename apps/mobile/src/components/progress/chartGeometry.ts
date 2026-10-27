@@ -79,25 +79,20 @@ export const columnCenters = (count: number, width: number, pad: number): Readon
     count <= 1 ? width / 2 : pad + (index * (width - 2 * pad)) / (count - 1),
   )
 
-/** Widest tooltip pill (ui-polish Progress detail 2): longer captions truncate. */
-export const TOOLTIP_MAX_WIDTH = 180
-
 /** "4,110 kg · wk of 5 Oct": the one-line tooltip caption ("Week of" shortened to "wk of"). */
 export const tooltipCaption = (value: string, label: string): string =>
   `${value} · ${label.replace(/^Week of /, "wk of ")}`
 
-/** Horizontal padding of the tooltip pill (each side); `natural` below includes it. */
-export const TOOLTIP_PAD_X = 12
-
 /**
- * Pill width from the measured natural width of the PADDED pill (text + 2 x padding + border),
- * never above `TOOLTIP_MAX_WIDTH` or the chart. `onLayout` reports the width rounded down
+ * Pill width from the measured natural width of the PADDED pill (text + 2 x `tooltip.padX` + border),
+ * never above the chart (a fixed cap of 180 clipped "e1RM 105 kg · wk of 1…" at 1280 dark: that
+ * caption's pill is about 200). `onLayout` reports the width rounded down
  * (measured on web: text 110.33 px, pill 128.33 reported as 128), and pinning that leaves the
  * text box 0.33 px short, so the label ends in an ellipsis ("0 kg · wk of 7 S…"): round up and
  * add 1 px of slack.
  */
 export const tooltipWidth = (natural: number, chartWidth: number): number =>
-  Math.max(0, Math.min(Math.ceil(natural) + 1, TOOLTIP_MAX_WIDTH, chartWidth))
+  Math.max(0, Math.min(Math.ceil(natural) + 1, chartWidth))
 
 /** Left edge of a tooltip centred on `center`, kept inside `[0, chartWidth]`. */
 export const tooltipLeft = (center: number, tooltipWidth: number, chartWidth: number): number =>

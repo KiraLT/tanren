@@ -1,5 +1,7 @@
 import { Option } from "effect"
 import { describe, expect, it } from "vitest"
+// not "../../ui": the barrel pulls react-native (Flow syntax) into the node test run (parse failure)
+import { tooltip } from "../../ui/tokens"
 import {
   BASELINE,
   barRects,
@@ -7,8 +9,6 @@ import {
   hoverBand,
   roundedTopBarPath,
   sparklineShape,
-  TOOLTIP_MAX_WIDTH,
-  TOOLTIP_PAD_X,
   tooltipCaption,
   tooltipLeft,
   tooltipWidth,
@@ -158,21 +158,34 @@ describe("tooltipCaption and tooltipWidth", () => {
   })
 
   it("gives the 18-character first-bar label room for its whole text", () => {
-    // "0 kg · wk of 7 Sep": text 110.33 px + 2 x TOOLTIP_PAD_X + 2 x 1 px border = 136.33, which
+    // "0 kg · wk of 7 Sep": text 110.33 px + 2 x tooltip.padX + 2 x 1 px border = 136.33, which
     // onLayout reports as 136; the pinned width must not be below the real pill (it was 128 vs
     // 128.33 before, and the label ended in an ellipsis)
     const caption = tooltipCaption("0 kg", "Week of 7 Sep")
     expect(caption).toHaveLength(18)
-    const natural = 110.33 + 2 * TOOLTIP_PAD_X + 2
+    const natural = 110.33 + 2 * tooltip.padX + 2
     const width = tooltipWidth(Math.floor(natural), 358)
     expect(width).toBeGreaterThanOrEqual(natural)
-    expect(width).toBeLessThanOrEqual(TOOLTIP_MAX_WIDTH)
+    expect(width).toBeLessThanOrEqual(358)
   })
 
-  it("keeps a short pill natural (plus 1 px of slack) and caps a long one at 180", () => {
+  it("keeps a pill natural (plus 1 px of slack), however long, up to the chart", () => {
     expect(tooltipWidth(120, 300)).toBe(121)
     expect(tooltipWidth(119.6, 300)).toBe(121)
-    expect(tooltipWidth(240, 300)).toBe(TOOLTIP_MAX_WIDTH)
+    // "e1RM 105 kg · wk of 19 Oct": text 173 px + 2 x tooltip.padX + 2 x 1 px border = 199; the old
+    // 180 cap cut it to 154 px of text ("e1RM 105 kg · wk of 1…")
+    const natural = 173 + 2 * tooltip.padX + 2
+    expect(tooltipWidth(natural, 326)).toBeGreaterThanOrEqual(natural)
+    expect(tooltipWidth(240, 300)).toBe(241)
+  })
+
+  it("clamps the e1RM pill inside the plot at both ends", () => {
+    const width = tooltipWidth(173 + 2 * tooltip.padX + 2, 326)
+    // first marker (x = 8) and last marker (x = 318) of a 326 px plot
+    expect(tooltipLeft(8, width, 326)).toBe(0)
+    expect(tooltipLeft(318, width, 326)).toBe(326 - width)
+    expect(tooltipLeft(8, width, 326) + width).toBeLessThanOrEqual(326)
+    expect(tooltipLeft(318, width, 326)).toBeGreaterThanOrEqual(0)
   })
 
   it("never exceeds a chart narrower than the pill, and left-clamps there", () => {
@@ -181,8 +194,8 @@ describe("tooltipCaption and tooltipWidth", () => {
     expect(tooltipLeft(90, width, 100)).toBe(0)
   })
 
-  it("clamps the right edge with the capped width", () => {
-    expect(tooltipLeft(340, tooltipWidth(240, 358), 358)).toBe(178)
+  it("clamps the right edge with a long pill", () => {
+    expect(tooltipLeft(340, tooltipWidth(240, 358), 358)).toBe(358 - 241)
   })
 
   it("clamps the first bar's pill to the left edge and the last bar's to the right", () => {
