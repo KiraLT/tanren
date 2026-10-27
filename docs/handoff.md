@@ -40,8 +40,14 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   light, empty ring gone. Nit for the next polish round: at 1280 the eyebrow keeps its 28 px slot at progress 0
   (eyebrow x 148 vs title x 120); at 390 both are flush.
 - Gallery v12 (sections `polish-r5` Q1–Q45 and `logo-4` T1–T7) published from the repo source
-  `docs/design/screens/tanren-screens.html`; `gallery.mjs` defaults to the scratchpad copy, so pass the repo path
-  as the first argument (GAL-3 fixes the default).
+  `docs/design/screens/tanren-screens.html` (`gallery.mjs` now defaults to it, GAL-3). Brandbook artifact v5
+  carries the W1 wordmark + T mark Logo group (BRAND-3; publish recipe: read the artifact, then `root`
+  `docs/design/brandbook`, `file_path` = the index, other `project/*` files in `files`).
+- **PLAN-LOG review fixes** in flight (engineer resumed 11:10, 6 min): Schema decode of the aggregate rows,
+  `LoggedTotals` derived from the struct, fixture literal. WIP commit `e71da43` (REV-PL2 APPROVE). Then the
+  reviewed commit and DEPLOY-6; Plan dark captures go to the next polish round.
+- EM batch 7 done (`fe602ef`): engineer rule 9 (scratch D1 proofs, `db:reset`, no `--dry-run`), team-lead
+  capture-stack ownership, ui-check per-task stack; playbook P1–P4 + P6 applied. P5 is the owner's (item 9 below).
 - Done this morning (all committed): FIN-LAYOUT `e34ca1e` + DEPLOY-4; EM batch 6 (`4e74a28`); SF-1 Strava
   follow-ups reviewed (`be3261a` → `4ccea78`: refresh lease, planned-session names, optional `?limit`); polish
   round 5 PASS (`4447765`) + Player light fixes (`7678246`); LOGO-4 W1 wordmark + T mark (`499b1a9`, plan
@@ -75,20 +81,25 @@ on AC). Retro verdict: throughput high (9 streams,
 7. **Restart Claude Code** only when the Lead says the streams are quiet (hooks snapshot at startup; the
    owner-registered `em-cadence.sh` becomes active then).
 8. Later: Apple Health needs the native dev build (Apple Developer account).
+9. **Permission patterns** (EM batch 7, P5): `Bash(wrangler deploy:*)` / `Bash(wrangler d1 execute:*)` in
+   `.claude/settings.json` match only the bare `wrangler` spelling; `pnpm exec wrangler …` and
+   `node_modules/.bin/wrangler …` bypass the ask (that is also why the Lead's background deploy script runs
+   without prompts). Owner's call: add those spellings (then `deploy.sh` must run in the foreground with you
+   present) or keep the gap and rely on the role files, which forbid subagents from deploying.
 
 ## Next actions (in order)
-1. Verify DEPLOY-5 (Live above), republish the gallery after the play re-shoot, commit the docs; EM batch 7
-   (r5 process notes: round-1 box proofs, dev server vanished mid-run, persist copies need 0005, gallery.json
-   rewrite; WD-1 24 min on an 8-min box; SF-1 `d1 execute --local` rule slip).
-2. PLAN-LOG (brief ready in `docs/tasks/v4-polish-briefs.md`): logged sets/volume on the Plan week summary.
-3. BRAND-3: rebuild the brandbook artifact (https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa) from
-   `docs/design/brandbook/project/**` with the W1 wordmark and the T mark; GAL-3: `gallery.mjs` default HTML →
-   the repo file.
-4. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.
-5. Design notes parked: landing light-scheme illustration amber vs rust primary (one colour set, D1),
+1. Accept the PLAN-LOG review fixes (Schema decode of the aggregate rows; see Live), commit "PLAN-LOG reviewed",
+   DEPLOY-6 (`scratchpad/deploy.sh`, no migration) and verify the Plan week "Logged" line on the live
+   `__common-*.js` (`weekLoggedLine` / "Logged"); EM batch 8 after the next ≥ 4 commits.
+2. Next polish round (nits in `docs/tasks/v4-polish-briefs.md` §Queued: eyebrow 28 px slot at 1280, landing
+   light-scheme colour set, eyebrow repeats the name; dark captures for the Plan logged line) — or the next
+   feature the owner names; the v4 backlog is otherwise empty.
+3. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.
+4. Design notes parked: landing light-scheme illustration amber vs rust primary (one colour set, D1),
    eyebrow repeats the name; landing `contentH` probe is the measure (`docH` = viewport on `Page scroll`).
-6. Process: forward role-file deltas to any team-lead spawned before the last EM batch (r5 received batch 6's
-   deltas after its children were briefed; the shooter supplied the box proofs).
+5. Process: forward role-file deltas to any team-lead spawned before the last EM batch in the same turn the
+   EM report is accepted (r5 received batch 6's deltas after its children were briefed); charters now tell
+   team-leads to re-read role files by mtime before each round.
 
 ## Deploy recipe (Lead-run; owner lifted the ban 2026-10-26, dev-system §13)
 `scratchpad/deploy.sh` (recreate from this if purged): `git worktree remove --force $S/deploy-wt; git worktree

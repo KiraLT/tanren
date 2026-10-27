@@ -14,9 +14,10 @@ import type {
   PlannedSessionStatus,
   PlanWeekView,
 } from "../hooks/usePlanWeek"
-import { NOT_LOGGED } from "../services/PlanWeekRepo"
 
 /** Typed fixture for the Plan components and their tests: a week that starts on a Wednesday. */
+
+const NOTHING_LOGGED: PlanDay["sessions"][number]["logged"] = { sets: 0, volumeKg: 0 }
 
 const uuid = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 
@@ -110,7 +111,7 @@ const session = (
   status,
   blocks,
   // The base fixture has nothing logged; tests spread `logged` onto a session for the logged line.
-  logged: NOT_LOGGED,
+  logged: NOTHING_LOGGED,
 })
 
 const lowerA = session(1, "Lower A", "2026-10-21", "done", [

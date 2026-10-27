@@ -4,6 +4,7 @@ import {
   LocalDate,
   type Plan,
   type PlannedSession,
+  PlannedSessionId,
   PlannedSessionRow,
   type PlannedSet,
   PlannedSetRow,
@@ -12,7 +13,7 @@ import {
   PlanWeekRow,
   type Weekday,
 } from "@tanren/shared"
-import { Array as Arr, Context, DateTime, Effect, Layer, Option, pipe } from "effect"
+import { Array as Arr, Context, DateTime, Effect, Layer, Option, pipe, Schema } from "effect"
 import { decodeRecords, LocalStore } from "./LocalStore"
 import type { StoreError } from "./SqlDriver"
 import { localToday } from "./TodayRepo"
@@ -33,10 +34,15 @@ export type PlannedSessionStatus = "done" | "today" | "upcoming" | "missed"
  * What was actually logged against a planned session: live sets of live workout sessions that
  * link to it. `0` / `0` when nothing was logged. Bodyweight sets (0 kg) count as sets, 0 volume.
  */
-export interface LoggedTotals {
-  readonly sets: number
-  readonly volumeKg: number
+const LoggedTotalsFields = {
+  sets: Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0)),
+  volumeKg: Schema.Number,
 }
+const LoggedTotalsSchema = Schema.Struct(LoggedTotalsFields)
+export type LoggedTotals = (typeof LoggedTotalsSchema)["Type"]
+
+/** One row of the week's aggregate query: the planned session and its logged totals. */
+const LoggedRow = Schema.Struct({ id: PlannedSessionId, ...LoggedTotalsFields })
 
 export const NOT_LOGGED: LoggedTotals = { sets: 0, volumeKg: 0 }
 
@@ -249,16 +255,12 @@ export class PlanWeekRepo extends Context.Service<PlanWeekRepo, PlanWeekRepoShap
              WHERE s."deletedAt" IS NULL AND ws."deletedAt" IS NULL AND ws."plannedSessionId"`,
             sessionIds,
             `GROUP BY ws."plannedSessionId"`,
-          )
+          ).pipe(Effect.flatMap(decodeRecords(LoggedRow)))
           const logged = new Map(
-            loggedRows.flatMap(
-              (row): ReadonlyArray<readonly [string, LoggedTotals]> =>
-                typeof row.id === "string" &&
-                typeof row.sets === "number" &&
-                typeof row.volumeKg === "number"
-                  ? [[row.id, { sets: row.sets, volumeKg: row.volumeKg }]]
-                  : [],
-            ),
+            loggedRows.map((row): readonly [string, LoggedTotals] => [
+              row.id,
+              { sets: row.sets, volumeKg: row.volumeKg },
+            ]),
           )
           return Option.map(Arr.head(plans), (plan) =>
             buildView({ plan, week, today, sessions, sets, exercises, doneIds, logged }),
