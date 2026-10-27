@@ -22,6 +22,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const argv = process.argv.slice(2)
 const flag = (name: string) => argv.includes(name)
 const argValue = (name: string) => Option.fromNullishOr(argv[argv.indexOf(name) + 1])
+/** `--wordmark` (LOGO-3 candidates) or `--wordmark-final` (LOGO-4, W1 at quality high). */
+const wordmarkRun = flag("--wordmark") || flag("--wordmark-final")
 const outDir = resolve(
   Option.getOrElse(flag("--out") ? argValue("--out") : Option.none(), () =>
     join(
@@ -30,7 +32,7 @@ const outDir = resolve(
       "assets",
       "brand",
       "candidates",
-      flag("--wordmark") || flag("--wordmark-sheet") ? "wordmark" : "",
+      wordmarkRun || flag("--wordmark-sheet") ? "wordmark" : "",
     ),
   ),
 )
@@ -168,6 +170,15 @@ const WORDMARKS: ReadonlyArray<Candidate> = [
   },
 ].map((entry) => ({ ...entry, background: "transparent", size: "1536x1024" }))
 
+/**
+ * LOGO-4 (`--wordmark-final`, plan Amendment 15, owner pick W1): W1's prompt once at quality `high`
+ * (about $0.25, one image) into `candidates/wordmark/W1-final.png`. `--w1-export <png>` (no key) builds
+ * the tracked wordmark and the T-mark icon set from it.
+ */
+const WORDMARK_FINAL: ReadonlyArray<Candidate> = WORDMARKS.filter((c) => c.id === "W1").map(
+  (c) => ({ ...c, id: "W1-final" }),
+)
+
 /** LOGO-1b: gpt-image-1 is refused on /v1/images/generations for this account, so no first attempt. */
 const MODEL = "gpt-image-1.5"
 
@@ -204,11 +215,17 @@ const runGenerate = async () => {
         () => [],
       )
     : []
-  const table = flag("--wordmark") ? WORDMARKS : flag("--final") ? FINALS : CANDIDATES
+  const table = flag("--wordmark-final")
+    ? WORDMARK_FINAL
+    : flag("--wordmark")
+      ? WORDMARKS
+      : flag("--final")
+        ? FINALS
+        : CANDIDATES
   const selected = table.filter((c) => only.length === 0 || only.includes(c.id))
   /** Ids already re-requested once for coming back without alpha (`--wordmark`). */
   const noAlphaRetried = new Set<string>()
-  const quality = flag("--final") ? FINAL_QUALITY : P.IMAGE_QUALITY
+  const quality = flag("--final") || flag("--wordmark-final") ? FINAL_QUALITY : P.IMAGE_QUALITY
   /** API calls made, counting retries and the model fallback (reported by the run). */
   const calls = { count: 0 }
 
@@ -318,7 +335,7 @@ const runGenerate = async () => {
 
   const program = Effect.gen(function* () {
     yield* Console.log(
-      `logo:generate ${MODEL} ${flag("--wordmark") ? "1536x1024" : P.IMAGE_SIZE} ${quality} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
+      `logo:generate ${MODEL} ${wordmarkRun ? "1536x1024" : P.IMAGE_SIZE} ${quality} png${flag("--transparent") ? " transparent" : ""}: ${selected.length} candidates into ${outDir}`,
     )
     const attempt = (entry: Candidate) =>
       generate(entry).pipe(
@@ -698,7 +715,192 @@ const runWordmarkSheet = async () => {
   )
 }
 
-if (flag("--wordmark-sheet")) {
+/**
+ * LOGO-4 export (`--w1-export <png>`, no key): the owner's W1 (transparent, ink + one amber hook) becomes the
+ * tracked wordmark and the T mark. The T is the 4-connected ink component that holds the leftmost ink pixel,
+ * plus every amber pixel (the prompt allows one accent, the T's hook), plus the anti-aliased rim within 2 px.
+ * Ink and accent are recoloured to the exact brand pair of the ground; alpha is kept.
+ */
+type Raw = { readonly data: Buffer; readonly width: number; readonly height: number }
+
+const readRaw = async (file: string): Promise<Raw> => {
+  const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  return { data, width: info.width, height: info.height }
+}
+const alphaAt = (raw: Raw, n: number) => raw.data[n * 4 + 3] ?? 0
+const isAccent = (raw: Raw, n: number) =>
+  (raw.data[n * 4] ?? 0) - (raw.data[n * 4 + 2] ?? 0) > ACCENT_RB && alphaAt(raw, n) >= 128
+
+/** Indices of the 4-connected component of `inside` that holds `seed` (frontier by frontier). */
+const component = (raw: Raw, inside: (n: number) => boolean, seed: number): ReadonlySet<number> => {
+  const seen = new Set<number>([seed])
+  const grow = (frontier: ReadonlyArray<number>): ReadonlySet<number> =>
+    frontier.length === 0
+      ? seen
+      : grow(
+          frontier.flatMap((n) =>
+            [
+              n % raw.width > 0 ? n - 1 : -1,
+              n % raw.width < raw.width - 1 ? n + 1 : -1,
+              n - raw.width,
+              n + raw.width,
+            ].filter((m) => {
+              if (m < 0 || m >= raw.width * raw.height || seen.has(m) || !inside(m)) return false
+              seen.add(m)
+              return true
+            }),
+          ),
+        )
+  return grow([seed])
+}
+
+/** `raw` with ink → `palette.first`, accent → `palette.accent`, pixels outside `keep` cleared, trimmed. */
+const recolour = (raw: Raw, palette: Palette, keep: (n: number) => boolean) => {
+  const first = hexRgb(palette.first)
+  const accent = hexRgb(palette.accent)
+  const pixels = Array.from({ length: raw.width * raw.height }, (_, n) => {
+    const colour = (raw.data[n * 4] ?? 0) - (raw.data[n * 4 + 2] ?? 0) > ACCENT_RB ? accent : first
+    return [colour[0], colour[1], colour[2], keep(n) ? alphaAt(raw, n) : 0]
+  })
+  return sharp(Uint8Array.from(pixels.flat()), {
+    raw: { width: raw.width, height: raw.height, channels: 4 },
+  })
+    .trim({ threshold: 1 })
+    .png()
+    .toBuffer()
+}
+
+/** Membership test for the T: its ink component, the accent, and the soft rim within 2 px of either. */
+const tMember = (raw: Raw): ((n: number) => boolean) => {
+  const total = raw.width * raw.height
+  const indices = Array.from({ length: total }, (_, n) => n)
+  const ink = (n: number) => alphaAt(raw, n) >= 128 && !isAccent(raw, n)
+  const seed = indices
+    .filter(ink)
+    .reduce((best, n) => (n % raw.width < best % raw.width ? n : best), indices.find(ink) ?? 0)
+  const core = component(raw, ink, seed)
+  const solid = (n: number) => core.has(n) || isAccent(raw, n)
+  const offsets = [-2, -1, 0, 1, 2].flatMap((dy) =>
+    [-2, -1, 0, 1, 2].map((dx) => dy * raw.width + dx),
+  )
+  return (n) =>
+    solid(n) || (alphaAt(raw, n) < 128 && offsets.some((o) => n + o >= 0 && solid(n + o)))
+}
+
+const writeOut = (file: string, buffer: Buffer) => {
+  writeFileSync(file, buffer)
+  console.log(`logo:w1 ${file} ${buffer.length} bytes`)
+}
+
+const runW1Export = async (source: string) => {
+  const raw = await readRaw(source)
+  const brand = join(here, "..", "assets", "brand")
+  const icons = join(here, "..", "public", "icons")
+  const isT = tMember(raw)
+  const everything = () => true
+  const [tDark, tPaper, wordDark, wordPaper] = await Promise.all([
+    recolour(raw, DARK_PALETTE, isT),
+    recolour(raw, PAPER_PALETTE, isT),
+    recolour(raw, DARK_PALETTE, everything),
+    recolour(raw, PAPER_PALETTE, everything),
+  ])
+  const graphite = Option.some(DARK_PALETTE.bg)
+  const wide = (glyph: Buffer) =>
+    sharp(glyph)
+      .resize({ width: 1280 })
+      .png({ compressionLevel: 9, palette: true, quality: 100, effort: 10 })
+      .toBuffer()
+  const jobs: ReadonlyArray<readonly [string, Promise<Buffer>]> = [
+    [join(brand, "icon.png"), tile(tDark, 1024, 0.6, graphite)],
+    [join(brand, "adaptive-icon.png"), tile(tDark, 1024, 0.58, graphite)],
+    [join(brand, "splash-icon.png"), tile(tDark, 512, 0.76, Option.none())],
+    [join(brand, "favicon.png"), tile(tDark, 48, 0.84, graphite)],
+    [join(brand, "mark.png"), tile(tDark, 512, 0.76, Option.none())],
+    [join(brand, "mark-paper.png"), tile(tPaper, 512, 0.76, Option.none())],
+    [join(brand, "wordmark.png"), wide(wordDark)],
+    [join(brand, "wordmark-paper.png"), wide(wordPaper)],
+    [join(icons, "icon-192.png"), tile(tDark, 192, 0.6, graphite)],
+    [join(icons, "icon-512.png"), tile(tDark, 512, 0.6, graphite)],
+    [join(icons, "maskable-512.png"), tile(tDark, 512, 0.5, graphite)],
+    [join(icons, "apple-touch-180.png"), tile(tDark, 180, 0.6, graphite)],
+  ]
+  await Promise.all(jobs.map(async ([file, bytes]) => writeOut(file, await bytes)))
+  await runW1Sheet(brand)
+}
+
+/** LOGO-4 contact sheet: the icon at 1024/180/60/32, the T mark and the lockup on paper and graphite. */
+const runW1Sheet = async (brand: string) => {
+  const rounded = (size: number) => roundedTile(join(brand, "icon.png"), size)
+  const fit = (file: string, width: number, height: number) =>
+    sharp(join(brand, file)).resize(width, height, { fit: "inside" }).png().toBuffer()
+  const panel = (bg: string, left: number, top: number, width: number, height: number) => ({
+    input: { create: { width, height, channels: 3 as const, background: bg } },
+    left,
+    top,
+  })
+  const W = 1600
+  const parts = [
+    { input: await rounded(512), left: 32, top: 32 },
+    { input: await rounded(180), left: 576, top: 32 },
+    { input: await rounded(60), left: 788, top: 32 },
+    { input: await rounded(32), left: 880, top: 32 },
+    {
+      input: label("1024 (at 512) · 180 · 60 · 32", 700, 40, GRAPHITE_HEX, 28),
+      left: 576,
+      top: 240,
+    },
+    panel(PAPER_HEX, 576, 300, 480, 244),
+    panel(GRAPHITE_HEX, 1088, 300, 480, 244),
+    { input: await fit("mark-paper.png", 200, 200), left: 576 + 140, top: 322 },
+    { input: await fit("mark.png", 200, 200), left: 1088 + 140, top: 322 },
+    { input: await fit("mark-paper.png", 32, 32), left: 576 + 24, top: 500 },
+    { input: await fit("mark.png", 32, 32), left: 1088 + 24, top: 500 },
+    panel(PAPER_HEX, 32, 576, 760, 280),
+    panel(GRAPHITE_HEX, 808, 576, 760, 280),
+    { input: await fit("wordmark-paper.png", 640, 200), left: 92, top: 616 },
+    { input: await fit("wordmark.png", 640, 200), left: 868, top: 616 },
+    { input: await fit("wordmark-paper.png", 400, 56), left: 92, top: 790 },
+    { input: await fit("wordmark.png", 400, 56), left: 868, top: 790 },
+  ]
+  await sharp({ create: { width: W, height: 888, channels: 3, background: "#d9d6cf" } })
+    .composite(parts)
+    .png()
+    .toFile(join(sheetDir, "LOGO-4-sheet.png"))
+  console.log("logo:w1 wrote docs/design/screens/LOGO-4-sheet.png")
+}
+
+/**
+ * BRAND-2b (`--og`, no key): `public/og.png`, the 1200 x 630 social image. The paper-ink lockup
+ * (`wordmark-paper.svg`: off-white ink, amber hook) rendered at 760 px wide, centred on graphite.
+ */
+const OG_WIDTH = 1200
+const OG_HEIGHT = 630
+const OG_LOCKUP_WIDTH = 760
+
+const runOg = async () => {
+  const svg = join(here, "..", "assets", "brand", "wordmark-paper.svg")
+  const lockup = await sharp(svg, { density: 300 })
+    .resize({ width: OG_LOCKUP_WIDTH })
+    .png()
+    .toBuffer()
+  const file = join(here, "..", "public", "og.png")
+  await sharp({
+    create: { width: OG_WIDTH, height: OG_HEIGHT, channels: 4, background: DARK_PALETTE.bg },
+  })
+    .composite([{ input: lockup, gravity: "centre" }])
+    .removeAlpha()
+    .png({ compressionLevel: 9, palette: true, quality: 100, effort: 10 })
+    .toFile(file)
+  console.log(`logo:og wrote ${file}`)
+}
+
+if (flag("--og")) {
+  await runOg()
+} else if (flag("--w1-export")) {
+  await runW1Export(
+    resolve(Option.getOrElse(argValue("--w1-export"), () => join(outDir, "wordmark", "W1.png"))),
+  )
+} else if (flag("--wordmark-sheet")) {
   await runWordmarkSheet()
 } else if (flag("--export")) {
   await runExport(resolve(Option.getOrElse(argValue("--export"), () => outDir)))

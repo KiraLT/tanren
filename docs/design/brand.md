@@ -14,19 +14,24 @@ When a token changes in the app, change `tokens.json` here too: the brandbook is
 
 | asset | state | where |
 | --- | --- | --- |
-| Mark 力 (J3, owner pick 2026-10-26): `icon.png` 1024 opaque graphite #16181D, `adaptive-icon.png` 1024, `splash-icon.png` 512 transparent, `favicon.png` 48, `mark.png` 512 transparent (dark surfaces), `mark-paper.png` 512 paper tile (light surfaces, radius 12) | **done** (commit fb7094a, BRAND-1 in the brandbook Logo group) | `apps/mobile/assets/brand/`, `app.json`; copies in `project/assets/Logo/` |
-| SVG mark (`mark.svg` ink `currentColor` + amber `#F59E0B` hook; `mark-ink.svg` ink `#16181D` + burnt-orange `#C2410C` hook; `mark-paper.svg` ink `#F6F4EF`) | **done** (BRAND-2a): potrace trace of `mark.png`, viewBox 512, two `<path>`s (`#ink`, `#amber`), 7.6 KB each, alpha diff vs the PNG 0.19 % | `apps/mobile/assets/brand/*.svg`; copies in `project/assets/Logo/` |
-| Wordmark `TANREN` | rule only (Barlow Condensed ExtraBold, caps, tracking 4); no file, the app renders it from the font | `app/sign-in.tsx` `WORDMARK_TRACKING = 4`, email header |
+| Wordmark W1 (owner pick 2026-10-27, plan Amendment 15): brush-lettered `TANREN`, one ink weight, one amber hook off the T's crossbar. `wordmark.png` 1280×286 transparent (off-white ink #F6F4EF + amber #F59E0B, dark grounds), `wordmark-paper.png` 1280×286 (ink #16181D + burnt-orange #C2410C, light grounds); `wordmark-ink.svg` / `wordmark-paper.svg` (potrace, viewBox 1280×286, `#ink` + `#amber` paths, alpha diff 0.24 % of canvas) | **done** (LOGO-4, cut from the LOGO-3 W1 file; the quality-high rerun drifted, `docs/design/screens/LOGO-4-drift.png`) | `apps/mobile/assets/brand/`; sign-in (56 px high), landing hero (32 px high) |
+| Mark: the **T** cut from W1 (crossbar + stem + amber hook). `icon.png` 1024 opaque graphite #16181D (T at 60 %), `adaptive-icon.png` 1024 (58 %), `splash-icon.png` 512 transparent, `favicon.png` 48 graphite (84 %), `mark.png` 512 transparent off-white + amber (dark surfaces), `mark-paper.png` 512 transparent ink + burnt-orange (light surfaces; no tile since LOGO-4); PWA `public/icons/{icon-192,icon-512,maskable-512 (50 %, safe zone),apple-touch-180}.png` | **done** (LOGO-4, `node scripts/generateLogo.ts --w1-export <W1.png>`) | `apps/mobile/assets/brand/`, `app.json` (same filenames) |
+| SVG mark (`mark.svg` ink `currentColor` + amber `#F59E0B`; `mark-ink.svg` ink `#16181D` + `#C2410C`; `mark-paper.svg` ink `#F6F4EF` + `#F59E0B`) | **done** (LOGO-4): potrace trace of the T `mark.png`, viewBox 512, 30 KB each (dry-brush edges), alpha diff 0.08 % of canvas | `apps/mobile/assets/brand/*.svg` |
+| Mark 力 (J3, LOGO-2) and its SVGs | **superseded** 2026-10-27 by the T; kept for the record | `apps/mobile/assets/brand/candidates/final-kanji/` (tracked) |
 | Fonts | Barlow Condensed 700/800 TTF (OFL) | `apps/mobile/assets/fonts/`, copied to `project/fonts/` |
 | Icons | 40 SVGs, 24 grid, stroke 2, fixed ink `#8A919B` in the brandbook (the app colours them per theme) | `project/assets/Icons/`, source `src/ui/iconPaths.ts` |
 | Illustration samples | 4 exercises + 2 muscle maps (of 291 + 291) | `project/assets/Illustration/` |
-| OG image 1200×630 | **missing** (BRAND-2); spec in README "Surfaces for marketing" | compose from `mark.png` |
+| OG image 1200×630 | **done** (BRAND-2b): the paper-ink W1 lockup (`wordmark-paper.svg`, 760 px wide) centred on graphite #16181D, opaque; `og:title` "Tanren", `og:description` = landing headline, `twitter:card summary_large_image` | `apps/mobile/public/og.png` (`node scripts/generateLogo.ts --og`), metas in `public/index.html` → https://tanren.me/og.png |
 | Email template | exists (`apps/worker/src/auth/magicLinkEmail.ts`); its paper/ink/rule hexes (#F6F4EF, #1F1D1A, #E4DFD4, #6B665E) are warm variants, not the app tokens | documented as-is; aligning them to `surface`/`text`/`border`/`text-muted` is an optional follow-up |
 
 ## Open decisions for the owner
 
 1. Mark: J3 picked, final set in. Confirm the graphite icon ground (#16181D) against the app's dark `bg` #0F1113, or ask for one of the two to move.
-2. Wordmark lockup: mark left of `TANREN`, gap = half the mark width (brandbook rule, not yet in any screen).
+2. Wordmark: decided 2026-10-27 (W1, Amendment 15). The lettered W1 is the lockup; the T is the mark. Logo system
+   (colourways, clear space, minimum sizes, don'ts): `docs/design/brandbook/project/assets/Logo/README.md`. Short form:
+   dark grounds off-white ink + amber `#F59E0B` hook, light grounds `#16181D` + `#C2410C`; clear space = the E's height;
+   wordmark >= 24 px high, mark >= 16 px; never a typeset TANREN beside the mark, never a second accent, never a glow.
+   The magic-link email embeds no mark (grep of `apps/worker/src/auth`, LOGO-4), so nothing changed there.
 3. Tagline on the cover, "Forge the number. Log the set." — placeholder in the system's voice; replace or drop.
 
 ## Notes

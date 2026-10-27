@@ -1,12 +1,16 @@
 import { useRouter } from "expo-router"
 import { Image, type ImageStyle, View, type ViewStyle } from "react-native"
-import { Button, Columns, Page, radius, space, Text, useBreakpoint, useTheme } from "../../ui"
+import { Button, Columns, Page, space, Text, useBreakpoint, useTheme } from "../../ui"
 import { LandingFeature, LandingImageSlot } from "./LandingFeature"
 import { LANDING } from "./landingCopy"
 import { LANDING_IMAGES } from "./landingImages"
 
-/** The wordmark is a logotype, not UI chrome: the literal `app/sign-in.tsx` uses (design §4). */
-const WORDMARK_TRACKING = 4
+/**
+ * The W1 brush wordmark (LOGO-4, plan Amendment 15) heads the hero at 32 px high; the footer keeps the
+ * standalone T mark. Width comes from the 1280 x 286 file's aspect.
+ */
+const WORDMARK_HEIGHT = 32
+const WORDMARK_ASPECT = 1280 / 286
 
 /** Desktop CTA width (design §3.2); phone and tablet buttons span the column. */
 const CTA_MIN_WIDTH = 240
@@ -18,6 +22,8 @@ const CTA_A11Y_LABEL = "Sign in with a magic link"
 
 const MARK = require("../../../assets/brand/mark.png")
 const MARK_PAPER = require("../../../assets/brand/mark-paper.png")
+const WORDMARK = require("../../../assets/brand/wordmark.png")
+const WORDMARK_PAPER = require("../../../assets/brand/wordmark-paper.png")
 
 /**
  * The signed-out web landing (ADR-0021, design `docs/design/landing.md`): `_layout.tsx` renders it
@@ -33,16 +39,14 @@ export function Landing() {
 
   const heroText = (
     <View style={{ gap: space.md }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-        <Image source={mark} style={markHero} accessibilityIgnoresInvertColors accessible={false} />
-        <Text
-          variant="title"
-          accessibilityLabel="Tanren"
-          style={{ letterSpacing: WORDMARK_TRACKING }}
-        >
-          TANREN
-        </Text>
-      </View>
+      <Image
+        source={scheme === "dark" ? WORDMARK : WORDMARK_PAPER}
+        style={wordmarkHero}
+        resizeMode="contain"
+        accessibilityIgnoresInvertColors
+        accessibilityRole="image"
+        accessibilityLabel="Tanren"
+      />
       <Text variant="label" tone="muted">
         {LANDING.eyebrow}
       </Text>
@@ -145,9 +149,12 @@ export function Landing() {
   )
 }
 
-/** Hero mark 48, footer mark 24, rounded like the paper tile (`app/sign-in.tsx`). */
-const markHero: ImageStyle = { width: 48, height: 48, borderRadius: radius.md }
-const markFooter: ImageStyle = { width: 24, height: 24, borderRadius: radius.md }
+/** Hero lockup 32 high; footer T mark 24 (transparent in both schemes since LOGO-4). */
+const wordmarkHero: ImageStyle = {
+  height: WORDMARK_HEIGHT,
+  width: Math.round(WORDMARK_HEIGHT * WORDMARK_ASPECT),
+}
+const markFooter: ImageStyle = { width: 24, height: 24 }
 
 const heroImageStyle: ViewStyle = {
   width: "100%",

@@ -25,8 +25,9 @@ import {
 
 const DEV_EMAIL = "dev@tanren.local"
 
-/** The wordmark is a logotype, not UI chrome: literal capitals with open tracking. */
-const WORDMARK_TRACKING = 4
+/** The W1 brush wordmark (LOGO-4, plan Amendment 15) is an image: its height here, and the file's aspect. */
+const WORDMARK_HEIGHT = 56
+const WORDMARK_ASPECT = 1280 / 286
 
 /** Sign-in column cap on wide windows (centred inside the page frame, no card). */
 const COLUMN_MAX_WIDTH = 420
@@ -114,20 +115,15 @@ export default function SignInScreen() {
   return (
     <Page scroll>
       <View style={column}>
-        {/* The mark's first stroke is off-white: light pages get the paper tile, dark pages the bare mark. */}
+        {/* Off-white ink on dark pages, graphite ink with the burnt-orange hook on light ones. */}
         <Image
-          source={scheme === "dark" ? MARK : MARK_PAPER}
-          style={markStyle}
+          source={scheme === "dark" ? WORDMARK : WORDMARK_PAPER}
+          style={wordmarkStyle}
+          resizeMode="contain"
           accessibilityIgnoresInvertColors
-          accessible={false}
-        />
-        <Text
-          variant="title"
+          accessibilityRole="image"
           accessibilityLabel="Tanren"
-          style={{ letterSpacing: WORDMARK_TRACKING }}
-        >
-          TANREN
-        </Text>
+        />
         <Text variant="display" accessibilityRole="header">
           {sent ? "Check your email" : "Sign in"}
         </Text>
@@ -138,11 +134,14 @@ export default function SignInScreen() {
   )
 }
 
-const MARK = require("../assets/brand/mark.png")
-const MARK_PAPER = require("../assets/brand/mark-paper.png")
+const WORDMARK = require("../assets/brand/wordmark.png")
+const WORDMARK_PAPER = require("../assets/brand/wordmark-paper.png")
 
-/** The Tanren mark above the wordmark (LOGO-2): 48 px, rounded like the paper tile. */
-const markStyle: ImageStyle = { width: 48, height: 48, borderRadius: radius.md }
+/** The W1 lockup (LOGO-4): 56 px high, width from the 1280 x 286 file's aspect. */
+const wordmarkStyle: ImageStyle = {
+  height: WORDMARK_HEIGHT,
+  width: Math.round(WORDMARK_HEIGHT * WORDMARK_ASPECT),
+}
 
 const column: ViewStyle = {
   width: "100%",

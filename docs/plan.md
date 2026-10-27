@@ -204,3 +204,14 @@ Recorded 2026-10-19, from the owner's kickoff message:
    lockup with 力, stacked lockup, ligature where the T is the 力 stroke),
    contact sheet for the owner's pick, then the final transparent assets
    wired into sign-in, the landing hero and the brandbook.
+15. **Wordmark pick and the T mark** (2026-10-27 10:18, owner, verbatim, on the
+   W1–W6 sheet): "Wordmark letter -> w1. I like the T. Lets use W1 when we
+   need full text and replace icon with only that T from W1." Lead reading:
+   W1 is the final wordmark (full-text lockup on sign-in, the landing hero
+   and the brandbook); the standalone mark is no longer the 力 kanji but the
+   T letterform cut from W1, in the same ink-and-brush language, and it
+   replaces the icon everywhere the mark appears alone — iOS app icon,
+   adaptive icon, favicon, PWA icons, splash, the magic-link email, the
+   in-app mark. LOGO-2's 力 set is superseded (kept under
+   `assets/brand/candidates/` for the record); `docs/design/brand.md` and the
+   brandbook follow (`docs/tasks/v4-brand-briefs.md`, LOGO-4).

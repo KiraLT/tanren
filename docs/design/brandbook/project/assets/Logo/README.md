@@ -1,17 +1,39 @@
 # Logo
 
-The mark is 力 (chikara, strength) in two brush strokes: the first off-white on graphite, the hooked second stroke amber (the heat). Owner's pick 2026-10-26 (candidate J3); final set produced the same evening (`apps/mobile/assets/brand/`, wired in `app.json`).
+**Wordmark W1** (owner pick 2026-10-27, plan Amendment 15): `TANREN` brush-lettered in one ink weight, with a single amber hook off the crossbar of the T (the heat). Use it wherever the full name appears: sign-in, the landing hero, the brandbook cover, social images.
 
-**The two-file rule**: on a dark surface use `mark.png` (transparent, off-white first stroke); on a light surface use the `mark-paper.png` tile, which carries its own paper square, at radius 12 (the sign-in screen shows it at 48 px). Never put `mark.png` on paper (the first stroke vanishes) and never recolour either file.
+**The mark is the T from W1**: crossbar, stem and the amber hook, cut from the same file so it is the wordmark's own first letter. It replaces the 力 kanji (LOGO-2, superseded; files kept in `apps/mobile/assets/brand/candidates/final-kanji/`) everywhere the mark stands alone: app icon, adaptive icon, splash, favicon, PWA icons, the landing footer.
 
-- `icon.png` — iOS app icon, 1024 x 1024, opaque graphite `#16181D`, no alpha; the strokes sit inside the central 80 % for the rounded mask.
-- `adaptive-icon.png` — Android adaptive-icon foreground, 1024, same graphite ground.
-- `splash-icon.png` — 512, transparent, centred on the theme's `bg` by the splash screen.
-- `favicon.png` — 48, graphite tile.
-- `mark.png` — 512, transparent: dark surfaces, the lockup beside the wordmark in dark.
-- `mark-paper.png` — 512, opaque paper tile: light surfaces (sign-in, email, the lockup in light).
-- `mark.svg` — vector mark, viewBox 512, ink path `currentColor` plus amber `#F59E0B` hook: inline it where CSS `color` picks the ink (24 px tab bar, web header, OG image).
-- `mark-ink.svg` — same trace, ink `#16181D`, burnt-orange hook `#C2410C` (matches `mark-paper.png`), light grounds: print, one-colour documents on paper, OG image on light.
-- `mark-paper.svg` — same trace, ink `#F6F4EF`, amber hook `#F59E0B`: dark surfaces as a file (OG image on graphite, print on dark stock).
+## Colourways
 
-Rules (brand book, Logo system): clear space = the wordmark's cap height (or a quarter of the mark's width); mark >= 24 px; wordmark `TANREN` in Barlow Condensed ExtraBold tracked 4 px, >= 80 px wide; lockup mark left of the wordmark, gap = half the mark's width.
+| ground | ink | hook | files |
+| --- | --- | --- | --- |
+| dark (graphite `#16181D`, app dark `bg`) | off-white `#F6F4EF` | amber `#F59E0B` | `wordmark.png`, `wordmark-paper.svg`, `mark.png`, `mark-paper.svg`, `icon.png` |
+| light (paper `#F6F4EF`, white) | graphite `#16181D` | burnt-orange `#C2410C` | `wordmark-paper.png`, `wordmark-ink.svg`, `mark-paper.png`, `mark-ink.svg` |
+| CSS-coloured | `currentColor` | amber `#F59E0B` | `mark.svg` |
+
+PNG names follow the app (`*-paper.png` = for paper grounds); SVG names follow the ink (`*-paper.svg` = paper-coloured ink, for dark grounds). Every file is transparent except `icon.png`, `adaptive-icon.png`, `favicon.png` and the PWA icons, which carry the graphite ground.
+
+## Files (`apps/mobile/assets/brand/`)
+
+- `wordmark.png`, `wordmark-paper.png` — 1280 x 286, transparent (2x for 640 wide).
+- `wordmark-ink.svg`, `wordmark-paper.svg` — potrace trace, viewBox 1280 x 286, paths `#ink` and `#amber`.
+- `icon.png` — iOS app icon, 1024, opaque graphite, T at 60 % of the canvas.
+- `adaptive-icon.png` — Android foreground, 1024, graphite, 58 %.
+- `splash-icon.png` — 512, transparent, centred on the splash `bg`.
+- `favicon.png` — 48, graphite, T at 84 %.
+- `mark.png` / `mark-paper.png` — 512, transparent (dark / light grounds).
+- `mark.svg`, `mark-ink.svg`, `mark-paper.svg` — viewBox 512.
+- PWA (`apps/mobile/public/icons/`): `icon-192`, `icon-512`, `maskable-512` (T at 50 %, inside the 80 % safe circle), `apple-touch-180`.
+
+## Rules
+
+- Clear space: the height of the wordmark's E on every side of the wordmark; a quarter of the T's width around the mark.
+- Minimum sizes: wordmark 24 px high on screen (about 107 px wide), 20 mm wide in print; mark 16 px (the favicon is the 16-32 px case and stays legible at 32).
+- Sizes in the app: sign-in 56 px high, landing hero 32 px high, landing footer mark 24 px.
+
+## Don'ts
+
+1. Do not typeset `TANREN` in a font next to the mark: the lettered W1 is the only full-name logo.
+2. Do not recolour the hook, add a second accent, or put the dark-ground files (off-white ink) on paper.
+3. Do not stretch, outline, add a glow or shadow, or redraw the T separately from the wordmark.
