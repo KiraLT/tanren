@@ -6,7 +6,7 @@ import { EmailSender } from "./auth/EmailSender"
 import { WorkerConfig } from "./Config"
 import type { Env } from "./Env"
 import { ExportQueue } from "./integrations/ExportQueue"
-import { runScheduled } from "./integrations/scheduled"
+import { makeScheduled, scheduledLayer } from "./integrations/scheduled"
 import { McpAuth } from "./mcp/McpAuth"
 import { makeMcp } from "./mcp/McpRoute"
 import { makeAuthorize } from "./oauth/authorize"
@@ -38,14 +38,18 @@ const authorize = makeAuthorize(env, { betterAuth, oauth: statelessOAuth(persist
 
 const router = makeRouter(env, config, { app, mcp, authorize }, persistence)
 
+/** The cron's own slim runtime (GM-F2): built on the first tick, reused by every later tick. */
+const scheduledRun = makeScheduled(scheduledLayer(env))
+
 /**
  * `fetch` = the router (OAuth endpoints, `/mcp`, authorize pages, REST app).
- * `scheduled` = the cron export drain (design §6), kept alive with `waitUntil`.
+ * `scheduled` = the cron export drain then Garmin pull (design §6), kept alive with `waitUntil`; it
+ * runs on the module `env` like the router (same bindings as the handler argument).
  */
 export default {
   fetch: (request: Request, workerEnv: Env, ctx: ExecutionContext) =>
     Option.getOrElse(serveOAuthAsset(request), () => router.fetch(request, workerEnv, ctx)),
-  scheduled: (_controller: ScheduledController, workerEnv: Env, ctx: ExecutionContext) => {
-    ctx.waitUntil(runScheduled(workerEnv))
+  scheduled: (_controller: ScheduledController, _workerEnv: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(scheduledRun.run())
   },
 }

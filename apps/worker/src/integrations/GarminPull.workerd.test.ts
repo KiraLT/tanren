@@ -6,7 +6,7 @@ import { d1Persistence, makeApp } from "../app"
 import { Sessions } from "../auth/Sessions"
 import { envVars } from "../testing/fixtures"
 import { readCursor } from "./GarminPull"
-import { runScheduled } from "./scheduled"
+import { makeScheduled, scheduledLayer } from "./scheduled"
 
 // Runs in workerd on a migrated local D1 with `GARMIN_MODE=console` (fixture: 2 activities, 7 days).
 const owner = UserId.make("00000000-0000-4000-8000-0000000009a1")
@@ -50,7 +50,9 @@ describe("Garmin connect → cron → disconnect on D1", () => {
     expect(second.status).toBe(200)
     expect(await count("SELECT count(*) AS n FROM integration WHERE user_id = ?")).toBe(1)
 
-    await runScheduled(env)
+    const scheduled = makeScheduled(scheduledLayer(env))
+    onTestFinished(() => scheduled.dispose())
+    await scheduled.run()
     expect(
       await count(
         "SELECT count(*) AS n FROM imported_activity WHERE user_id = ? AND deleted_at IS NULL",

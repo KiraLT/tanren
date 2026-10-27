@@ -132,3 +132,7 @@ and one Assumes line in `docs/tasks/v5-legal.md` quoting design §10 verbatim. T
 
 Log
 - 2026-10-27 15:04–15:10 engineer: `GARMIN_PAGE_SIZE` 200 → 50, `GARMIN_MAX_USERS_PER_RUN` 4 → 1, new `GARMIN_WINDOW_DAYS = 10`: the activity query spans 10 days from `activitiesSince` and a fully read window moves the cursor to the day after it (capped at yesterday). Needed because the old "re-read the cut window from offset 0" never got past 2 pages (100 activities at the new size). Back-fill test: 120 activities over 3 runs (60 / 90 / 120, cursor 10-07 / 10-17 / 10-26), 9 / 2 / 2 Garmin calls, 2 import writes per run. Lean decode confirmed (already declared only the mapper's keys) + a test with noisy keys. Prod CPU recipe in deploy.md §Garmin.
+
+## GM-F2 — cron CPU: slim layer, one runtime per isolate
+
+- 2026-10-27 15:22–15:29 engineer: `integrations/scheduled.ts` now exports `scheduledLayer(env)` (only the drains' ports, one D1 client, no Better Auth/OAuth/MCP/HttpApi) and `makeScheduled(layer)` (lazy `ManagedRuntime`, built on the first tick, reused); `index.ts` builds it once at module scope; `runScheduled` removed. Tests: `scheduled.test.ts` (build once across two runs, both drains each run, Garmin survives an export defect, failed build resolves), `runtime.bench.test.ts` (Node proxy medians full=2.36 ms previous=0.47 ms slim=0.28 ms). Production cpuTime check owed by the Lead (deploy.md §Garmin CPU check).
