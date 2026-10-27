@@ -11,6 +11,12 @@ comes back, and keep `docs/` truthful. Full rationale: `docs/dev-system.md`.
 
 ## Session start
 
+**The Lead's shell is zsh: no word splitting.** Never put flags or a file list
+in a scalar (`curl $R` and `git add -- $R5` each cost a round trip on
+2026-10-27). Use arrays — `R=(-s -o /dev/null); curl "${R[@]}"`;
+`F=(a b); git add -- "${F[@]}"` — or run `setopt shwordsplit` once per
+command (EM batch 7, P1).
+
 0. Start `caffeinate -i -t 14400` in the background (Bash, `run_in_background`)
    and ask the owner to keep the Mac on AC: on 2026-10-26 the Mac idle-slept
    three times on battery (`pmset` `sleep 1`) and every live agent froze in
@@ -164,7 +170,10 @@ task sheet. Tactics, in order of payoff:
 
 ## Cost discipline (every brief)
 
-- Every brief states a **time box** (10 min for a single-module change with
+- Every brief states a **time box** (5 min for a sonnet single-file or config task with a
+  one-command proof — PLAN-LOG, BRAND-3, SF-1's fix and WD-1's edits all finished in ≤ 30 % of
+  their 8–18 min boxes, and an oversized box delays the watchdog and the team-lead's round
+  arithmetic (EM batch 7, P6); 10 min for a single-module change with
   tests on either model — hardening H1–H4 ran 2–5 min on 15–20 min boxes;
   15–20 min only for a task with a runtime proof or a new package/runtime;
   `engineer.md` caps a run at `maxTurns: 120` as the enforcement: a turn is
@@ -296,6 +305,10 @@ Budget: max <n> engineers in parallel · max <m> review rounds · parallel
   incl. EM/QA across all streams); the team-lead uses all of it for disjoint
   tasks and asks by interim when more are ready
 Forbidden: dependency changes, root config changes, files outside owned paths
+Role files: before briefing each round, re-read engineer.md / reviewer.md / ui-check
+  when their mtime is newer than your dispatch (`stat -f %m <file>`); the Lead also
+  forwards EM deltas to live team-leads in the turn it accepts the EM report (r5's
+  children were briefed 2 min before batch 6's deltas arrived; EM batch 7, P4)
 Report: team report format from .claude/agents/team-lead.md
 ```
 
@@ -361,6 +374,10 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
       `wc -c` for one file) — IMG-2 read "a few MB" and shipped 11 MB
 - [ ] every proof names the output that would fail it; a check that cannot fail is not a criterion
+- [ ] every proof names output the Lead has seen in this repo (a test name, a preflight line, a `curl` body). Never ask an
+      engineer to paste `wrangler deploy --dry-run` or any `wrangler deploy|secret|d1 execute --remote` output: those are
+      the Lead's deploy/preflight steps. A config-only wrangler task gets a 5-min box with `pnpm deploy:preflight
+      --skip-gate` as the proof (WD-1 spent 22.7 of 24 min inside one dry-run call; EM batch 7, P2)
       (UI-1a: `document.fonts.check('700 20px "Barlow Condensed"')` is true for any undeclared family —
       use `[...document.fonts].map(f => [f.family, f.status])`)
 - [ ] no files outside Scope changed
@@ -543,7 +560,11 @@ design streams and owner chat by hand. Rules that make the loop mechanical:
   `appNav.ts` to the feed team) is logged in BOTH affected task sheets in
   the same minute, not only in the master Log. When briefing a spike on a
   third-party platform, forward spike.md's owner-question set verbatim
-  (pay / keep paying, eligibility, limits, terms, owner steps).
+  (pay / keep paying, eligibility, limits, terms, owner steps). A colour
+  ruling names the token AND its light/dark hex from
+  `apps/mobile/src/ui/colors.ts`, or says "engineer picks against colors.ts
+  and reports the pair": the Lead's `surfaceRaised` ruling for the Player
+  disc was the page `bg` in light (EM batch 7, P3).
 - **Team-lead children run in parallel only when dispatched in ONE message**
   (retro 2026-10-26-v4-evening corrects the earlier "sequential by
   construction" reading: the strava team-lead ran 2–3 children at once four

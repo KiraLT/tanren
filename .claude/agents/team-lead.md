@@ -178,7 +178,16 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    reviewed round. Never start a capture that cannot finish inside the box
    and never ship code the designer has not seen as "another round":
    desktop (2026-10-26) ran 93 min on a 90-min box, the stop passed during
-   its r6 capture and r3c landed unreviewed. The sheet Log gets a line at
+   its r6 capture and r3c landed unreviewed. The capture stack (worker +
+   expo on the charter ports) belongs to ONE child per round — the shooter
+   starts it, records pid files, and stops it; engineers never reuse a
+   sibling's server: polish r5's shared 8911/8912 stack vanished mid-run when
+   its owner finished. A `--persist-to` copy of the dev DB is empty of newer
+   migrations: run `wrangler d1 migrations apply tanren --local --persist-to
+   <dir>` before `wrangler dev` on it (r5 needed 0005). `gallery.mjs` rewrites
+   `docs/design/screens/gallery.json` on every run; `git checkout` of it is
+   on the ask list, so the shooter copies the file to `$S` before the first
+   run and restores it with `cp` after, until GAL-3 lands. The sheet Log gets a line at
    every dispatch and every report (step 2): desktop's Log was empty at its
    final report and the Lead reconstructed the rounds from commits. In that file list and in the
    team report's `## Files changed`, a file another live stream also edits

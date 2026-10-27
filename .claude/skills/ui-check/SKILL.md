@@ -59,6 +59,12 @@ When another agent may hold 8787/8081 or `apps/mobile/dist`, run your own copy: 
 `ps -ef | grep "port $W" | grep -v grep` is empty and `curl -s localhost:$W/health` fails: orphaned
 wranglers from finished agents do not show up in `lsof` (INT-X3 found two on 8795/8793 that way). Give
 every wrangler its own `--inspector-port` (two on one host collide on the default 9229).
+A stack is per task, never shared across tasks or rounds: the polish-r5 engineers reused a sibling's 8911/8912
+servers, which vanished when that sibling finished (its shell exit took the children). Each task starts its own
+pair from its own pid files, re-checks `curl -sf localhost:$W/health` and `localhost:$A` immediately before every
+capture batch, and restarts from its pid files when either fails. A `--persist-to` copy carries only the
+migrations present when it was copied: run `node_modules/.bin/wrangler d1 migrations apply tanren --local
+--persist-to $S/<task>-state` before `wrangler dev` on it (r5 copies lacked 0005 → 500s on the worker).
 Two export facts the mobile-A capture engineer re-discovered (2026-10-26): the API base is baked into the
 bundle at export time (`CI=1 EXPO_PUBLIC_API_URL=http://localhost:$W pnpm -F @tanren/mobile export:web
 --output-dir <dir>`; a dist exported for another port never reaches your worker), and `/programs/play` is a
@@ -143,7 +149,9 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   Today with sets on a dev server (FIN-LAYOUT, 2026-10-26): `EXPO_PUBLIC_DEV_USER_ID` skips the seed, so
   Today reads "Nothing planned today"; start signed out instead, log sets with a DOM click (`ab eval
   'document.querySelector("[aria-label^=\"Log set\"]").click()'`; the landing covers Today until a set
-  exists), then reload. The state a designer must score has to be reachable by recipe before the round
+  exists), then reload. Plan week with a logged line, no worker needed (PLAN-LOG, 2026-10-27): same
+  signed-out dev server, DOM-click "Log set" three times on Today, then open `/plan` → the week shows
+  "Logged 3 sets · 1,500 kg". The state a designer must score has to be reachable by recipe before the round
   starts, and the brief names the recipe: desktop r4 shipped Plan "Up next" UNREVIEWED (seeded week all
   done; needs a fake date, e.g. Thu 22 Oct, or a seed with an upcoming session) and Programs on day 1
   instead of day 3.

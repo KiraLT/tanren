@@ -1,3 +1,4 @@
 - [Retro baseline + watchlist](project_retro-baseline.md) — owner wants wall-clock speed; step-1 metrics and repeat-waste watchlist
 - [Dispatch observations](project_dispatch-observations.md) — measured: MCP behind ToolSearch, maxTurns≈7 turns/min, role-file lag, Log tool counts undercount
 - [EM batch watchlist 2026-10-26](project_em-batch-watchlist-2026-10-26.md) — items 30–40 (stamps, shared files, predicates, layout boxes, SyncEngine writes, signing check, TL watchdog) + capture-rework and leak metrics
+- [EM batch watchlist 2026-10-27](project_em-batch-watchlist-2026-10-27.md) — items 41–45: dry-run in briefs, EM-delta lag to live TLs, shared capture stacks, colour rulings w/o hex, Lead zsh splitting

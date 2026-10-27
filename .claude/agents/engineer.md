@@ -110,6 +110,21 @@ Lead had to route it back through the team-lead, one extra turn each way).
    `mktemp -d`, not copy + `rm -rf`); put probe files in `$S`, not in the
    repo; delete single files with plain `rm <file>`. Before any Bash call
    with `&&`/`;`, scan every sub-command against that list.
+   Three clarifications (SF-1, WD-1, 2026-10-27): (a) `pnpm db:reset` IS
+   allowed — its `rm -rf .wrangler/state` runs inside the script and the ask
+   list matches only commands you emit — but it wipes the local D1 every
+   running `wrangler dev` shares, so with other agents live prove a migration
+   on a scratch DB instead: `node_modules/.bin/wrangler d1 migrations apply
+   tanren --local --persist-to "$(mktemp -d "$S/<task>-d1-XXXX")"`. (b) The
+   `d1 execute` ban is about the owner's data: `--remote`, or `--local`
+   against the shared `.wrangler/state`. `d1 execute --local --persist-to
+   <your mktemp dir>` is a legitimate read-only proof (PRAGMA table_info) —
+   say which DB in the report. Prefer a workerd repo test for the column
+   when one is cheap. (c) `wrangler deploy --dry-run` is still `wrangler
+   deploy`: do not run it. If a brief asks for its output, report "dry-run is
+   the Lead's preflight step" and prove the config with `pnpm
+   deploy:preflight --skip-gate` (bounded, no network); WD-1 spent 22.7 of
+   its 24 min inside one Bash call holding two dry-runs.
 9c. A long external run (bulk image generation, a script over hundreds of files) is backgrounded with a pid
    file like a server; poll it with `sleep` <= 60 per Bash call and print `date +%T` plus a progress count on
    every poll. A `sleep 295` loop leaves the transcript silent for 5 min and the Lead's watchdog reads it as a
