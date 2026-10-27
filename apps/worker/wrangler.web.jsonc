@@ -8,6 +8,9 @@
   "env": {
     "production": {
       "name": "tanren-web",
+      // Served on tanren.me only: no workers.dev URL, no preview URLs, now that the account has a subdomain.
+      "workers_dev": false,
+      "preview_urls": false,
       "routes": [{ "pattern": "tanren.me", "custom_domain": true }]
     }
   }

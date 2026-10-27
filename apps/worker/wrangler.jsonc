@@ -4,6 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat"],
+  // The account has a workers.dev subdomain (cron triggers need it, 2026-10-27); this Worker must not be served on it.
+  "workers_dev": false,
+  "preview_urls": false,
   "vars": {
     "ENVIRONMENT": "local",
     "BETTER_AUTH_URL": "http://localhost:8787",
@@ -43,6 +46,9 @@
   "env": {
     "production": {
       "name": "tanren",
+      // Cron needs the account's workers.dev subdomain, but the API must stay on api/mcp.tanren.me only.
+      "workers_dev": false,
+      "preview_urls": false,
       "routes": [
         { "pattern": "api.tanren.me", "custom_domain": true },
         { "pattern": "mcp.tanren.me", "custom_domain": true }

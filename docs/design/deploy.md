@@ -123,7 +123,7 @@ set `env.production.vars.STRAVA_MODE` to `"provider"` in `apps/worker/wrangler.j
 # API + MCP Worker
 cd apps/worker
 pnpm exec wrangler d1 migrations apply tanren --env production --remote     # packages/db/migrations 0000, 0001, …
-pnpm exec wrangler deploy --env production
+pnpm exec wrangler deploy --env production                                   # also registers the */5 cron
 curl -i https://api.tanren.me/health                                          # 200
 curl -i -X POST https://mcp.tanren.me/mcp -H 'content-type: application/json' -d '{}'
 #   → 401 with WWW-Authenticate: Bearer realm="OAuth", resource_metadata="…/.well-known/oauth-protected-resource/mcp"
@@ -138,6 +138,11 @@ open https://tanren.me                       # sign in with your email → magic
 ```
 First sign-in creates your user; there is no seed in production (the seed is local-only). Do **not**
 run `pnpm db:reset` or `scripts/seed.ts` against `--remote`.
+
+workers.dev: `triggers.crons` needs the account's workers.dev subdomain (before it existed the deploy ended with
+Cloudflare error 10063). The subdomain exists since 2026-10-27, so the deploy registers the cron. Both Workers stay off it
+by config: `workers_dev: false` and `preview_urls: false` in `wrangler.jsonc` and `wrangler.web.jsonc` (top level and
+`env.production`); the API answers on api.tanren.me and mcp.tanren.me only, the web Worker on tanren.me only.
 
 Rollback: `pnpm exec wrangler rollback --env production` (Workers keeps previous versions [V]); D1
 migrations are forward-only, so a schema rollback is a new migration.

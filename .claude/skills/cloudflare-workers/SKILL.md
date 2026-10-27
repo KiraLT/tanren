@@ -229,10 +229,11 @@ declares no class: `provider.ts` only calls `new OAuthProvider`.
 - Deploying from a clean `git worktree` (DEPLOY-2, 22:57–23:13): under the isolated linker `wrangler`
   lives in `apps/worker/node_modules/.bin`, not the root — `cd apps/worker && pnpm exec wrangler
   deploy --env production` (the root `node_modules/.bin/wrangler` path fails; one wasted run).
-  `triggers.crons` under `env.production` is rejected with code 10063 until the account has a
-  workers.dev subdomain: owner enables it once (dashboard → Workers & Pages → account subdomain)
-  or the trigger is dropped for that deploy; `pnpm deploy:preflight` should check it before the
-  upload. The Cloudflare MCP's OAuth token expires within a session (owner re-auth) — a deploy
+  `triggers.crons` under `env.production` was rejected with code 10063 until the account had a
+  workers.dev subdomain; it exists since 2026-10-27, so the deploy now registers the cron. The
+  Workers stay off it by config: `workers_dev: false` and `preview_urls: false` are set explicitly
+  at the top level and in `env.production` of both wrangler files (omitted, `workers_dev` is `false`
+  only while `routes` exist, and an omitted `preview_urls` leaves any existing setting unchanged). The Cloudflare MCP's OAuth token expires within a session (owner re-auth) — a deploy
   script never depends on it. Verify on the live chunk, not the version id: `curl -s
   https://tanren.me/<_layout chunk> | grep -c '<string from the change>'` (DEPLOY-3, 23:27).
 
