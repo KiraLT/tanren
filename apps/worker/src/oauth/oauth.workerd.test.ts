@@ -296,3 +296,67 @@ describe("OAuth flow through the provider (workerd)", () => {
     expect(JSON.stringify(plan)).toContain("Lower A")
   })
 })
+
+describe("MCP host root and root-form protected-resource metadata (workerd)", () => {
+  const otherHost = (path: string) => {
+    const ctx = createExecutionContext()
+    return provider.fetch(new Request(new URL(path, "http://api.elsewhere.test")), env, ctx)
+  }
+
+  it("GET / answers the static landing page naming the connector URL", async () => {
+    const response = await send("/")
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
+    expect(response.headers.get("cache-control")).toBe("public, max-age=3600")
+    expect(response.headers.get("set-cookie")).toBeNull()
+    const page = await response.text()
+    expect(page).toContain(env.MCP_RESOURCE_URL)
+    expect(page).toContain('href="https://tanren.me"')
+    expect(page).not.toContain("<script")
+  })
+
+  it("HEAD / answers 200 with the same headers and no body", async () => {
+    const response = await send("/", { method: "HEAD" })
+    expect(response.status).toBe(200)
+    expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
+    expect(await response.text()).toBe("")
+  })
+
+  it("does not reflect the query into the page", async () => {
+    const page = await (await send("/?x=%3Cscript%3Ealert(1)%3C/script%3E")).text()
+    expect(page).not.toContain("<script")
+    expect(page).not.toContain("alert(1)")
+  })
+
+  it("the root-form metadata is byte-identical to the /mcp form", async () => {
+    const root = await send("/.well-known/oauth-protected-resource")
+    const pathForm = await send("/.well-known/oauth-protected-resource/mcp")
+    expect(root.status).toBe(200)
+    expect(root.headers.get("content-type")).toBe(pathForm.headers.get("content-type"))
+    const [rootText, pathText] = [await root.text(), await pathForm.text()]
+    expect(rootText).toBe(pathText)
+    expect(JSON.parse(rootText)).toMatchObject({ resource: env.MCP_RESOURCE_URL })
+  })
+
+  it("/mcp still answers 401 with the path-form challenge", async () => {
+    const response = await mcp(Option.none(), "tools/list", {})
+    expect(response.status).toBe(401)
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      `Bearer realm="OAuth", resource_metadata="${new URL(env.MCP_RESOURCE_URL).origin}/.well-known/oauth-protected-resource/mcp", scope="tanren:read tanren:write"`,
+    )
+  })
+
+  it("an unknown path still answers 404", async () => {
+    expect((await send("/nonsense")).status).toBe(404)
+  })
+
+  it("POST / is not the landing page", async () => {
+    const response = await send("/", { method: "POST" })
+    expect(response.status).not.toBe(200)
+  })
+
+  it("another host gets neither the landing page nor the metadata alias", async () => {
+    expect((await otherHost("/")).status).toBe(404)
+    expect((await otherHost("/.well-known/oauth-protected-resource")).status).toBe(404)
+  })
+})
