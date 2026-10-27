@@ -78,7 +78,7 @@ const identity = (
     Match.tagsExhaustive({
       Known: ({ name, domain }) => ({
         name,
-        line: `<p class="verified">Verified app · ${escapeHtml(domain)}</p>`,
+        line: `<p class="verified">Verified app · ${escapeHtml(domain)}. Only continue if you just started this in ${escapeHtml(name)}.</p>`,
         allow: "Approve",
       }),
       Unknown: () => ({

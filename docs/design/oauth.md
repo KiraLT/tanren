@@ -246,13 +246,19 @@ JSON-RPC error "unknown tool" from the SDK (not registered).
   requires `client_id` == URL, a `client_name`, matching redirect URIs, no secret, and sets
   `ConsentDescription.clientDomain` (its hostname) for such clients only. AS metadata advertises
   `client_id_metadata_document_supported: true` and `none` (Claude needs both). DCR stays on.
-- Trust (`oauth/knownClients.ts`): `clientTrust(Option.fromNullishOr(clientDomain))` →
-  `{ _tag: "Known", name, domain } | { _tag: "Unknown" }`. Known iff the domain equals or is a subdomain of a
-  `TRUSTED_CLIENT_HOSTS` entry: `claude.ai`, `claude.com` → "Claude", `chatgpt.com` → "ChatGPT". By host, not
-  URL: claude.ai's hosted document URL is unpublished, ChatGPT's varies per `callback_id`. A client's name never
-  counts (a DCR client may call itself "Claude"); a document on any other host is Unknown.
-- Consent page (`pages.ts`, `authorize.ts` `consentView`): Known → heading with our name, "Verified app · <domain>",
-  button "Approve". Unknown → `danger` block "Unknown app" ("Tanren can't verify who built this app. It calls
+- Trust (`oauth/knownClients.ts`, REV-ID): `clientTrust({ clientId, clientDomain, redirectHost,
+  redirectIsLoopback })` → `{ _tag: "Known", name, domain } | { _tag: "Unknown" }` (plain worker-only type).
+  Known iff ALL hold: `clientDomain` is `Some` (the provider verified the document); the document URL is
+  `https:` and its host EQUALS a `TRUSTED_CLIENT_HOSTS` entry (`claude.ai`, `claude.com` → "Claude",
+  `chatgpt.com` → "ChatGPT"; no subdomains, no port: the fetch follows redirects and checks only `client_id` ==
+  original URL, so an open redirect or taken-over subdomain must not mint trust); its path starts with
+  `/oauth/`; and `redirectHost` equals that host, or the redirect is loopback and the document is exactly
+  `https://claude.ai/oauth/claude-code-client-metadata`. Everything else is Unknown, incl. every DCR client
+  (names never count). The `/oauth/` prefix is widened only after the claude.ai app's live document URL is
+  observed (logged from the first production consent); until then that app shows Unknown, which is safe.
+- Consent page (`pages.ts`, `authorize.ts` `consentView`): Known → heading with our name, "Verified app ·
+  <domain>. Only continue if you just started this in <Name>." (verified proves the platform, not the
+  person), button "Approve". Unknown → `danger` block "Unknown app" ("Tanren can't verify who built this app. It calls
   itself "<clientName>" and will return you to <redirect host>. …"), plus the document host for an unknown CIMD
   client; button "Allow anyway". Every client string goes through `escapeHtml`; the loopback warning is unchanged.
 - Production check after deploy (owner/Lead): connect from claude.ai ("Use Claude's published identity") and

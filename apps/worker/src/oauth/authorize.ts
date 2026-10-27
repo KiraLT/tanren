@@ -109,7 +109,12 @@ export const grantableScopes = (requested: ReadonlyArray<string>): ReadonlyArray
 export const consentView = (consent: ConsentDescription): ConsentView => ({
   ...consent,
   scope: [...grantableScopes(consent.scope)],
-  trust: clientTrust(Option.fromNullishOr(consent.clientDomain)),
+  trust: clientTrust({
+    clientId: consent.clientId,
+    clientDomain: Option.fromNullishOr(consent.clientDomain),
+    redirectHost: consent.redirectHost,
+    redirectIsLoopback: consent.redirectIsLoopback,
+  }),
 })
 
 /**

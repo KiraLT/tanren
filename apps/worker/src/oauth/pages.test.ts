@@ -26,7 +26,9 @@ describe("consentPage", () => {
   it("a known app shows its name, the verified line and no warning", () => {
     const page = consentPage(base, "h-1")
     expect(page).toContain("Allow <span>Claude</span>")
-    expect(page).toContain("Verified app · claude.ai")
+    expect(page).toContain(
+      "Verified app · claude.ai. Only continue if you just started this in Claude.",
+    )
     expect(page).not.toContain("Unknown app")
     expect(page).toContain('value="approve">Approve</button>')
     expect(page).not.toContain("<script")

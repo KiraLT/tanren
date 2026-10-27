@@ -6,6 +6,7 @@ import { CapturedEmails, EmailSender } from "../auth/EmailSender"
 import { Sessions } from "../auth/Sessions"
 import { envVars } from "../testing/fixtures"
 import { consentView, makeAuthorize, safeNext } from "./authorize"
+import { CLAUDE_CODE_DOCUMENT } from "./knownClients"
 import { FAKE_CLIENT_ID, FakeOAuth, OAuthApi, type OAuthApiShape, OAuthFailure } from "./OAuthApi"
 import { escapeHtml } from "./pages"
 
@@ -446,7 +447,7 @@ describe("helpers", () => {
 
 describe("consent trust", () => {
   const consent = {
-    clientId: "client-1",
+    clientId: "https://claude.ai/oauth/client.json",
     clientName: "Claude",
     redirectUri: "https://claude.ai/api/mcp/auth_callback",
     redirectHost: "claude.ai",
@@ -466,6 +467,12 @@ describe("consent trust", () => {
     })
   })
 
+  it("a CIMD client on claude.ai that redirects elsewhere is Unknown", () => {
+    expect(
+      consentView({ ...consent, clientDomain: "claude.ai", redirectHost: "evil.example" }).trust,
+    ).toEqual({ _tag: "Unknown" })
+  })
+
   it("a CIMD client on another host is Unknown whatever it calls itself", () => {
     expect(consentView({ ...consent, clientDomain: "claude.ai.evil.com" }).trust).toEqual({
       _tag: "Unknown",
@@ -482,7 +489,8 @@ describe("consent trust", () => {
             clientName: "Claude",
             ...Option.match(clientDomain, {
               onNone: () => ({}),
-              onSome: (domain) => ({ clientDomain: domain }),
+              // The fake's redirect is loopback, so the verified case is Claude Code's document.
+              onSome: (domain) => ({ clientDomain: domain, clientId: CLAUDE_CODE_DOCUMENT }),
             }),
           })),
         ),
