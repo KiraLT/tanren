@@ -86,7 +86,6 @@ export const DELETE_ACCOUNT_REQUEST: ConfirmRequest = {
   message:
     "Every workout, program and food entry is erased on this device and the server. This cannot be undone.",
   confirmLabel: "Delete all",
-  confirmAccessibilityLabel: "Delete everything",
 }
 
 /** The confirm dialog (confirm-dialogs.md §3 row 3). */
