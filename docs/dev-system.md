@@ -379,6 +379,11 @@ Metrics tracked per step: wall-clock, total agent time, total tokens, tasks,
 review rounds, gate failures, incidents, critical-path ratio (critical path
 ÷ wall-clock; 1.0 means nothing waited needlessly).
 
+Owner lists (EM batch 21): every engineer brief names the live streams and the files each one owns; an
+engineer attributes a foreign red only from that list, else writes "unknown live stream". A PreToolUse hook
+(`.claude/hooks/deny-index-ops.sh`) denies `git add|mv|rm|commit|reset|checkout|…` inside any subagent, so
+staging stays the Lead's by construction, not by rule-reading.
+
 ## 13. Production operations (owner lift of 2026-10-26)
 
 The plan's "agents never deploy" held until production existed. On 2026-10-26 the owner lifted it

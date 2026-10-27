@@ -91,6 +91,14 @@ engineer can act on without asking questions.
 - Correctness: off-by-one, `Option` / `undefined` handling,
   encode / decode asymmetry, timestamp and timezone handling, sync columns
   present on every row schema.
+- Stale screen state: tab screens are never unmounted, so a `useState` failure
+  caption, notice or busy flag set in a tab screen (or a hook it calls) needs
+  a `useFocusEffect` cleanup / target-change reset and a `live` ref on the
+  async path (`react.md`); missing is `should` (NAV-1bR, 2026-10-27).
+- Shared math: a new component that re-derives a rule an existing pure module
+  owns (`reviewMath.ts` fraction / ring / tone, `stepMath.ts`) is `should:
+  extract to <module>` even when the brief scoped that folder out — the
+  engineer may extract, never copy (NAV-1bR, `ThisWeekCard`, 2026-10-27).
 - Derived schemas: for every `Patch`/`Insert`/mapped schema in or behind
   the diff (`mapFields`, `Struct.map(optionalKey)`, `omit`, `pick`; a diff
   line like `UpdateProfileInput = ProfilePatch` means reading the derivation

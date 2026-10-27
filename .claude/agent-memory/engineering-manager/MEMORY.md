@@ -17,3 +17,4 @@
 - [EM batch watchlist 2026-10-27n](project_em-batch-watchlist-2026-10-27n.md) — items 105–108: nudges hit finished agents (Lead latency), opus+ui-check 4 turns/min, consequence-copy truth, one-package greps
 - [EM batch watchlist 2026-10-27o](project_em-batch-watchlist-2026-10-27o.md) — items 109–114: staged sweeps, untracked heredocs, future-task code comments, nested ListRow buttons, Metro stale bundles, reviewer boxes 6–8
 - [EM batch watchlist 2026-10-27p](project_em-batch-watchlist-2026-10-27p.md) — items 115–120: retyped dispatch numbers, decoding-default fixture ripple, shared-with/Committable markers absent, $VAR safety-check denial, reviewer actuals ≈ 2 min, overlap into unreviewed files
+- [EM batch watchlist 2026-10-27q](project_em-batch-watchlist-2026-10-27q.md) — items 121–126: index snapshot ≠ tree (COMMIT-BASE), mounted-tab stale state, Out-list copies, --clear after LAST edit, sonnet fix rounds, hooks see agent_type

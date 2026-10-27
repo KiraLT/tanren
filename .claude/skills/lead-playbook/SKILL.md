@@ -429,7 +429,9 @@ layer", not a file list — STLS-F3 and F4 each needed `app.ts` / `McpRoute.ts` 
 Out: <explicitly not this brief; leave notes instead. A question the brief asks ("report the
   exact return-prefix value") whose answer lives in a package listed here is scoped IN, or its
   follow-up agent is pre-briefed: EAS-1 scoped `apps/worker` out and became EAS-2 + EAS-3, two
-  serial opus follow-ups (≈ 10 min on the owner's path, 2026-10-27)>
+  serial opus follow-ups (≈ 10 min on the owner's path, 2026-10-27). When an Out
+  folder holds the pure module that owns a rule this brief will need, name it: "shared math lives
+  in `review/reviewMath.ts` — import or extract there (one hunk, `shared with <owner>`), never copy">
 
 ## Interfaces / decisions already made
 <signatures, schema names, package names, versions pinned — anything an engineer must not reinvent>
@@ -592,6 +594,15 @@ auto-update (`pgrep -fl 1Password` shows `--just-updated`). Ask the owner in bol
 keep the index as staged, start one background loop `until git commit -F $S/msg -- <paths>; do
 sleep 120; done` (≤ 30 min) and STAGE NOTHING ELSE until it lands (19:17–19:33 and 19:47–19:53,
 2026-10-27: 16 + 6 min, landed on retries 4 and 3). Never commit unsigned or change signing config.
+When several approved batches sit staged behind the blocked signature, queue them as ORDERED
+pathspec commits in one loop (`git commit -F $S/msg-A -- <A paths> && git commit -F $S/msg-B --
+<B paths>`, disjoint path lists, each `-F` file written before the loop); a `GIT_INDEX_FILE`
+side index is a CONTENT snapshot of those paths, never a tree to commit: `commit-tree -p HEAD` on
+its `write-tree` carries the snapshot's base tree and silently reverts everything HEAD gained
+since (COMMIT-BASE: 631ca50 dropped EM-20's 11 paths, 2026-10-27 20:15). Re-apply a snapshot into
+the main index with `GIT_INDEX_FILE=$S/x.index git ls-files -s -- <paths> | git update-index
+--index-info`, and before any `update-ref`/`commit-tree` landing, `git show --stat --format= <sha>
+| tail -1` must count exactly the path list (19, not 30).
 
 ## Big diffs: fan the review out
 
@@ -614,7 +625,10 @@ of its claims: LEGAL-2b's reviewer blocked on evidence the engineer had
 already produced and cost a 4-min round (EM batch 10, P1).
 
 Blocking findings go back to the same engineer via `SendMessage`, verbatim,
-with "fix only these, re-run the gate, report". A fix brief for a UI finding
+with "fix only these, re-run the gate, report". When every finding carries
+`file:line` and a concrete fix, the round is sonnet-shaped: same engineer (or a
+fresh sonnet when the original is gone), box ≤ 8 — PROG-2b (4 findings, 3.5 min)
+and the NAV-1b fix round (3.2 min on 6) both landed first time (2026-10-27). A fix brief for a UI finding
 names the CLASS and the count ("every anchor on /privacy, /terms, /sign-in
 and the landing: N of them; measure each hit box"), never one instance:
 LEGAL-1 ran r2→r5 on 2026-10-27 because each brief named one link (footer

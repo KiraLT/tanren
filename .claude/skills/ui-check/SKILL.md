@@ -171,8 +171,9 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   "Start day N" with `EXPO_PUBLIC_PLAYER_SPEED=60` at `expo start` (≈ 20 s per day), or the seeded worker
   with your own `--persist-to` copy. `ab close` ends the browser profile and the local store with it: shoot
   everything you need before closing. Metro served stale bundles after edits while still logging "Web
-  Bundled" four times on 2026-10-27 (NAV-2 twice, CONFIRM-2, PROG-1): after editing a served file or
-  adding a route, restart with `expo start --clear` before measuring and confirm the snapshot shows a
+  Bundled" six times on 2026-10-27 (NAV-2 twice, CONFIRM-2, PROG-1, PROG-2, NAV-1b): the rule is
+  "finish ALL edits, then restart with `expo start --clear`, then take the FIRST capture" — a server
+  started before your edits is stale even if it logs a rebuild; confirm the snapshot shows a
   string the edit introduced — a "Web Bundled" line does not prove a fresh bundle; a
   `(tabs)` route not listed in `APP_NAV` redirects to `/home` (NAV-3). A shot taken from a stale
   bundle is not a proof — retake it (NAV-3b's Done-row shot still read "1 sets" after the fix, 2026-10-27).
@@ -204,6 +205,11 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   shifts `Date` (`ab open --init-script $S/<task>-fakedate.js`, pattern in UI-D0's Log line; keep the
   script in `docs/design/`, not the purgeable scratchpad). Programs Ready = enrol offline, never push.
 - `ab eval` returns the probe's JSON as a quoted string: `JSON.parse` it (twice if the probe stringifies).
+- Force a local-store write failure on web without touching code (NAV-1b, 2026-10-27): the sqlite
+  worker takes SQL over `postMessage`, so `ab eval '(() => { const p = Worker.prototype.postMessage;
+  Worker.prototype.postMessage = function (m, ...r) { if (/INSERT/.test(JSON.stringify(m))) throw new
+  Error("forced"); return p.call(this, m, ...r) } })()'` makes every insert fail; then drive the UI and
+  capture the failure caption. Reload (`ab reload`) undoes it.
 - The root Stack keeps the previous screen mounted at 0×0 under a pushed route (Settings under the
   Location editor): probes take the first *visible* match (`getBoundingClientRect().width > 0`), and
   measure in-column overflow via `scrollWidth > clientWidth` on the column (RNW ScrollView sets

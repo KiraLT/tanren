@@ -31,3 +31,10 @@ paths:
   sections before writing a screen; the reviewer checks against them and the
   design team's only second round (2026-10-21) came from an all-caps heading
   and an undersized hit area.
+- Tab screens stay mounted (`(tabs)/_layout.tsx` sets no `unmountOnBlur`), so
+  screen-local failure state, an `AppBarNotice` or an in-flight flag survives
+  navigating away and back. Any such state resets in a `useFocusEffect`
+  cleanup and when its target changes, and a late async result is dropped
+  through a `live` ref (`src/components/today/StartButton.tsx`,
+  `FinishWorkout.tsx`); NAV-1bR found a stale "could not start" caption on the
+  Home tab after a round trip (2026-10-27).

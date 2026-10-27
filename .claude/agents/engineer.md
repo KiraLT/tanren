@@ -32,6 +32,12 @@ Lead had to route it back through the team-lead, one extra turn each way).
    it claims, `grep -rn` for the real location; act there only if the
    done-criterion makes the intent unambiguous, otherwise leave it and name
    the real location under "Scope deviations" so the Lead can fix the doc.
+   An Out list never licenses a copy: when the rule you need (a fraction,
+   ring geometry, a tone threshold, a step table) already lives in a pure
+   module the brief scoped out (`reviewMath.ts`, `stepMath.ts`), export or
+   extract it there with its test and import it — a one-hunk edit you list
+   under Scope deviations with `shared with <owner>` — never re-derive it
+   locally (NAV-1b's `ThisWeekCard` copied four `ReviewCards` rules, 2026-10-27).
 3. Never guess an API. Check the installed package's `.d.ts` under
    `node_modules`, or current docs via context7 (`resolve-library-id` →
    `query-docs`), and say in the report what you verified. MCP tools are
@@ -87,7 +93,9 @@ Lead had to route it back through the team-lead, one extra turn each way).
    deleted 1); no periodic sweep is briefed.
    Parallel engineers share the workspace: a gate or test failure in a file outside your brief
    is probably another engineer mid-edit. Re-run once after a minute; if it persists, report it
-   as foreign and move on. Do not diagnose or touch it.
+   as foreign and move on. Do not diagnose or touch it. Attribute it only from the brief's
+   live-streams/owner list (`usePrograms.ts` → PROG-4); a file no list names is "unknown live
+   stream", never a guess (NAV-1b named PROG-2b for a PROG-4 file, 2026-10-27).
    When your brief adds a literal to a union in `packages/shared` (a new
    provider, entity or table name), every exhaustive consumer (`Match`,
    `Record<Union, …>` copy maps, `satisfies` tables) is in your task: `grep -rn
