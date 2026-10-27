@@ -29,7 +29,12 @@ path (grep `-i delete` in `apps/worker/src/auth` and `apps/mobile/src/services/A
    store build): `POST /api/account/delete` erases every row of the user in D1 and the auth rows, the app
    wipes the local store and returns to sign-in (LEGAL-2). Until it ships the policy says deletion is by
    email to `hello@tanren.me`; LEGAL-2 flips one sentence.
-5. **Business surface extras**: `hello@tanren.me` via Cloudflare Email Routing (Lead configures, owner
+5. **Timing of the text against the code** (LEGAL-R r1 findings 1 and 3): the Garmin clauses ("if you connect
+   Garmin, the pasted token is stored encrypted …") are conditional statements kept in the text ahead of the
+   integration shipping the same day (ADR-0023, GM-2…GM-6); the legal pages' web deploy ships together with
+   or after the auth cut-over (ADR-0022), so the "disconnect AI clients" and "revoke" sentences are backed by
+   code at deploy time. LEGAL-Q checks both before the deploy.
+6. **Business surface extras**: `hello@tanren.me` via Cloudflare Email Routing (Lead configures, owner
    verifies the destination mailbox), `robots.txt`, `/.well-known/security.txt`, a "© 2026 Tanren · Vilnius,
    Lithuania" footer line. Not done: imprint page (not required of a private individual in Lithuania; the
    footer and policy carry the operator), status page (no SLA; the Terms say so), cookie banner (only a

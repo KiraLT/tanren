@@ -27,6 +27,9 @@ the GDPR, Tanren is the controller of the personal data described here. Contact:
 - **On your device**: the app keeps a copy of your training data in a local database so it works offline,
   plus your theme preference. On the web this lives in your browser's storage for tanren.me.
 
+Your email address is the only data you must provide: without it Tanren cannot sign you in. Everything else
+is optional.
+
 ### 1.3 Why, and on what legal basis (`id: "purpose"`)
 We process your data to run the service you signed up for: logging, syncing between your devices, showing
 your plan and history, and pushing or pulling activities for the integrations you turned on (GDPR Art.
@@ -39,7 +42,7 @@ Your account and training data are stored in a Cloudflare database and run on Cl
 Cloudflare also keeps standard request logs and traffic analytics on its side. Magic-link emails are
 delivered by Resend, which keeps delivery logs including your address. Strava and Garmin receive or
 provide only what the integration you enabled needs; their own terms apply to the data you hold there. The
-iPhone app is delivered through Expo's update service; it does not receive your training data. These
+iPhone app is built and delivered with Expo's tools; Expo does not receive your training data. These
 providers are based in the United States and process data under their GDPR data processing terms and the
 EU standard contractual clauses. We do not share your data with anyone else, except when the law requires.
 
@@ -210,13 +213,13 @@ Gate: `authGate.ts` adds `export const isPublicRoute = (route) => route === "/pr
 | magic link "within minutes, once" | `grep -n "expiresIn: 5" apps/worker/src/auth/BetterAuth.ts` — VERIFY-5 unit (Better Auth `magicLink.expiresIn` seconds vs minutes); text stays non-numeric |
 | training log / profile / locations / programs | `packages/db/src/schema/{session,plan,exercise,user,program}.ts`; ADR-0016 |
 | Strava tokens encrypted server-side | `grep -n "sealed\|open(" apps/worker/src/integrations/ExportQueue.ts`; `INTEGRATION_TOKEN_KEY` in `apps/worker/src/Env.ts`; ADR-0018 |
-| Garmin token + activities + daily health | plan Amendment 19, `docs/design/garmin.md` (in flight) — LEGAL-R checks the text matches what GARM-* actually stores |
+| Garmin token + activities + daily health | conditional clauses ("if you connect Garmin …") kept ahead of the integration shipping the same day: ADR-0023, tasks GM-2…GM-6, `docs/design/garmin.md`; LEGAL-R r2 re-reads them against what GM-* stores |
 | MCP grants + short-lived tokens; no AI calls by us | ADR-0010/0022; `docs/design/auth-v2.md` §3; `grep -rn "openai" apps/mobile/scripts` (illustrations only, offline) |
 | local database + theme | `apps/mobile/src/services/LocalStore.ts`, `src/ui/themePreferenceStore.web.ts` |
 | soft deletes kept for sync | `docs/design/data-model.md` §7.0 `deletedAt`, §10.2 |
 | Resend delivery logs | `apps/worker/src/auth/ResendEmailSender.ts`; Resend keeps logs by default — general statement, no retention number |
 | Cloudflare request logs | `wrangler.jsonc` has no `observability` block; Cloudflare dashboard analytics exist regardless — general statement |
 | D1 location | not in `wrangler.jsonc` → text says "Cloudflare database"; VERIFY-6 (Lead: dashboard → D1 `tanren` → location) may later add "in Western Europe" |
-| Expo updates do not carry user data | `app.json` `updates`; EAS Update serves bundles only |
+| Expo builds/delivers the app, no user data | `app.json` has no `updates` block (EAS Update not configured, LEGAL-R r1); Expo Go / EAS build tooling only — text says "built and delivered with Expo's tools" |
 | export exists | `apps/mobile/src/services/DataExport.ts`, `components/settings/DataSection.tsx` |
 | deletion endpoint | none today (ADR-0024 Context) → LEGAL-2 |
