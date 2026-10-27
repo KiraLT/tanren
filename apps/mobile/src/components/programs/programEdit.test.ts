@@ -18,10 +18,12 @@ import {
   removeDay,
   removeItem,
   scheduleCaption,
+  setsText,
   slugWithSuffix,
   stepRest,
   stepRestBetweenRounds,
   stepRounds,
+  stepSets,
   stepWork,
   toggleWeekday,
   updateDay,
@@ -276,5 +278,21 @@ describe("queued steps", () => {
     expect(scheduleCaption({ kind: "daysPerWeek", days: 7 })).toEqual(Option.some("Every day"))
     expect(scheduleCaption({ kind: "daysPerWeek", days: 2 })).toEqual(Option.some("2 days a week"))
     expect(scheduleCaption({ kind: "daysPerWeek", days: 1 })).toEqual(Option.some("1 day a week"))
+  })
+})
+
+describe("sets stepper (programs-player-v2 §7.3)", () => {
+  const reps = withKind(BLANK_ITEM, "reps")
+
+  it("a new reps item has 1 set and steps within 1-10", () => {
+    expect(reps.kind === "reps" ? reps.sets : 0).toBe(1)
+    expect(stepSets(reps, -1)).toEqual(reps)
+    const ten = Arr.reduce(Arr.range(1, 12), reps, (item) => stepSets(item, 1))
+    expect(ten.kind === "reps" ? ten.sets : 0).toBe(10)
+  })
+
+  it("leaves a timed item unchanged and reads '1 set' / '4 sets'", () => {
+    expect(stepSets(BLANK_ITEM, 1)).toBe(BLANK_ITEM)
+    expect([setsText(1), setsText(4)]).toEqual(["1 set", "4 sets"])
   })
 })

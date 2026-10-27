@@ -30,7 +30,7 @@ import {
 } from "../../src/ui"
 
 /** `?enrollmentId=` missing, unknown, paused or finished. */
-const WORKOUT_NOT_FOUND = "This workout is not available. Start it from the Programs tab."
+const WORKOUT_NOT_FOUND = "This workout is not available. Start it from Train → Programs."
 
 /** Core 30's first exercise stands for the program on the desktop empty state. */
 const PROGRAM_ART = Option.flatMap(Arr.head(CORE30.days), (day) =>
@@ -57,7 +57,7 @@ function NoWorkoutDesktop({ onOpen }: { readonly onOpen: () => void }) {
         No workout today
       </Text>
       <Text tone="muted" style={{ textAlign: "center" }}>
-        Enrol in a program on the Programs tab.
+        Enrol in a program in Train → Programs.
       </Text>
       <Button
         label="Open Programs"
@@ -93,7 +93,7 @@ function Player({
 }) {
   const router = useRouter()
   const once = useNavGuard()
-  const { run, remainingMs, send, completion, retry } = usePlayer(session)
+  const { run, remainingMs, send, adjust, completion, retry } = usePlayer(session)
   const { player } = run
   // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
   useEffect(() => send("start"), [send])
@@ -153,6 +153,8 @@ function Player({
               state={player}
               remainingMs={remainingMs}
               send={send}
+              draft={run.draft}
+              onAdjust={adjust}
               {...Option.match(swapFrom, {
                 onNone: () => ({}),
                 onSome: (from) => ({
@@ -183,7 +185,7 @@ export default function PlayScreen() {
   const { state } = usePrograms()
   const { enrollmentId } = useLocalSearchParams<{ enrollmentId?: string | string[] }>()
   const desktop = useBreakpoint() === "desktop"
-  const close = () => (router.canGoBack() ? router.back() : router.replace("/programs"))
+  const close = () => (router.canGoBack() ? router.back() : router.replace("/train?view=programs"))
   /** The `active` enrollment named by `?enrollmentId=`; a missing, unknown or paused one is `None`. */
   const target =
     state._tag === "Ready"
@@ -255,9 +257,9 @@ export default function PlayScreen() {
           ),
           Match.orElse(() =>
             desktop ? (
-              <NoWorkoutDesktop onOpen={() => router.replace("/programs")} />
+              <NoWorkoutDesktop onOpen={() => router.replace("/train?view=programs")} />
             ) : (
-              <EmptyState title="No workout today" body="Enrol in a program on the Programs tab." />
+              <EmptyState title="No workout today" body="Enrol in a program in Train → Programs." />
             ),
           ),
         )}

@@ -43,6 +43,7 @@ describe("mergeDay", () => {
       catalogId: "bicycle-crunch",
       reps: 15,
       restSeconds: 20,
+      sets: 1,
     })
     expect(merged.items[0]).toBe(running.items[0])
     expect(merged.items[2]).toBe(running.items[2])
@@ -80,19 +81,19 @@ describe("mergeDay", () => {
 })
 
 describe("run plan (swap boundaries)", () => {
-  const working = (round: number, itemIndex: number): PlayerState => ({
+  const working = (round: number, stepIndex: number): PlayerState => ({
     _tag: "Working",
     round,
-    itemIndex,
+    stepIndex,
     startedAtMs: 0,
     pausedMs: 0,
     phaseStartMs: 0,
     endsAtMs: Option.none(),
   })
-  const resting = (round: number, itemIndex: number): PlayerState => ({
+  const resting = (round: number, stepIndex: number): PlayerState => ({
     _tag: "Resting",
     round,
-    itemIndex,
+    stepIndex,
     startedAtMs: 0,
     pausedMs: 0,
     phaseStartMs: 0,

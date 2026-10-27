@@ -1,13 +1,18 @@
-import type { CatalogId, ProgramDay } from "@tanren/shared"
+import { type CatalogId, expandDay, type ProgramDay } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 import type { PlayerState } from "./playerMachine"
 
-/** The exercise of every item-round, round-major (the order of `plannedItems` and `performedItems`). */
+/**
+ * The exercise of every step-round (one per set, `expandDay`), round-major: the order of
+ * `plannedItems` and `performedItems`.
+ */
 export type RunPlan = ReadonlyArray<CatalogId>
 
-/** Every round runs the day's items as written. */
-export const initialPlan = (day: ProgramDay): RunPlan =>
-  Arr.flatMap(Arr.range(1, day.rounds), () => Arr.map(day.items, (item) => item.catalogId))
+/** Every round runs the day's steps as written. */
+export const initialPlan = (day: ProgramDay): RunPlan => {
+  const steps = expandDay(day)
+  return Arr.flatMap(Arr.range(1, day.rounds), () => Arr.map(steps, (s) => s.item.catalogId))
+}
 
 /**
  * The first item-round a swap made now applies to, as an index into the plan: the running item
@@ -15,14 +20,15 @@ export const initialPlan = (day: ProgramDay): RunPlan =>
  * as it was. `None` once the run is done.
  */
 const firstOpenRound = (day: ProgramDay, state: PlayerState): Option.Option<number> => {
-  const at = (round: number, item: number, rest: boolean) =>
-    Option.some(round * day.items.length + item + (rest ? 1 : 0))
+  const perRound = expandDay(day).length
+  const at = (round: number, stepIndex: number, rest: boolean) =>
+    Option.some(round * perRound + stepIndex + (rest ? 1 : 0))
   return Match.value(state).pipe(
     Match.tag("Idle", () => Option.some(0)),
     Match.tag("Done", () => Option.none<number>()),
-    Match.tag("Working", (s) => at(s.round, s.itemIndex, false)),
-    Match.tag("Resting", (s) => at(s.round, s.itemIndex, true)),
-    Match.tag("Paused", (s) => at(s.inner.round, s.inner.itemIndex, s.inner._tag === "Resting")),
+    Match.tag("Working", (s) => at(s.round, s.stepIndex, false)),
+    Match.tag("Resting", (s) => at(s.round, s.stepIndex, true)),
+    Match.tag("Paused", (s) => at(s.inner.round, s.inner.stepIndex, s.inner._tag === "Resting")),
     Match.exhaustive,
   )
 }
@@ -40,9 +46,13 @@ export const reconcilePlan = (
 ): RunPlan =>
   Option.match(firstOpenRound(previous, state), {
     onNone: () => plan,
-    onSome: (open) =>
-      Arr.map(plan, (id, index) => {
-        const item = index % previous.items.length
+    onSome: (open) => {
+      const steps = expandDay(previous)
+      return Arr.map(plan, (id, index) => {
+        const item = Option.match(Arr.get(steps, index % Math.max(1, steps.length)), {
+          onNone: () => -1,
+          onSome: (s) => s.exerciseIndex,
+        })
         const before = Arr.get(previous.items, item)
         const after = Arr.get(next.items, item)
         return index >= open &&
@@ -51,7 +61,8 @@ export const reconcilePlan = (
           before.value.catalogId !== after.value.catalogId
           ? after.value.catalogId
           : id
-      }),
+      })
+    },
   })
 
 /**

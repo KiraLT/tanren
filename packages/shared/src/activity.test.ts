@@ -6,10 +6,12 @@ import {
   type BuildActivityInput,
   bestSet,
   buildActivity,
+  ExerciseUnit,
   epley1Rm,
   markPrs,
   type ScoredSet,
   SetScore,
+  unitOf,
 } from "./activity"
 import { CatalogId } from "./catalog"
 import { Label, OrderIndex, Reps, WeightKg } from "./common"
@@ -405,13 +407,16 @@ describe("SetScore", () => {
 
 describe("markPrs", () => {
   it("never marks the first set, not an equal best, only a strict beat", () => {
-    const marked = markPrs([
-      set("first", 100, 5, 0),
-      set("equal", 100, 5, 1),
-      set("lighter", 90, 5, 2),
-      set("beat", 100, 6, 3),
-      set("again", 100, 6, 4),
-    ])
+    const marked = markPrs(
+      [
+        set("first", 100, 5, 0),
+        set("equal", 100, 5, 1),
+        set("lighter", 90, 5, 2),
+        set("beat", 100, 6, 3),
+        set("again", 100, 6, 4),
+      ],
+      "kg",
+    )
     expect(marked.map((s) => [s.id, s.isPr])).toEqual([
       ["first", false],
       ["equal", false],
@@ -422,37 +427,94 @@ describe("markPrs", () => {
   })
 
   it("keeps the input fields and handles empty input", () => {
-    expect(markPrs([set("x", 0, 8)])[0]).toMatchObject({ id: "x", reps: 8, isPr: false })
-    expect(markPrs([])).toEqual([])
+    expect(markPrs([set("x", 0, 8)], "reps")[0]).toMatchObject({ id: "x", reps: 8, isPr: false })
+    expect(markPrs([], "kg")).toEqual([])
+  })
+
+  it("kg: a 0-kg set is never a PR and never the bar a loaded set must beat", () => {
+    const marked = markPrs(
+      [set("unweighted", 0, 10, 0), set("more", 0, 15, 1), set("loaded", 20, 8, 2)],
+      "kg",
+    )
+    expect(marked.map((s) => [s.id, s.isPr])).toEqual([
+      ["unweighted", false],
+      ["more", false],
+      ["loaded", false],
+    ])
+    // Under `reps` the same history marks the 15-rep set (the old unit-less behaviour).
+    expect(
+      markPrs([set("unweighted", 0, 10, 0), set("more", 0, 15, 1)], "reps").map((s) => s.isPr),
+    ).toEqual([false, true])
+  })
+
+  it("kg: a 0-kg set after loaded ones is not a PR, a heavier loaded set still is", () => {
+    const marked = markPrs([set("a", 60, 8, 0), set("zero", 0, 30, 1), set("b", 65, 8, 2)], "kg")
+    expect(marked.map((s) => s.isPr)).toEqual([false, false, true])
+  })
+
+  it("s: a plank's 45 s beats 30 s as seconds; equal seconds are not a PR", () => {
+    const marked = markPrs([set("a", 0, 30, 0), set("b", 0, 45, 1), set("c", 0, 45, 2)], "s")
+    expect(marked.map((s) => s.isPr)).toEqual([false, true, false])
+  })
+
+  it("s: a load never outranks a longer hold (seconds alone decide)", () => {
+    const marked = markPrs([set("long", 0, 60, 0), set("weighted", 20, 40, 1)], "s")
+    expect(marked.map((s) => s.isPr)).toEqual([false, false])
+  })
+})
+
+describe("ExerciseUnit", () => {
+  it.effect("decodes a known unit", () =>
+    Effect.gen(function* () {
+      expect(yield* Schema.decodeUnknownEffect(ExerciseUnit)("s")).toBe("s")
+    }),
+  )
+
+  it.effect("rejects an unknown unit with a literal message", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(Schema.decodeUnknownEffect(ExerciseUnit)("lb"))
+      expect(error.message).toContain('Expected "kg" | "reps" | "s"')
+      expect(yield* failingPaths(ExerciseUnit, "lb")).toEqual([[]])
+    }),
+  )
+
+  it.effect("round-trips encode ∘ decode", () => roundTrips(ExerciseUnit, "kg"))
+})
+
+describe("unitOf", () => {
+  it("timed catalog entry is s, loaded equipment is kg, bodyweight or no link is reps", () => {
+    expect(unitOf({ catalogId: Option.some(CatalogId.make("plank")) })).toBe("s")
+    expect(unitOf({ catalogId: Option.some(CatalogId.make("barbell-bench-press")) })).toBe("kg")
+    expect(unitOf({ catalogId: Option.none() })).toBe("reps")
   })
 })
 
 describe("PR edge cases", () => {
   it("60 kg x 1 then 30 kg x 30 have equal e1RM, and the extra reps make the second a PR", () => {
     expect(epley1Rm(60, 1)).toBe(epley1Rm(30, 30))
-    const marked = markPrs([set("a", 60, 1, 0), set("b", 30, 30, 1)])
+    const marked = markPrs([set("a", 60, 1, 0), set("b", 30, 30, 1)], "kg")
     expect(marked.map((s) => s.isPr)).toEqual([false, true])
   })
 
   it("the same pair in the other order is not a PR (fewer reps at equal e1RM)", () => {
-    const marked = markPrs([set("a", 30, 30, 0), set("b", 60, 1, 1)])
+    const marked = markPrs([set("a", 30, 30, 0), set("b", 60, 1, 1)], "kg")
     expect(marked.map((s) => s.isPr)).toEqual([false, false])
   })
 
   it("bodyweight-only history: more reps is a PR, equal reps is not, bestSet is the max reps", () => {
     const sets = [set("a", 0, 8, 0), set("b", 0, 8, 1), set("c", 0, 12, 2)]
-    expect(markPrs(sets).map((s) => s.isPr)).toEqual([false, false, true])
+    expect(markPrs(sets, "reps").map((s) => s.isPr)).toEqual([false, false, true])
     expect(Option.map(bestSet(sets), (s) => s.id)).toEqual(Option.some("c"))
   })
 
   it("added weight on a bodyweight exercise beats any bodyweight set of equal reps", () => {
-    const marked = markPrs([set("a", 0, 10, 0), set("b", 5, 10, 1)])
+    const marked = markPrs([set("a", 0, 10, 0), set("b", 5, 10, 1)], "reps")
     expect(marked.map((s) => s.isPr)).toEqual([false, true])
   })
 
   it("empty input and a lone zero-rep set do not throw and mark no PR", () => {
-    expect(markPrs([])).toEqual([])
-    expect(markPrs([set("a", 100, 0, 0)]).map((s) => s.isPr)).toEqual([false])
+    expect(markPrs([], "reps")).toEqual([])
+    expect(markPrs([set("a", 100, 0, 0)], "kg").map((s) => s.isPr)).toEqual([false])
     expect(Option.isNone(bestSet([]))).toBe(true)
   })
 

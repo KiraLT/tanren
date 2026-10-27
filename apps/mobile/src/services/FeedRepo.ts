@@ -5,6 +5,7 @@ import {
   type DayNumber,
   type Exercise,
   ExerciseRow,
+  type ExerciseUnit,
   type ImportedActivity,
   ImportedActivityRow,
   type Label,
@@ -16,6 +17,7 @@ import {
   type Session,
   type SessionId,
   SessionRow,
+  unitOf,
   type WorkoutSet,
   WorkoutSetRow,
 } from "@tanren/shared"
@@ -77,12 +79,26 @@ interface ProgramLink {
   readonly dayNumber: DayNumber
 }
 
-/** Groups by exercise, then marks PRs within each exercise's chronological history. */
-const markByExercise = (sets: ReadonlyArray<WorkoutSet>): ReadonlyArray<MarkedSet> =>
+/**
+ * Groups by exercise, then marks PRs within each exercise's chronological history in its unit
+ * (`unitOf`; an exercise missing from `exercises` scores as `reps`, like one with no catalog link).
+ */
+const markByExercise = (
+  sets: ReadonlyArray<WorkoutSet>,
+  exercises: ReadonlyMap<string, Exercise>,
+): ReadonlyArray<MarkedSet> =>
   pipe(
     Arr.groupBy(sets, (set): string => set.exerciseId),
-    Rec.values,
-    Arr.flatMap((group) => markPrs(Arr.sort(group, Chronological))),
+    Rec.toEntries,
+    Arr.flatMap(([exerciseId, group]) =>
+      markPrs(
+        Arr.sort(group, Chronological),
+        Option.match(Option.fromNullishOr(exercises.get(exerciseId)), {
+          onNone: (): ExerciseUnit => "reps",
+          onSome: unitOf,
+        }),
+      ),
+    ),
   )
 
 const q = (sql: string, ...params: ReadonlyArray<string | number | null>) => ({ sql, params })
@@ -131,16 +147,18 @@ export class FeedRepo extends Context.Service<FeedRepo, FeedRepoShape>()("@tanre
              WHERE "deletedAt" IS NULL AND "sessionId" IN (${placeholders(ids)}))`,
             ...ids,
           )
-          const pageIds = new Set<string>(ids)
-          const marked = markByExercise(history).filter((set) => pageIds.has(set.sessionId))
-          const bySession = Arr.groupBy(marked, (set): string => set.sessionId)
-
-          // Deleted exercises are read too: they still name their old sets.
+          // Deleted exercises are read too: they still name their old sets. Their units score PRs.
           const exerciseRows = yield* whereIn(
             `SELECT * FROM "exercise" WHERE "id"`,
-            Arr.dedupe(marked.map((set) => set.exerciseId)),
+            Arr.dedupe(history.map((set) => set.exerciseId)),
           ).pipe(Effect.flatMap(decodeRecords(ExerciseRow)))
           const exercises = new Map(exerciseRows.map((row): [string, Exercise] => [row.id, row]))
+
+          const pageIds = new Set<string>(ids)
+          const marked = markByExercise(history, exercises).filter((set) =>
+            pageIds.has(set.sessionId),
+          )
+          const bySession = Arr.groupBy(marked, (set): string => set.sessionId)
 
           const plannedRows = yield* whereIn(
             `SELECT * FROM "planned_session" WHERE "deletedAt" IS NULL AND "id"`,

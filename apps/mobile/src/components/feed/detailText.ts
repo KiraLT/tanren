@@ -1,4 +1,4 @@
-import type { Activity, ActivityExercise, MuscleGroup } from "@tanren/shared"
+import { type Activity, type ActivityExercise, type MuscleGroup, unitOf } from "@tanren/shared"
 import { Array as Arr, DateTime, Option } from "effect"
 import { MUSCLE_LABEL } from "../../illustrations/muscleMap/regions"
 import { formatSetText } from "../progress/progressFormat"
@@ -35,10 +35,10 @@ export const musclesLabel = (
     secondary.length > 0 ? `; secondary: ${listOf(secondary)}` : ""
   }`
 
-/** "3 sets · best 87.5 kg × 8" ("1 set"; a bodyweight best is "best 12 reps"). */
+/** "3 sets · best 87.5 kg × 8" ("1 set"; a bodyweight best is "best 12 reps", a plank "best 45 s"). */
 export const exerciseSubtitle = (exercise: ActivityExercise): string => {
   const count = exercise.sets.length
-  const best = formatSetText(exercise.best.weightKg, exercise.best.reps)
+  const best = formatSetText(exercise.best.weightKg, exercise.best.reps, unitOf(exercise))
   return `${count} ${count === 1 ? "set" : "sets"} · best ${best}`
 }
 
@@ -49,9 +49,10 @@ const rpeText = (value: number): string => String(value)
  * the RPE the sets logged ("RPE 8", or "RPE 7–8.5" when they differ); no RPE segment without one.
  */
 export const setLine = (exercise: ActivityExercise): string => {
+  const unit = unitOf(exercise)
   const sets = Arr.map(
     exercise.sets,
-    (set) => `${formatSetText(set.weightKg, set.reps)}${set.isPr ? " PR" : ""}`,
+    (set) => `${formatSetText(set.weightKg, set.reps, unit)}${set.isPr ? " PR" : ""}`,
   )
   const rpes = Arr.getSomes(Arr.map(exercise.sets, (set) => set.rpe))
   const low = Math.min(...rpes)

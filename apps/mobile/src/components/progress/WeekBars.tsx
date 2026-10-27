@@ -1,3 +1,4 @@
+import type { ExerciseUnit } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import { useState } from "react"
 import { View } from "react-native"
@@ -21,19 +22,21 @@ const HOVER_BAR_OPACITY = 0.75
 interface WeekBarsProps {
   /** Exactly the 8 weeks of `ExerciseHistory.weeks`, oldest first. */
   readonly weeks: ReadonlyArray<WeekBucket>
+  /** The exercise's unit (`ExerciseHistory.unit`): what the bars plot. */
+  readonly unit: ExerciseUnit
 }
 
 /**
  * Eight weekly bars (volume in kg, or reps when all work is bodyweight): one hue, this week in the
  * accent, 4 px rounded data ends on a hairline baseline, a tooltip on hover or tap.
  */
-export function WeekBars({ weeks }: WeekBarsProps) {
+export function WeekBars({ weeks, unit }: WeekBarsProps) {
   const { colors } = useTheme()
   const [active, setActive] = useState<Option.Option<number>>(Option.none())
-  const series = weekSeries(weeks)
+  const series = weekSeries(weeks, unit)
   const lastIndex = series.values.length - 1
   const text = (value: number): string =>
-    series.unit === "kg" ? formatVolume(value) : `${value} reps`
+    series.unit === "kg" ? formatVolume(value) : `${value} ${series.unit}`
   const latestText = Option.match(Arr.last(series.values), { onNone: () => "", onSome: text })
   const firstWeek = Option.match(Arr.head(weeks), {
     onNone: () => "",

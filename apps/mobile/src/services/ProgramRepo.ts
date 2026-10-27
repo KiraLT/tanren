@@ -4,8 +4,10 @@ import {
   type DayNumber,
   type EnrollmentStatus,
   type ExerciseId,
+  expandDay,
   findProgram,
   IdGenerator,
+  isLoaded,
   newId,
   PROGRAMS,
   type Program,
@@ -49,6 +51,7 @@ import {
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
 import { ExerciseLink } from "./ExerciseLink"
+import { HistoryRepo } from "./HistoryRepo"
 import { decodeRecords, LocalStore, type LocalStoreShape } from "./LocalStore"
 import { StoreError } from "./SqlDriver"
 import { localToday } from "./TodayRepo"
@@ -71,7 +74,28 @@ export interface CompletionInput {
    * takes the day's own item with the enrollment's swaps as stored.
    */
   readonly performedIds: ReadonlyArray<CatalogId>
+  /**
+   * The load of each performed item-round, positional with `performedIds`: `Some` for a weighted
+   * item (reps item of a loaded exercise, the player's steppers), `None` for timed / bodyweight,
+   * which log `0 kg × loggedCount`. A position past its length counts as `None`.
+   */
+  readonly entries: ReadonlyArray<Option.Option<SetEntry>>
 }
+
+/** One performed round of a weighted item (programs-player-v2 §2.2). */
+export interface SetEntry {
+  readonly weightKg: number
+  readonly reps: number
+}
+
+/** `Σ weightKg · reps` over the performed rounds (`None` adds 0): the finish sheet's Volume. */
+export const volumeOf = (entries: ReadonlyArray<Option.Option<SetEntry>>): number =>
+  Arr.reduce(entries, 0, (total, entry) =>
+    Option.match(entry, {
+      onNone: () => total,
+      onSome: ({ weightKg, reps }) => total + weightKg * reps,
+    }),
+  )
 
 /** Internal: `complete` on an enrollment that is not `active`. Carried as `StoreError.cause`. */
 export class EnrollmentNotActive extends Data.TaggedError("EnrollmentNotActive")<{
@@ -186,6 +210,17 @@ export interface ProgramRepoShape {
    * completed: any other day fails with `StoreError(DayOutOfOrder)`, writing nothing.
    */
   readonly complete: (input: CompletionInput) => Effect.Effect<ProgramDayCompletion, StoreError>
+  /**
+   * The last live set's load per LOADED catalog id (`isLoaded`; others are skipped), in input order
+   * without duplicates: `ExerciseLink.ensure` (creates the `exercise` row the day will log against)
+   * then `HistoryRepo.lastSet`. An id that cannot be linked reads `None`.
+   */
+  readonly lastLoads: (
+    catalogIds: ReadonlyArray<CatalogId>,
+  ) => Effect.Effect<
+    ReadonlyArray<{ readonly catalogId: CatalogId; readonly last: Option.Option<SetEntry> }>,
+    StoreError
+  >
 }
 
 /** Day `currentDay` of `program`, by `dayNumber`; `None` once past the last day. */
@@ -223,15 +258,17 @@ export interface PlannedItem {
 }
 
 /**
- * Every item of every round in order, with its planned end: the work and rests before it plus its
- * own work, by the same rule as `dayDurationSeconds` (the last item of the final round ends at it).
+ * Every step (one per set, `expandDay`) of every round in order, with its planned end: the work and
+ * rests before it plus its own work, by the same rule as `dayDurationSeconds` (the last step of the
+ * final round ends at it). One `workout_set` row is logged per performed entry.
  */
 export const plannedItems = (day: ProgramDay): ReadonlyArray<PlannedItem> => {
-  const works = Arr.map(day.items, workSeconds)
-  const rests = Arr.map(day.items, (item) => item.restSeconds)
+  const steps = expandDay(day)
+  const works = Arr.map(steps, (s) => workSeconds(s.item))
+  const rests = Arr.map(steps, (s) => s.restSeconds)
   const roundLength = sum(works) + sum(Arr.dropRight(rests, 1)) + day.restBetweenRoundsSeconds
   return Arr.flatMap(Arr.range(0, day.rounds - 1), (round) =>
-    Arr.map(day.items, (item, index) => ({
+    Arr.map(steps, ({ item }, index) => ({
       item,
       endOffset:
         round * roundLength + sum(Arr.take(works, index + 1)) + sum(Arr.take(rests, index)),
@@ -289,6 +326,7 @@ const make = (find: ProgramFinder) =>
     const lock = yield* Semaphore.make(1)
     const owner = ownerId(yield* CurrentUser)
     const link = yield* ExerciseLink
+    const history = yield* HistoryRepo
     const withDeps = <A, E>(
       effect: Effect.Effect<A, E, IdGenerator | DateTime.CurrentTimeZone>,
     ): Effect.Effect<A, E> =>
@@ -620,6 +658,7 @@ const make = (find: ProgramFinder) =>
           Arr.take(all, Math.min(Math.max(Math.floor(input.performedItems), 0), all.length)),
           (planned, position) => ({
             ...planned,
+            entry: Option.flatten(Arr.get(input.entries, position)),
             // What the player ran in this item-round (a mid-workout swap changes later rounds only).
             catalogId: Option.getOrElse(
               Arr.get(input.performedIds, position),
@@ -662,10 +701,18 @@ const make = (find: ProgramFinder) =>
             }),
           ),
         )
-        const weightKg = yield* WeightKg.makeEffect(0)
-        const sets = yield* Effect.forEach(kept, (planned, order) =>
-          Effect.all({ id: newId(SetId), reps: Reps.makeEffect(loggedCount(planned.item)) }).pipe(
-            Effect.flatMap(({ id, reps }) =>
+        const sets = yield* Effect.forEach(kept, (planned, order) => {
+          // Timed items keep `reps = seconds` (ADR-0007 Q4, ADR-0020); only a weighted round has a load.
+          const load = Option.getOrElse(planned.entry, () => ({
+            weightKg: 0,
+            reps: loggedCount(planned.item),
+          }))
+          return Effect.all({
+            id: newId(SetId),
+            weightKg: WeightKg.makeEffect(load.weightKg),
+            reps: Reps.makeEffect(load.reps),
+          }).pipe(
+            Effect.flatMap(({ id, weightKg, reps }) =>
               WorkoutSet.makeEffect({
                 id,
                 userId,
@@ -686,14 +733,31 @@ const make = (find: ProgramFinder) =>
                 ),
               }),
             ),
-          ),
-        )
+          )
+        })
         return Option.some({ session, sets })
       }).pipe(
         Effect.catch((issue) =>
           Effect.logWarning("ProgramRepo: session not logged", issue).pipe(
             Effect.as(Option.none()),
           ),
+        ),
+      )
+
+    const lastLoads = (catalogIds: ReadonlyArray<CatalogId>) =>
+      Effect.forEach(Arr.dedupe(Arr.filter(catalogIds, isLoaded)), (catalogId) =>
+        linkOrSkip(catalogId).pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.succeed(Option.none<WorkoutSet>()),
+              // Loaded ids only here: a 0-kg (pre-weights) program row is not a load (§2.7).
+              onSome: (exerciseId) => history.lastSet(exerciseId, { loadedOnly: true }),
+            }),
+          ),
+          Effect.map((last) => ({
+            catalogId,
+            last: Option.map(last, (set): SetEntry => ({ weightKg: set.weightKg, reps: set.reps })),
+          })),
         ),
       )
 
@@ -784,6 +848,7 @@ const make = (find: ProgramFinder) =>
       save,
       deleteProgram,
       complete,
+      lastLoads,
     }
   })
 
@@ -791,11 +856,15 @@ export class ProgramRepo extends Context.Service<ProgramRepo, ProgramRepoShape>(
   "@tanren/ProgramRepo",
 ) {
   /** Against a given finder (tests pass a fixture). */
-  static readonly layerWith = (find: ProgramFinder) => Layer.effect(this, make(find))
+  static readonly layerWith = (find: ProgramFinder) =>
+    Layer.effect(this, make(find)).pipe(Layer.provide(HistoryRepo.layer))
 
   /**
    * Built-ins then the owner's `program` rows.
-   * Needs LocalStore | CurrentUser | IdGenerator | DateTime.CurrentTimeZone | ExerciseLink.
+   * Needs LocalStore | CurrentUser | IdGenerator | DateTime.CurrentTimeZone | ExerciseLink;
+   * `HistoryRepo` (`lastLoads` reads its `lastSet`) is built in, it needs only `LocalStore`.
    */
-  static readonly layerNoDeps = Layer.effect(this, Effect.flatMap(storeFinder, make))
+  static readonly layerNoDeps = Layer.effect(this, Effect.flatMap(storeFinder, make)).pipe(
+    Layer.provide(HistoryRepo.layer),
+  )
 }

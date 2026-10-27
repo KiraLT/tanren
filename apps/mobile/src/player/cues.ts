@@ -1,10 +1,15 @@
 import {
   type CatalogId,
+  expandDay,
   findCatalogExercise,
+  isLoaded,
   type ProgramDay,
   type ProgramItem,
+  setsOf,
 } from "@tanren/shared"
 import { Array as Arr, Match, Option, String as Str } from "effect"
+import type { SetEntry } from "../services/ProgramRepo"
+import type { RunPlan } from "./mergeDay"
 import {
   currentItem,
   idle,
@@ -14,6 +19,7 @@ import {
   type PlayerState,
   phaseKey,
   playerEvent,
+  restAfter,
   step,
 } from "./playerMachine"
 
@@ -38,7 +44,35 @@ export interface PlayerRun {
    * once `Done`: `finish` counts from the state the user saw, a natural end counts every one.
    */
   readonly performedItems: number
+  /** One per performed item-round, in `performedItems` order; `None` for timed / bodyweight. */
+  readonly entries: ReadonlyArray<Option.Option<SetEntry>>
+  /** The steppers' current value for the item being worked; `None` unless weighted. */
+  readonly draft: Option.Option<SetEntry>
 }
+
+/**
+ * `reduceRun`'s config: the machine's plus the loads to prefill (programs-player-v2 §2.3): per
+ * loaded catalog id, the exercise's last logged set (`ProgramRepo.prefill`). The machine's own
+ * `PlayerConfig` stays time-only (`playerMachine.ts` is untouched).
+ */
+export interface RunConfig extends PlayerConfig {
+  readonly prefill: ReadonlyMap<CatalogId, SetEntry>
+  /**
+   * The exercise each item-round runs (`usePlayer`'s plan, `reconcilePlan`): a mid-run swap renames
+   * only open rounds, so the exercise of round `i` is `ids[i]`, never `day.items[...]`.
+   */
+  readonly ids: RunPlan
+}
+
+/**
+ * The machine's events plus `adjust`, which only replaces `draft` (the steppers), and `replan`
+ * (the plan changed by a swap; `previousIds` is the plan before it): when the round being worked
+ * now runs another exercise, its draft restarts from that exercise's prefill (`None` unweighted).
+ */
+export type RunEvent =
+  | PlayerEvent
+  | { readonly _tag: "adjust"; readonly weightKg: number; readonly reps: number }
+  | { readonly _tag: "replan"; readonly previousIds: RunPlan }
 
 export const initialRun = (nowMs: number): PlayerRun => ({
   player: idle,
@@ -47,7 +81,82 @@ export const initialRun = (nowMs: number): PlayerRun => ({
   previousNowMs: nowMs,
   startedAtMs: Option.none(),
   performedItems: 0,
+  entries: [],
+  draft: Option.none(),
 })
+
+/** A reps item of an exercise that moves a load: the player shows kg × reps steppers. */
+export const isWeighted = (item: ProgramItem): boolean =>
+  item.kind === "reps" && isLoaded(item.catalogId)
+
+/** Steps per round (`expandDay`): one per set of every item. */
+const stepsPerRound = (day: ProgramDay): number => expandDay(day).length
+
+/**
+ * The day's item of step-round `index` (round-major over `expandDay` steps, one per performed set;
+ * "item-round" below means this): its kind, target and rest.
+ */
+const itemAt = (day: ProgramDay, index: number): Option.Option<ProgramItem> => {
+  const steps = expandDay(day)
+  return steps.length === 0
+    ? Option.none()
+    : Option.map(Arr.get(steps, index % steps.length), (s) => s.item)
+}
+
+/** The exercise item-round `index` runs: the plan's id, else the day's item (plan not loaded). */
+const roundId = (config: RunConfig, index: number): Option.Option<CatalogId> =>
+  Option.orElse(Arr.get(config.ids, index), () =>
+    Option.map(itemAt(config.day, index), (item) => item.catalogId),
+  )
+
+/** The rep target of item-round `index` when it is weighted (reps item, loaded exercise). */
+const weightedTarget = (config: RunConfig, index: number): Option.Option<number> =>
+  Option.flatMap(itemAt(config.day, index), (item) =>
+    item.kind === "reps" && Option.exists(roundId(config, index), isLoaded)
+      ? Option.some(item.reps)
+      : Option.none(),
+  )
+
+/**
+ * The steppers' start value for item-round `index` (§2.3), `None` unless weighted: the same
+ * exercise's entry in an earlier round of this run (by the plan's ids), else its last logged load
+ * with the item's rep target, else 0 kg × the target.
+ */
+export const prefillFor = (
+  config: RunConfig,
+  entries: ReadonlyArray<Option.Option<SetEntry>>,
+  index: number,
+): Option.Option<SetEntry> =>
+  Option.flatMap(weightedTarget(config, index), (target): Option.Option<SetEntry> => {
+    const id = roundId(config, index)
+    const earlier = Arr.findLast(
+      Arr.take(entries, index).map((entry, at) => ({ entry, at })),
+      ({ entry, at }) =>
+        Option.isSome(entry) &&
+        Option.isSome(id) &&
+        Option.exists(roundId(config, at), (other) => other === id.value),
+    )
+    const last = Option.flatMap(id, (catalogId) =>
+      Option.fromNullishOr(config.prefill.get(catalogId)),
+    )
+    return Option.some(
+      Option.getOrElse(
+        Option.flatMap(earlier, ({ entry }) => entry),
+        () => ({
+          weightKg: Option.match(last, { onNone: () => 0, onSome: (set) => set.weightKg }),
+          reps: target,
+        }),
+      ),
+    )
+  })
+
+/** Round-major index of the item being worked (a Paused Working counts), else None. */
+const workingIndex = (day: ProgramDay, state: PlayerState): Option.Option<number> => {
+  const phase = state._tag === "Paused" ? state.inner : state
+  return phase._tag === "Working"
+    ? Option.some(phase.round * stepsPerRound(day) + phase.stepIndex)
+    : Option.none()
+}
 
 /**
  * Completed item-rounds before `state`: a Working item does not count yet, a Resting state counts
@@ -55,9 +164,10 @@ export const initialRun = (nowMs: number): PlayerRun => ({
  */
 export const performedBefore = (day: ProgramDay, state: PlayerState): number => {
   const phase = state._tag === "Paused" ? state.inner : state
+  const perRound = stepsPerRound(day)
   return Match.value(phase).pipe(
-    Match.tag("Working", (s) => s.round * day.items.length + s.itemIndex),
-    Match.tag("Resting", (s) => s.round * day.items.length + s.itemIndex + 1),
+    Match.tag("Working", (s) => s.round * perRound + s.stepIndex),
+    Match.tag("Resting", (s) => s.round * perRound + s.stepIndex + 1),
     Match.orElse(() => 0),
   )
 }
@@ -77,14 +187,89 @@ const performedAfter = (
   // `finish` stops early; reaching Done by the last deadline or `next` completed every item.
   return event._tag === "finish"
     ? performedBefore(config.day, run.player)
-    : config.day.rounds * config.day.items.length
+    : config.day.rounds * stepsPerRound(config.day)
 }
+
+/**
+ * `entries` resized to `performed`: rounds just finished append the draft (for the round that was
+ * being worked) or their prefill; `previous` drops the rounds it undid. So `entries.length ===
+ * performedItems` always.
+ */
+const entriesAfter = (
+  config: RunConfig,
+  run: PlayerRun,
+  performed: number,
+): ReadonlyArray<Option.Option<SetEntry>> => {
+  if (performed <= run.entries.length) {
+    return Arr.take(run.entries, performed)
+  }
+  const worked = workingIndex(config.day, run.player)
+  return Arr.reduce(
+    Arr.range(run.entries.length, performed - 1),
+    run.entries,
+    (entries, index): ReadonlyArray<Option.Option<SetEntry>> => [
+      ...entries,
+      Option.isSome(worked) &&
+      worked.value === index &&
+      Option.isSome(run.draft) &&
+      Option.isSome(weightedTarget(config, index))
+        ? run.draft
+        : prefillFor(config, entries, index),
+    ],
+  )
+}
+
+/**
+ * The draft after a machine step: kept while the same item-round is worked (ticks, pause, a
+ * restart), else the new item-round's value: the entry `previous` just dropped for it, or its
+ * prefill. `None` off a work phase.
+ */
+const draftAfter = (
+  config: RunConfig,
+  run: PlayerRun,
+  player: PlayerState,
+  entries: ReadonlyArray<Option.Option<SetEntry>>,
+): Option.Option<SetEntry> =>
+  Option.flatMap(workingIndex(config.day, player), (index) => {
+    const same = Option.exists(workingIndex(config.day, run.player), (was) => was === index)
+    if (same) {
+      return run.draft
+    }
+    return Option.flatMap(
+      weightedTarget(config, index),
+      (): Option.Option<SetEntry> =>
+        Option.orElse(Option.flatten(Arr.get(run.entries, index)), () =>
+          prefillFor(config, entries, index),
+        ),
+    )
+  })
+
+/** `replan`: a round being worked that now runs another exercise restarts its draft. */
+const replanned = (config: RunConfig, run: PlayerRun, previousIds: RunPlan): PlayerRun =>
+  Option.match(workingIndex(config.day, run.player), {
+    onNone: () => run,
+    onSome: (index) => {
+      const before = Option.orElse(Arr.get(previousIds, index), () => roundId(config, index))
+      const changed = !(
+        Option.isSome(before) && Option.exists(roundId(config, index), (id) => id === before.value)
+      )
+      return changed ? { ...run, draft: prefillFor(config, run.entries, index) } : run
+    },
+  })
 
 /** `step` plus bookkeeping; the `useReducer` reducer. */
 export const reduceRun =
-  (config: PlayerConfig) =>
-  (run: PlayerRun, event: PlayerEvent): PlayerRun => {
+  (config: RunConfig) =>
+  (run: PlayerRun, event: RunEvent): PlayerRun => {
+    if (event._tag === "adjust") {
+      return { ...run, draft: Option.some({ weightKg: event.weightKg, reps: event.reps }) }
+    }
+    if (event._tag === "replan") {
+      return replanned(config, run, event.previousIds)
+    }
     const player = step(config)(run.player, event)
+    const performedItems = performedAfter(config, run, event, player)
+    const entries = entriesAfter(config, run, performedItems)
     return {
       player,
       previous: run.player,
@@ -94,7 +279,9 @@ export const reduceRun =
         run.player._tag === "Idle" && player._tag !== "Idle"
           ? Option.some(event.nowMs)
           : run.startedAtMs,
-      performedItems: performedAfter(config, run, event, player),
+      performedItems,
+      entries,
+      draft: draftAfter(config, run, player, entries),
     }
   }
 
@@ -126,6 +313,12 @@ export const itemAmount = (item: ProgramItem): string =>
       reps: ({ reps }) => `${reps} reps`,
     }),
   )
+
+/** "4 × 10 reps" for a reps item with sets (programs-player-v2 §7.3), else `itemAmount`. */
+export const prescription = (item: ProgramItem): string => {
+  const sets = setsOf(item)
+  return sets > 1 ? `${sets} × ${itemAmount(item)}` : itemAmount(item)
+}
 
 /** `Some(count)` for a reps item, `None` for a timed one (ADR-0020: the work screen shows a numeral). */
 export const repsOf = (item: ProgramItem): Option.Option<number> =>
@@ -166,7 +359,7 @@ export const cueFor = (previous: PlayerState, next: PlayerState): Cue => {
     (next._tag === "Working" || next._tag === "Resting") &&
     previous.inner._tag === next._tag &&
     previous.inner.round === next.round &&
-    previous.inner.itemIndex === next.itemIndex
+    previous.inner.stepIndex === next.stepIndex
   // Resume continues the same phase (its start shifted by the pause): silent.
   return resumed ? "none" : tagCue(next)
 }
@@ -227,7 +420,7 @@ export const alertFor = (config: PlayerConfig, state: PlayerState): Option.Optio
       Idle: () => "Workout complete",
       Paused: () => "Workout complete",
       Done: () => "Workout complete",
-      Resting: (s) => `${name(state)} done — rest ${restSecondsOf(config.day, s)} s`,
+      Resting: (s) => `${name(state)} done — rest ${restAfter(config.day, s.stepIndex)} s`,
       Working: (s) => {
         const amount = currentItem(config.day, s).pipe(
           Option.map(itemAmount),
@@ -239,14 +432,6 @@ export const alertFor = (config: PlayerConfig, state: PlayerState): Option.Optio
     })
     return { atMs, text }
   })
-
-const restSecondsOf = (day: ProgramDay, rest: Extract<PlayerState, { _tag: "Resting" }>): number =>
-  rest.itemIndex >= day.items.length - 1
-    ? day.restBetweenRoundsSeconds
-    : Option.match(Arr.get(day.items, rest.itemIndex), {
-        onNone: () => 0,
-        onSome: (item) => item.restSeconds,
-      })
 
 /** Whether the countdown is live (interval, keep-awake). */
 export const isRunning = (state: PlayerState): boolean =>

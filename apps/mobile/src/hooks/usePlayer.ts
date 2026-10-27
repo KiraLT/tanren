@@ -1,5 +1,5 @@
-import type { DayNumber, ProgramDay, ProgramEnrollmentId } from "@tanren/shared"
-import { Array as Arr, Match, Option } from "effect"
+import type { CatalogId, DayNumber, ProgramDay, ProgramEnrollmentId } from "@tanren/shared"
+import { Array as Arr, Exit, Match, Option } from "effect"
 import { useAudioPlayer } from "expo-audio"
 import * as Haptics from "expo-haptics"
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
@@ -12,6 +12,8 @@ import {
   isRunning,
   type PlayerRun,
   parseSpeed,
+  prefillFor,
+  type RunConfig,
   reduceRun,
 } from "../player/cues"
 import { initialPlan, reconcilePlan } from "../player/mergeDay"
@@ -21,9 +23,11 @@ import {
   cancelAlerts,
   completeDay,
   type FinishedRun,
+  loadPrefill,
   syncAlerts,
 } from "../player/playerEffects"
 import { type PlayerEventTag, phaseKey, playerEvent, remainingMs } from "../player/playerMachine"
+import type { SetEntry } from "../services/ProgramRepo"
 import { runtime } from "../services/runtime"
 
 /** Bundled ≤ 20 KB sine beep; Metro resolves the asset to a module id. */
@@ -66,17 +70,63 @@ export const usePlayer = (
   readonly speed: number
   readonly remainingMs: Option.Option<number>
   readonly send: (tag: PlayerEventTag) => void
+  /** The weight / reps steppers: replaces `run.draft` for the item being worked. */
+  readonly adjust: (entry: SetEntry) => void
   readonly completion: CompletionState
   /** After a failed save: try `completeDay` again with the same input. */
   readonly retry: () => void
 } => {
-  const config = useMemo(() => ({ day: session.day, speed: SPEED }), [session.day])
-  const reducer = useMemo(() => reduceRun(config), [config])
-  const [run, dispatch] = useReducer(reducer, undefined, () => initialRun(Date.now()))
+  // Each loaded exercise's last logged load, read once per `session.day` (a swap reloads it).
+  const [prefill, setPrefill] = useState<ReadonlyMap<CatalogId, SetEntry>>(() => new Map())
+  useEffect(
+    () =>
+      runtime.runCallback(loadPrefill(Arr.map(session.day.items, (item) => item.catalogId)), {
+        onExit: (exit) => {
+          if (Exit.isSuccess(exit)) {
+            setPrefill(exit.value)
+          }
+        },
+      }),
+    [session.day],
+  )
   // The exercise of every item-round. A swap reaches the player as a new `session.day` (the
   // route's `mergeDay`); it renames the item-rounds still open and never the ones already done,
-  // so `complete` logs what was performed.
+  // so `complete` logs what was performed, and the weights follow the same ids (`RunConfig.ids`).
   const [plan, setPlan] = useState({ day: session.day, ids: initialPlan(session.day) })
+  const config: RunConfig = useMemo(
+    () => ({ day: session.day, speed: SPEED, prefill, ids: plan.ids }),
+    [session.day, prefill, plan.ids],
+  )
+  const reducer = useMemo(() => reduceRun(config), [config])
+  const [run, dispatch] = useReducer(reducer, undefined, () => initialRun(Date.now()))
+  // `start` usually runs before the read lands: an untouched draft of the item being worked
+  // moves to the loaded value (a stepper the user already changed is kept).
+  const [prefillSeen, setPrefillSeen] = useState(prefill)
+  if (prefillSeen !== prefill) {
+    setPrefillSeen(prefill)
+    const index = run.entries.length
+    const before = prefillFor({ ...config, prefill: prefillSeen }, run.entries, index)
+    const after = prefillFor(config, run.entries, index)
+    if (
+      Option.isSome(run.draft) &&
+      Option.isSome(before) &&
+      Option.isSome(after) &&
+      run.draft.value.weightKg === before.value.weightKg &&
+      run.draft.value.reps === before.value.reps
+    ) {
+      dispatch({ _tag: "adjust", ...after.value })
+    }
+  }
+  const adjust = useCallback(
+    (entry: SetEntry) => dispatch({ _tag: "adjust", weightKg: entry.weightKg, reps: entry.reps }),
+    [],
+  )
+  // A swap of the round being worked restarts its draft from the replacement (`replan`).
+  const [idsSeen, setIdsSeen] = useState(plan.ids)
+  if (idsSeen !== plan.ids) {
+    setIdsSeen(plan.ids)
+    dispatch({ _tag: "replan", previousIds: idsSeen })
+  }
   useEffect(() => {
     setPlan((prev) =>
       prev.day === session.day
@@ -169,6 +219,7 @@ export const usePlayer = (
           durationSeconds: run.player.durationSeconds,
           performedItems: run.performedItems,
           performedIds: Arr.take(plan.ids, run.performedItems),
+          entries: run.entries,
         })
       : Option.none()
 
@@ -201,6 +252,7 @@ export const usePlayer = (
     speed: SPEED,
     remainingMs: remainingMs(run.player, run.nowMs),
     send,
+    adjust,
     completion,
     retry,
   }

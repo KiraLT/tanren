@@ -23,7 +23,7 @@ import { LOCAL_USER_ID } from "../store/localUser"
 import { CurrentUser } from "./CurrentUser"
 import { ExerciseLink, UnknownCatalogExercise } from "./ExerciseLink"
 import { decodeRecords, LocalStore } from "./LocalStore"
-import { ProgramRepo, plannedItems } from "./ProgramRepo"
+import { ProgramRepo, plannedItems, type SetEntry } from "./ProgramRepo"
 import { type SqlDriver, StoreError } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
 import { StoreEvents } from "./StoreEvents"
@@ -83,7 +83,28 @@ const circuit = new Program({
   days: [CIRCUIT_DAY],
 })
 
-const CATALOG = [fixture(PROGRAM_ID, 2), fixture(OTHER_ID, 3), circuit]
+/** A gym day: squat 3 × 8 with 90 s between sets, then a 30 s plank (programs-player-v2 §7.3). */
+const SETS_ID = ProgramId.make("straight-sets")
+const setsProgram = new Program({
+  programId: SETS_ID,
+  name: "Straight sets",
+  tagline: "A fixture",
+  description: "One gym day.",
+  days: [
+    Schema.decodeUnknownSync(ProgramDay)({
+      dayNumber: 1,
+      title: "Day 1 · Legs",
+      rounds: 1,
+      items: [
+        { kind: "reps", catalogId: "squat", reps: 8, restSeconds: 90, sets: 3 },
+        { kind: "timed", catalogId: "plank", seconds: 30, restSeconds: 0 },
+      ],
+      restBetweenRoundsSeconds: 0,
+    }),
+  ],
+})
+
+const CATALOG = [fixture(PROGRAM_ID, 2), fixture(OTHER_ID, 3), circuit, setsProgram]
 const find = (id: ProgramId) =>
   Effect.succeed(Option.fromNullishOr(CATALOG.find((p) => p.programId === id)))
 
@@ -164,6 +185,7 @@ const dayInput = (enrollmentId: ProgramEnrollmentId, dayNumber: number) => ({
   durationSeconds: 840,
   performedItems: 1,
   performedIds: [],
+  entries: [],
 })
 
 describe("ProgramRepo", () => {
@@ -273,6 +295,7 @@ describe("ProgramRepo", () => {
             durationSeconds: 60,
             performedItems: 1,
             performedIds: [],
+            entries: [],
           }),
         )
         expect(abandonError._tag).toBe("StoreError")
@@ -403,6 +426,7 @@ const completeCircuit = (
   startedAgoSeconds: number,
   performedItems = 21,
   performedIds: ReadonlyArray<CatalogId> = [],
+  entries: ReadonlyArray<Option.Option<SetEntry>> = [],
 ) =>
   Effect.gen(function* () {
     const enrollment = yield* stored(ENROLLMENT, { programId: CIRCUIT_ID })
@@ -413,6 +437,7 @@ const completeCircuit = (
       durationSeconds: startedAgoSeconds,
       performedItems,
       performedIds,
+      entries,
     }
     const before = yield* version
     const completion = yield* (yield* ProgramRepo).complete(input)
@@ -1047,6 +1072,7 @@ describe("ProgramRepo.complete logs what was performed (mid-workout swaps)", () 
           durationSeconds: 1200,
           performedItems: 21,
           performedIds: WRITTEN,
+          entries: [],
         })
         const logged = yield* loggedIds
         expect(logged[0]).toBe(exerciseIdOf("plank"))
@@ -1060,6 +1086,52 @@ describe("ProgramRepo.complete logs what was performed (mid-workout swaps)", () 
       Effect.gen(function* () {
         yield* completeCircuit(1200)
         expect(yield* loggedIds).toEqual(WRITTEN.map(exerciseIdOf))
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.complete logs the player's loads", () => {
+  it.effect("writes a Some entry's weight and reps, and 0 kg × loggedCount for a None", () =>
+    run(
+      Effect.gen(function* () {
+        yield* completeCircuit(1200, 2, [], [Option.some({ weightKg: 80, reps: 8 }), Option.none()])
+        const logged = yield* sets
+        expect(logged.map((set) => [set.weightKg, set.reps])).toEqual([
+          [80, 8],
+          [0, 30],
+        ])
+      }),
+    ),
+  )
+})
+
+describe("ProgramRepo.complete logs one set per straight set", () => {
+  it.effect("a 3-set item writes 3 workout_set rows, then the timed item its own", () =>
+    run(
+      Effect.gen(function* () {
+        const enrollment = yield* stored(ENROLLMENT, { programId: SETS_ID })
+        yield* (yield* ProgramRepo).complete({
+          enrollmentId: enrollment.id,
+          dayNumber: 1,
+          startedAt: DateTime.makeUnsafe(NOW - 600_000),
+          durationSeconds: 600,
+          performedItems: 4,
+          performedIds: [],
+          entries: [
+            Option.some({ weightKg: 100, reps: 8 }),
+            Option.some({ weightKg: 100, reps: 7 }),
+            Option.some({ weightKg: 95, reps: 8 }),
+            Option.none(),
+          ],
+        })
+        const logged = yield* sets
+        expect(logged.map((set) => [set.exerciseId, set.weightKg, set.reps])).toEqual([
+          [exerciseIdOf("squat"), 100, 8],
+          [exerciseIdOf("squat"), 100, 7],
+          [exerciseIdOf("squat"), 95, 8],
+          [exerciseIdOf("plank"), 0, 30],
+        ])
       }),
     ),
   )

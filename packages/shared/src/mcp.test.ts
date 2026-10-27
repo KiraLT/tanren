@@ -599,6 +599,13 @@ describe("program tool contracts", () => {
     }),
   )
 
+  it.effect("ProgramItemInput takes optional sets 1-10 on a reps item", () =>
+    Effect.gen(function* () {
+      yield* accepts(ProgramItemInput, { ...repsItem, sets: 4 })
+      expect(yield* failingPaths(ProgramItemInput, { ...repsItem, sets: 11 })).toEqual([["sets"]])
+    }),
+  )
+
   it.effect("WriteProgramInput decodes a one-day and an 84-day program and rejects 85 days", () =>
     Effect.gen(function* () {
       const input = {

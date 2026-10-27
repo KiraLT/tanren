@@ -161,7 +161,7 @@ const userProgramWire = {
       dayNumber: 1,
       title: "Day 1",
       rounds: 2,
-      items: [{ kind: "reps" as const, catalogId: "push-up", reps: 10, restSeconds: 30 }],
+      items: [{ kind: "reps" as const, catalogId: "push-up", reps: 10, restSeconds: 30, sets: 3 }],
       restBetweenRoundsSeconds: 60,
     },
   ],
@@ -347,7 +347,8 @@ describe("summarize", () => {
         Option.some(enrollment),
       )
       expect(Option.map(summary.enrollment, (e) => e.status)).toEqual(Option.some("active"))
-      expect(summary.minutesPerDay).toEqual({ min: 2, max: 2 })
+      // 2 rounds × (3 sets × 20 s + 2 × 30 s between sets) + 60 s between rounds = 300 s
+      expect(summary.minutesPerDay).toEqual({ min: 5, max: 5 })
       yield* roundTrips(ProgramSummary, summary)
     }),
   )

@@ -28,7 +28,7 @@ interface SheetProps {
 }
 
 function Sheet({ enrollmentId, from, original }: SheetProps) {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { state } = usePrograms()
   const profile = useProfileState()
   const { choose, busy, error } = useSwap()
@@ -86,7 +86,7 @@ function Sheet({ enrollmentId, from, original }: SheetProps) {
                 <Banner
                   tone="danger"
                   title="Could not load the swap"
-                  body="This workout is not available. Start it from the Programs tab."
+                  body="This workout is not available. Start it from Train → Programs."
                 />
               ) : (
                 <Skeleton width="100%" height={240} />
@@ -117,7 +117,7 @@ function Sheet({ enrollmentId, from, original }: SheetProps) {
 }
 
 export default function SwapScreen() {
-  const back = useGoBack("/programs")
+  const back = useGoBack("/train?view=programs")
   const { enrollmentId, from } = useLocalSearchParams<{
     enrollmentId?: string | string[]
     from?: string | string[]

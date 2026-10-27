@@ -26,12 +26,16 @@ const week = (volumeKg: number, reps: number) => ({
 
 describe("bestSetParts", () => {
   it("splits a loaded set into the numeral and a unit line", () => {
-    expect(bestSetParts(127.5, 5)).toEqual({ value: "127.5", unit: "kg × 5" })
-    expect(bestSetParts(100, 3)).toEqual({ value: "100", unit: "kg × 3" })
+    expect(bestSetParts(127.5, 5, "kg")).toEqual({ value: "127.5", unit: "kg × 5" })
+    expect(bestSetParts(100, 3, "kg")).toEqual({ value: "100", unit: "kg × 3" })
   })
 
   it("shows reps as the numeral for a bodyweight set", () => {
-    expect(bestSetParts(0, 12)).toEqual({ value: "12", unit: "reps" })
+    expect(bestSetParts(0, 12, "reps")).toEqual({ value: "12", unit: "reps" })
+  })
+
+  it("shows seconds as the numeral for a timed exercise", () => {
+    expect(bestSetParts(0, 45, "s")).toEqual({ value: "45", unit: "s" })
   })
 })
 
@@ -42,9 +46,16 @@ describe("formatting", () => {
   })
 
   it("prints a weighted set as kg × reps and a bodyweight set as reps", () => {
-    expect(formatSetText(100, 5)).toBe("100 kg × 5")
-    expect(formatSetText(82.5, 8)).toBe("82.5 kg × 8")
-    expect(formatSetText(0, 12)).toBe("12 reps")
+    expect(formatSetText(100, 5, "kg")).toBe("100 kg × 5")
+    expect(formatSetText(82.5, 8, "kg")).toBe("82.5 kg × 8")
+    expect(formatSetText(5, 10, "reps")).toBe("5 kg × 10")
+    expect(formatSetText(0, 12, "reps")).toBe("12 reps")
+  })
+
+  it("prints a timed set as seconds and a 0-kg set of a loaded exercise as no load", () => {
+    expect(formatSetText(0, 45, "s")).toBe("45 s")
+    expect(formatSetText(0, 10, "kg")).toBe("10 reps · no load")
+    expect(formatSetText(20, 10, "kg")).toBe("20 kg × 10")
   })
 
   it("re-exports formatVolume from the leaf module", () => {
@@ -81,20 +92,30 @@ describe("bodyweight e1RM guard", () => {
   it("names the weekly bars after the plotted unit", () => {
     expect(weekBarsHeading("kg")).toBe("Volume, last 8 weeks")
     expect(weekBarsHeading("reps")).toBe("Reps, last 8 weeks")
+    expect(weekBarsHeading("s")).toBe("Seconds, last 8 weeks")
   })
 })
 
 describe("weekSeries", () => {
-  it("plots volume in kg when any week has weighted work", () => {
-    expect(weekSeries([week(0, 10), week(500, 5)])).toEqual({ unit: "kg", values: [0, 500] })
+  it("plots volume in kg for a loaded exercise", () => {
+    expect(weekSeries([week(0, 10), week(500, 5)], "kg")).toEqual({ unit: "kg", values: [0, 500] })
   })
 
-  it("plots reps when all work is bodyweight", () => {
-    expect(weekSeries([week(0, 10), week(0, 15)])).toEqual({ unit: "reps", values: [10, 15] })
+  it("plots reps for a bodyweight exercise, by its unit not by zero volume", () => {
+    expect(weekSeries([week(0, 10), week(0, 15)], "reps")).toEqual({
+      unit: "reps",
+      values: [10, 15],
+    })
+  })
+
+  it("plots seconds for a timed exercise", () => {
+    const series = weekSeries([week(0, 45), week(0, 90)], "s")
+    expect(series.unit).toBe("s")
+    expect(series.values).toEqual([45, 90])
   })
 
   it("stays in kg with all zeros when nothing was logged", () => {
-    expect(weekSeries([week(0, 0), week(0, 0)])).toEqual({ unit: "kg", values: [0, 0] })
+    expect(weekSeries([week(0, 0), week(0, 0)], "kg")).toEqual({ unit: "kg", values: [0, 0] })
   })
 })
 

@@ -135,7 +135,7 @@ function LastDoneFor({ exerciseId }: { readonly exerciseId: ExerciseId }) {
   const { colors } = useTheme()
   const text =
     state._tag === "Ready"
-      ? Option.flatMap(state.value, (history) => lastDoneText(history.recent))
+      ? Option.flatMap(state.value, (history) => lastDoneText(history.recent, history.unit))
       : Option.none<string>()
   return Option.match(text, {
     onNone: () => null,

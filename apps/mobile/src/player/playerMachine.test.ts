@@ -70,7 +70,7 @@ const changes = (keys: ReadonlyArray<string>): number =>
 
 describe("Idle", () => {
   it("start enters the first item's work with a countdown from nowMs", () => {
-    expect(started).toMatchObject({ _tag: "Working", round: 0, itemIndex: 0, startedAtMs: T0 })
+    expect(started).toMatchObject({ _tag: "Working", round: 0, stepIndex: 0, startedAtMs: T0 })
     expect(remainingMs(started, T0)).toEqual(Option.some(30_000))
   })
 
@@ -91,17 +91,17 @@ describe("Working and Resting by tick", () => {
 
   it("rests restSeconds after an item, restBetweenRoundsSeconds after a round, none at the end", () => {
     const afterFirst = runEvents([["tick", 31_000]], started)
-    expect(afterFirst).toMatchObject({ _tag: "Resting", round: 0, itemIndex: 0, endsAtMs: 41_000 })
+    expect(afterFirst).toMatchObject({ _tag: "Resting", round: 0, stepIndex: 0, endsAtMs: 41_000 })
     const endOfRound = runEvents([["tick", 61_000]], started)
-    expect(endOfRound).toMatchObject({ _tag: "Resting", round: 0, itemIndex: 1, endsAtMs: 121_000 })
+    expect(endOfRound).toMatchObject({ _tag: "Resting", round: 0, stepIndex: 1, endsAtMs: 121_000 })
     const lastWork = runEvents([["tick", 161_000]], started)
-    expect(lastWork).toMatchObject({ _tag: "Working", round: 1, itemIndex: 1 })
+    expect(lastWork).toMatchObject({ _tag: "Working", round: 1, stepIndex: 1 })
     expect(runEvents([["tick", 181_000]], lastWork)._tag).toBe("Done")
   })
 
   it("one big tick after background lands on the right phase with the right remaining time", () => {
     const back = runEvents([["tick", 130_000]], started)
-    expect(back).toMatchObject({ _tag: "Working", round: 1, itemIndex: 0, phaseStartMs: 121_000 })
+    expect(back).toMatchObject({ _tag: "Working", round: 1, stepIndex: 0, phaseStartMs: 121_000 })
     expect(remainingMs(back, 130_000)).toEqual(Option.some(21_000))
   })
 
@@ -121,7 +121,7 @@ describe("Working and Resting by tick", () => {
       items: [timed("plank", 30, 0), timed("side-plank", 20, 5)],
     })
     const s = runEvents([["tick", 31_000]], started, { day: noRest, speed: 1 })
-    expect(s).toMatchObject({ _tag: "Working", round: 0, itemIndex: 1, phaseStartMs: 31_000 })
+    expect(s).toMatchObject({ _tag: "Working", round: 0, stepIndex: 1, phaseStartMs: 31_000 })
   })
 
   it("speed 10 divides every work and rest duration", () => {
@@ -149,7 +149,7 @@ describe("Working and Resting by tick", () => {
       idle,
       cfg,
     )
-    expect(s).toMatchObject({ _tag: "Working", round: 0, itemIndex: 0, endsAtMs: Option.none() })
+    expect(s).toMatchObject({ _tag: "Working", round: 0, stepIndex: 0, endsAtMs: Option.none() })
     expect(remainingMs(s, 10_000_000)).toEqual(Option.none())
     expect(runEvents([["next", 10_000_000]], s, cfg)).toMatchObject({
       _tag: "Resting",
@@ -170,13 +170,13 @@ describe("Working and Resting by command", () => {
   it("next ends work now (into its rest) and rest now (into the next item)", () => {
     expect(runEvents([["next", 5000]], started)).toMatchObject({
       _tag: "Resting",
-      itemIndex: 0,
+      stepIndex: 0,
       endsAtMs: 15_000,
     })
     expect(runEvents([["next", 33_000]], resting)).toMatchObject({
       _tag: "Working",
       round: 0,
-      itemIndex: 1,
+      stepIndex: 1,
       endsAtMs: Option.some(53_000),
     })
   })
@@ -190,7 +190,7 @@ describe("Working and Resting by command", () => {
     const secondItem = runEvents([["tick", 41_000]], started)
     expect(runEvents([["previous", 45_000]], secondItem)).toMatchObject({
       _tag: "Working",
-      itemIndex: 1,
+      stepIndex: 1,
       phaseStartMs: 45_000,
       endsAtMs: Option.some(65_000),
     })
@@ -201,14 +201,14 @@ describe("Working and Resting by command", () => {
     expect(runEvents([["previous", 42_000]], secondItem)).toMatchObject({
       _tag: "Working",
       round: 0,
-      itemIndex: 0,
+      stepIndex: 0,
       endsAtMs: Option.some(72_000),
     })
     const roundTwo = runEvents([["tick", 121_000]], started)
     expect(runEvents([["previous", 122_000]], roundTwo)).toMatchObject({
       _tag: "Working",
       round: 0,
-      itemIndex: 1,
+      stepIndex: 1,
     })
   })
 
@@ -216,7 +216,7 @@ describe("Working and Resting by command", () => {
     expect(runEvents([["previous", 1500]], started)).toMatchObject({
       _tag: "Working",
       round: 0,
-      itemIndex: 0,
+      stepIndex: 0,
       phaseStartMs: 1500,
     })
   })
@@ -224,7 +224,7 @@ describe("Working and Resting by command", () => {
   it("previous while resting redoes the item just done", () => {
     expect(runEvents([["previous", 35_000]], resting)).toMatchObject({
       _tag: "Working",
-      itemIndex: 0,
+      stepIndex: 0,
       endsAtMs: Option.some(65_000),
     })
   })
@@ -248,7 +248,7 @@ describe("Paused", () => {
     expect(paused).toMatchObject({ _tag: "Paused", remainingMs: Option.some(20_000) })
     expect(remainingMs(paused, 90_000)).toEqual(Option.some(20_000))
     const resumed = runEvents([["resume", 100_000]], paused)
-    expect(resumed).toMatchObject({ _tag: "Working", itemIndex: 0, pausedMs: 89_000 })
+    expect(resumed).toMatchObject({ _tag: "Working", stepIndex: 0, pausedMs: 89_000 })
     expect(remainingMs(resumed, 100_000)).toEqual(Option.some(20_000))
   })
 
@@ -267,7 +267,7 @@ describe("Paused", () => {
   it("pause between ticks first catches up to the running phase", () => {
     expect(runEvents([["pause", 35_000]], started)).toMatchObject({
       _tag: "Paused",
-      inner: { _tag: "Resting", itemIndex: 0 },
+      inner: { _tag: "Resting", stepIndex: 0 },
       remainingMs: Option.some(6000),
     })
   })
@@ -282,7 +282,7 @@ describe("Paused", () => {
     const skipped = runEvents([["next", 50_000]], paused)
     expect(skipped).toMatchObject({
       _tag: "Paused",
-      inner: { _tag: "Resting", itemIndex: 0 },
+      inner: { _tag: "Resting", stepIndex: 0 },
       remainingMs: Option.some(10_000),
     })
     const restarted = runEvents([["previous", 50_000]], paused)
@@ -326,7 +326,7 @@ describe("selectors", () => {
     expect(Option.map(upNext(day, endOfRound), (i) => i.catalogId)).toEqual(Option.some("plank"))
     expect(upNext(day, started)).toEqual(Option.none())
     expect(progress(day, endOfRound)).toEqual(
-      Option.some({ round: 1, rounds: 2, item: 2, items: 2 }),
+      Option.some({ round: 1, rounds: 2, item: 2, items: 2, set: 1, sets: 1, step: 2, steps: 2 }),
     )
   })
 
@@ -354,5 +354,51 @@ describe("phaseKey", () => {
     const resumed = runEvents([["resume", 7000]], paused)
     const keys = [phaseKey(started), phaseKey(restarted), phaseKey(paused), phaseKey(resumed)]
     expect(new Set(keys).size).toBe(4)
+  })
+})
+
+describe("straight sets (programs-player-v2 §7.3)", () => {
+  /** A gym day: bench 3 × 8 with 90 s between sets, then a 30 s plank; one round. */
+  const gymDay = Schema.decodeUnknownSync(ProgramDay)({
+    dayNumber: 1,
+    title: "Day 1 · Push",
+    rounds: 1,
+    items: [
+      { kind: "reps", catalogId: "barbell-bench-press", reps: 8, restSeconds: 90, sets: 3 },
+      timed("plank", 30, 0),
+    ],
+    restBetweenRoundsSeconds: 0,
+  })
+  const gym: PlayerConfig = { day: gymDay, speed: 1 }
+  const at = (state: PlayerState) =>
+    Option.map(progress(gymDay, state), (p) => `${p.item}/${p.items}:${p.set}/${p.sets}`)
+
+  it("stays on exercise 1 for sets 1 to 3, resting 90 s between them, then moves to exercise 2", () => {
+    const s1 = runEvents([["start", 0]], idle, gym)
+    const rest1 = runEvents([["next", 10_000]], s1, gym)
+    const s2 = runEvents([["next", 20_000]], rest1, gym)
+    const s3 = runEvents(
+      [
+        ["next", 30_000],
+        ["next", 40_000],
+      ],
+      s2,
+      gym,
+    )
+    const rest3 = runEvents([["next", 50_000]], s3, gym)
+    const plank = runEvents([["next", 60_000]], rest3, gym)
+    expect([s1, s2, s3, plank].map(at)).toEqual([
+      Option.some("1/2:1/3"),
+      Option.some("1/2:2/3"),
+      Option.some("1/2:3/3"),
+      Option.some("2/2:1/1"),
+    ])
+    expect(rest1).toMatchObject({ _tag: "Resting", stepIndex: 0, endsAtMs: 100_000 })
+    expect(rest3).toMatchObject({ _tag: "Resting", stepIndex: 2, endsAtMs: 140_000 })
+    expect(Option.map(currentItem(gymDay, plank), (i) => i.catalogId)).toEqual(Option.some("plank"))
+  })
+
+  it("plans the day as 3 × (16 s + 90 s rest) + 30 s", () => {
+    expect(dayDurationSeconds(gymDay)).toBe(3 * 16 + 3 * 90 + 30)
   })
 })

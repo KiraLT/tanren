@@ -1,4 +1,4 @@
-import { Array as Arr, Match, Schema } from "effect"
+import { Array as Arr, Effect, Match, Schema } from "effect"
 import { CatalogId, Slug } from "../catalog/taxonomy"
 import { Label, Note, Reps, RestSeconds, Text } from "../common"
 
@@ -33,11 +33,23 @@ export const TimedItem = Schema.Struct({
 })
 export type TimedItem = typeof TimedItem.Type
 
+/** Straight sets of one reps item (programs-player-v2 §7.2). */
+export const SetCount = Schema.Number.check(
+  Schema.isInt(),
+  Schema.isBetween({ minimum: 1, maximum: 10 }),
+)
+export type SetCount = typeof SetCount.Type
+
 export const RepsItem = Schema.Struct({
   kind: Schema.Literal("reps"),
   catalogId: CatalogId,
   reps: Reps,
   restSeconds: RestSeconds,
+  /**
+   * Straight sets of this exercise before the next item; `restSeconds` applies between them too.
+   * Absent on days written before sets existed: decodes as 1.
+   */
+  sets: SetCount.pipe(Schema.withDecodingDefaultKey(Effect.succeed(1))),
 })
 export type RepsItem = typeof RepsItem.Type
 
@@ -75,13 +87,53 @@ const workSeconds = (item: ProgramItem): number =>
     }),
   )
 
+/** How many straight sets an item runs: a reps item's `sets`, 1 for a timed item. */
+export const setsOf = (item: ProgramItem): number =>
+  Match.value(item).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      timed: () => 1,
+      reps: ({ sets }) => sets,
+    }),
+  )
+
+/** One work phase of a round: set `set` of `sets` of the day's item `exerciseIndex`. */
+export interface Step {
+  readonly item: ProgramItem
+  /** 0-based index into `day.items`. */
+  readonly exerciseIndex: number
+  readonly exercises: number
+  /** 1-based. */
+  readonly set: number
+  readonly sets: number
+  /**
+   * Rest after this step: the item's `restSeconds` (between sets and after the last one). The
+   * player replaces it with `restBetweenRoundsSeconds` after the last step of a round.
+   */
+  readonly restSeconds: number
+}
+
+/** One round of `day` as work steps: every item's sets in order (programs-player-v2 §7.3). */
+export const expandDay = (day: ProgramDay): ReadonlyArray<Step> =>
+  Arr.flatMap(day.items, (item, exerciseIndex) => {
+    const sets = setsOf(item)
+    return Arr.map(Arr.range(1, sets), (set) => ({
+      item,
+      exerciseIndex,
+      exercises: day.items.length,
+      set,
+      sets,
+      restSeconds: item.restSeconds,
+    }))
+  })
+
 /**
- * Planned length of a day: every round does each item's work; after an item comes its
- * `restSeconds`, except after the last item of a round, where `restBetweenRoundsSeconds` applies
+ * Planned length of a day: every round does each step's work; after a step comes its
+ * `restSeconds`, except after the last step of a round, where `restBetweenRoundsSeconds` applies
  * instead (and nothing after the final round).
  */
 export const dayDurationSeconds = (day: ProgramDay): number => {
-  const work = Arr.reduce(day.items, 0, (total, item) => total + workSeconds(item))
-  const restInRound = Arr.reduce(Arr.dropRight(day.items, 1), 0, (t, item) => t + item.restSeconds)
+  const steps = expandDay(day)
+  const work = Arr.reduce(steps, 0, (total, s) => total + workSeconds(s.item))
+  const restInRound = Arr.reduce(Arr.dropRight(steps, 1), 0, (t, s) => t + s.restSeconds)
   return day.rounds * (work + restInRound) + (day.rounds - 1) * day.restBetweenRoundsSeconds
 }

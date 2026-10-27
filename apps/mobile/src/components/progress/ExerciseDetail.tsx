@@ -27,7 +27,6 @@ import {
   hasE1RmTrend,
   latestE1RmText,
   weekBarsHeading,
-  weekSeries,
 } from "./progressFormat"
 import { Sparkline } from "./Sparkline"
 import { WeekBars } from "./WeekBars"
@@ -63,13 +62,13 @@ function BestSetCard({ history, tile = false }: DetailProps & { readonly tile?: 
       {Option.match(history.best, {
         onNone: () => <Text tone="muted">No sets logged yet.</Text>,
         onSome: (best) => {
-          const parts = bestSetParts(best.weightKg, best.reps)
+          const parts = bestSetParts(best.weightKg, best.reps, history.unit)
           const e1Rm = e1RmText(best.weightKg, history.bestE1Rm)
           const spoken = Option.match(e1Rm, { onNone: () => "", onSome: (text) => `, ${text}` })
           return (
             <View
               accessible
-              accessibilityLabel={`Best set ${formatSetText(best.weightKg, best.reps)}${spoken}, personal record`}
+              accessibilityLabel={`Best set ${formatSetText(best.weightKg, best.reps, history.unit)}${spoken}, personal record`}
               style={{ gap: space.xs }}
             >
               <View
@@ -137,13 +136,13 @@ function RecentSessions({ history }: DetailProps) {
                       {`Set ${index + 1}`}
                     </Text>
                     <Text variant="headline" tabular>
-                      {formatSetText(set.weightKg, set.reps)}
+                      {formatSetText(set.weightKg, set.reps, history.unit)}
                     </Text>
                   </View>
                 }
                 title=""
                 trailing={set.isPr ? <StatusPill label="PR" tone="accent" /> : undefined}
-                accessibilityLabel={`Set ${index + 1}, ${formatSetText(set.weightKg, set.reps)}${set.isPr ? ", personal record" : ""}`}
+                accessibilityLabel={`Set ${index + 1}, ${formatSetText(set.weightKg, set.reps, history.unit)}${set.isPr ? ", personal record" : ""}`}
               />
             ))}
           </ListGroup>
@@ -184,8 +183,8 @@ function DetailReady({ history, layout }: DetailReadyProps) {
   const bestSet = <BestSetCard history={history} />
   const weekBars = (
     <Card style={{ gap: space.md }}>
-      <Text variant="headline">{weekBarsHeading(weekSeries(history.weeks).unit)}</Text>
-      <WeekBars weeks={history.weeks} />
+      <Text variant="headline">{weekBarsHeading(history.unit)}</Text>
+      <WeekBars weeks={history.weeks} unit={history.unit} />
     </Card>
   )
   const e1RmCard = hasE1RmTrend(history.e1RmTrend) ? (

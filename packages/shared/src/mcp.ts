@@ -378,6 +378,8 @@ export const ProgramItemInput = Schema.Union([
     catalogId: CatalogId,
     reps: IntBetween(1, 100),
     restSeconds: IntBetween(0, 300),
+    /** Straight sets with `restSeconds` between them; absent = 1 (`RepsItem.sets`). */
+    sets: Schema.optionalKey(IntBetween(1, 10)),
   }),
 ])
 export type ProgramItemInput = typeof ProgramItemInput.Type

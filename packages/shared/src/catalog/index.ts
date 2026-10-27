@@ -12,11 +12,13 @@ import { hips } from "./data/hips"
 import { legs } from "./data/legs"
 import { mobility } from "./data/mobility"
 import { shoulders } from "./data/shoulders"
+import { isLoadedEquipment } from "./loaded"
 import type { CatalogEquipment, CatalogId, ExerciseKind } from "./taxonomy"
 
 export * from "./availability"
 export * from "./CatalogExercise"
 export * from "./core30Ids"
+export * from "./loaded"
 export * from "./presets"
 export * from "./taxonomy"
 
@@ -55,6 +57,16 @@ export const CATALOG_BY_ID: ReadonlyMap<CatalogId, CatalogExercise> = new Map(
 
 export const findCatalogExercise = (id: CatalogId): Option.Option<CatalogExercise> =>
   Option.fromNullishOr(CATALOG_BY_ID.get(id))
+
+/**
+ * `isLoadedEquipment` by catalog id over the bundled catalog; `false` for an unknown id. Lives here
+ * beside `CATALOG_BY_ID` so `loaded.ts` does not import this module back (no import cycle).
+ */
+export const isLoaded = (catalogId: CatalogId): boolean =>
+  Option.match(findCatalogExercise(catalogId), {
+    onNone: () => false,
+    onSome: (entry) => isLoadedEquipment(entry.equipment),
+  })
 
 export interface CatalogFilter {
   readonly query?: string

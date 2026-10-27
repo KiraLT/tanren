@@ -17,3 +17,19 @@ export const appended = [...xs, 4];
 export const { a: dropped, ...withoutA } = b; // copy without a key
 export const withoutC = Record.remove({ c: 1, d: 2 }, "c");
 export const isOne = b.a === 1; // comparison, not assignment
+
+// Method names that only CONTAIN a mutator name are not mutators (the pattern is anchored).
+declare const loads: {
+  readonly prefill: () => number;
+  readonly backfill: () => number;
+  readonly pushed: () => number;
+  readonly sorted: () => number;
+  readonly unshiftLater: () => number;
+};
+export const prefilled = loads.prefill();
+export const backfilled = loads.backfill();
+export const wasPushed = loads.pushed();
+export const isSorted = loads.sorted();
+export const later = loads.unshiftLater();
+export const quotedPrefill = loads["prefill"]();
+export const quotedSorted = loads["sorted"]();

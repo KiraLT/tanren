@@ -22,7 +22,7 @@ import {
   Text,
   useColumns,
 } from "../../ui"
-import { exerciseName, itemAmount } from "../cues"
+import { exerciseName, prescription } from "../cues"
 import {
   dayCardLine,
   dayDisc,
@@ -258,10 +258,10 @@ export function DayItems({ day }: DayItemsProps) {
             key={`${item.catalogId}-${index}`}
             title={exerciseName(item.catalogId)}
             titleVariant="body"
-            accessibilityLabel={`${exerciseName(item.catalogId)}, ${itemAmount(item)}`}
+            accessibilityLabel={`${exerciseName(item.catalogId)}, ${prescription(item)}`}
             trailing={
               <Text variant="subhead" tone="muted" style={{ fontVariant: ["tabular-nums"] }}>
-                {itemAmount(item)}
+                {prescription(item)}
               </Text>
             }
           />

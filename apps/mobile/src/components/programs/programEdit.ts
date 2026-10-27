@@ -77,6 +77,7 @@ export const RANGES = {
   restBetweenRounds: { min: 0, max: 300, step: 15 },
   seconds: { min: 10, max: 600, step: 5 },
   reps: { min: 1, max: 100, step: 1 },
+  sets: { min: 1, max: 10, step: 1 },
   rest: { min: 0, max: 300, step: 5 },
 } as const satisfies Record<string, StepRange>
 
@@ -149,6 +150,7 @@ const repsItem = (catalogId: CatalogId, reps: number, restSeconds: number): Prog
   catalogId,
   reps: Reps.make(reps),
   restSeconds,
+  sets: 1,
 })
 
 /** A catalog entry as a new item: timed entries 30 s, everything else 10 reps, rest 30 s. */
@@ -227,6 +229,13 @@ export const stepWork = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
 
 export const stepRest = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
   withRest(item, stepValue(item.restSeconds, direction, RANGES.rest))
+
+/** Straight sets of a reps item, clamped to `RANGES.sets`; a timed item is unchanged. */
+export const stepSets = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
+  item.kind === "reps" ? { ...item, sets: stepValue(item.sets, direction, RANGES.sets) } : item
+
+/** "4 sets" / "1 set" */
+export const setsText = (sets: number): string => `${sets} ${sets === 1 ? "set" : "sets"}`
 
 export const stepRounds = (day: ProgramDay, direction: -1 | 1): ProgramDay => ({
   ...day,

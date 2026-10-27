@@ -1,14 +1,17 @@
-import type { ProgramDay, ProgramItem } from "@tanren/shared"
+import { formatInt, type ProgramDay, type ProgramItem } from "@tanren/shared"
 import { Match, Option } from "effect"
 import { ScrollView, useWindowDimensions, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { formatKg, stepReps, stepWeight } from "../../components/stepMath"
 import type { CompletionState } from "../../hooks/usePlayer"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
+import type { SetEntry } from "../../services/ProgramRepo"
 import {
   Banner,
   Button,
   Card,
   IconButton,
+  Stepper,
   sizes,
   space,
   stroke,
@@ -16,7 +19,7 @@ import {
   TimerRing,
   useBreakpoint,
 } from "../../ui"
-import { clock, exerciseName, itemAmount, nextCaption, repsOf } from "../cues"
+import { clock, exerciseName, isWeighted, itemAmount, nextCaption, repsOf } from "../cues"
 import { currentItem, type PlayerEventTag, type PlayerState, upNext } from "../playerMachine"
 import { ringSpec } from "../playerRing"
 
@@ -54,6 +57,9 @@ interface PlayerViewProps {
   readonly send: (tag: PlayerEventTag) => void
   /** Opens the swap sheet for the current exercise; the button shows on an exercise screen only. */
   readonly onSwap?: () => void
+  /** `run.draft`: Some on a weighted reps item (kg × reps steppers); None shows the rep numeral. */
+  readonly draft: Option.Option<SetEntry>
+  readonly onAdjust: (entry: SetEntry) => void
 }
 
 /**
@@ -61,7 +67,15 @@ interface PlayerViewProps {
  * a 120 px illustration beside the name, the rest screen a 56 px one beside "Next"; both carry the
  * big ring (a reps item: count numeral + Done, ADR-0020), the transport row and `Finish workout`.
  */
-export function PlayerView({ day, state, remainingMs, send, onSwap }: PlayerViewProps) {
+export function PlayerView({
+  day,
+  state,
+  remainingMs,
+  send,
+  onSwap,
+  draft,
+  onAdjust,
+}: PlayerViewProps) {
   const breakpoint = useBreakpoint()
   const phone = breakpoint === "phone"
   const ring = ringSpec(breakpoint, useWindowDimensions().width)
@@ -159,27 +173,62 @@ export function PlayerView({ day, state, remainingMs, send, onSwap }: PlayerView
         onNone: () =>
           Option.match(Option.flatMap(item, repsOf), {
             onNone: () => doneButton,
-            onSome: (count) => (
-              <View
-                style={{
-                  minHeight: ring.size ?? DEFAULT_RING_SIZE,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  alignSelf: "stretch",
-                  gap: space.lg,
-                }}
-              >
-                <View style={{ alignItems: "center", gap: space.xs }}>
-                  <Text variant={ring.clock} accessibilityLabel={`${count} reps`}>
-                    {count}
-                  </Text>
-                  <Text variant="caption" tone="muted">
-                    reps
-                  </Text>
+            onSome: (count) =>
+              // A weighted reps item (§2.2): kg × reps steppers on the draft, then Done.
+              Option.exists(item, isWeighted) && Option.isSome(draft) ? (
+                <View style={{ alignSelf: "stretch", gap: space.lg }}>
+                  <Stepper
+                    label="Weight"
+                    size="lg"
+                    valueText={formatKg(draft.value.weightKg)}
+                    unit="kg"
+                    disabled={paused}
+                    onDecrement={() =>
+                      onAdjust({ ...draft.value, weightKg: stepWeight(draft.value.weightKg, -1) })
+                    }
+                    onIncrement={() =>
+                      onAdjust({ ...draft.value, weightKg: stepWeight(draft.value.weightKg, 1) })
+                    }
+                  />
+                  <Stepper
+                    label="Reps"
+                    size="lg"
+                    valueText={String(draft.value.reps)}
+                    unit="reps"
+                    disabled={paused}
+                    onDecrement={() =>
+                      onAdjust({
+                        ...draft.value,
+                        reps: Math.max(1, stepReps(draft.value.reps, -1)),
+                      })
+                    }
+                    onIncrement={() =>
+                      onAdjust({ ...draft.value, reps: stepReps(draft.value.reps, 1) })
+                    }
+                  />
+                  {doneButton}
                 </View>
-                {doneButton}
-              </View>
-            ),
+              ) : (
+                <View
+                  style={{
+                    minHeight: ring.size ?? DEFAULT_RING_SIZE,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    alignSelf: "stretch",
+                    gap: space.lg,
+                  }}
+                >
+                  <View style={{ alignItems: "center", gap: space.xs }}>
+                    <Text variant={ring.clock} accessibilityLabel={`${count} reps`}>
+                      {count}
+                    </Text>
+                    <Text variant="caption" tone="muted">
+                      reps
+                    </Text>
+                  </View>
+                  {doneButton}
+                </View>
+              ),
           }),
         onSome: (s) => (
           <TimerRing
@@ -323,6 +372,37 @@ export function PlayerView({ day, state, remainingMs, send, onSwap }: PlayerView
   )
 }
 
+interface SummaryTileProps {
+  readonly label: string
+  readonly value: string
+  readonly unit?: string
+  readonly muted?: boolean
+  readonly spoken: string
+}
+
+/** One finish-sheet stat: headline numeral (tabular) + its unit, caption label under it. */
+function SummaryTile({ label, value, unit, muted = false, spoken }: SummaryTileProps) {
+  return (
+    <Card padding={space.md} style={{ flex: 1 }}>
+      <View accessible accessibilityLabel={spoken} style={{ gap: space.xs }}>
+        <View style={{ flexDirection: "row", alignItems: "baseline", gap: space.xs }}>
+          <Text variant="headline" tabular {...(muted ? { tone: "muted" as const } : {})}>
+            {value}
+          </Text>
+          {unit === undefined ? null : (
+            <Text variant="subhead" tone="muted">
+              {unit}
+            </Text>
+          )}
+        </View>
+        <Text variant="caption" tone="muted">
+          {label}
+        </Text>
+      </View>
+    </Card>
+  )
+}
+
 interface CompletionSheetProps {
   readonly completion: Exclude<CompletionState, { readonly _tag: "None" }>
   readonly onClose: () => void
@@ -335,12 +415,26 @@ export function CompletionSheet({ completion, onClose, onRetry }: CompletionShee
     <Card tone={completion._tag === "Failed" ? "danger" : "success"}>
       <View accessible accessibilityLabel="Workout complete" style={{ gap: space.md }}>
         <Text variant="title">Workout complete</Text>
-        <Text
-          variant="numeral"
-          accessibilityLabel={`Duration ${clock(completion.durationSeconds)}`}
-        >
-          {clock(completion.durationSeconds)}
-        </Text>
+        {/* Two stat tiles side by side (§2.5, Strava's stats row), never a `·` text row. */}
+        <View style={{ flexDirection: "row", gap: space.lg }}>
+          <SummaryTile
+            label="Duration"
+            value={clock(completion.durationSeconds)}
+            spoken={`Duration ${clock(completion.durationSeconds)}`}
+          />
+          {completion._tag === "Saved" ? (
+            completion.volumeKg > 0 ? (
+              <SummaryTile
+                label="Volume"
+                value={formatInt(completion.volumeKg)}
+                unit="kg"
+                spoken={`Volume ${formatInt(completion.volumeKg)} kilograms`}
+              />
+            ) : (
+              <SummaryTile label="Volume" value="No load" muted spoken="Volume, no load" />
+            )
+          ) : null}
+        </View>
         {Match.value(completion).pipe(
           Match.tagsExhaustive({
             Saving: () => <Text tone="muted">Saving…</Text>,

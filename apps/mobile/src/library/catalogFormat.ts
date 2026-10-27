@@ -134,16 +134,20 @@ const byLoadThenReps: Order.Order<SetLoad> = Order.combine(
 
 /**
  * "Last done 18 Oct · 105 kg × 5": the newest session with sets (`recent` is newest first), its
- * heaviest set (more reps on a tie). `None` when there is no history, so the row is not drawn.
+ * heaviest set (more reps on a tie), in the exercise's unit (a plank reads "45 s"). `None` when
+ * there is no history, so the row is not drawn.
  */
-export const lastDoneText = (recent: ExerciseHistory["recent"]): Option.Option<string> =>
+export const lastDoneText = (
+  recent: ExerciseHistory["recent"],
+  unit: ExerciseHistory["unit"],
+): Option.Option<string> =>
   Option.flatMap(
     Arr.findFirst(recent, ({ sets }) => sets.length > 0),
     ({ session, sets }) =>
       Option.map(
         Arr.last(Arr.sort(sets, byLoadThenReps)),
         (top) =>
-          `Last done ${formatLoggedDate(session.startedAt)} · ${formatSetText(top.weightKg, top.reps)}`,
+          `Last done ${formatLoggedDate(session.startedAt)} · ${formatSetText(top.weightKg, top.reps, unit)}`,
       ),
   )
 

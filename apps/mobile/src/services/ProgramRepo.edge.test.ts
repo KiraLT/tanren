@@ -108,6 +108,7 @@ const input = (dayNumber: number, performedItems: number, durationSeconds = 60) 
   durationSeconds,
   performedItems,
   performedIds: [],
+  entries: [],
 })
 
 describe("ProgramRepo edge cases", () => {

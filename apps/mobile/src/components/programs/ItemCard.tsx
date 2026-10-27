@@ -6,7 +6,9 @@ import { CompactStepper, MoveButton } from "./ProgramFields"
 import {
   RANGES,
   type StepRange,
+  setsText,
   stepRest,
+  stepSets,
   stepWork,
   withKind,
   workRange,
@@ -101,6 +103,20 @@ export function ItemCard({
             />
           </View>
         </View>
+        {item.kind === "reps" ? (
+          <View style={{ flexDirection: "row", gap: space.md }}>
+            <View style={{ flex: 1 }}>
+              <CompactStepper
+                label={`${name} sets`}
+                valueText={setsText(item.sets)}
+                {...canStep(item.sets, RANGES.sets)}
+                onDecrement={() => onChange((current) => stepSets(current, -1))}
+                onIncrement={() => onChange((current) => stepSets(current, 1))}
+              />
+            </View>
+            <View style={{ flex: 1 }} />
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: space.sm }}>
           <MoveButton
             direction="up"

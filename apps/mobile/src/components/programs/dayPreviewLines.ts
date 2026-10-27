@@ -8,7 +8,7 @@ import {
   type Swaps,
 } from "@tanren/shared"
 import { Array as Arr, Option, Schema, String as Str } from "effect"
-import { itemAmount } from "../../player/cues"
+import { prescription } from "../../player/cues"
 
 /** The parts of a running enrollment the preview reads (`ActiveProgram.enrollment`). */
 export interface PreviewEnrollment {
@@ -51,9 +51,12 @@ export const positionLabel = (day: ProgramDay, totalDays: number): string => {
   return Arr.join([`Day ${day.dayNumber} of ${totalDays}`, ...rest], " · ")
 }
 
-/** "12 reps · 30 s rest", "40 s · 15 s rest"; an item with no rest drops the second part. */
+/**
+ * "4 × 10 reps · 120 s rest", "12 reps · 30 s rest", "40 s · 15 s rest"; an item with no rest drops
+ * the second part.
+ */
 export const itemLine = (item: ProgramItem): string =>
-  item.restSeconds > 0 ? `${itemAmount(item)} · ${item.restSeconds} s rest` : itemAmount(item)
+  item.restSeconds > 0 ? `${prescription(item)} · ${item.restSeconds} s rest` : prescription(item)
 
 /** "Start this day" shows only on the current day of an `active` enrollment. */
 export const startable = (enrollment: Option.Option<PreviewEnrollment>, dayNumber: number) =>

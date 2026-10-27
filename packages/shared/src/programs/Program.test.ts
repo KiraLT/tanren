@@ -1,8 +1,17 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Option, Schema } from "effect"
+import { Array as Arr, Effect, Option, Schema } from "effect"
 import { failingPaths } from "../testing"
 import { findProgram, PROGRAMS } from "./index"
-import { dayDurationSeconds, Program, ProgramDay, ProgramId } from "./Program"
+import {
+  dayDurationSeconds,
+  expandDay,
+  Program,
+  ProgramDay,
+  ProgramId,
+  ProgramItem,
+  RepsItem,
+  setsOf,
+} from "./Program"
 
 const timed = (seconds: number, restSeconds: number) => ({
   kind: "timed",
@@ -78,5 +87,78 @@ describe("Program", () => {
   it("findProgram is None for an unknown id", () => {
     expect(PROGRAMS.length).toBeGreaterThan(0)
     expect(Option.isNone(findProgram(ProgramId.make("no-such-program")))).toBe(true)
+  })
+
+  it.effect("every built-in day decodes and re-encodes through ProgramDay", () =>
+    Effect.gen(function* () {
+      const all = Arr.flatMap(PROGRAMS, (program) => program.days)
+      const back = yield* Effect.forEach(all, (day) =>
+        Effect.flatMap(
+          Schema.encodeEffect(ProgramDay)(day),
+          Schema.decodeUnknownEffect(ProgramDay),
+        ),
+      )
+      expect(back).toEqual(all)
+    }),
+  )
+})
+
+const reps = (sets: number | undefined, restSeconds = 90) => ({
+  kind: "reps",
+  catalogId: "barbell-bench-press",
+  reps: 8,
+  restSeconds,
+  ...(sets === undefined ? {} : { sets }),
+})
+
+describe("RepsItem.sets", () => {
+  it.effect("a minimal reps item (no sets key) decodes with sets 1", () =>
+    Effect.gen(function* () {
+      const item = yield* Schema.decodeUnknownEffect(RepsItem)(reps(undefined))
+      expect(item.sets).toBe(1)
+    }),
+  )
+
+  it.effect("rejects 0 and 11 sets", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(RepsItem, reps(11))).toEqual([["sets"]])
+      expect(yield* failingPaths(RepsItem, reps(0))).toEqual([["sets"]])
+    }),
+  )
+
+  it.effect("round-trips sets as a member of the ProgramItem union", () =>
+    Effect.gen(function* () {
+      const item = yield* Schema.decodeUnknownEffect(ProgramItem)(reps(4))
+      const encoded = yield* Schema.encodeEffect(ProgramItem)(item)
+      expect(encoded).toEqual(reps(4))
+      expect(yield* Schema.decodeUnknownEffect(ProgramItem)(encoded)).toEqual(item)
+    }),
+  )
+})
+
+describe("expandDay", () => {
+  const day = Schema.decodeUnknownSync(ProgramDay)({
+    ...dayWire,
+    rounds: 1,
+    items: [reps(3, 90), timed(30, 20)],
+  })
+
+  it("runs a 3-set item as 3 steps, then the timed item", () => {
+    const steps = expandDay(day)
+    expect(steps.map((s) => [s.exerciseIndex, s.set, s.sets, s.restSeconds])).toEqual([
+      [0, 1, 3, 90],
+      [0, 2, 3, 90],
+      [0, 3, 3, 90],
+      [1, 1, 1, 20],
+    ])
+    expect(steps.every((s) => s.exercises === 2)).toBe(true)
+  })
+
+  it("counts every set in dayDurationSeconds (3 × 16 s + 30 s work, 3 × 90 s rest)", () => {
+    expect(dayDurationSeconds(day)).toBe(3 * 16 + 30 + 3 * 90)
+  })
+
+  it("gives a timed item one set", () => {
+    expect(setsOf(Schema.decodeUnknownSync(ProgramItem)(timed(30, 0)))).toBe(1)
   })
 })

@@ -46,7 +46,7 @@ describe("playerMachine phase boundaries", () => {
       ["start", T0],
       ["tick", T0 + 30_000],
     ])
-    expect(s).toMatchObject({ _tag: "Resting", round: 0, itemIndex: 0, phaseStartMs: T0 + 30_000 })
+    expect(s).toMatchObject({ _tag: "Resting", round: 0, stepIndex: 0, phaseStartMs: T0 + 30_000 })
   })
 
   it("a tick one ms before endsAt stays in the phase", () => {
@@ -55,7 +55,7 @@ describe("playerMachine phase boundaries", () => {
         ["start", T0],
         ["tick", T0 + 29_999],
       ]),
-    ).toMatchObject({ _tag: "Working", itemIndex: 0 })
+    ).toMatchObject({ _tag: "Working", stepIndex: 0 })
   })
 
   it("a single tick after a long background gap lands in the right phase with deadlines chained", () => {
@@ -64,13 +64,13 @@ describe("playerMachine phase boundaries", () => {
       ["start", T0],
       ["tick", T0 + 100_000],
     ])
-    expect(s).toMatchObject({ _tag: "Resting", round: 0, itemIndex: 1, endsAtMs: T0 + 120_000 })
+    expect(s).toMatchObject({ _tag: "Resting", round: 0, stepIndex: 1, endsAtMs: T0 + 120_000 })
     // 125 s in: inside W(1,0) which began exactly at the deadline 121 000 - 1000? (T0+120_000).
     const t = run([
       ["start", T0],
       ["tick", T0 + 125_000],
     ])
-    expect(t).toMatchObject({ _tag: "Working", round: 1, itemIndex: 0, phaseStartMs: T0 + 120_000 })
+    expect(t).toMatchObject({ _tag: "Working", round: 1, stepIndex: 0, phaseStartMs: T0 + 120_000 })
   })
 
   it("a gap past the end is Done with duration of the schedule, not of the gap", () => {
@@ -108,7 +108,7 @@ describe("playerMachine phase boundaries", () => {
       ["start", T0],
       ["pause", T0 + 35_000],
     ])
-    expect(s).toMatchObject({ _tag: "Paused", inner: { _tag: "Resting", itemIndex: 0 } })
+    expect(s).toMatchObject({ _tag: "Paused", inner: { _tag: "Resting", stepIndex: 0 } })
     expect(remainingMs(s, T0 + 99_999)).toEqual(Option.some(5000))
   })
 
@@ -119,7 +119,7 @@ describe("playerMachine phase boundaries", () => {
       ["resume", T0 + 500_000],
       ["tick", T0 + 500_500],
     ])
-    expect(s).toMatchObject({ _tag: "Working", itemIndex: 0 })
+    expect(s).toMatchObject({ _tag: "Working", stepIndex: 0 })
     expect(remainingMs(s, T0 + 500_500)).toEqual(Option.some(500))
   })
 
@@ -212,9 +212,9 @@ describe("playerMachine reps items and rest 0", () => {
       ],
       c,
     )
-    expect(a).toMatchObject({ _tag: "Working", itemIndex: 0, endsAtMs: Option.none() })
+    expect(a).toMatchObject({ _tag: "Working", stepIndex: 0, endsAtMs: Option.none() })
     const b = step(c)(a, playerEvent("next", T0 + 10_000_000))
-    expect(b).toMatchObject({ _tag: "Working", itemIndex: 1 })
+    expect(b).toMatchObject({ _tag: "Working", stepIndex: 1 })
     expect(run([["tick", T0 + 10_020_000]], c, b)).toEqual({
       _tag: "Done",
       durationSeconds: 10_010,
@@ -250,7 +250,7 @@ describe("playerMachine reps items and rest 0", () => {
     const started = run([["start", T0]], c)
 
     it("start enters Working with no deadline", () => {
-      expect(started).toMatchObject({ _tag: "Working", itemIndex: 0, endsAtMs: Option.none() })
+      expect(started).toMatchObject({ _tag: "Working", stepIndex: 0, endsAtMs: Option.none() })
     })
 
     it("a tick ten minutes later stays on the same phase", () => {
@@ -264,7 +264,7 @@ describe("playerMachine reps items and rest 0", () => {
       const rest = step(c)(started, playerEvent("next", nowMs))
       expect(rest).toMatchObject({
         _tag: "Resting",
-        itemIndex: 0,
+        stepIndex: 0,
         phaseStartMs: nowMs,
         endsAtMs: nowMs + 15_000,
       })
@@ -284,7 +284,7 @@ describe("playerMachine reps items and rest 0", () => {
         c,
         started,
       )
-      expect(resumed).toMatchObject({ _tag: "Working", itemIndex: 0, endsAtMs: Option.none() })
+      expect(resumed).toMatchObject({ _tag: "Working", stepIndex: 0, endsAtMs: Option.none() })
     })
 
     it("remainingMs is None on the reps phase, running or paused", () => {
@@ -299,6 +299,6 @@ describe("playerMachine reps items and rest 0", () => {
       ["start", T0],
       ["previous", T0 + 100],
     ])
-    expect(s).toMatchObject({ _tag: "Working", round: 0, itemIndex: 0, phaseStartMs: T0 + 100 })
+    expect(s).toMatchObject({ _tag: "Working", round: 0, stepIndex: 0, phaseStartMs: T0 + 100 })
   })
 })

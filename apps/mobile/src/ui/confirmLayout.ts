@@ -10,7 +10,10 @@ export interface ConfirmRequest {
   readonly message: string
   /** A verb, 1–2 words, ≤ 12 characters so it fits the 157 px button at 390: "Delete", "Disconnect". */
   readonly confirmLabel: string
-  /** The confirm button's accessible name when the visible label is shortened ("Delete everything"). */
+  /**
+   * The confirm button's accessible name when it must say more than the visible label; it starts
+   * with the visible words (WCAG 2.5.3), so the delete-account dialog's "Delete all" needs none.
+   */
   readonly confirmAccessibilityLabel?: string
   /** Defaults to "Cancel". */
   readonly cancelLabel?: string

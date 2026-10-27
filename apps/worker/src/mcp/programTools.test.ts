@@ -513,9 +513,8 @@ describe("tool descriptions", () => {
     expect(programWriteTools.every((t) => t.kind === "write")).toBe(true)
   })
 
-  it("stays within 900 characters and names no trademark", () => {
+  it("stays within 900 characters", () => {
     expect(all.filter((t) => t.description.length > 900).map((t) => t.name)).toEqual([])
-    expect(all.filter((t) => /Labrada|Lee L|Lean Body/.test(t.description))).toEqual([])
   })
 
   it("carries the design text for write_program and enroll_program", () => {

@@ -16,7 +16,7 @@ interface ExerciseRowProps {
 
 /** 56 px illustration, name (headline), `best set · e1RM` (subhead; best set only when bodyweight), last-logged day. */
 export function ExerciseRow({ summary, selected, onPress }: ExerciseRowProps) {
-  const best = formatSetText(summary.best.weightKg, summary.best.reps)
+  const best = formatSetText(summary.best.weightKg, summary.best.reps, summary.unit)
   const e1Rm = e1RmText(summary.best.weightKg, summary.bestE1Rm)
   const last = formatLoggedDate(summary.lastLoggedAt)
   // One line at any width: the row's own width (first guess: the window) decides whether the e1RM

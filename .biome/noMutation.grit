@@ -11,7 +11,10 @@
 //  3. `Object.assign(target, ...)` unless `target` is an object literal (`Object.assign({}, a)` and
 //     `Object.assign({ x: 1 }, a)` are allowed; a spread first argument is flagged).
 //  4. Calls of mutating array methods: push, pop, shift, unshift, splice, sort, reverse, fill,
-//     copyWithin, as `x.m(...)`, `x?.m(...)` or `x["m"](...)`. Receivers that are PascalCase
+//     copyWithin, as `x.m(...)`, `x?.m(...)` or `x["m"](...)`. The method must be the WHOLE name:
+//     a GritQL `r"…"` match is a substring search on the node's text, so both regexes are anchored
+//     with `^…$` (`x.prefill()`, `x.sorted()` are not flagged; fixture noMutation.negative.ts).
+//     Receivers that are PascalCase
 //     identifiers with a lowercase letter (`Array`, `Chunk`, `Order`, `Record`) are skipped: they
 //     are Effect modules whose `Array.sort`, `Array.reverse`, `Order.reverse`, `Chunk.reverse`,
 //     `Record.pop` return new values. SCREAMING_CASE and one-letter receivers are still checked.
@@ -66,10 +69,10 @@ pattern object_assign_into_existing() {
 pattern mutating_array_method() {
 	or {
 		JsCallExpression(callee = JsStaticMemberExpression(object = $receiver, member = $method)) as $call where {
-			$method <: r"push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin"
+			$method <: r"^(?:push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)$"
 		},
 		JsCallExpression(callee = JsComputedMemberExpression(object = $receiver, member = $method)) as $call where {
-			$method <: r"[\"'](?:push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)[\"']"
+			$method <: r"^[\"'](?:push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)[\"']$"
 		}
 	} where {
 		not $receiver <: r"[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*",

@@ -19,7 +19,13 @@ const day = (title: string, dayNumber = 5): ProgramDay => ({
   rounds: 1,
   restBetweenRoundsSeconds: 0,
   items: [
-    { kind: "reps", catalogId: CatalogId.make("push-up"), reps: Reps.make(12), restSeconds: 30 },
+    {
+      kind: "reps",
+      catalogId: CatalogId.make("push-up"),
+      reps: Reps.make(12),
+      restSeconds: 30,
+      sets: 1,
+    },
   ],
 })
 
@@ -48,8 +54,18 @@ describe("itemLine", () => {
         catalogId: CatalogId.make("push-up"),
         reps: Reps.make(12),
         restSeconds: 30,
+        sets: 1,
       }),
     ).toBe("12 reps · 30 s rest")
+    expect(
+      itemLine({
+        kind: "reps",
+        catalogId: CatalogId.make("barbell-bench-press"),
+        reps: Reps.make(10),
+        restSeconds: 120,
+        sets: 4,
+      }),
+    ).toBe("4 × 10 reps · 120 s rest")
     expect(
       itemLine({ kind: "timed", catalogId: CatalogId.make("plank"), seconds: 40, restSeconds: 15 }),
     ).toBe("40 s · 15 s rest")

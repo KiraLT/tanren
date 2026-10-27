@@ -1,5 +1,5 @@
 import { Array as Arr, DateTime, Option, Order, pipe, Schema } from "effect"
-import { CatalogId, findCatalogExercise } from "./catalog"
+import { CatalogId, findCatalogExercise, isLoadedEquipment } from "./catalog"
 import { Label, Reps, Rpe, Timestamp, WeightKg } from "./common"
 import { type Exercise, MuscleGroup } from "./exercise"
 import { ExerciseId, SessionId, SetId } from "./ids"
@@ -56,16 +56,48 @@ export const bestSet = <S extends ScoredSet>(sets: ReadonlyArray<S>): Option.Opt
   )
 
 /**
- * Set i is a PR iff some earlier set exists and its score beats every earlier set strictly. The
- * input must already be in `Chronological` order; the first set is never a PR (nothing to beat).
+ * What an exercise's sets measure (programs-player-v2 §2.7), from its catalog link: `s` for a timed
+ * entry (reps hold seconds, ADR-0007 Q4), `kg` when its equipment moves a load, else `reps`
+ * (bodyweight, or no catalog link).
+ */
+export const ExerciseUnit = Schema.Literals(["kg", "reps", "s"])
+export type ExerciseUnit = typeof ExerciseUnit.Type
+
+export const unitOf = (exercise: { readonly catalogId: Option.Option<CatalogId> }): ExerciseUnit =>
+  Option.match(Option.flatMap(exercise.catalogId, findCatalogExercise), {
+    onNone: (): ExerciseUnit => "reps",
+    onSome: (entry): ExerciseUnit => {
+      if (entry.kind === "timed") {
+        return "s"
+      }
+      return isLoadedEquipment(entry.equipment) ? "kg" : "reps"
+    },
+  })
+
+/** A timed exercise's sets compare by seconds (`reps`) alone: a load never outranks a longer hold. */
+const SecondsScore: Order.Order<Pick<ScoredSet, "weightKg" | "reps">> = Order.mapInput(
+  Order.Number,
+  (set: Pick<ScoredSet, "weightKg" | "reps">) => set.reps,
+)
+
+/**
+ * Set i is a PR iff some earlier scored set exists and its score beats every earlier one strictly.
+ * By `unit`: `kg` scores only sets with `weightKg > 0` (a 0-kg set is never a PR and never the bar
+ * to beat), `s` compares seconds, `reps` uses `SetScore`. The input must already be in
+ * `Chronological` order; the first scored set is never a PR (nothing to beat).
  */
 export const markPrs = <S extends ScoredSet>(
   chronological: ReadonlyArray<S>,
+  unit: ExerciseUnit,
 ): ReadonlyArray<S & { readonly isPr: boolean }> =>
   Arr.mapAccum(chronological, Option.none<S>(), (best, set) => {
+    if (unit === "kg" && set.weightKg <= 0) {
+      return [best, { ...set, isPr: false }] as const
+    }
+    const score = unit === "s" ? SecondsScore : SetScore
     const isPr = Option.match(best, {
       onNone: () => false,
-      onSome: (current) => SetScore(set, current) > 0,
+      onSome: (current) => score(set, current) > 0,
     })
     const next = Option.match(best, {
       onNone: () => set,

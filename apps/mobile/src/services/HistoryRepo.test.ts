@@ -281,3 +281,87 @@ describe("HistoryRepo.exercise", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 })
+
+describe("HistoryRepo units (programs-player-v2 §2.7)", () => {
+  const DB_PRESS = uid(60)
+  const PLANK = uid(61)
+  const W5 = uid(62)
+  const linked = (id: string, name: string, catalogId: string) => ({
+    table: "exercise",
+    row: { ...row(id), name, aliases: [], muscleGroups: ["chest"], notes: null, catalogId },
+  })
+  const unitHistory = [
+    linked(DB_PRESS, "Bench Press", "barbell-bench-press"),
+    linked(PLANK, "Plank", "plank"),
+    session(W5, "2026-10-19T08:00:00.000Z", null, null),
+    // A pre-weights program day logged 0 kg × 20: not a data point for a kg exercise.
+    set(70, W5, DB_PRESS, 0, 20, "2026-10-19T08:01:00.000Z"),
+    set(71, W5, DB_PRESS, 40, 8, "2026-10-19T08:05:00.000Z"),
+    set(72, W5, DB_PRESS, 0, 12, "2026-10-19T08:10:00.000Z"),
+    set(73, W5, PLANK, 0, 30, "2026-10-19T08:20:00.000Z"),
+    set(74, W5, PLANK, 0, 45, "2026-10-19T08:22:00.000Z"),
+    set(75, W5, PLANK, 0, 40, "2026-10-19T08:24:00.000Z"),
+  ]
+
+  it.effect("unit kg drops 0-kg sets from best, e1RmTrend, weeks.volumeKg and PRs", () =>
+    Effect.gen(function* () {
+      yield* write(unitHistory)
+      const { history: press } = yield* detail(DB_PRESS)
+      expect(press.unit).toBe("kg")
+      expect(Option.map(press.best, (s) => s.id)).toEqual(Option.some(uid(71)))
+      expect(press.bestE1Rm).toBeCloseTo(50.67, 2)
+      expect(press.weeks.at(-2)?.volumeKg).toBe(320)
+      expect(press.e1RmTrend.at(-2)?.e1Rm.pipe(Option.map((e) => Math.round(e)))).toEqual(
+        Option.some(51),
+      )
+      const marks = press.recent.flatMap((r) => r.sets.map((s) => [s.reps, s.isPr]))
+      expect(marks).toEqual([
+        [20, false],
+        [8, false],
+        [12, false],
+      ])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("unit s: best is the longest hold in seconds, with no e1RM", () =>
+    Effect.gen(function* () {
+      yield* write(unitHistory)
+      const { history: plank } = yield* detail(PLANK)
+      expect(plank.unit).toBe("s")
+      expect(Option.map(plank.best, (s) => s.reps)).toEqual(Option.some(45))
+      expect(plank.bestE1Rm).toBe(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("lastSet is the newest live set of the exercise, None for one never logged", () =>
+    Effect.gen(function* () {
+      yield* write([...history, ...unitHistory])
+      const last = yield* HistoryRepo.use((repo) => repo.lastSet(ExerciseId.make(DB_PRESS)))
+      expect(Option.map(last, (s) => s.id)).toEqual(Option.some(uid(72)))
+      const none = yield* HistoryRepo.use((repo) => repo.lastSet(ExerciseId.make(UNUSED)))
+      expect(none).toEqual(Option.none())
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})
+
+describe("HistoryRepo.lastSet loadedOnly (PROG-R)", () => {
+  it.effect("skips a newer 0-kg program set and returns the 80 kg free-session set", () =>
+    Effect.gen(function* () {
+      const PRESS = uid(80)
+      const [FREE, PROGRAM] = [uid(81), uid(82)]
+      yield* write([
+        exercise(PRESS, "Bench Press"),
+        session(FREE, "2026-10-20T08:00:00.000Z", null, null),
+        set(83, FREE, PRESS, 80, 8, "2026-10-20T08:05:00.000Z"),
+        session(PROGRAM, "2026-10-22T08:00:00.000Z", null, null),
+        set(84, PROGRAM, PRESS, 0, 8, "2026-10-22T08:05:00.000Z"),
+      ])
+      const loaded = yield* HistoryRepo.use((repo) =>
+        repo.lastSet(ExerciseId.make(PRESS), { loadedOnly: true }),
+      )
+      expect(Option.map(loaded, (s) => s.weightKg)).toEqual(Option.some(80))
+      const any = yield* HistoryRepo.use((repo) => repo.lastSet(ExerciseId.make(PRESS)))
+      expect(Option.map(any, (s) => s.weightKg)).toEqual(Option.some(0))
+    }).pipe(Effect.provide(TestLayer)),
+  )
+})

@@ -35,6 +35,7 @@ import {
   Semaphore,
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
+import { HistoryRepo } from "./HistoryRepo"
 import { decodeRecords, LocalStore } from "./LocalStore"
 import { type SqlRecord, StoreError } from "./SqlDriver"
 
@@ -196,6 +197,7 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
     Effect.gen(function* () {
       const store = yield* LocalStore
       const ids = yield* IdGenerator
+      const history = yield* HistoryRepo
       /** One logSet at a time: two quick taps must not both create a session or reuse an order. */
       const logLock = yield* Semaphore.make(1)
       const zone = yield* DateTime.CurrentTimeZone
@@ -373,26 +375,6 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
         ),
       )
 
-      /** The exercise's last live set in any live session: a free exercise's first prefill. */
-      const lastLiveSet = (exerciseId: ExerciseId) =>
-        owner.pipe(
-          Effect.flatMap((userId) =>
-            store.all(
-              q(
-                `SELECT ws.* FROM "workout_set" ws
-                 JOIN "workout_session" s ON s."id" = ws."sessionId"
-                 WHERE ws."userId" = ? AND ws."exerciseId" = ?
-                   AND ws."deletedAt" IS NULL AND s."deletedAt" IS NULL
-                 ORDER BY ws."loggedAt" DESC LIMIT 1`,
-                userId,
-                exerciseId,
-              ),
-            ),
-          ),
-          Effect.flatMap(decodeRecords(WorkoutSetRow)),
-          Effect.map(Arr.head),
-        )
-
       const buildFree = (rowIds: ReadonlyArray<ExerciseId>) =>
         Effect.gen(function* () {
           const session = yield* openSession(Option.none())
@@ -419,7 +401,8 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
                 const done = logged.filter((set) => set.exerciseId === exercise.id)
                 const prefill = Arr.isReadonlyArrayNonEmpty(done)
                   ? prefillFor([], done)
-                  : Option.match(yield* lastLiveSet(exercise.id), {
+                  : // The exercise's last live set in any live session: its first prefill.
+                    Option.match(yield* history.lastSet(exercise.id), {
                       onNone: () => ({ weightKg: 0, reps: 0 }),
                       onSome: (set) => ({ weightKg: set.weightKg, reps: set.reps }),
                     })
@@ -731,7 +714,9 @@ export class TodayRepo extends Context.Service<TodayRepo, TodayRepoShape>()("@ta
         finishStaleSessions,
       })
     }),
-  )
+    // `HistoryRepo` (the prefill's `lastSet`) is built in: it needs only the `LocalStore` the
+    // caller already provides, so tests and `runtime.ts` stay unchanged.
+  ).pipe(Layer.provide(HistoryRepo.layer))
 
   static readonly layer = this.layerNoDeps.pipe(
     Layer.provide(

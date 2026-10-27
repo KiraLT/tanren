@@ -204,8 +204,8 @@ describe("lastDoneText", () => {
   })
 
   it("is None without history", () => {
-    expect(lastDoneText([])).toEqual(Option.none())
-    expect(lastDoneText([recentOf(18, [])])).toEqual(Option.none())
+    expect(lastDoneText([], "kg")).toEqual(Option.none())
+    expect(lastDoneText([recentOf(18, [])], "kg")).toEqual(Option.none())
   })
 
   it("names the newest session's date and its heaviest set", () => {
@@ -217,18 +217,24 @@ describe("lastDoneText", () => {
       ]),
       recentOf(11, [[120, 1]]),
     ]
-    expect(lastDoneText(recent)).toEqual(Option.some("Last done 18 Oct · 105 kg × 5"))
+    expect(lastDoneText(recent, "kg")).toEqual(Option.some("Last done 18 Oct · 105 kg × 5"))
   })
 
   it("skips a newer session that has no sets", () => {
-    expect(lastDoneText([recentOf(20, []), recentOf(11, [[120, 1]])])).toEqual(
+    expect(lastDoneText([recentOf(20, []), recentOf(11, [[120, 1]])], "kg")).toEqual(
       Option.some("Last done 11 Oct · 120 kg × 1"),
     )
   })
 
   it("reads a bodyweight set as reps", () => {
-    expect(lastDoneText([recentOf(18, [[0, 12]])])).toEqual(
+    expect(lastDoneText([recentOf(18, [[0, 12]])], "reps")).toEqual(
       Option.some("Last done 18 Oct · 12 reps"),
+    )
+  })
+
+  it("reads a timed exercise's set as seconds", () => {
+    expect(lastDoneText([recentOf(18, [[0, 45]])], "s")).toEqual(
+      Option.some("Last done 18 Oct · 45 s"),
     )
   })
 })

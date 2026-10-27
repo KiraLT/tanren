@@ -2,8 +2,10 @@ import {
   type Exercise,
   type ExerciseId,
   ExerciseRow,
+  type ExerciseUnit,
   type Session,
   SessionRow,
+  unitOf,
   type WorkoutSet,
   WorkoutSetRow,
 } from "@tanren/shared"
@@ -22,10 +24,22 @@ import { decodeRecords, LocalStore } from "./LocalStore"
 import { bestSet, Chronological, epley1Rm, markPrs, shiftDate, weekStartOf } from "./progressMath"
 import type { StoreError } from "./SqlDriver"
 
+/**
+ * The sets that are data points for best / e1RM / volume: a `kg` exercise's 0-kg sets (an unweighted
+ * program round, or a program day logged before weights) are not; other units keep every set.
+ * PR marks apply the same rule inside the shared `markPrs(sets, unit)`.
+ */
+const scoredSets = (unit: ExerciseUnit, sets: ReadonlyArray<WorkoutSet>) =>
+  unit === "kg" ? sets.filter((set) => set.weightKg > 0) : sets
+
 export interface ExerciseSummary {
   readonly exercise: Exercise
+  readonly unit: ExerciseUnit
   readonly lastLoggedAt: DateTime.Utc
-  /** Max by `SetScore` over all live sets (earliest on a tie). */
+  /**
+   * Max by `SetScore` over the scored sets (earliest on a tie); a `kg` exercise with only 0-kg sets
+   * falls back to all its sets so it stays listed (the row then reads "… · no load").
+   */
   readonly best: WorkoutSet
   readonly bestE1Rm: number
   readonly totalSets: number
@@ -34,7 +48,7 @@ export interface ExerciseSummary {
 export interface WeekBucket {
   /** Local Monday, `YYYY-MM-DD`. */
   readonly weekStart: string
-  /** `Σ weightKg · reps`: 0 for bodyweight work, where the chart plots `reps`. */
+  /** `Σ weightKg · reps`: 0 for bodyweight and timed work, where the chart plots `reps` (seconds). */
   readonly volumeKg: number
   readonly sets: number
   readonly reps: number
@@ -44,6 +58,8 @@ export type MarkedSet = WorkoutSet & { readonly isPr: boolean }
 
 export interface ExerciseHistory {
   readonly exercise: Exercise
+  readonly unit: ExerciseUnit
+  /** Over the scored sets (`kg`: weightKg > 0 only); None when there are none. */
   readonly best: Option.Option<WorkoutSet>
   readonly bestE1Rm: number
   /** Exactly `HISTORY_WEEKS`, oldest first, current week last, zero-filled. */
@@ -67,6 +83,14 @@ export interface HistoryRepoShape {
   readonly exercise: (
     id: ExerciseId,
   ) => Effect.Effect<Option.Option<ExerciseHistory>, StoreError, DateTime.CurrentTimeZone>
+  /**
+   * The exercise's newest live set (by `loggedAt`) in a live session: the prefill source.
+   * `loadedOnly` skips 0-kg sets (a loaded exercise's pre-weights program rows are not data, §2.7).
+   */
+  readonly lastSet: (
+    id: ExerciseId,
+    options?: { readonly loadedOnly: boolean },
+  ) => Effect.Effect<Option.Option<WorkoutSet>, StoreError>
 }
 
 export const HISTORY_WEEKS = 8
@@ -92,22 +116,30 @@ const NewestLoggedFirst: Order.Order<ExerciseSummary> = Order.flip(
 const summarise = (
   exercise: Exercise,
   sets: ReadonlyArray<WorkoutSet>,
-): Option.Option<ExerciseSummary> =>
-  Option.map(bestSet(sets), (best) => ({
+): Option.Option<ExerciseSummary> => {
+  const unit = unitOf(exercise)
+  const scored = scoredSets(unit, sets)
+  return Option.map(bestSet(scored.length > 0 ? scored : sets), (best) => ({
     exercise,
+    unit,
     // `sets` is chronological and non-empty here (it has a best set).
     lastLoggedAt: pipe(
       Arr.last(sets),
       Option.match({ onNone: () => best.loggedAt, onSome: (last) => last.loggedAt }),
     ),
     best,
-    bestE1Rm: epley1Rm(best.weightKg, best.reps),
+    bestE1Rm: unit === "s" ? 0 : epley1Rm(best.weightKg, best.reps),
     totalSets: sets.length,
   }))
+}
 
-/** Pure assembly of the detail; `sets` are the exercise's live sets in `Chronological` order. */
+/**
+ * Pure assembly of the detail; `sets` are the exercise's live sets in `Chronological` order. Best,
+ * e1RM and the trend use `scoredSets(unit)` only, PR marks `markPrs(sets, unit)`; `s` has no e1RM.
+ */
 export const buildHistory = (input: {
   readonly exercise: Exercise
+  readonly unit: ExerciseUnit
   readonly sets: ReadonlyArray<WorkoutSet>
   readonly sessions: ReadonlyArray<Session>
   readonly now: DateTime.Zoned
@@ -124,26 +156,27 @@ export const buildHistory = (input: {
     weekStart,
     sets: dated.filter((entry) => entry.weekStart === weekStart).map((entry) => entry.set),
   }))
-  const marked = markPrs(input.sets)
-  const best = bestSet(input.sets)
+  const { unit } = input
+  const scored = scoredSets(unit, input.sets)
+  const marked: ReadonlyArray<MarkedSet> = markPrs(input.sets, unit)
+  const e1RmOf = (set: WorkoutSet) => (unit === "s" ? 0 : epley1Rm(set.weightKg, set.reps))
+  const best = bestSet(scored)
   return {
     exercise: input.exercise,
+    unit,
     best,
-    bestE1Rm: Option.match(best, {
-      onNone: () => 0,
-      onSome: (set) => epley1Rm(set.weightKg, set.reps),
-    }),
+    bestE1Rm: Option.match(best, { onNone: () => 0, onSome: e1RmOf }),
     weeks: perWeek.map(
       (week): WeekBucket => ({
         weekStart: week.weekStart,
-        volumeKg: volumeOf(week.sets),
+        volumeKg: volumeOf(scoredSets(unit, week.sets)),
         sets: week.sets.length,
         reps: Arr.reduce(week.sets, 0, (total, set) => total + set.reps),
       }),
     ),
     e1RmTrend: perWeek.map((week) => ({
       weekStart: week.weekStart,
-      e1Rm: Option.map(bestSet(week.sets), (set) => epley1Rm(set.weightKg, set.reps)),
+      e1Rm: Option.map(bestSet(scoredSets(unit, week.sets)), e1RmOf),
     })),
     recent: pipe(
       Arr.sort(input.sessions, NewestSessionFirst),
@@ -220,10 +253,32 @@ export class HistoryRepo extends Context.Service<HistoryRepo, HistoryRepoShape>(
             Arr.dedupe(sets.map((set) => set.sessionId)),
           ).pipe(Effect.flatMap(decodeRecords(SessionRow)))
           const now = yield* DateTime.nowInCurrentZone
-          return Option.some(buildHistory({ exercise: found.value, sets, sessions, now }))
+          return Option.some(
+            buildHistory({
+              exercise: found.value,
+              unit: unitOf(found.value),
+              sets,
+              sessions,
+              now,
+            }),
+          )
         })
 
-      return HistoryRepo.of({ exercises, exercise })
+      const lastSet = (id: ExerciseId, options?: { readonly loadedOnly: boolean }) =>
+        store
+          .all(
+            q(
+              `SELECT s.* FROM "workout_set" s
+               JOIN "workout_session" ws ON ws."id" = s."sessionId"
+               WHERE s."exerciseId" = ? AND s."deletedAt" IS NULL AND ws."deletedAt" IS NULL
+                 ${options?.loadedOnly === true ? `AND s."weightKg" > 0` : ""}
+               ORDER BY s."loggedAt" DESC LIMIT 1`,
+              id,
+            ),
+          )
+          .pipe(Effect.flatMap(decodeRecords(WorkoutSetRow)), Effect.map(Arr.head))
+
+      return HistoryRepo.of({ exercises, exercise, lastSet })
     }),
   )
 }

@@ -134,6 +134,22 @@ describe("setLine", () => {
     )
     expect(setLine(line)).toBe("12 reps · 15 reps PR")
   })
+
+  it("writes a timed exercise's sets and best as seconds (a plank reads 45 s, not 45 reps)", () => {
+    const plank = Schema.decodeUnknownSync(ActivityExercise)({
+      ...wireExercise(
+        [
+          { weightKg: 0, reps: 30 },
+          { weightKg: 0, reps: 45, isPr: true },
+        ],
+        { weightKg: 0, reps: 45 },
+      ),
+      name: "Plank",
+      catalogId: "plank",
+    })
+    expect(setLine(plank)).toBe("30 s · 45 s PR")
+    expect(exerciseSubtitle(plank)).toBe("2 sets · best 45 s")
+  })
 })
 
 describe("musclesLabel", () => {

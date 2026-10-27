@@ -404,11 +404,11 @@ export const writeProgram: Tool<typeof WriteProgramInput, typeof WriteProgramRes
     "enrollments are kept). A program is 1–84 days; each day has 1–12 exercises done for 1–5 " +
     'rounds. Use `search_exercises` to get `catalogId`s — never invent ids. Use `kind: "timed"` ' +
     '(10–600 s) only for holds, isometrics and cardio (plank, wall sit, bike); use `kind: "reps"` ' +
-    "(1–100) for everything else. Rest 15–30 s between core/bodyweight items, 60–120 s between " +
-    "heavy strength items, 0 for cardio; 45–90 s between rounds. Structure weeks as 7 days with " +
-    "1–2 recovery/rest-style days (fewer items, 1 round); progress week over week by adding " +
-    "reps/seconds or a round, not new exercises every day. Keep a day ≤ 45 min (the result " +
-    "reports min/max minutes). Errors: ValidationError (field path + rule), NotFound " +
+    "(1–100) for everything else, with `sets` (1–10, default 1) straight sets and `restSeconds` " +
+    "between them; `rounds` repeats the whole day as a circuit and is 1 for a gym day. Rest " +
+    "15–30 s for core items, 60–150 s for heavy lifts, 0 for cardio. Weeks are 7 days with 1–2 " +
+    "recovery days; progress by reps, seconds or sets, not new exercises daily. Keep a day ≤ 45 " +
+    "min (the result reports min/max minutes). Errors: ValidationError (field path + rule), NotFound " +
     "catalogExercise (an id you made up), Forbidden (built-in slug).",
   input: WriteProgramInput,
   output: WriteProgramResult,
@@ -446,7 +446,8 @@ export const updateProgram: Tool<typeof UpdateProgramInput, typeof UpdateProgram
   kind: "write",
   description:
     "Patches one of the user's own programs (title, summary, description, schedule, or the whole " +
-    "`days` list, which is replaced, not merged); omitted fields stay as they are. Errors: " +
+    "`days` list, which is replaced, not merged; items take `sets` as in `write_program`); " +
+    "omitted fields stay as they are. Errors: " +
     "Forbidden (a built-in program), NotFound program or catalogExercise, ValidationError " +
     "(empty patch, or a field rule).",
   input: UpdateProgramInput,

@@ -13,27 +13,19 @@ const minutes = (day: ProgramDay) => dayDurationSeconds(day) / 60
 const dayOf = (dayNumber: number) => Arr.findFirst(days, (d) => d.dayNumber === dayNumber)
 const idsOf = (day: ProgramDay) => day.items.map((item) => item.catalogId)
 
-/** First item of a day as `kind:value:rest`, e.g. `reps:12:60`. */
-const firstItem = (dayNumber: number) =>
-  dayOf(dayNumber).pipe(
-    Option.flatMap((day) => Arr.head(day.items)),
-    Option.map((item) =>
-      item.kind === "reps"
-        ? `reps:${item.reps}:${item.restSeconds}`
-        : `timed:${item.seconds}:${item.restSeconds}`,
-    ),
-  )
-
-/** The i-th item (0-based) of a day, same format. */
+/** The i-th item (0-based) of a day as `kind:value:rest`, e.g. `reps:4x10:120`, `timed:300:0`. */
 const itemAt = (dayNumber: number, index: number) =>
   dayOf(dayNumber).pipe(
     Option.flatMap((day) => Arr.get(day.items, index)),
     Option.map((item) =>
       item.kind === "reps"
-        ? `reps:${item.reps}:${item.restSeconds}`
+        ? `reps:${item.sets}x${item.reps}:${item.restSeconds}`
         : `timed:${item.seconds}:${item.restSeconds}`,
     ),
   )
+
+/** First item of a day, same format. */
+const firstItem = (dayNumber: number) => itemAt(dayNumber, 0)
 
 describe("LEAN_BUILD_12", () => {
   it.effect("round-trips through the Program codec", () =>
@@ -92,40 +84,34 @@ describe("LEAN_BUILD_12", () => {
     ])
   })
 
-  it("runs strength days as 3 reps-only rounds and cardio days as 1 round", () => {
+  it("runs every day as one round with no round rest, strength days reps-only", () => {
     const slotOf = (day: ProgramDay) => (day.dayNumber - 1) % 7
     const strength = days.filter((day) => [0, 1, 3, 4].includes(slotOf(day)))
-    const cardio = days.filter((day) => [2, 5].includes(slotOf(day)))
-    expect(strength.map((day) => day.rounds)).toEqual(Arr.replicate(3, strength.length))
+    expect(days.map((day) => [day.rounds, day.restBetweenRoundsSeconds])).toEqual(
+      Arr.replicate([1, 0], days.length),
+    )
     expect(Arr.flatMap(strength, (day) => day.items).filter((i) => i.kind !== "reps")).toEqual([])
-    expect(cardio.map((day) => [day.rounds, day.restBetweenRoundsSeconds])).toEqual(
-      Arr.replicate([1, 0], cardio.length),
-    )
   })
 
-  it("gives the last item of a round the round rest", () => {
-    const mismatched = days.filter(
-      (day) =>
-        Arr.last(day.items).pipe(
-          Option.map((item) => item.restSeconds),
-          Option.getOrUndefined,
-        ) !== day.restBetweenRoundsSeconds,
+  it("gives every push-day main lift 4 straight sets and every accessory 3", () => {
+    const sets = Option.map(dayOf(1), (day) =>
+      day.items.map((item) => (item.kind === "reps" ? item.sets : 0)),
     )
-    expect(mismatched).toEqual([])
+    expect(sets).toEqual(Option.some([4, 4, 4, 3, 3, 3, 3]))
   })
 
-  it("keeps every non-recovery day inside 20-35 minutes", () => {
+  it("keeps every non-recovery day inside 25-60 minutes", () => {
     const outside = days.filter(
-      (day) => !isRecovery(day) && (minutes(day) < 20 || minutes(day) > 35),
+      (day) => !isRecovery(day) && (minutes(day) < 25 || minutes(day) > 60),
     )
     expect(outside.map((day) => [day.dayNumber, Math.round(minutes(day))])).toEqual([])
   })
 
-  it("estimates the design's duration checks (push b1 1701 s, push b3 1962 s, cardio A b3 1950 s)", () => {
+  it("estimates the design's duration checks (push b1 2628 s ≈ 44 min, push b3 3174 s, cardio A b3 2250 s)", () => {
     const seconds = [1, 57, 59].map((n) =>
       Option.getOrElse(Option.map(dayOf(n), dayDurationSeconds), () => -1),
     )
-    expect(seconds).toEqual([1701, 1962, 1950])
+    expect(seconds).toEqual([2628, 3174, 2250])
   })
 
   it("titles days by week and slot", () => {
@@ -157,35 +143,35 @@ describe("LEAN_BUILD_12", () => {
     expect(week(12)).toEqual(week(1))
   })
 
-  it("steps main reps 12 -> 10 -> 8 and main rest 60 -> 75 -> 90 per block", () => {
+  it("steps main lifts 4 x 10 -> 4 x 8 -> 4 x 6 and main rest 120 -> 120 -> 150 per block", () => {
     expect([1, 22, 29, 50, 57, 78].map(firstItem)).toEqual([
-      Option.some("reps:12:60"),
-      Option.some("reps:12:60"),
-      Option.some("reps:10:75"),
-      Option.some("reps:10:75"),
-      Option.some("reps:8:90"),
-      Option.some("reps:8:90"),
+      Option.some("reps:4x10:120"),
+      Option.some("reps:4x10:120"),
+      Option.some("reps:4x8:120"),
+      Option.some("reps:4x8:120"),
+      Option.some("reps:4x6:150"),
+      Option.some("reps:4x6:150"),
     ])
   })
 
-  it("steps accessory reps 15 -> 12 -> 12 and rest 45 -> 45 -> 60 (cable fly, push item 4)", () => {
+  it("steps accessories 3 x 12 -> 3 x 12 -> 3 x 10 and rest 60 -> 75 -> 90 (cable fly, push item 4)", () => {
     expect([1, 29, 57].map((n) => itemAt(n, 3))).toEqual([
-      Option.some("reps:15:45"),
-      Option.some("reps:12:45"),
-      Option.some("reps:12:60"),
+      Option.some("reps:3x12:60"),
+      Option.some("reps:3x12:75"),
+      Option.some("reps:3x10:90"),
     ])
   })
 
-  it("stretches cardio 15 -> 20 -> 25 minutes per block (bike on A, intervals on B)", () => {
+  it("stretches cardio 20 -> 25 -> 30 minutes per block (bike on A, intervals on B)", () => {
     expect([3, 31, 59].map((n) => itemAt(n, 1))).toEqual([
-      Option.some("timed:900:60"),
       Option.some("timed:1200:60"),
       Option.some("timed:1500:60"),
+      Option.some("timed:1800:60"),
     ])
     expect([6, 34, 62].map((n) => itemAt(n, 1))).toEqual([
-      Option.some("timed:900:60"),
       Option.some("timed:1200:60"),
       Option.some("timed:1500:60"),
+      Option.some("timed:1800:60"),
     ])
   })
 

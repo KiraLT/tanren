@@ -1,12 +1,13 @@
-import type { ProgramDay, ProgramItem } from "@tanren/shared"
+import { expandDay, type ProgramDay, type ProgramItem, type Step } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
 
 /**
- * Pure workout player (v2-programs.md §4). No timers, no `Date`: the screen feeds `nowMs` with
- * every event (a `tick` every 250 ms and on `AppState` → active). Remaining time is always
- * `endsAtMs − nowMs`, so a backgrounded app catches up on the next `tick`.
+ * Pure workout player (v2-programs.md §4, programs-player-v2 §7.3). No timers, no `Date`: the
+ * screen feeds `nowMs` with every event (a `tick` every 250 ms and on `AppState` → active).
+ * Remaining time is always `endsAtMs − nowMs`, so a backgrounded app catches up on the next `tick`.
  *
- * Rounds and item indices are 0-based in the state; `progress` turns them 1-based for display.
+ * A round is the day's `expandDay` steps: every item's straight sets in order. Rounds and step
+ * indices are 0-based in the state; `progress` turns them 1-based for display.
  *
  * Duration: `Done.durationSeconds` is wall-clock time from `start` to the end, **excluding
  * pauses** (`pausedMs` accumulates on every resume). It is real elapsed time, so at `speed: 10`
@@ -31,7 +32,8 @@ export interface Idle {
 export interface Working extends RunClock {
   readonly _tag: "Working"
   readonly round: number
-  readonly itemIndex: number
+  /** Index into the round's `expandDay` steps. */
+  readonly stepIndex: number
   /** `None` for a `reps` item: no countdown, only `next` advances. */
   readonly endsAtMs: Option.Option<number>
 }
@@ -39,8 +41,8 @@ export interface Working extends RunClock {
 export interface Resting extends RunClock {
   readonly _tag: "Resting"
   readonly round: number
-  /** The item just done. */
-  readonly itemIndex: number
+  /** The step just done. */
+  readonly stepIndex: number
   readonly endsAtMs: number
 }
 
@@ -79,13 +81,13 @@ export const playerEvent = (tag: PlayerEventTag, nowMs: number): PlayerEvent => 
   nowMs,
 })
 
-/** `previous` within this long after a phase began goes to the item before. */
+/** `previous` within this long after a phase began goes to the step before. */
 export const PREVIOUS_GRACE_MS = 2000
 
 const scaledMs = (config: PlayerConfig, seconds: number): number =>
   (seconds * 1000) / (Number.isFinite(config.speed) ? Math.max(1, config.speed) : 1)
 
-const lastItemIndex = (day: ProgramDay): number => day.items.length - 1
+const lastStepIndex = (steps: ReadonlyArray<Step>): number => steps.length - 1
 
 type Run = Pick<RunClock, "startedAtMs" | "pausedMs">
 
@@ -103,17 +105,17 @@ const enterWork = (
   config: PlayerConfig,
   run: Run,
   round: number,
-  itemIndex: number,
+  stepIndex: number,
   atMs: number,
 ): PlayerState =>
-  Option.match(Arr.get(config.day.items, itemIndex), {
+  Option.match(Arr.get(expandDay(config.day), stepIndex), {
     onNone: () => done(run, atMs),
-    onSome: (item) => ({
+    onSome: ({ item }) => ({
       _tag: "Working",
       ...run,
       phaseStartMs: atMs,
       round,
-      itemIndex,
+      stepIndex,
       endsAtMs: Match.value(item).pipe(
         Match.discriminatorsExhaustive("kind")({
           timed: ({ seconds }) => Option.some(atMs + scaledMs(config, seconds)),
@@ -123,49 +125,57 @@ const enterWork = (
     }),
   })
 
-/** The phase after resting on (round, itemIndex): the next item, wrapping into the next round. */
+/** The phase after resting on (round, stepIndex): the next step, wrapping into the next round. */
 const enterNextWork = (
   config: PlayerConfig,
   run: Run,
   round: number,
-  itemIndex: number,
+  stepIndex: number,
   atMs: number,
 ): PlayerState =>
-  itemIndex >= lastItemIndex(config.day)
+  stepIndex >= lastStepIndex(expandDay(config.day))
     ? enterWork(config, run, round + 1, 0, atMs)
-    : enterWork(config, run, round, itemIndex + 1, atMs)
+    : enterWork(config, run, round, stepIndex + 1, atMs)
 
 /**
- * The phase after working on (round, itemIndex): the item's `restSeconds`, or
- * `restBetweenRoundsSeconds` after the last item of a round, `Done` after the final round.
- * A rest of 0 s is skipped.
+ * Rest after step `stepIndex`: the step's `restSeconds` (between sets and after an item), or
+ * `restBetweenRoundsSeconds` after the last step of a round.
+ */
+export const restAfter = (day: ProgramDay, stepIndex: number): number => {
+  const steps = expandDay(day)
+  return stepIndex >= lastStepIndex(steps)
+    ? day.restBetweenRoundsSeconds
+    : Option.match(Arr.get(steps, stepIndex), {
+        onNone: () => 0,
+        onSome: (s) => s.restSeconds,
+      })
+}
+
+/**
+ * The phase after working on (round, stepIndex): `restAfter`, `Done` after the last step of the
+ * final round. A rest of 0 s is skipped.
  */
 const afterWork = (
   config: PlayerConfig,
   run: Run,
   round: number,
-  itemIndex: number,
+  stepIndex: number,
   atMs: number,
 ): PlayerState => {
   const { day } = config
-  const endOfRound = itemIndex >= lastItemIndex(day)
+  const endOfRound = stepIndex >= lastStepIndex(expandDay(day))
   if (endOfRound && round >= day.rounds - 1) {
     return done(run, atMs)
   }
-  const restSeconds = endOfRound
-    ? day.restBetweenRoundsSeconds
-    : Option.match(Arr.get(day.items, itemIndex), {
-        onNone: () => 0,
-        onSome: (item) => item.restSeconds,
-      })
+  const restSeconds = restAfter(day, stepIndex)
   return restSeconds <= 0
-    ? enterNextWork(config, run, round, itemIndex, atMs)
+    ? enterNextWork(config, run, round, stepIndex, atMs)
     : {
         _tag: "Resting",
         ...run,
         phaseStartMs: atMs,
         round,
-        itemIndex,
+        stepIndex,
         endsAtMs: atMs + scaledMs(config, restSeconds),
       }
 }
@@ -182,12 +192,12 @@ const catchUp = (config: PlayerConfig, state: PlayerState, nowMs: number): Playe
         {
           onNone: () => s,
           onSome: (endsAt) =>
-            catchUp(config, afterWork(config, runOf(s), s.round, s.itemIndex, endsAt), nowMs),
+            catchUp(config, afterWork(config, runOf(s), s.round, s.stepIndex, endsAt), nowMs),
         },
       ),
     Resting: (s): PlayerState =>
       s.endsAtMs <= nowMs
-        ? catchUp(config, enterNextWork(config, runOf(s), s.round, s.itemIndex, s.endsAtMs), nowMs)
+        ? catchUp(config, enterNextWork(config, runOf(s), s.round, s.stepIndex, s.endsAtMs), nowMs)
         : s,
   })
 
@@ -228,26 +238,26 @@ const resume = (state: Paused, nowMs: number): Working | Resting => {
 /** `next`: end the current phase now. */
 const next = (config: PlayerConfig, state: Working | Resting, nowMs: number): PlayerState =>
   Match.valueTags(state, {
-    Working: (s) => afterWork(config, runOf(s), s.round, s.itemIndex, nowMs),
-    Resting: (s) => enterNextWork(config, runOf(s), s.round, s.itemIndex, nowMs),
+    Working: (s) => afterWork(config, runOf(s), s.round, s.stepIndex, nowMs),
+    Resting: (s) => enterNextWork(config, runOf(s), s.round, s.stepIndex, nowMs),
   })
 
 /**
- * `previous` while working: restart the item, or, within `PREVIOUS_GRACE_MS` of its start, go to
- * the item before (wrapping into the previous round; the very first item just restarts).
- * While resting: redo the item just done.
+ * `previous` while working: restart the step, or, within `PREVIOUS_GRACE_MS` of its start, go to
+ * the step before (wrapping into the previous round; the very first step just restarts).
+ * While resting: redo the step just done.
  */
 const previous = (config: PlayerConfig, state: Working | Resting, nowMs: number): PlayerState =>
   Match.valueTags(state, {
-    Resting: (s) => enterWork(config, runOf(s), s.round, s.itemIndex, nowMs),
+    Resting: (s) => enterWork(config, runOf(s), s.round, s.stepIndex, nowMs),
     Working: (s) => {
       const withinGrace = nowMs - s.phaseStartMs < PREVIOUS_GRACE_MS
-      if (!withinGrace || (s.round === 0 && s.itemIndex === 0)) {
-        return enterWork(config, runOf(s), s.round, s.itemIndex, nowMs)
+      if (!withinGrace || (s.round === 0 && s.stepIndex === 0)) {
+        return enterWork(config, runOf(s), s.round, s.stepIndex, nowMs)
       }
-      return s.itemIndex === 0
-        ? enterWork(config, runOf(s), s.round - 1, lastItemIndex(config.day), nowMs)
-        : enterWork(config, runOf(s), s.round, s.itemIndex - 1, nowMs)
+      return s.stepIndex === 0
+        ? enterWork(config, runOf(s), s.round - 1, lastStepIndex(expandDay(config.day)), nowMs)
+        : enterWork(config, runOf(s), s.round, s.stepIndex - 1, nowMs)
     },
   })
 
@@ -334,52 +344,78 @@ const activePhase = (state: PlayerState): Option.Option<Working | Resting> =>
     Resting: (s) => Option.some<Working | Resting>(s),
   })
 
+/** The step being worked on, or (while resting) the step just done. */
+export const currentStep = (day: ProgramDay, state: PlayerState): Option.Option<Step> =>
+  Option.flatMap(activePhase(state), (phase) => Arr.get(expandDay(day), phase.stepIndex))
+
 /** The item being worked on, or (while resting) the item just done. */
 export const currentItem = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> =>
-  Option.flatMap(activePhase(state), (phase) => Arr.get(day.items, phase.itemIndex))
+  Option.map(currentStep(day, state), (s) => s.item)
 
 /** While resting: the item that comes after the rest (for "Rest over — Plank, 40 s"). */
-export const upNext = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> =>
-  Option.flatMap(
+export const upNext = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> => {
+  const steps = expandDay(day)
+  return Option.flatMap(
     Option.filter(activePhase(state), (phase) => phase._tag === "Resting"),
-    (phase) => Arr.get(day.items, (phase.itemIndex + 1) % day.items.length),
+    (phase) => Option.map(Arr.get(steps, (phase.stepIndex + 1) % steps.length), (s) => s.item),
   )
+}
 
 /**
- * While working (or paused mid-work): the item that follows this one, wrapping to the first item
- * for the next round; `None` on the last item of the last round, while resting, idle or done.
+ * While working (or paused mid-work): the item of the step that follows this one, wrapping to the
+ * first step for the next round; `None` on the last step of the last round, while resting, idle
+ * or done.
  */
-export const nextAfterWork = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> =>
-  Option.flatMap(
+export const nextAfterWork = (day: ProgramDay, state: PlayerState): Option.Option<ProgramItem> => {
+  const steps = expandDay(day)
+  return Option.flatMap(
     Option.filter(activePhase(state), (phase) => phase._tag === "Working"),
     (phase) =>
-      phase.itemIndex + 1 < day.items.length
-        ? Arr.get(day.items, phase.itemIndex + 1)
-        : phase.round + 1 < day.rounds
-          ? Arr.get(day.items, 0)
-          : Option.none<ProgramItem>(),
+      Option.map(
+        phase.stepIndex + 1 < steps.length
+          ? Arr.get(steps, phase.stepIndex + 1)
+          : phase.round + 1 < day.rounds
+            ? Arr.get(steps, 0)
+            : Option.none<Step>(),
+        (s) => s.item,
+      ),
   )
+}
 
 export interface PlayerProgress {
   /** 1-based. */
   readonly round: number
   readonly rounds: number
-  /** 1-based. */
+  /** 1-based exercise (the day's item). */
   readonly item: number
   readonly items: number
+  /** 1-based set of that item. */
+  readonly set: number
+  readonly sets: number
+  /** 1-based step within the round, of `steps`. */
+  readonly step: number
+  readonly steps: number
 }
 
-/** Round x/y and item x/y; `None` in Idle and Done. */
-export const progress = (day: ProgramDay, state: PlayerState): Option.Option<PlayerProgress> =>
-  Option.map(activePhase(state), (phase) => ({
-    round: phase.round + 1,
-    rounds: day.rounds,
-    item: phase.itemIndex + 1,
-    items: day.items.length,
-  }))
+/** Round, exercise, set and step x/y; `None` in Idle and Done. */
+export const progress = (day: ProgramDay, state: PlayerState): Option.Option<PlayerProgress> => {
+  const steps = expandDay(day)
+  return Option.flatMap(activePhase(state), (phase) =>
+    Option.map(Arr.get(steps, phase.stepIndex), (s) => ({
+      round: phase.round + 1,
+      rounds: day.rounds,
+      item: s.exerciseIndex + 1,
+      items: s.exercises,
+      set: s.set,
+      sets: s.sets,
+      step: phase.stepIndex + 1,
+      steps: steps.length,
+    })),
+  )
+}
 
 const phaseKeyOf = (phase: Working | Resting): string =>
-  `${phase._tag === "Working" ? "work" : "rest"}:${phase.round}:${phase.itemIndex}:${phase.phaseStartMs}`
+  `${phase._tag === "Working" ? "work" : "rest"}:${phase.round}:${phase.stepIndex}:${phase.phaseStartMs}`
 
 /**
  * Changes exactly when a new phase begins (including a restart via `previous`), on pause and on

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import {
+  CatalogId,
   ProgramDayCompletion,
   ProgramDayCompletionId,
   ProgramEnrollmentId,
@@ -7,10 +8,10 @@ import {
 } from "@tanren/shared"
 import { DateTime, Effect, Layer, Option, Ref } from "effect"
 import { PhaseAlerts, PhaseAlertsLog } from "../services/PhaseAlerts"
-import { type CompletionInput, ProgramRepo } from "../services/ProgramRepo"
+import { type CompletionInput, ProgramRepo, type ProgramRepoShape } from "../services/ProgramRepo"
 import { StoreError } from "../services/SqlDriver"
 import { SyncEngine } from "../services/SyncEngine"
-import { COMPLETION_FAILED, completeDay, syncAlerts } from "./playerEffects"
+import { COMPLETION_FAILED, completeDay, loadPrefill, syncAlerts } from "./playerEffects"
 
 describe("syncAlerts", () => {
   it.effect("cancels, then schedules the new alert", () =>
@@ -36,12 +37,18 @@ const finished = {
   durationSeconds: 912,
   performedItems: 9,
   performedIds: [],
+  entries: [
+    Option.some({ weightKg: 20, reps: 10 }),
+    Option.none(),
+    Option.some({ weightKg: 22.5, reps: 8 }),
+  ],
 }
 
 const notUsed = Effect.die("not used in this test")
 
 const repoLayer = (
   complete: (input: CompletionInput) => Effect.Effect<ProgramDayCompletion, StoreError>,
+  lastLoads: ProgramRepoShape["lastLoads"] = () => notUsed,
 ) =>
   Layer.succeed(
     ProgramRepo,
@@ -59,6 +66,7 @@ const repoLayer = (
       save: () => notUsed,
       deleteProgram: () => notUsed,
       complete,
+      lastLoads,
     }),
   )
 
@@ -103,7 +111,8 @@ describe("completeDay", () => {
           ),
         ),
       )
-      expect(result).toEqual({ _tag: "Saved", durationSeconds: 912 })
+      // Volume = 20 × 10 + 22.5 × 8 (the None round adds nothing); sets = performedItems.
+      expect(result).toEqual({ _tag: "Saved", durationSeconds: 912, volumeKg: 380, sets: 9 })
       expect(yield* Ref.get(requests)).toBe(1)
       const input = Option.getOrThrow(yield* Ref.get(seen))
       expect(DateTime.formatIso(input.startedAt)).toBe("2026-10-21T07:00:00.000Z")
@@ -147,8 +156,39 @@ describe("completeDay", () => {
       const first = yield* completeDay(finished).pipe(Effect.provide(layer))
       const retried = yield* completeDay(finished).pipe(Effect.provide(layer))
       expect(first._tag).toBe("Failed")
-      expect(retried).toEqual({ _tag: "Saved", durationSeconds: 912 })
+      expect(retried).toEqual({ _tag: "Saved", durationSeconds: 912, volumeKg: 380, sets: 9 })
       expect(yield* Ref.get(requests)).toBe(1)
+    }),
+  )
+})
+
+describe("loadPrefill", () => {
+  const BENCH = CatalogId.make("barbell-bench-press")
+  const prefillLayer = (lastLoads: ProgramRepoShape["lastLoads"]) =>
+    repoLayer(() => notUsed, lastLoads)
+
+  it.effect("maps the ids with a last load and skips the ones without", () =>
+    Effect.gen(function* () {
+      const map = yield* loadPrefill([BENCH, CatalogId.make("plank")]).pipe(
+        Effect.provide(
+          prefillLayer(() =>
+            Effect.succeed([
+              { catalogId: BENCH, last: Option.some({ weightKg: 60, reps: 5 }) },
+              { catalogId: CatalogId.make("dumbbell-row"), last: Option.none() },
+            ]),
+          ),
+        ),
+      )
+      expect([...map]).toEqual([[BENCH, { weightKg: 60, reps: 5 }]])
+    }),
+  )
+
+  it.effect("a store error yields an empty map", () =>
+    Effect.gen(function* () {
+      const map = yield* loadPrefill([BENCH]).pipe(
+        Effect.provide(prefillLayer(() => Effect.fail(new StoreError({ cause: "locked" })))),
+      )
+      expect(map.size).toBe(0)
     }),
   )
 })

@@ -1,4 +1,4 @@
-import { LocalDate } from "@tanren/shared"
+import { type ExerciseUnit, LocalDate } from "@tanren/shared"
 import { Array as Arr, DateTime, Option, Schema } from "effect"
 import type { ExerciseHistory, WeekBucket } from "../../services/HistoryRepo"
 import { formatDayDate, localDateOf } from "../planFormat"
@@ -6,10 +6,14 @@ import { formatDayDate, localDateOf } from "../planFormat"
 /** Copy for the Progress screens. Units are kg (ADR-0007); e1RM and trends round to 0.1 kg. */
 const round1 = (n: number): number => Math.round(n * 10) / 10
 
-export type SeriesUnit = "kg" | "reps"
+const SERIES_NOUN: Readonly<Record<ExerciseUnit, string>> = {
+  kg: "Volume",
+  reps: "Reps",
+  s: "Seconds",
+}
 
 export interface WeekSeries {
-  readonly unit: SeriesUnit
+  readonly unit: ExerciseUnit
   /** One value per week, oldest first. */
   readonly values: ReadonlyArray<number>
 }
@@ -17,14 +21,22 @@ export interface WeekSeries {
 /** "116.7 kg" (no trailing zero). */
 export const formatKg1 = (kg: number): string => `${round1(kg)} kg`
 
-/** The Best-set tile's numeral and the unit line under it: `127.5` / `kg × 5`, or `12` / `reps`. */
+/**
+ * The Best-set tile's numeral and the unit line under it: `127.5` / `kg × 5`, `12` / `reps`, or
+ * `45` / `s` for a timed exercise (its `reps` hold seconds).
+ */
 export const bestSetParts = (
   weightKg: number,
   reps: number,
-): { readonly value: string; readonly unit: string } =>
-  weightKg <= 0
+  unit: ExerciseUnit,
+): { readonly value: string; readonly unit: string } => {
+  if (unit === "s") {
+    return { value: String(reps), unit: "s" }
+  }
+  return weightKg <= 0
     ? { value: String(reps), unit: "reps" }
     : { value: String(round1(weightKg)), unit: `kg × ${reps}` }
+}
 
 /** "e1RM 116.7 kg". */
 export const formatE1Rm = (e1Rm: number): string => `e1RM ${formatKg1(e1Rm)}`
@@ -41,12 +53,22 @@ export const hasE1RmTrend = (trend: ExerciseHistory["e1RmTrend"]): boolean =>
   Arr.some(trend, (week) => Option.exists(week.e1Rm, (e1Rm) => e1Rm > 0))
 
 /** Heading of the weekly bars card, following the plotted unit. */
-export const weekBarsHeading = (unit: SeriesUnit): string =>
-  unit === "kg" ? "Volume, last 8 weeks" : "Reps, last 8 weeks"
+export const weekBarsHeading = (unit: ExerciseUnit): string => `${SERIES_NOUN[unit]}, last 8 weeks`
 
-/** "100 kg × 5"; a bodyweight set (no load) is "12 reps". */
-export const formatSetText = (weightKg: number, reps: number): string =>
-  weightKg <= 0 ? `${reps} reps` : `${formatKg1(weightKg)} × ${reps}`
+/**
+ * "100 kg × 5"; a bodyweight set (no load) is "12 reps"; with the exercise's unit, a timed set is
+ * "45 s" and a 0-kg set of a loaded exercise "10 reps · no load". Every caller passes the
+ * exercise's unit (shared `unitOf`), so a plank reads "45 s" in Progress, Activity and Library.
+ */
+export const formatSetText = (weightKg: number, reps: number, unit: ExerciseUnit): string => {
+  if (unit === "s") {
+    return `${reps} s`
+  }
+  if (weightKg > 0) {
+    return `${formatKg1(weightKg)} × ${reps}`
+  }
+  return unit === "kg" ? `${reps} reps · no load` : `${reps} reps`
+}
 
 /** Re-exported so `WeekBars` and `feedGroups` keep importing it from here. */
 export { formatVolume } from "../volumeFormat"
@@ -55,20 +77,16 @@ export { formatVolume } from "../volumeFormat"
 export const formatLoggedDate = (at: DateTime.Utc): string =>
   formatDayDate(localDateOf(new Date(DateTime.toEpochMillis(at))))
 
-/** Volume per week, or reps per week when every week's volume is 0 and some reps were done. */
-export const weekSeries = (weeks: ReadonlyArray<WeekBucket>): WeekSeries => {
-  const bodyweight =
-    Arr.every(weeks, (week) => week.volumeKg === 0) && Arr.some(weeks, (week) => week.reps > 0)
-  return bodyweight
-    ? { unit: "reps", values: Arr.map(weeks, (week) => week.reps) }
-    : { unit: "kg", values: Arr.map(weeks, (week) => week.volumeKg) }
-}
+/** Per week, by the exercise's unit: kg volume, reps, or seconds (Σ `reps` of a timed exercise). */
+export const weekSeries = (weeks: ReadonlyArray<WeekBucket>, unit: ExerciseUnit): WeekSeries => ({
+  unit,
+  values: Arr.map(weeks, (week) => (unit === "kg" ? week.volumeKg : week.reps)),
+})
 
 /** "Volume last 8 weeks: 0, 0, 120, 1250 kg" (oldest first). */
 export const volumeLabel = (series: WeekSeries): string => {
-  const noun = series.unit === "kg" ? "Volume" : "Reps"
   const values = Arr.map(series.values, (value) => String(Math.round(value))).join(", ")
-  return `${noun} last ${series.values.length} weeks: ${values} ${series.unit}`
+  return `${SERIES_NOUN[series.unit]} last ${series.values.length} weeks: ${values} ${series.unit}`
 }
 
 /** "Estimated 1RM, last 8 weeks: no sets, 116.7 kg" (oldest first). */

@@ -18,31 +18,32 @@ interface Block {
 }
 
 const BLOCK_1: Block = {
-  mainReps: 12,
-  accessoryReps: 15,
-  mainRestSeconds: 60,
-  accessoryRestSeconds: 45,
-  cardioSeconds: 900,
-}
-const BLOCK_2: Block = {
   mainReps: 10,
   accessoryReps: 12,
-  mainRestSeconds: 75,
-  accessoryRestSeconds: 45,
+  mainRestSeconds: 120,
+  accessoryRestSeconds: 60,
   cardioSeconds: 1200,
 }
-const BLOCK_3: Block = {
+const BLOCK_2: Block = {
   mainReps: 8,
   accessoryReps: 12,
-  mainRestSeconds: 90,
-  accessoryRestSeconds: 60,
+  mainRestSeconds: 120,
+  accessoryRestSeconds: 75,
   cardioSeconds: 1500,
+}
+const BLOCK_3: Block = {
+  mainReps: 6,
+  accessoryReps: 10,
+  mainRestSeconds: 150,
+  accessoryRestSeconds: 90,
+  cardioSeconds: 1800,
 }
 
 const blockOfWeek = (week: number): Block => (week <= 4 ? BLOCK_1 : week <= 8 ? BLOCK_2 : BLOCK_3)
 
-const STRENGTH_ROUNDS = 3
-const STRENGTH_ROUND_REST_SECONDS = 90
+/** Straight sets per move (programs-player-v2 §7.4): a gym day, not a circuit. */
+const MAIN_SETS = 4
+const ACCESSORY_SETS = 3
 
 interface Move {
   readonly catalogId: string
@@ -90,11 +91,12 @@ const UPPER: ReadonlyArray<Move> = [
   accessory("rope-triceps-pushdown"),
 ]
 
-const repsItem = (catalogId: string, reps: number, restSeconds: number) => ({
+const repsItem = (catalogId: string, reps: number, restSeconds: number, sets = 1) => ({
   kind: "reps",
   catalogId,
   reps,
   restSeconds,
+  sets,
 })
 
 const timedItem = (catalogId: string, seconds: number, restSeconds: number) => ({
@@ -104,21 +106,15 @@ const timedItem = (catalogId: string, seconds: number, restSeconds: number) => (
   restSeconds,
 })
 
-/** The last item of a round carries the round rest, as in Core 30. */
+/** One round: each move's straight sets in order, its rest between sets and before the next move. */
 const strengthDay = (moves: ReadonlyArray<Move>) => (block: Block) => ({
-  rounds: STRENGTH_ROUNDS,
-  items: Arr.map(moves, (move, index) =>
-    repsItem(
-      move.catalogId,
-      move.role === "main" ? block.mainReps : block.accessoryReps,
-      index === moves.length - 1
-        ? STRENGTH_ROUND_REST_SECONDS
-        : move.role === "main"
-          ? block.mainRestSeconds
-          : block.accessoryRestSeconds,
-    ),
+  rounds: 1,
+  items: Arr.map(moves, (move) =>
+    move.role === "main"
+      ? repsItem(move.catalogId, block.mainReps, block.mainRestSeconds, MAIN_SETS)
+      : repsItem(move.catalogId, block.accessoryReps, block.accessoryRestSeconds, ACCESSORY_SETS),
   ),
-  restBetweenRoundsSeconds: STRENGTH_ROUND_REST_SECONDS,
+  restBetweenRoundsSeconds: 0,
 })
 
 const cardioA = (block: Block) => ({
@@ -195,6 +191,6 @@ export const LEAN_BUILD_12: Program = Schema.decodeUnknownSync(Program)({
   name: "12-Week Lean Build",
   tagline: "Push, pull, legs and cardio — six days a week for twelve weeks.",
   description:
-    "Twelve weeks of machine, cable and free-weight training: push, pull, cardio, legs, upper body and a second cardio day, then a short recovery day to close each week. Loads go up with every four-week block while reps come down, rests get longer and the cardio sessions stretch from fifteen to twenty-five minutes.",
+    "Twelve weeks of machine, cable and free-weight training: push, pull, cardio, legs, upper body and a second cardio day, then a short recovery day to close each week. Loads go up with every four-week block while reps come down, rests get longer and the cardio sessions stretch from twenty to thirty minutes. Strength days are straight sets: four of each main lift, three of each accessory.",
   days: Arr.makeBy(84, (index) => dayWire(index + 1)),
 })

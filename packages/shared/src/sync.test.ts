@@ -211,7 +211,7 @@ describe("SYNC_TABLE_ORDER", () => {
               dayNumber: 1,
               title: "Day 1",
               rounds: 2,
-              items: [{ kind: "reps", catalogId: "push-up", reps: 10, restSeconds: 30 }],
+              items: [{ kind: "reps", catalogId: "push-up", reps: 10, restSeconds: 30, sets: 1 }],
               restBetweenRoundsSeconds: 60,
             },
           ],
