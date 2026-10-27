@@ -1,10 +1,11 @@
-import { Array as Arr, Option } from "effect"
+import { Array as Arr, DateTime, Option } from "effect"
 import { useRouter } from "expo-router"
 import { type StyleProp, View, type ViewStyle } from "react-native"
+import { useGarminConnected } from "../../hooks/useIntegrations"
 import { useNutritionDay } from "../../hooks/useNutritionDay"
 import { Card, HealthRings, space, stroke, Text } from "../../ui"
 import { HealthStatRow } from "../health/HealthStats"
-import { moduleHidden, moduleLabel, moduleStats } from "../health/nutritionText"
+import { healthStats, moduleHidden, moduleLabel } from "../health/nutritionText"
 import { localDateOf } from "../planFormat"
 import { heroNumber, isStale, metaLine, ringFractions, ringsLabel } from "./healthModuleMath"
 
@@ -25,6 +26,7 @@ export interface HealthModuleProps {
 export function HealthModule({ style }: HealthModuleProps) {
   const router = useRouter()
   const state = useNutritionDay(localDateOf(new Date()))
+  const garminConnected = useGarminConnected()
   if (state._tag !== "Ready" || moduleHidden(state.value.day)) {
     return null
   }
@@ -32,7 +34,7 @@ export function HealthModule({ style }: HealthModuleProps) {
   const now = new Date()
   const fractions = ringFractions(day)
   const hero = heroNumber(day)
-  const meta = metaLine(day, now)
+  const meta = metaLine(day, now, DateTime.zoneMakeLocal(), garminConnected)
   const insight = Option.map(Arr.head(insights), (first) => first.text)
   return (
     <Card
@@ -50,7 +52,7 @@ export function HealthModule({ style }: HealthModuleProps) {
             tone: fractions.over ? "danger" : "accent",
           }}
           inner={{ progress: Option.getOrElse(fractions.protein, () => 0), tone: "success" }}
-          empty={Option.isNone(day.targets)}
+          empty={Option.isNone(fractions.eaten)}
           accessibilityLabel={ringsLabel(fractions)}
         />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -71,7 +73,7 @@ export function HealthModule({ style }: HealthModuleProps) {
         </View>
       </View>
       <HealthStatRow
-        items={moduleStats(day, isStale(day.burnedAsOf, now))}
+        items={healthStats(day, isStale(day.burnedAsOf, now), "headline")}
         align="start"
         style={{ marginTop: space.md }}
       />

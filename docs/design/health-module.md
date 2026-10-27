@@ -37,16 +37,17 @@ gallery rows `screens/HM-rows.html`. Status: **proposed**; default if the owner 
 `DayTotals` (`packages/shared/src/nutrition.ts`, `export const DayTotals`): `eaten: Totals {kcal, proteinG, …}`,
 `burned: Option<Kcal>`, `activeBurned`, `steps: Option<Count>`, `burnedAsOf: Option<Timestamp>` (written by
 `buildDayTotals` from `health.updatedAt`, same file), `targets: Option<DayTargets {kcal, proteinG, goal}>`,
-`budgetKcal`, `kcalLeft: Option<Int>`, `proteinLeftG`, `entries`. Resting heart rate is not in `DayTotals`: read
-`DailyHealth.restingHeartRate` (`packages/shared/src/garmin.ts`) through `useDailyHealth(localDateOf(new Date()))`
-(`src/hooks/useDailyHealth.ts`), as `HealthStrip` does today. `DayTotals` comes from
+`budgetKcal`, `kcalLeft: Option<Int>`, `proteinLeftG`, `entries`. Resting heart rate is not in `DayTotals`: `/health`
+reads `DailyHealth.restingHeartRate` (`packages/shared/src/garmin.ts`) from `HealthWeek.health` through
+`restingHrWeek` (`src/components/health/healthWeekMath.ts`); Today never shows it (Amendment 26). Whether Garmin is
+connected comes from `useGarminConnected()` (`src/hooks/useIntegrations.ts`). `DayTotals` comes from
 `useNutritionDay(localDateOf(new Date()))` (`src/hooks/useNutritionDay.ts`, state `Ready` → `NutritionDay.day`).
 Numbers: `formatInt` (`packages/shared/src/nutrition.ts`). Insights: `insights(input)` ≤ 3, first one shown on Today.
 
 ## 3. Merge spec — Today module `src/components/today/HealthModule.tsx`
 Placement: 390 — above the planned session, `marginTop: space.lg`, Card (content 358, inner 326); 1280 — the
 right column's (496) first card, inner 464. Pressable (whole card) → `/health`; `usePressableInteraction`
-hover/pressed = `surface` → `surfaceRaised`, as `NutritionStrip`. `accessibilityRole="button"`,
+hover/pressed = `surface` → `surfaceRaised` (the `Card onPress` default). `accessibilityRole="button"`,
 `accessibilityLabel` = the text equivalent in §6.
 ```
 ┌ Card ──────────────────────────────────────────────┐
@@ -108,7 +109,11 @@ prints nothing): react-native-svg `Svg`/`Circle` like `ProgressRing.tsx`, geomet
 is the flex-1 gap-8 row. Pure helpers in `src/components/today/healthModuleMath.ts` (no `HealthModuleMath.tsx`
 sibling): `ringFractions(day) → { eaten: Option<number>; protein: Option<number>; over: boolean }`,
 `heroNumber(day) → { label: string; value: string; tone: "neutral" | "danger"; caption: string }`,
-`metaLine(day, health: Option<DailyHealth>, now: Date) → string`, `isStale(burnedAsOf, now) → boolean`.
+`metaLine(day, now: Date, zone: DateTime.TimeZone, trackerConnected: boolean) → string` (row 3),
+`freshnessLine(day, now, zone, trackerConnected) → string` (the `/health` caption: `metaLine` without steps),
+`isStale(burnedAsOf, now, zone?) → boolean`; in `src/components/health/nutritionText.ts`
+`healthStats(day, stale, variant: "headline" | "title")` → the three `HealthStatProps` (Today `headline`, hero `title`,
+which adds "kcal" after Eaten and a present Burned).
 
 ## 6. State matrix (Today module and hero use the same table)
 | state (source) | rings | numeral group | stats | row 3 | module shown? |
@@ -117,6 +122,7 @@ sibling): `ringFractions(day) → { eaten: Option<number>; protein: Option<numbe
 | over budget (`kcalLeft` < 0) | outer full, `danger` | OVER TODAY · "−220" tone danger · same caption | Eaten tone danger | same | yes |
 | nothing logged (entries = 0, targets Some) | outer 0, inner 0 | LEFT TODAY · budget · "nothing logged yet" | 0 · burned · 0 / 155 g | same | yes |
 | Garmin off (`burned` None, targets Some) | as above | kcalLeft from budget (no eat-back) | Burned "—" | "No tracker connected" (steps/bpm dropped) | yes |
+| waiting for Garmin (connected, no `daily_health` row for the day yet, e.g. before the first pull) | unchanged | kcalLeft from budget (no eat-back) | Burned "—" | "Waiting for Garmin" | yes |
 | no profile (`targets` None), Garmin on | `empty` (tracks only) | BURNED TODAY · `burned` · "Set a goal for a budget" | Eaten (entries sum) · Burned · Protein "96 g" (no target) | "as of HH:MM · steps · bpm" | yes |
 | no profile, Garmin off, nothing logged | — | — | — | — | **hidden** (Today); `/health` keeps its `Off` EmptyState |
 | stale `burnedAsOf` (`isStale` = local date of `burnedAsOf` ≠ today) | unchanged | unchanged | Burned `valueTone="muted"` | "as of yesterday HH:MM · …" | yes |
@@ -141,7 +147,7 @@ Today card = 358 × 234 ± 2 at 390 and 431 (training day, aside) to 536 (rest d
 
 ## 9. Not decided / VERIFY
 - `VERIFY:` `Card` primitive's border per scheme (grep `borderWidth` in `src/ui/Card.tsx` found none; the ±2 in §8
-  covers it). `VERIFY:` `DailyHealth` Option field names on `useDailyHealth`'s value (`restingHeartRate`, `steps`).
+  covers it). `DailyHealth` field names verified in `healthWeekMath.ts` (`restingHeartRate`).
 - Week rings (direction A2) are not built unless the owner picks A; a seven-day ring row is 7 × 40 + 6 × 8 = 328 ≤ 326?
   No — 2 px over the Card inner at 390 (would need 38 px rings); recorded so the A pick does not inherit the slip.
 

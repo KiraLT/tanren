@@ -209,6 +209,15 @@ export const useIntegrationsOverview = () => {
   }
 }
 
+/**
+ * True once the server reports Garmin connected; false while loading, offline or disconnected. The
+ * health module's "Waiting for Garmin" vs "No tracker connected" (health-module.md §6).
+ */
+export const useGarminConnected = (): boolean => {
+  const { state } = useIntegrationsOverview()
+  return state._tag === "Ready" && state.value.garmin.state === "connected"
+}
+
 /** Strava detail: status, recent exports, and the connect / disconnect / retry actions. */
 export const useStravaDetail = () => {
   const { state, reload, setLoading } = useFocusLoad(loadDetail)

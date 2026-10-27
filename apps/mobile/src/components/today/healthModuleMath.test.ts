@@ -192,19 +192,25 @@ describe("isStale", () => {
 
 describe("metaLine", () => {
   it("reads as of HH:MM and steps, never resting heart rate (Amendment 26)", () => {
-    expect(metaLine(allPresent, NOW, VILNIUS)).toBe("as of 14:05 · 8,420 steps")
+    expect(metaLine(allPresent, NOW, VILNIUS, true)).toBe("as of 14:05 · 8,420 steps")
   })
 
   it("drops the steps when the tracker reports none", () => {
-    expect(metaLine({ ...allPresent, steps: Option.none() }, NOW, VILNIUS)).toBe("as of 14:05")
+    expect(metaLine({ ...allPresent, steps: Option.none() }, NOW, VILNIUS, true)).toBe(
+      "as of 14:05",
+    )
   })
 
-  it("says no tracker is connected without a daily_health row", () => {
-    expect(metaLine(garminOff, NOW, VILNIUS)).toBe("No tracker connected")
+  it("says no tracker is connected without a daily_health row and no tracker", () => {
+    expect(metaLine(garminOff, NOW, VILNIUS, false)).toBe("No tracker connected")
+  })
+
+  it("says Waiting for Garmin, not No tracker connected, when connected but not pulled today", () => {
+    expect(metaLine(garminOff, NOW, VILNIUS, true)).toBe("Waiting for Garmin")
   })
 
   it("keeps the line without targets", () => {
-    expect(metaLine(noTargets, NOW, VILNIUS)).toBe("as of 14:05 · 8,420 steps")
+    expect(metaLine(noTargets, NOW, VILNIUS, true)).toBe("as of 14:05 · 8,420 steps")
   })
 
   it("prefixes yesterday for a stale burnedAsOf", () => {
@@ -212,7 +218,7 @@ describe("metaLine", () => {
       ...allPresent,
       burnedAsOf: Option.some(DateTime.makeUnsafe("2026-10-26T21:40:00.000Z")),
     }
-    expect(metaLine(stale, NOW, VILNIUS)).toBe("as of yesterday 23:40 · 8,420 steps")
+    expect(metaLine(stale, NOW, VILNIUS, true)).toBe("as of yesterday 23:40 · 8,420 steps")
   })
 
   it("prefixes the date for an older burnedAsOf", () => {
@@ -220,13 +226,13 @@ describe("metaLine", () => {
       ...allPresent,
       burnedAsOf: Option.some(DateTime.makeUnsafe("2026-10-24T08:00:00.000Z")),
     }
-    expect(metaLine(older, NOW, VILNIUS)).toBe("as of 24 Oct 11:00 · 8,420 steps")
+    expect(metaLine(older, NOW, VILNIUS, true)).toBe("as of 24 Oct 11:00 · 8,420 steps")
   })
 })
 
 describe("freshnessLine", () => {
   it("reads only the clock for a row from today", () => {
-    expect(freshnessLine(allPresent, NOW, VILNIUS)).toBe("as of 14:05")
+    expect(freshnessLine(allPresent, NOW, VILNIUS, true)).toBe("as of 14:05")
   })
 
   it("keeps the date for an older row, without the steps", () => {
@@ -234,10 +240,58 @@ describe("freshnessLine", () => {
       ...allPresent,
       burnedAsOf: Option.some(DateTime.makeUnsafe("2026-10-24T08:00:00.000Z")),
     }
-    expect(freshnessLine(older, NOW, VILNIUS)).toBe("as of 24 Oct 11:00")
+    expect(freshnessLine(older, NOW, VILNIUS, true)).toBe("as of 24 Oct 11:00")
   })
 
-  it("says no tracker is connected without a daily_health row", () => {
-    expect(freshnessLine(garminOff, NOW, VILNIUS)).toBe("No tracker connected")
+  it("says no tracker is connected without a daily_health row and no tracker", () => {
+    expect(freshnessLine(garminOff, NOW, VILNIUS, false)).toBe("No tracker connected")
+  })
+
+  it("says Waiting for Garmin, not No tracker connected, when connected but not pulled today", () => {
+    expect(freshnessLine(garminOff, NOW, VILNIUS, true)).toBe("Waiting for Garmin")
+  })
+})
+
+describe("heroNumber at the budget edge", () => {
+  it("reads Left today 0 in neutral when the budget is exactly used", () => {
+    expect(heroNumber({ ...allPresent, kcalLeft: Option.some(0) })).toMatchObject({
+      label: "Left today",
+      value: "0",
+      tone: "neutral",
+    })
+  })
+
+  it("turns Over today −1 in danger one kcal past the budget", () => {
+    expect(heroNumber({ ...allPresent, kcalLeft: Option.some(-1) })).toMatchObject({
+      label: "Over today",
+      value: "−1",
+      tone: "danger",
+    })
+  })
+})
+
+describe("ringFractions with zero targets", () => {
+  it("clamps protein to a full ring, not Infinity, for a protein target of 0", () => {
+    const zeroProtein: DayTotals = {
+      ...allPresent,
+      targets: Option.some({ kcal: 3070, proteinG: 0, goal: "gain_muscle" }),
+    }
+    expect(ringFractions(zeroProtein).protein).toEqual(Option.some(1))
+  })
+
+  it("clamps eaten to a full ring, not Infinity, for a budget of 0", () => {
+    expect(ringFractions({ ...allPresent, budgetKcal: Option.some(0) }).eaten).toEqual(
+      Option.some(1),
+    )
+  })
+
+  it("reads 0, not NaN, with nothing eaten against a budget of 0", () => {
+    const empty: DayTotals = {
+      ...allPresent,
+      eaten: { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+      budgetKcal: Option.some(0),
+      targets: Option.some({ kcal: 0, proteinG: 0, goal: "gain_muscle" }),
+    }
+    expect(ringFractions(empty)).toMatchObject({ eaten: Option.some(0), protein: Option.some(0) })
   })
 })

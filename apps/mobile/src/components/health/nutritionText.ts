@@ -2,46 +2,50 @@ import { type DayTotals, formatInt } from "@tanren/shared"
 import { Array as Arr, Option } from "effect"
 import type { HealthStatProps } from "./HealthStats"
 
-/** `1420` → "1,420": the shared grouping (comma thousands, Lead 14:56). */
-export const kcalText = (n: number): string => formatInt(n)
-
 /** The no-value dash of a stat slot. */
 const DASH = "—"
 
 /**
- * The Today health module's stat row (docs/design/health-module.md §3 row 2, §6): Eaten (accent dot,
- * `danger` over budget), Burned (no dot, `muted` when `stale`, "—" without a Garmin total), Protein
- * (success dot, "/ 155 g" against the target, "g" without one).
+ * Eaten · Burned · Protein (docs/design/health-module.md §3 row 2, §4, §6), shared by the Today
+ * module (`headline`) and the `/health` hero (`title`, which also prints "kcal" after Eaten and a
+ * present Burned): Eaten (accent dot, `danger` over budget), Burned (no dot, `muted` when `stale`,
+ * "—" without a Garmin total), Protein (success dot, "/ 155 g" against the target, "g" without one).
  */
-export const moduleStats = (
+export const healthStats = (
   day: DayTotals,
   stale: boolean,
-): readonly [HealthStatProps, HealthStatProps, HealthStatProps] => [
-  {
-    label: "Eaten",
-    value: kcalText(day.eaten.kcal),
-    dot: "accent",
-    valueVariant: "headline",
-    valueTone: Option.exists(day.kcalLeft, (left) => left < 0) ? "danger" : "neutral",
-  },
-  {
-    label: "Burned",
-    value: Option.match(day.burned, { onNone: () => DASH, onSome: kcalText }),
-    valueVariant: "headline",
-    valueTone: stale ? "muted" : "neutral",
-  },
-  {
-    label: "Protein",
-    value: kcalText(day.eaten.proteinG),
-    unit: Option.match(day.targets, {
-      onNone: () => "g",
-      onSome: (targets) => `/ ${kcalText(targets.proteinG)} g`,
-    }),
-    dot: "success",
-    valueVariant: "headline",
-    valueTone: "neutral",
-  },
-]
+  variant: "headline" | "title",
+): readonly [HealthStatProps, HealthStatProps, HealthStatProps] => {
+  const kcal = variant === "title" ? "kcal" : undefined
+  return [
+    {
+      label: "Eaten",
+      value: formatInt(day.eaten.kcal),
+      unit: kcal,
+      dot: "accent",
+      valueVariant: variant,
+      valueTone: Option.exists(day.kcalLeft, (left) => left < 0) ? "danger" : "neutral",
+    },
+    {
+      label: "Burned",
+      value: Option.match(day.burned, { onNone: () => DASH, onSome: formatInt }),
+      unit: Option.isSome(day.burned) ? kcal : undefined,
+      valueVariant: variant,
+      valueTone: stale ? "muted" : "neutral",
+    },
+    {
+      label: "Protein",
+      value: formatInt(day.eaten.proteinG),
+      unit: Option.match(day.targets, {
+        onNone: () => "g",
+        onSome: (targets) => `/ ${formatInt(targets.proteinG)} g`,
+      }),
+      dot: "success",
+      valueVariant: variant,
+      valueTone: "neutral",
+    },
+  ]
+}
 
 /** The module is hidden only when nutrition is off, there is no Garmin total and nothing was logged (§6). */
 export const moduleHidden = (day: DayTotals): boolean =>
@@ -57,15 +61,15 @@ export const moduleLabel = (
   meta: string,
   insight: Option.Option<string>,
 ): string => {
-  const burned = Option.match(day.burned, { onNone: () => "no data", onSome: kcalText })
+  const burned = Option.match(day.burned, { onNone: () => "no data", onSome: formatInt })
   const protein = Option.match(day.targets, {
-    onNone: () => `${kcalText(day.eaten.proteinG)} g`,
-    onSome: (targets) => `${kcalText(day.eaten.proteinG)} of ${kcalText(targets.proteinG)} g`,
+    onNone: () => `${formatInt(day.eaten.proteinG)} g`,
+    onSome: (targets) => `${formatInt(day.eaten.proteinG)} of ${formatInt(targets.proteinG)} g`,
   })
   return Arr.join(
     [
       `Health today: ${hero.label} ${hero.value}`,
-      `eaten ${kcalText(day.eaten.kcal)}`,
+      `eaten ${formatInt(day.eaten.kcal)}`,
       `burned ${burned}`,
       `protein ${protein}`,
       meta,

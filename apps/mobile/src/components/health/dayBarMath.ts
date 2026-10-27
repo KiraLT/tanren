@@ -1,7 +1,6 @@
-import { type DayTotals, LocalDate, type WeekReview } from "@tanren/shared"
+import { type DayTotals, formatInt, LocalDate, type WeekReview } from "@tanren/shared"
 import { Array as Arr, DateTime, Option, pipe } from "effect"
 import { shiftDate } from "../../services/progressMath"
-import { kcalText } from "./nutritionText"
 
 /** One column of the `/health` week bars (nutrition.md §6 "7 days"). */
 export interface DayBarColumn {
@@ -67,10 +66,10 @@ const isOverBudget = (day: DayTotals): boolean =>
 const labelOf = (day: DayTotals, name: string): string => {
   const logged = day.entries.length > 0 || day.eaten.kcal > 0
   // Colour is not the only signal: an over-budget day says so.
-  const eaten = `eaten ${kcalText(day.eaten.kcal)} kcal${isOverBudget(day) ? ", over budget" : ""}`
+  const eaten = `eaten ${formatInt(day.eaten.kcal)} kcal${isOverBudget(day) ? ", over budget" : ""}`
   return Option.match(day.burned, {
     onNone: () => (logged ? `${name}: ${eaten}, burned: no data` : `${name}: nothing logged`),
-    onSome: (burned) => `${name}: ${eaten}, burned ${kcalText(burned)} kcal`,
+    onSome: (burned) => `${name}: ${eaten}, burned ${formatInt(burned)} kcal`,
   })
 }
 
@@ -111,7 +110,7 @@ export const dayBarColumns = (
 }
 
 /** `-310` → "−310" (U+2212, as in the design), `1420` → "1,420". */
-const signedKcalText = (n: number): string => (n < 0 ? `−${kcalText(-n)}` : kcalText(n))
+const signedKcalText = (n: number): string => (n < 0 ? `−${formatInt(-n)}` : formatInt(n))
 
 /** The week's average eaten − burned per day with a Garmin total; `None` when no day has one. */
 export const avgBalanceText = (review: Pick<WeekReview, "netKcal" | "daysWithBurn">): string =>

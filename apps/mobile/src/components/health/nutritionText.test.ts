@@ -1,10 +1,45 @@
 import { describe, expect, it } from "@effect/vitest"
-import { type DayTotals, LocalDate } from "@tanren/shared"
+import {
+  type DayTotals,
+  FoodEntry,
+  FoodEntryId,
+  type FoodItem,
+  LocalDate,
+  totalsOf,
+  UserId,
+} from "@tanren/shared"
 import { DateTime, Option } from "effect"
-import { kcalText, moduleHidden, moduleLabel, moduleStats } from "./nutritionText"
+import { healthStats, moduleHidden, moduleLabel } from "./nutritionText"
 
 /** 14:05 in Vilnius (EET, UTC+2 on 2026-10-27). */
 const AS_OF = DateTime.makeUnsafe("2026-10-27T12:05:00.000Z")
+
+const shake: FoodItem = {
+  name: "Protein shake",
+  portion: "1 scoop",
+  grams: Option.none(),
+  kcal: 120,
+  proteinG: 24,
+  carbsG: 3,
+  fatG: 1,
+  fibreG: Option.none(),
+  confidence: Option.none(),
+}
+
+/** One logged entry, for the "logged but nothing else" case. */
+const lunch = new FoodEntry({
+  id: FoodEntryId.make("00000000-0000-4000-8000-000000000001"),
+  userId: UserId.make("00000000-0000-4000-8000-0000000000aa"),
+  createdAt: AS_OF,
+  updatedAt: AS_OF,
+  deletedAt: Option.none(),
+  loggedAt: AS_OF,
+  meal: "snack",
+  source: "manual",
+  items: [shake],
+  ...totalsOf([shake]),
+  note: Option.none(),
+})
 
 /** Owner day: 2,040 target, 1,420 eaten, Garmin 1,840 burned, protein 96/170 g. */
 const baseDay: DayTotals = {
@@ -39,22 +74,14 @@ const noTargets: Partial<DayTotals> = {
 
 const day = (patch: Partial<DayTotals> = {}): DayTotals => ({ ...baseDay, ...patch })
 
-describe("kcalText", () => {
-  it("groups thousands with commas and rounds", () => {
-    expect(kcalText(1420)).toBe("1,420")
-    expect(kcalText(10_000)).toBe("10,000")
-    expect(kcalText(95.6)).toBe("96")
-    expect(kcalText(0)).toBe("0")
-  })
-})
-
-describe("moduleStats", () => {
-  it("reads Eaten, Burned and Protein against the target with the two dots", () => {
-    const [eaten, burned, protein] = moduleStats(baseDay, false)
+describe("healthStats", () => {
+  it("reads Eaten, Burned and Protein against the target with the two dots (headline)", () => {
+    const [eaten, burned, protein] = healthStats(baseDay, false, "headline")
     expect(eaten).toMatchObject({
       label: "Eaten",
       value: "1,420",
       dot: "accent",
+      valueVariant: "headline",
       valueTone: "neutral",
     })
     expect(burned).toMatchObject({ label: "Burned", value: "1,840", valueTone: "neutral" })
@@ -67,21 +94,42 @@ describe("moduleStats", () => {
     })
   })
 
+  it("prints no kcal unit on the Today headline variant", () => {
+    const [eaten, burned] = healthStats(baseDay, false, "headline")
+    expect([eaten.unit, burned.unit]).toEqual([undefined, undefined])
+  })
+
+  it("prints kcal after Eaten and Burned on the hero title variant", () => {
+    const stats = healthStats(baseDay, false, "title")
+    expect(stats.map((stat) => [stat.valueVariant, stat.unit])).toEqual([
+      ["title", "kcal"],
+      ["title", "kcal"],
+      ["title", "/ 170 g"],
+    ])
+  })
+
+  it("drops the kcal unit after a burned dash on the title variant", () => {
+    expect(healthStats(day(noHealth), false, "title")[1]).toMatchObject({
+      value: "—",
+      unit: undefined,
+    })
+  })
+
   it("turns Eaten danger over the budget", () => {
-    const [eaten] = moduleStats(day({ kcalLeft: Option.some(-120) }), false)
+    const [eaten] = healthStats(day({ kcalLeft: Option.some(-120) }), false, "headline")
     expect(eaten.valueTone).toBe("danger")
   })
 
   it("mutes a stale burned value", () => {
-    expect(moduleStats(baseDay, true)[1].valueTone).toBe("muted")
+    expect(healthStats(baseDay, true, "title")[1].valueTone).toBe("muted")
   })
 
   it("shows a dash without a Garmin total", () => {
-    expect(moduleStats(day(noHealth), false)[1].value).toBe("—")
+    expect(healthStats(day(noHealth), false, "headline")[1].value).toBe("—")
   })
 
   it("shows bare grams of protein without targets", () => {
-    expect(moduleStats(day(noTargets), false)[2].unit).toBe("g")
+    expect(healthStats(day(noTargets), false, "headline")[2].unit).toBe("g")
   })
 })
 
@@ -96,6 +144,10 @@ describe("moduleHidden", () => {
 
   it("shows it when only targets are set", () => {
     expect(moduleHidden(day(noHealth))).toBe(false)
+  })
+
+  it("shows it when entries are logged with no targets and no Garmin total", () => {
+    expect(moduleHidden(day({ ...noTargets, ...noHealth, entries: [lunch] }))).toBe(false)
   })
 })
 

@@ -476,8 +476,8 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   + `daily_health` (indexes `imported_activity_started`, `daily_health_date`, dirty indexes for the generic
   push scan); `LocalStore` members for both. `FeedRepo.activities(limit)` returns `ReadonlyArray<FeedItem>`
   (`{_tag:"session"|"imported", activity}`, ≤ limit in total, `startedAt` desc then id desc; deleted rows
-  excluded); `activity(id)` stays session-only. `daily_health` is read only by `NutritionRepo` (`DailyHealthRepo` /
-  `useDailyHealth` deleted with the v5 strip, HM-3); `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
+  excluded); `activity(id)` stays session-only. `daily_health` is read only by `NutritionRepo` (the v5 strip's
+  repo and hook were deleted, HM-3); `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
 - Feed: `FeedRow` gains `Imported` (`feedGroups.ts`, `sessionOnly`); week summary counts sessions, a week of
   only imports reads "N activities"; the desktop aside takes sessions only, so an imported card opens its own
   route `/activity/imported/[id]` (one 600 column at every width). `ImportedCard` (`src/components/feed/`,
@@ -554,7 +554,7 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   (softDelete / restore → Promise<boolean>, never rejects, requests a sync). Budget, targets and insights are never
   re-implemented on device; they come from shared only.
 - Lead rulings: budget = goal intake (Garmin burn is information, shown "as of HH:MM"); eat-back only when `eatBackActive`
-  (default off); "Burned: no data" when the day has no `daily_health` row; commas (`formatInt` / `kcalText`); insights ≤ 3 in
+  (default off); "Burned: no data" when the day has no `daily_health` row; commas (`formatInt`); insights ≤ 3 in
   group order.
 - Today (HM-2, docs/design/health-module.md §3 merge, plan Amendment 26): one `HealthModule` card (`src/components/today/`,
   pressable → `/health`) in Empty (a `Page` section) and Ready (phone/tablet: `TodayReady` `banner`, gutter + `space.lg`;
@@ -562,7 +562,9 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   (`display`), `HealthStatRow` Eaten · Burned · Protein, `metaLine` (as of HH:MM · steps, never resting bpm), first insight;
   358 × 236 at 390 (214 without an insight). Reads only `useNutritionDay` (`DayTotals` carries burned/steps); null while
   Loading/Failed and when `moduleHidden` (no targets, no burned, no entries). Pure text in `components/health/nutritionText.ts`
-  (`moduleStats`, `moduleHidden`, `moduleLabel`, `kcalText`), maths in `today/healthModuleMath.ts`.
+  (`healthStats(day, stale, "headline" | "title")` for Today and the hero, `moduleHidden`, `moduleLabel`), maths in
+  `today/healthModuleMath.ts`; row 3 reads "Waiting for Garmin" when Garmin is connected (`useGarminConnected`) but the
+  day has no `daily_health` row yet, "No tracker connected" only without a tracker (HM-F1).
 - `/health` (`app/health/index.tsx`, root Stack, not a tab): Loading | Off | Failed | Ready, all in one `Page wide` frame with
   `AppBar "Health"` (Back falls back to `/today`, `plus` → `/health/add`, `settings` → `/settings/nutrition`). Off = no targets →
   EmptyState "Set a nutrition goal"; it never waits on the week read. Ready (HM-3, health-module.md §4, designer UI-HM-r1):

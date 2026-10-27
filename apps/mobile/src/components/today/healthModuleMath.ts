@@ -90,7 +90,12 @@ const dayPrefix = (asOf: DateTime.Zoned, now: DateTime.Zoned): string => {
       : `${formatDate(asOf)} `
 }
 
-const NO_TRACKER = "No tracker connected"
+/**
+ * Row 3 without a `daily_health` row for the day (§6): Garmin connected but not pulled yet this
+ * morning, or no tracker at all.
+ */
+const noRowLine = (trackerConnected: boolean): string =>
+  trackerConnected ? "Waiting for Garmin" : "No tracker connected"
 
 /** "as of 14:05" / "as of yesterday 23:40" / "as of 24 Oct 11:00" in `zone`; None without a row. */
 const asOfLine = (day: DayTotals, now: Date, zone: DateTime.TimeZone): Option.Option<string> =>
@@ -102,16 +107,18 @@ const asOfLine = (day: DayTotals, now: Date, zone: DateTime.TimeZone): Option.Op
 
 /**
  * Row 3 of the module (§6 with plan Amendment 26: steps only, never resting heart rate):
- * "as of 14:05 · 8,420 steps", "as of yesterday 23:40 · 8,420 steps", "No tracker connected"
- * (no `daily_health` row for the day). Clock and day in `zone`, the device zone by default.
+ * "as of 14:05 · 8,420 steps", "as of yesterday 23:40 · 8,420 steps"; without a `daily_health` row
+ * for the day "Waiting for Garmin" when Garmin is connected, else "No tracker connected". Clock and
+ * day in `zone` (the device zone at the call sites).
  */
 export const metaLine = (
   day: DayTotals,
   now: Date,
-  zone: DateTime.TimeZone = DateTime.zoneMakeLocal(),
+  zone: DateTime.TimeZone,
+  trackerConnected: boolean,
 ): string =>
   Option.match(asOfLine(day, now, zone), {
-    onNone: () => NO_TRACKER,
+    onNone: () => noRowLine(trackerConnected),
     onSome: (asOf) =>
       Arr.join(
         Arr.getSomes([
@@ -124,10 +131,12 @@ export const metaLine = (
 
 /**
  * The `/health` week caption: `metaLine` without the steps (they have their own tile), so a stale
- * row still reads stale: "as of 16:50", "as of 27 Oct 16:37", "No tracker connected".
+ * row still reads stale: "as of 16:50", "as of 27 Oct 16:37", "Waiting for Garmin",
+ * "No tracker connected".
  */
 export const freshnessLine = (
   day: DayTotals,
   now: Date,
-  zone: DateTime.TimeZone = DateTime.zoneMakeLocal(),
-): string => Option.getOrElse(asOfLine(day, now, zone), () => NO_TRACKER)
+  zone: DateTime.TimeZone,
+  trackerConnected: boolean,
+): string => Option.getOrElse(asOfLine(day, now, zone), () => noRowLine(trackerConnected))

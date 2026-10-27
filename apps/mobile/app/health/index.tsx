@@ -6,7 +6,7 @@ import {
   type LocalDate,
   type WeekReview,
 } from "@tanren/shared"
-import { Array as Arr, Match, Option } from "effect"
+import { Array as Arr, DateTime, Match, Option } from "effect"
 import { useRouter } from "expo-router"
 import type { ReactNode } from "react"
 import { View } from "react-native"
@@ -27,6 +27,7 @@ import { localDateOf } from "../../src/components/planFormat"
 import { freshnessLine } from "../../src/components/today/healthModuleMath"
 import { useFoodEntryActions } from "../../src/hooks/useFoodEntryActions"
 import type { HistoryState } from "../../src/hooks/useHistory"
+import { useGarminConnected } from "../../src/hooks/useIntegrations"
 import { type NutritionDay, useNutritionDay } from "../../src/hooks/useNutritionDay"
 import { type HealthWeek, useNutritionWeek } from "../../src/hooks/useNutritionWeek"
 import {
@@ -72,11 +73,12 @@ function WeekBars({
   readonly today: LocalDate
 }) {
   const restingHr = restingHrWeek(week.health)
+  const garminConnected = useGarminConnected()
   return (
     <View style={{ gap: space.sm }}>
       <DayBars days={week.review.days} today={today} />
       <Text variant="caption" tone="muted">
-        {freshnessLine(day, new Date())}
+        {freshnessLine(day, new Date(), DateTime.zoneMakeLocal(), garminConnected)}
       </Text>
       <Card padding={rhythm.cardPadding} style={{ marginTop: space.sm }}>
         <View style={{ flexDirection: "row", gap: space.sm }}>
