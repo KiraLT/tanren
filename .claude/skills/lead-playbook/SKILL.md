@@ -309,6 +309,9 @@ Role files: before briefing each round, re-read engineer.md / reviewer.md / ui-c
   when their mtime is newer than your dispatch (`stat -f %m <file>`); the Lead also
   forwards EM deltas to live team-leads in the turn it accepts the EM report (r5's
   children were briefed 2 min before batch 6's deltas arrived; EM batch 7, P4)
+Integration notes in the report carry ONLY items outside the owned paths;
+  in-path leftovers (unused exports, doc truth-ups, test renames) are closed
+  by the team before it reports (INT-STLS: 2 of 3 notes were in-path; EM batch 9, P5)
 Report: team report format from .claude/agents/team-lead.md
 ```
 
@@ -451,7 +454,12 @@ parallel integration tasks.
 ## Review → fix loop
 
 Blocking findings go back to the same engineer via `SendMessage`, verbatim,
-with "fix only these, re-run the gate, report". A QA fix brief ends with the
+with "fix only these, re-run the gate, report". A fix brief for a UI finding
+names the CLASS and the count ("every anchor on /privacy, /terms, /sign-in
+and the landing: N of them; measure each hit box"), never one instance:
+LEGAL-1 ran r2→r5 on 2026-10-27 because each brief named one link (footer
+links → inline anchors → the overlap the padding caused) — one round per
+instance (EM batch 9, P4). A QA fix brief ends with the
 proof `grep -rn "DEFECT" <paths>` (no colon): every marker either gone with
 its test passing or listed as not fixed. `should` findings go to the
 task sheet as follow-ups unless trivial. Re-review only the blocking ones.
@@ -462,6 +470,13 @@ architect to decide the contested point.
 
 - `docs/tasks/step-N.md`: update status after every accepted report.
   Statuses: `todo` · `in-progress` · `in-review` · `done` · `blocked`.
+- **Shared barrels** (`packages/*/src/index.ts`, `repositories/index.ts`)
+  touched by two live streams: do not wait for the slower stream. Commit the
+  finished stream's hunk alone — `git diff -- <barrel> > $S/b.patch`, edit
+  out the other stream's line, `git apply --cached $S/b.patch` — and let
+  engineers add their barrel line as the task's LAST edit (engineer.md 15).
+  The STLS commit waited ≈ 8 min on LEGAL-2a's two export lines on
+  2026-10-27 (EM batch 9, P2).
 - `docs/handoff.md`: rewrite at session end (`/handoff`). It must let a cold
   session resume without the transcript.
 - After each step: what did an agent lack? Put it in a rule, a skill, or a
@@ -477,6 +492,10 @@ You are responsible for the process, not just the output.
   `date · step · what · cost · lesson · fixed where`.
 - **Log metrics.** For every dispatch, append to the task sheet Log:
   `HH:MM→HH:MM · task · role/model · tokens · tool uses · rounds · outcome`
+  — written only AFTER the Agent ack ("Async agent launched"), never before
+  the call: a planned dispatch is a `queued` row, not "dispatched" (the Lead
+  logged "Garmin team-lead dispatched on HOLD" at 13:43 on 2026-10-27 without
+  having made the call; caught 40 s later — EM batch 9, P1)
   (the task notification gives you duration, tokens and tool uses). On every
   returned report: dispatch dependents and route fixes FIRST, then write the
   Log and statuses. Bookkeeping never sits on the critical path. Neither
