@@ -47,7 +47,17 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
 - PLAN-LOG done and reviewed (`e71da43` → `4426117`: Schema-decoded aggregate rows, `LoggedTotals` from the
   struct, fixture literal; REV-PL2 APPROVE) and live via DEPLOY-6 11:12 (Worker 2f896c11, web 6a38a0dc; "Logged"
   present in the live `__common` chunk). Plan dark captures go to the next polish round.
-- **Streams are QUIET as of 11:13** (all agents reported; nothing live). The owner may restart Claude Code.
+- **MCP-ROOT** (owner hit 404 on the bare mcp.tanren.me): help page on `/` + root-form protected-resource
+  metadata rewritten to the `/mcp` form in `makeProvider`; WIP `7b75026`, REV-MR APPROVE, four nits being fixed
+  (security headers, exact status, duplicate test, parse once) → reviewed commit → DEPLOY-7 → verify
+  `curl -sI https://mcp.tanren.me/` 200 and `/.well-known/oauth-protected-resource` 200.
+- **Auth v2 wave** (plan Amendments 16 + 17, dispatched 12:45): spike S1 → `docs/research/mcp-client-identities.md`
+  (CIMD in workers-oauth-provider 1.2.3, the Claude/ChatGPT client ids, trust model), spike S2 →
+  `docs/research/stateless-sessions.md` (Better Auth stateless options with a symmetric secret; what the OAuth
+  library keeps in KV), architect (fable, 20 min) → ADR-0022 + `docs/design/auth-v2.md` + `docs/tasks/v5-auth.md`
+  with IDENT-1 (enable CIMD + allowlist + untrusted warning on the current library) first if it can ship today.
+  Lead's concern on record: stateless tokens cannot be revoked before expiry → short TTLs + a per-user token
+  generation in D1; `BETTER_AUTH_SECRET` already exists (reuse over a new `SECRET_KEY` unless the architect objects).
 - EM batch 7 done (`fe602ef`): engineer rule 9 (scratch D1 proofs, `db:reset`, no `--dry-run`), team-lead
   capture-stack ownership, ui-check per-task stack; playbook P1–P4 + P6 applied. P5 is the owner's (item 9 below).
 - Done this morning (all committed): FIN-LAYOUT `e34ca1e` + DEPLOY-4; EM batch 6 (`4e74a28`); SF-1 Strava
@@ -97,8 +107,11 @@ on AC). Retro verdict: throughput high (9 streams,
    "Forbidden" line in every brief and charter, and keep deploys Lead-run from clean worktrees.
 
 ## Next actions (in order)
-1. EM batch 8 after the next ≥ 4 commits (two since batch 7: PLAN-LOG reviewed, docs).
-2. Next polish round (nits in `docs/tasks/v4-polish-briefs.md` §Queued: eyebrow 28 px slot at 1280, landing
+1. Finish MCP-ROOT (commit, DEPLOY-7, live check), then the auth v2 wave: read ADR-0022 + `docs/tasks/v5-auth.md`,
+   dispatch IDENT-1 first (owner wants to connect the Claude app), then the stateless tasks in the sheet's order;
+   owner step when the design lands: `wrangler secret put` for a new secret only if ADR-0022 asks for one.
+2. EM batch 8 after the next ≥ 4 commits.
+3. Next polish round (nits in `docs/tasks/v4-polish-briefs.md` §Queued: eyebrow 28 px slot at 1280, landing
    light-scheme colour set, eyebrow repeats the name; dark captures for the Plan logged line) — or the next
    feature the owner names; the v4 backlog is otherwise empty.
 3. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.

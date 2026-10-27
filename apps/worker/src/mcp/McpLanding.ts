@@ -6,6 +6,10 @@ import { escapeHtml } from "../oauth/pages"
 
 const WEB_URL = "https://tanren.me"
 
+/** Inline styles only: no scripts, no fetches, no forms, never framed. */
+export const MCP_LANDING_CSP =
+  "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
 /** Forge colours inline: graphite + off-white + amber (dark), paper + ink + burnt orange (light). */
 export const mcpLandingPage = (mcpResourceUrl: string): string => {
   const url = escapeHtml(mcpResourceUrl)
@@ -47,5 +51,7 @@ export const mcpLandingResponse = (request: Request, mcpResourceUrl: string): Re
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "public, max-age=3600",
+      "x-content-type-options": "nosniff",
+      "content-security-policy": MCP_LANDING_CSP,
     },
   })

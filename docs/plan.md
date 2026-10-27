@@ -215,3 +215,24 @@ Recorded 2026-10-19, from the owner's kickoff message:
    in-app mark. LOGO-2's 力 set is superseded (kept under
    `assets/brand/candidates/` for the record); `docs/design/brand.md` and the
    brandbook follow (`docs/tasks/v4-brand-briefs.md`, LOGO-4).
+16. **MCP client identities** (2026-10-27 12:35, owner, verbatim, after trying
+   the Claude app connector): "Your MCP client does not support 'Use Claude's
+   published identity' mode. Add identities for claude/chatgpt. For other
+   apps MCP auth screen should show untrusted warning." Lead reading: the
+   OAuth server accepts the published client identities of the Claude and
+   ChatGPT apps (client-ID metadata documents / their fixed client ids and
+   redirect URIs, verified by the spike), shows them by name and logo as
+   trusted on the consent screen, and shows an explicit "untrusted app"
+   warning for any other (dynamically registered or unknown) client
+   (ADR-0022, `docs/design/auth-v2.md`, `docs/tasks/v5-auth.md`).
+17. **Stateless auth** (2026-10-27 12:35, owner, verbatim): "Also i saw you use
+   kw db for sessions. Instead add SECRET_KEY env var if you dont have
+   anything similar to prod and use json web token for both login and oauth
+   to have fully stateless auth." Lead reading: no KV; a `SECRET_KEY` Worker
+   secret signs JSON Web Tokens for the app login (Better Auth session as a
+   JWT / cookie-cached token) and for the MCP OAuth flow (authorization codes,
+   access and refresh tokens as JWTs); `OAUTH_KV` is retired. The Lead's
+   stated concern: fully stateless tokens cannot be revoked before expiry, so
+   the design keeps short access-token lifetimes and one integer per user
+   (a token generation in D1) that bumps on disconnect / sign-out everywhere;
+   the architect validates or overrides (ADR-0022).

@@ -33,9 +33,9 @@ const PROTECTED_RESOURCE_METADATA = "/.well-known/oauth-protected-resource"
  * `/mcp`: the bare origin is not the RFC 8707 resource), `/authorize` and below → the authorize
  * pages, everything else → the REST app.
  */
-export const serveWith =
-  (mcpResourceUrl: string, { app, mcp, authorize }: WorkerHandlers) =>
-  (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
+export const serveWith = (mcpResourceUrl: string, { app, mcp, authorize }: WorkerHandlers) => {
+  const mcpHostname = new URL(mcpResourceUrl).hostname
+  return (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
     const { pathname, hostname } = new URL(request.url)
     if (pathname === "/mcp") {
       return mcp.handle(request, env, ctx)
@@ -43,7 +43,7 @@ export const serveWith =
     if (
       pathname === "/" &&
       (request.method === "GET" || request.method === "HEAD") &&
-      hostname === new URL(mcpResourceUrl).hostname
+      hostname === mcpHostname
     ) {
       return Promise.resolve(mcpLandingResponse(request, mcpResourceUrl))
     }
@@ -52,6 +52,7 @@ export const serveWith =
     }
     return app.handler(request)
   }
+}
 
 /**
  * RFC 9728 root form → path form. The provider answers only the metadata URL derived from
@@ -60,11 +61,10 @@ export const serveWith =
  * so the root form on the MCP host is rewritten to the path form and served by the provider itself:
  * the same JSON, the same `resource`. Other hosts and paths pass through unchanged.
  */
-export const aliasRootResourceMetadata =
-  (mcpResourceUrl: string) =>
-  (request: Request): Request => {
+export const aliasRootResourceMetadata = (mcpResourceUrl: string) => {
+  const resource = new URL(mcpResourceUrl)
+  return (request: Request): Request => {
     const url = new URL(request.url)
-    const resource = new URL(mcpResourceUrl)
     return url.pathname === PROTECTED_RESOURCE_METADATA &&
       url.hostname === resource.hostname &&
       resource.pathname !== "/"
@@ -74,6 +74,7 @@ export const aliasRootResourceMetadata =
         )
       : request
   }
+}
 
 /**
  * Endpoints are full URLs on `betterAuthUrl` (the api host, where the Better Auth cookie lives):

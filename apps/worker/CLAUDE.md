@@ -59,7 +59,7 @@ src/
                       never failing the push; pull + serverTime); SyncStoreMemory (Node fake, no LWW)
   mcp/                tools.ts (6 read tools incl. `search_exercises` (`availableAt`: 1 D1 statement) and `get_profile`; with the 3 write tools 9 total; a read-only grant lists 6; pure Effect over the repo ports; `Tool`/`AnyTool`/`eraseTool`, each with a `kind`) ·
                       writeTools.ts (`write_plan_week`, `log_session`, `update_profile`) · McpAuth.ts (identity port → `McpPrincipal`) ·
-                      server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime)
+                      server.ts (the only `McpServer`, one per request) · McpRoute.ts (`makeMcp`, lazy ManagedRuntime) · McpLanding.ts (GET/HEAD `/` on the MCP host: static help page naming the connector URL)
   oauth/              provider.ts (`makeProvider`: `new OAuthProvider` + `serveWith` routing) · authorize.ts (`/authorize` pages:
                       Better Auth magic-link login → consent) · OAuthApi.ts (port over the provider's `OAuthHelpers`, plus a fake
                       for Node tests) · pages.ts (HTML pages). KV binding `OAUTH_KV`; no Durable Object
@@ -106,6 +106,11 @@ tsconfig.scripts.json scripts/ (@types/node); `typecheck` runs all three
 
 ## MCP (`/mcp`; contracts `docs/design/mcp.md`, `docs/design/oauth.md`)
 
+- The MCP host serves the connector at `/mcp` only (`MCP_RESOURCE_URL`, the RFC 8707 resource); `/` is a
+  static help page and the root-form `/.well-known/oauth-protected-resource` is rewritten to the `/mcp` form
+  inside `makeProvider` (`oauth/provider.ts`) before `provider.fetch`, because `workers-oauth-provider` owns
+  that namespace and serves only the resource's own metadata path (MCP-ROOT, 2026-10-27). `makeProvider`
+  returns `{ fetch }`; the connector URL for the Claude app is `https://mcp.tanren.me/mcp`.
 - Stateless `createMcpHandler` (`agents/mcp/server`) + `McpServer` (`@modelcontextprotocol/server` v2); not
   `McpAgent`, no Durable Object, no session state (ADR-0010). The `OAuthProvider` (`apiRoute: "/mcp"`)
   validates the bearer; `serveWith` (`oauth/provider.ts`) sends the exact path `/mcp` to

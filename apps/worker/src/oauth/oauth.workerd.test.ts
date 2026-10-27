@@ -9,6 +9,7 @@ import { EmailSender } from "../auth/EmailSender"
 import { Sessions } from "../auth/Sessions"
 import { WorkerConfig } from "../Config"
 import { McpAuth } from "../mcp/McpAuth"
+import { MCP_LANDING_CSP } from "../mcp/McpLanding"
 import { makeMcp } from "../mcp/McpRoute"
 import { ExerciseRepo, ProfileRepo } from "../repos"
 import { exercise } from "../sync/fixtures"
@@ -309,6 +310,8 @@ describe("MCP host root and root-form protected-resource metadata (workerd)", ()
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
     expect(response.headers.get("cache-control")).toBe("public, max-age=3600")
     expect(response.headers.get("set-cookie")).toBeNull()
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+    expect(response.headers.get("content-security-policy")).toBe(MCP_LANDING_CSP)
     const page = await response.text()
     expect(page).toContain(env.MCP_RESOURCE_URL)
     expect(page).toContain('href="https://tanren.me"')
@@ -319,6 +322,8 @@ describe("MCP host root and root-form protected-resource metadata (workerd)", ()
     const response = await send("/", { method: "HEAD" })
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8")
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff")
+    expect(response.headers.get("content-security-policy")).toBe(MCP_LANDING_CSP)
     expect(await response.text()).toBe("")
   })
 
@@ -338,21 +343,12 @@ describe("MCP host root and root-form protected-resource metadata (workerd)", ()
     expect(JSON.parse(rootText)).toMatchObject({ resource: env.MCP_RESOURCE_URL })
   })
 
-  it("/mcp still answers 401 with the path-form challenge", async () => {
-    const response = await mcp(Option.none(), "tools/list", {})
-    expect(response.status).toBe(401)
-    expect(response.headers.get("WWW-Authenticate")).toBe(
-      `Bearer realm="OAuth", resource_metadata="${new URL(env.MCP_RESOURCE_URL).origin}/.well-known/oauth-protected-resource/mcp", scope="tanren:read tanren:write"`,
-    )
-  })
-
   it("an unknown path still answers 404", async () => {
     expect((await send("/nonsense")).status).toBe(404)
   })
 
-  it("POST / is not the landing page", async () => {
-    const response = await send("/", { method: "POST" })
-    expect(response.status).not.toBe(200)
+  it("POST / falls through to the REST app's 404", async () => {
+    expect((await send("/", { method: "POST" })).status).toBe(404)
   })
 
   it("another host gets neither the landing page nor the metadata alias", async () => {
