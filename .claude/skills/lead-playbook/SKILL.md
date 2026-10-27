@@ -462,6 +462,11 @@ the background (or a sonnet release engineer); metric: no acceptance lag
 > 5 min while a deploy runs (DEPLOY-2 by hand made REV-PL/LOGO-3/LAND-1/
 PROG-3 wait 10–12 min each). Keep ≤ 8 live agents until the lockstep-gap
 cause (22:32–22:51, every agent idle together) is known.
+(8) **Path-list commits while another stream is live** (EM batch 12, P2):
+before `git add <99 paths>`, check that no listed file changed after the live
+stream's dispatch — `stat -f %m` (or `find <paths> -newer <marker>`) against
+the dispatch time; exclude or hunk-stage the newer files (Garmin 99-file
+commit vs live N-F0, 2026-10-27: all shared files pre-dated N-F0, committed clean).
 
 ## Big diffs: fan the review out
 
