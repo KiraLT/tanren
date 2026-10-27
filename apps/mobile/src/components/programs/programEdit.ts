@@ -11,6 +11,7 @@ import {
   type Weekday,
 } from "@tanren/shared"
 import { Array as Arr, Match, Option, Schema } from "effect"
+import { typedNumber } from "../stepMath"
 
 /**
  * Pure edits behind the program editor (ADR-0026, programs-mcp.md §4). Every function returns a new
@@ -233,6 +234,40 @@ export const stepRest = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
 /** Straight sets of a reps item, clamped to `RANGES.sets`; a timed item is unchanged. */
 export const stepSets = (item: ProgramItem, direction: -1 | 1): ProgramItem =>
   item.kind === "reps" ? { ...item, sets: stepValue(item.sets, direction, RANGES.sets) } : item
+
+/**
+ * A typed value (tap-to-type) fitted to a range: clamped to `[min, max]`, then snapped to the
+ * nearest multiple of `step` from `min` (a tie rounds up: rest between rounds 22.5 → 30). None when
+ * the text is empty or not a number, so the caller keeps the value.
+ */
+export const fitTyped = (raw: string, range: StepRange): Option.Option<number> =>
+  Option.map(typedNumber(raw), (value) => {
+    const clamped = Math.min(range.max, Math.max(range.min, value))
+    const snapped = range.min + Math.round((clamped - range.min) / range.step) * range.step
+    return Math.min(range.max, snapped)
+  })
+
+const enter = <A>(value: A, raw: string, range: StepRange, set: (value: A, n: number) => A): A =>
+  Option.match(fitTyped(raw, range), { onNone: () => value, onSome: (n) => set(value, n) })
+
+export const enterWork = (item: ProgramItem, raw: string): ProgramItem =>
+  enter(item, raw, workRange(item), withWorkValue)
+
+export const enterRest = (item: ProgramItem, raw: string): ProgramItem =>
+  enter(item, raw, RANGES.rest, withRest)
+
+/** A timed item has no sets: unchanged. */
+export const enterSets = (item: ProgramItem, raw: string): ProgramItem =>
+  item.kind === "reps" ? enter(item, raw, RANGES.sets, (reps, sets) => ({ ...reps, sets })) : item
+
+export const enterRounds = (day: ProgramDay, raw: string): ProgramDay =>
+  enter(day, raw, RANGES.rounds, (current, rounds) => ({ ...current, rounds }))
+
+export const enterRestBetweenRounds = (day: ProgramDay, raw: string): ProgramDay =>
+  enter(day, raw, RANGES.restBetweenRounds, (current, restBetweenRoundsSeconds) => ({
+    ...current,
+    restBetweenRoundsSeconds,
+  }))
 
 /** "4 sets" / "1 set" */
 export const setsText = (sets: number): string => `${sets} ${sets === 1 ? "set" : "sets"}`

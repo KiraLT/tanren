@@ -30,6 +30,7 @@ import {
   Schema,
 } from "effect"
 import { addDays, localDayOf } from "../time/localDate"
+import { zoneOfProfile } from "../time/profileZone"
 import { REFRESH_MARGIN } from "./ExportQueue"
 import {
   GARMIN_PAGE_SIZE,
@@ -126,9 +127,6 @@ const pendingDays = (
     Arr.filter((day) => day <= today),
   )
 
-/** No profile (or a deleted one) means UTC: the nutrition tools' rule (`nutritionTools.ts`). */
-const UTC = "UTC"
-
 const make = Effect.gen(function* () {
   const integrations = yield* IntegrationRepo
   const imports = yield* GarminImportRepo
@@ -136,14 +134,9 @@ const make = Effect.gen(function* () {
   const seal = yield* TokenSeal
   const profiles = yield* ProfileRepo
 
-  /** The user's live profile zone; no profile, or a deleted one, → UTC. */
+  /** The user's live profile zone (`zoneOfProfile`: no profile, or a deleted one, → UTC). */
   const timezoneOf = (userId: UserId): Effect.Effect<string, PersistenceError> =>
-    Effect.map(profiles.get(userId), (stored) =>
-      Option.match(
-        Option.filter(stored, (profile) => Option.isNone(profile.deletedAt)),
-        { onNone: () => UTC, onSome: (profile) => profile.timezone },
-      ),
-    )
+    Effect.map(profiles.get(userId), zoneOfProfile)
 
   const writeCursor = (row: IntegrationRow, cursor: GarminCursor) =>
     Schema.encodeEffect(GarminCursorJson)(cursor).pipe(

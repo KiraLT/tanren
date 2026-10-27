@@ -15,6 +15,8 @@ import {
 import { ItemCard } from "./ItemCard"
 import { CompactStepper, SectionLabel, TextField } from "./ProgramFields"
 import {
+  enterRestBetweenRounds,
+  enterRounds,
   MAX_ITEMS,
   mapItem,
   moveItem,
@@ -54,9 +56,10 @@ interface StepRowProps {
   readonly value: number
   readonly range: StepRange
   readonly onStep: (direction: -1 | 1) => void
+  readonly onCommit: (raw: string) => void
 }
 
-function StepRow({ label, valueText, value, range, onStep }: StepRowProps) {
+function StepRow({ label, valueText, value, range, onStep, onCommit }: StepRowProps) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
       <Text variant="body" style={{ flex: 1 }}>
@@ -66,6 +69,8 @@ function StepRow({ label, valueText, value, range, onStep }: StepRowProps) {
         <CompactStepper
           label={label}
           valueText={valueText}
+          value={value}
+          onCommit={onCommit}
           canDecrement={value > range.min}
           canIncrement={value < range.max}
           onDecrement={() => onStep(-1)}
@@ -138,6 +143,7 @@ export function DayForm({
             value={day.rounds}
             range={RANGES.rounds}
             onStep={(direction) => onChange((current) => stepRounds(current, direction))}
+            onCommit={(raw) => onChange((current) => enterRounds(current, raw))}
           />
           <StepRow
             label="Rest between rounds"
@@ -145,6 +151,7 @@ export function DayForm({
             value={day.restBetweenRoundsSeconds}
             range={RANGES.restBetweenRounds}
             onStep={(direction) => onChange((current) => stepRestBetweenRounds(current, direction))}
+            onCommit={(raw) => onChange((current) => enterRestBetweenRounds(current, raw))}
           />
         </View>
       </Card>

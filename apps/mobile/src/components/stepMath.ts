@@ -94,7 +94,7 @@ const WEIGHT_ENTRY: EntrySpec = { min: 0, max: 500, snap: 0.25 }
 const REPS_ENTRY: EntrySpec = { min: 1, max: 100, snap: 1 }
 
 /** The typed number (`,` accepted as the decimal point), None when empty or not a finite number. */
-const typedNumber = (raw: string): Option.Option<number> => {
+export const typedNumber = (raw: string): Option.Option<number> => {
   const text = raw.trim().replace(",", ".")
   const value = Number(text)
   return text.length === 0 || !Number.isFinite(value) ? Option.none() : Option.some(value)

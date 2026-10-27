@@ -128,7 +128,7 @@ ChatGPT `https://chatgpt.com/oauth/client.json` (+ per-callback variants), claud
   (`Config.ts` `checkResourceUrl` already gates `http:`).
 - Login CSRF (native): PKCE in `/api/native/session` unchanged (`nativeAuthRoutes.ts`); the refresh and revoke endpoints
   accept no cookie, so a cross-site form cannot drive them.
-- Replay / revocation bounds: access 15 min; refresh and code gen-bound; web cookie `maxAge` 15 min; stated in ADR §3.
+- Replay / revocation bounds: access 15 min (writes stop at the next gen bump, STLS-F7); refresh and code gen-bound; web cookie `maxAge` 15 min; stated in ADR §3.
 
 ## 8. Data (migration `packages/db/migrations/0006_token_generations.sql`)
 

@@ -12,8 +12,24 @@ export const loadThemePreference = (): ThemePreference => {
   }
 }
 
-/** Web: persist the preference; a blocked storage keeps it for this page only (state still holds it). */
+/**
+ * Web: persist the preference and mark it on `<html data-theme>`, the attribute `public/index.html`
+ * sets before mount, so the document background (overscroll, the next route's first paint) follows
+ * an in-app switch without a reload. Same rule as that script: "light" | "dark" set it, "system"
+ * removes it (the `prefers-color-scheme` media query decides). A blocked storage keeps the choice
+ * for this page only (state still holds it); the attribute is set either way.
+ */
 export const saveThemePreference = (next: ThemePreference): void => {
+  try {
+    const root = globalThis.document?.documentElement
+    if (next === "system") {
+      root?.removeAttribute("data-theme")
+    } else {
+      root?.setAttribute("data-theme", next)
+    }
+  } catch {
+    // No DOM (SSR, tests without a document): nothing to mark.
+  }
   try {
     globalThis.localStorage.setItem(THEME_STORAGE_KEY, next)
   } catch {

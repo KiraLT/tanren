@@ -33,8 +33,7 @@ change, no MCP change (D2 below). Store migration **v9** (after PROG-2's v8, `sr
 Escape (web `onKeyPress` key `Escape`) → cancel, previous value. Native only: the caption row shows a
 `Button size="sm" label="Done"` (the decimal pad has no return key on iOS) that blurs the field.
 Height unchanged: 76 numeral + 4 + 18 caption. The ± keep working while editing (they blur first →
-commit, then step). `CompactStepper` (editor, `ProgramFields.tsx`) is unchanged: deferred, values
-are small and the editor is rare.
+commit, then step). `CompactStepper` (editor, `ProgramFields.tsx`) has the same entry, built 2026-10-27 (H2-D): the value turns into a `number-pad` field in place, both steppers share `src/ui/inlineEdit.ts`, and `programEdit.ts` `enter*` clamp to `RANGES` and snap to the step. On web Enter commits and a ± tap commits first, then steps; on native (the number pad has no return key) + turns into a Done check while editing and a tap outside also commits, and the first ± tap only commits (it dismisses the keyboard).
 
 Keyboard: at 390 × 844 the steppers sit above y = 420 on Today (`ExercisePage` head ≈ 120 +
 controls) and in the player draft; the iOS keyboard covers y > 584 → no `KeyboardAvoidingView`
@@ -94,7 +93,7 @@ any other `set`; the row collapses. Sentence case, no all-caps (`.claude/rules/r
 | --- | --- | --- | --- |
 | Today exercise page (planned and free workout) | `components/ExercisePage.tsx` | `useStep(keyOf(item.exercise), equipmentOf(item.exercise.catalogId))` | weight + reps |
 | Program player, weighted reps item | `player/components/PlayerView.tsx` (`onAdjust` draft) | key `catalog:<roundId>` (cues §2.8 `roundId`, swap-aware) | weight + reps |
-| Program editor | `components/programs/ItemCard.tsx` | n/a | unchanged (deferred) |
+| Program editor | `components/programs/ItemCard.tsx` | n/a | every stepper (built 2026-10-27, H2-D) |
 
 `equipmentOf(catalogId: Option<CatalogId>)`: `findCatalogExercise` → `.equipment`, `[]` when None.
 

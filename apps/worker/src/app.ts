@@ -177,7 +177,12 @@ export const makeApp = (env: EnvVars, services: AppServices): App => {
     Layer.provide(Sync.layer),
     Layer.provide(GarminPull.layer),
     Layer.provide(
-      Layer.mergeAll(shared, auth.sessions, services.exports ?? ExportQueue.layerDisabled),
+      Layer.mergeAll(
+        shared,
+        auth.sessions,
+        Tokens.layer,
+        services.exports ?? ExportQueue.layerDisabled,
+      ),
     ),
   )
   // A plain route next to `auth.routes`: it answers 303 / HTML and reads no session (design §4).

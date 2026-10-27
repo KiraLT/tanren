@@ -10,6 +10,7 @@ import {
   checkBinding,
   isConsoleOutsideLocal,
   STRAVA_CALLBACK_PATH,
+  StateRejected,
   verifyState,
 } from "./connect"
 import { isNativeReturnTo } from "./returnTo"
@@ -19,7 +20,12 @@ import { TokenSeal } from "./TokenSeal"
 /** Every callback answer: never cached, never sent on as a Referer (design §4, token exposure). */
 const SECURE_HEADERS = { "cache-control": "no-store", "referrer-policy": "no-referrer" } as const
 
-const page = (status: number, title: string, body: string) =>
+const page = (
+  status: number,
+  title: string,
+  body: string,
+  extraHeaders: Readonly<Record<string, string>> = {},
+) =>
   HttpServerResponse.text(
     `<!doctype html>
 <html lang="en">
@@ -30,14 +36,44 @@ const page = (status: number, title: string, body: string) =>
 <title>${escapeHtml(title)} · Tanren</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem;line-height:1.5;color:#1a1a1a;background:#fafafa}
-a.button{display:block;text-align:center;padding:1rem;font-size:1.25rem;background:#1a1a1a;color:#fff;border-radius:.75rem;text-decoration:none;margin-top:1.5rem}
+a.button,button{display:block;width:100%;box-sizing:border-box;text-align:center;padding:1rem;font:inherit;font-size:1.25rem;background:#1a1a1a;color:#fff;border:0;border-radius:.75rem;text-decoration:none;margin-top:1.5rem;cursor:pointer}
+button.secondary{background:transparent;color:#1a1a1a;border:1px solid #1a1a1a;margin-top:.75rem}
 </style>
 </head>
 <body>
 ${body}
 </body>
 </html>`,
-    { status, contentType: "text/html; charset=utf-8", headers: SECURE_HEADERS },
+    {
+      status,
+      contentType: "text/html; charset=utf-8",
+      headers: { ...SECURE_HEADERS, ...extraHeaders },
+    },
+  )
+
+/**
+ * SEC-1c: a native state has no binding cookie, so before the code is spent the browser shows
+ * whose Tanren account Strava would be attached to. Continue / Cancel POST the same fields back to
+ * the callback; never framed (a click-jacked Continue would defeat the check).
+ */
+const confirmPage = (
+  email: string,
+  fields: { readonly [K in "state" | "code" | "scope"]: string },
+) =>
+  page(
+    200,
+    "Connect Strava",
+    `<h1>Connect Strava to Tanren</h1>
+<p>Strava will be connected to the Tanren account <strong>${escapeHtml(email)}</strong>.</p>
+<p>If this is not your account, cancel.</p>
+<form method="post" action="${STRAVA_CALLBACK_PATH}">
+<input type="hidden" name="state" value="${escapeHtml(fields.state)}">
+<input type="hidden" name="code" value="${escapeHtml(fields.code)}">
+<input type="hidden" name="scope" value="${escapeHtml(fields.scope)}">
+<button type="submit" name="decision" value="continue">Continue</button>
+<button type="submit" name="decision" value="cancel" class="secondary">Cancel</button>
+</form>`,
+    { "content-security-policy": "frame-ancestors 'none'", "x-frame-options": "DENY" },
   )
 
 /** 400, no redirect: a bad, tampered or expired state sends the browser nowhere. */
@@ -115,7 +151,8 @@ const logOutcome = (userId: UserId, outcome: CallbackOutcome) =>
  * `GET /integrations/strava/callback` (design §4). Identity comes only from the signed `state`:
  * cookies and `Authorization` are never read. Order: rate limit → state (signature, expiry,
  * returnTo) → provider `error` → `activity:write` in `scope` → the state's user still exists →
- * exchange the code once → seal → upsert → back to `returnTo`.
+ * exchange the code once → seal → upsert → back to `returnTo`. A native (unbound) state stops the
+ * GET at `confirmPage`; its `POST` (same path, same limiter) re-runs every check and exchanges.
  */
 export const callbackRoutes = Layer.unwrap(
   Effect.gen(function* () {
@@ -127,16 +164,27 @@ export const callbackRoutes = Layer.unwrap(
     const ids = yield* IdGenerator
     const limit = yield* makeLimiter
 
+    /** GET: Strava's redirect (query). POST: the native interstitial's form (urlencoded body). */
+    const fieldsOf = (request: HttpServerRequest.HttpServerRequest) =>
+      request.method === "POST"
+        ? request.text.pipe(
+            Effect.map((body) => new URLSearchParams(body)),
+            // An unreadable body has no valid state: the same 400 as a tampered one.
+            Effect.mapError(() => new StateRejected({ reason: "malformed" })),
+          )
+        : // `request.url` is the path + query; the base only lets URL parse it.
+          Effect.succeed(new URL(request.url, "http://callback.invalid").searchParams)
+
     const callback = (request: HttpServerRequest.HttpServerRequest) =>
       Effect.gen(function* () {
+        // GET and POST share one limiter key.
         yield* limit(`strava-callback:${clientIp(request)}`)
         // Console mode outside local would store a fake integration: refuse before anything else,
         // even for a state minted elsewhere (REV-2).
         if (isConsoleOutsideLocal(config)) {
           return notConnectedPage
         }
-        // `request.url` is the path + query; the base only lets URL parse it.
-        const params = new URL(request.url, "http://callback.invalid").searchParams
+        const params = yield* fieldsOf(request)
         const state = yield* verifyState(config, params.get("state") ?? "")
         // SEC-1 B1: a web state is good only in the browser that started it (double-submit cookie).
         yield* checkBinding(
@@ -149,7 +197,7 @@ export const callbackRoutes = Layer.unwrap(
             Effect.as(back(state.returnTo, outcome)),
             Effect.flatMap(clearBinding),
           )
-        if (params.has("error")) {
+        if (params.has("error") || params.get("decision") === "cancel") {
           return yield* finish("denied")
         }
         const scopes = (params.get("scope") ?? "").split(",").map((scope) => scope.trim())
@@ -159,6 +207,30 @@ export const callbackRoutes = Layer.unwrap(
         const code = params.get("code") ?? ""
         if (code.length === 0) {
           return yield* finish("provider")
+        }
+        // SEC-1c: a state that passed `checkBinding` without a binding is a native one (no cookie
+        // jar). Its GET only shows whose account Strava would join; the POST below exchanges.
+        // Anything but the form POST stops here: HttpRouter serves HEAD through the GET route.
+        if (request.method !== "POST" && state.binding === undefined) {
+          return yield* tokens.email(state.userId).pipe(
+            Effect.map((email) =>
+              confirmPage(email, {
+                state: params.get("state") ?? "",
+                code,
+                scope: scopes.join(","),
+              }),
+            ),
+            Effect.catchTags({
+              UserNotFound: () =>
+                Effect.logWarning(
+                  `[strava] callback for a missing user userId=${state.userId}`,
+                ).pipe(Effect.andThen(finish("provider"))),
+              PersistenceError: () =>
+                Effect.logError(`[strava] reading the account failed userId=${state.userId}`).pipe(
+                  Effect.andThen(finish("provider")),
+                ),
+            }),
+          )
         }
         return yield* Effect.gen(function* () {
           // The state is signed but stateless: an account erased after it was minted must not get
@@ -217,6 +289,9 @@ export const callbackRoutes = Layer.unwrap(
         ),
       )
 
-    return HttpRouter.add("GET", STRAVA_CALLBACK_PATH, callback)
+    return Layer.mergeAll(
+      HttpRouter.add("GET", STRAVA_CALLBACK_PATH, callback),
+      HttpRouter.add("POST", STRAVA_CALLBACK_PATH, callback),
+    )
   }),
 )

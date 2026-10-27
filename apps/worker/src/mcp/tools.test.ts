@@ -169,6 +169,38 @@ describe("get_overview", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("a 0 kg set never beats a loaded one: best is 40 kg x 5, not 0 kg x 20", () =>
+    Effect.gen(function* () {
+      yield* run(Effect.void)
+      yield* (yield* ExerciseRepo).put(userA, [exercise(5, { name: "Dips" })])
+      yield* (yield* SessionRepo).putSets(userA, [
+        set(209, recent, 5, 0, 20, 3),
+        set(210, recent, 5, 40, 5, 4),
+      ])
+      const overview = yield* getOverview.run(userA, {})
+      const dips = overview.exercises.find((e) => e.name === "Dips")
+      expect(Option.map(dips?.best ?? Option.none(), (b) => [b.weightKg, b.reps])).toEqual(
+        Option.some([40, 5]),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("an all-bodyweight exercise ranks its best by reps (the shared bestSet rule)", () =>
+    Effect.gen(function* () {
+      yield* run(Effect.void)
+      yield* (yield* ExerciseRepo).put(userA, [exercise(6, { name: "Pull-up" })])
+      yield* (yield* SessionRepo).putSets(userA, [
+        set(211, recent, 6, 0, 8, 3),
+        set(212, recent, 6, 0, 12, 4),
+      ])
+      const overview = yield* getOverview.run(userA, {})
+      const pullUp = overview.exercises.find((e) => e.name === "Pull-up")
+      expect(Option.map(pullUp?.best ?? Option.none(), (b) => [b.weightKg, b.reps])).toEqual(
+        Option.some([0, 12]),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("never shows another user's sessions, sets or exercises", () =>
     Effect.gen(function* () {
       const overview = yield* run(getOverview.run(userB, {}))

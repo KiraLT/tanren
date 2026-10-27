@@ -5,6 +5,8 @@ import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/http"
 import { HttpApiError, HttpApiMiddleware } from "effect/http-api"
 import { makeLimiterWith } from "../auth/nativeAuthRoutes"
 import { Sessions, type SessionsShape } from "../auth/Sessions"
+import { bearerJwt } from "../auth/SessionsLive"
+import { Tokens } from "../auth/Tokens"
 
 /** The signed-in user of the current request; provided by `Authentication`. */
 export class CurrentUser extends Context.Service<CurrentUser, { readonly userId: UserId }>()(
@@ -45,9 +47,13 @@ export const rateBucket = (
 /**
  * For a write: does the user row still exist? A token outlives an erased account by up to 15
  * minutes (app JWT, cookie cache), and the domain tables have no foreign key to `user`, so a push
- * would re-create rows under the erased id (STLS-F3). One primary-key read on `user`.
+ * would re-create rows under the erased id (STLS-F3). One primary-key read on `user`, which also
+ * yields the app token generation an app JWT must still carry (STLS-F7).
  */
-type UserRowCheck = (userId: UserId) => Effect.Effect<boolean, SessionStoreUnavailable>
+type UserRowCheck = (
+  userId: UserId,
+  headers: globalThis.Headers,
+) => Effect.Effect<boolean, SessionStoreUnavailable>
 
 type Limit = (key: string) => Effect.Effect<void, NativeRateLimited>
 
@@ -58,18 +64,19 @@ const noStore = HttpEffect.appendPreResponseHandler((_request, response) =>
 
 const make = (
   sessions: SessionsShape,
-  userRowExists: UserRowCheck,
+  writeAllowed: UserRowCheck,
   limits: Readonly<Record<keyof typeof USER_RATE_LIMITS, Limit>>,
 ) =>
   Authentication.of((httpEffect) =>
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
       yield* noStore
-      const userId = yield* sessions.current(new globalThis.Headers(request.headers))
+      const headers = new globalThis.Headers(request.headers)
+      const userId = yield* sessions.current(headers)
       if (Option.isNone(userId)) {
         return yield* new HttpApiError.Unauthorized()
       }
-      if (isWriteMethod(request.method) && !(yield* userRowExists(userId.value))) {
+      if (isWriteMethod(request.method) && !(yield* writeAllowed(userId.value, headers))) {
         return yield* new HttpApiError.Unauthorized()
       }
       const bucket = rateBucket(request.method, request.url)
@@ -104,18 +111,36 @@ export class Authentication extends HttpApiMiddleware.Service<
 >()("@tanren/worker/Authentication", {
   error: [HttpApiError.Unauthorized, SessionStoreUnavailable, NativeRateLimited],
 }) {
-  /** Production (`AuthMode` BetterAuth): writes check the user row through `UserTokens`. */
+  /**
+   * Production (`AuthMode` BetterAuth): writes check the user row through `UserTokens` and, for an
+   * app JWT, that its `gen` is the row's `appTokenGen` (STLS-F7); mismatch → 401.
+   */
   static readonly layer = Layer.effect(
     this,
     Effect.gen(function* () {
       const sessions = yield* Sessions
       const users = yield* UserTokens
+      const tokens = yield* Tokens
       const limits = yield* makeLimits
+      // STLS-F7: an app JWT must still carry the user's current `appTokenGen`, so "sign out
+      // everywhere" stops a stolen access token's writes at once. A Better Auth web session carries
+      // no generation: its revocation point is the session row (sign-out deletes it), so a cookie
+      // request keeps the plain row check. The bearer was verified by `Sessions` a moment ago; the
+      // second HMAC verify here reads its `gen` without widening the `Sessions` port.
+      const genMatches = (userId: UserId, headers: globalThis.Headers, app: number) =>
+        Option.match(bearerJwt(headers), {
+          onNone: () => Effect.succeed(true),
+          onSome: (token) =>
+            tokens.verifyApp(token).pipe(
+              Effect.map((identity) => identity.userId === userId && identity.gen === app),
+              Effect.catchTag("TokenRejected", () => Effect.succeed(false)),
+            ),
+        })
       return make(
         sessions,
-        (userId) =>
+        (userId, headers) =>
           users.tokenGens(userId).pipe(
-            Effect.as(true),
+            Effect.flatMap((gens) => genMatches(userId, headers, gens.app)),
             Effect.catchTags({
               UserNotFound: () => Effect.succeed(false),
               PersistenceError: (error) =>

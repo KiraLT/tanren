@@ -1,6 +1,7 @@
 import { type FoodEntryRepo, GarminImportRepo, type UserProgramRepo } from "@tanren/db"
 import {
   activeLocation,
+  bestSet,
   CurrentPlanResult,
   type Exercise,
   ExerciseHistory,
@@ -140,11 +141,6 @@ export const DEFAULT_HISTORY_LIMIT = 20
 const volumeOf = (sets: ReadonlyArray<WorkoutSet>): number =>
   Arr.reduce(sets, 0, (total, set) => total + set.weightKg * set.reps)
 
-const byWeightThenReps: Order.Order<WorkoutSet> = Order.combine(
-  Order.mapInput(Order.Number, (set: WorkoutSet) => set.weightKg),
-  Order.mapInput(Order.Number, (set: WorkoutSet) => set.reps),
-)
-
 const byVolumeDescThenName: Order.Order<ExerciseSummary> = Order.combine(
   Order.flip(Order.mapInput(Order.Number, (summary: ExerciseSummary) => summary.volumeKg)),
   Order.mapInput(Order.String, (summary: ExerciseSummary) => summary.name),
@@ -158,7 +154,6 @@ const summarize = (
   if (!Arr.isReadonlyArrayNonEmpty(own)) {
     return Option.none()
   }
-  const best = Arr.max(own, byWeightThenReps)
   return Option.some({
     exerciseId: exercise.id,
     name: exercise.name,
@@ -166,7 +161,12 @@ const summarize = (
     sessions: Arr.dedupe(Arr.map(own, (set) => set.sessionId)).length,
     sets: own.length,
     volumeKg: volumeOf(own),
-    best: Option.some({ weightKg: best.weightKg, reps: best.reps, loggedAt: best.loggedAt }),
+    // The shared PR rule (`bestSet`): estimated 1RM, then reps; a bodyweight set ranks by reps.
+    best: Option.map(bestSet(own), (set) => ({
+      weightKg: set.weightKg,
+      reps: set.reps,
+      loggedAt: set.loggedAt,
+    })),
     lastLoggedAt: Option.some(
       Arr.max(
         Arr.map(own, (set) => set.loggedAt),
@@ -198,7 +198,8 @@ export const getOverview: Tool<typeof GetOverviewInput, typeof Overview> = {
   description:
     "Training summary for the last 7, 30 or 90 days (period, default 30d) ending now: session, " +
     "set and volume totals, then one entry per exercise trained (volume = sum of weightKg x reps, " +
-    "best = heaviest set, then most reps), heaviest volume first, plus the active plan. Weights " +
+    "best = the set with the highest estimated one-rep max, then most reps; a bodyweight set " +
+    "ranks by reps and never beats a loaded one), heaviest volume first, plus the active plan. Weights " +
     "are kg; timestamps are ISO-8601 UTC; range is half-open [from, to). Use the exerciseId " +
     "values with get_exercise_history. `imported` totals the activities synced from integrations " +
     "(Garmin runs, walks, rides) in the period: count, duration, distance, calories, by sport; " +

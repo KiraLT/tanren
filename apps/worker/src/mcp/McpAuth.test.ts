@@ -290,6 +290,7 @@ describe("McpAuth.writeAllowed (STLS-F4)", () => {
     UserTokens,
     UserTokens.of({
       tokenGens: (userId) => Effect.fail(new UserNotFound({ userId })),
+      email: (userId) => Effect.fail(new UserNotFound({ userId })),
       bumpAppTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
       bumpMcpTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
       burnRefresh: () => Effect.die("unused"),

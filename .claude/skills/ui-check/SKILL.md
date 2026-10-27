@@ -20,9 +20,14 @@ Two checks the screenshot-after-paint recipe misses, both found by the owner on 
   out = []; while (e) { out.push(getComputedStyle(e).backgroundColor); e = e.parentElement } return
   out })()'`) — no `rgb(255, 255, 255)` / `rgb(242, 242, 242)` (React Navigation's default light theme)
   in a dark capture; the app themes the navigators through `src/ui/navigationTheme.ts`.
-- Second tab: `ab open` the same app URL in a second session (`--session <task>-2`); within 16 s it must
-  show the "open in another tab" error, never a blank page (`document.body.innerText` non-empty,
-  `ab errors` read). A blank page with an empty console was BS-1.
+- Second tab: `ab tab new <same app URL>` in the SAME session — a second `--session` is a separate
+  browser with its own Web Locks and OPFS, so it is never blocked and proves nothing (H2-C, 2026-10-27).
+  Within 1 s the new tab shows "Tanren is open in another tab / Close it to continue here." (the gate's
+  `waiting` state, H2-C), never a blank page (`document.body.innerText` non-empty, `ab errors` read; a
+  blank page with an empty console was BS-1). Then, in ONE Bash call so it lands inside the 10 s
+  `LOCK_TIMEOUT`, switch to the holder and close it (`ab tab <holder id>; ab tab close`) and read the
+  new tab's snapshot: it opens the app by itself, no reload (`performance.now` keeps counting in the
+  same document). Holder kept past 10 s → "Could not load today / … Close it and reload this page."
 
 ```
 CI=1 pnpm -F @tanren/mobile web --port 8089 &        # wait for "Waiting on http://localhost:8089"; note the PID

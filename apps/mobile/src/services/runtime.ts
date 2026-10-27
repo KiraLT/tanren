@@ -3,6 +3,7 @@ import {
   Cause,
   Data,
   DateTime,
+  Deferred,
   type Duration,
   Effect,
   Layer,
@@ -82,34 +83,63 @@ const untilAborted = (signal: AbortSignal): Promise<void> =>
  * sqlite worker keeps the OPFS access handle, so this page's open fails ("Access Handles cannot
  * be created…") and `ManagedRuntime` caches that failure for the page's life. Every page holds
  * the Web Lock named after the database for its whole life: requesting it evicts a cached page
- * that holds it. A second live tab waits `LOCK_TIMEOUT`, then fails with `DatabaseInUse`.
+ * that holds it. It first probes (`ifAvailable`: answers at once, a free lock is granted and
+ * kept); a lock held elsewhere runs `onWaiting` (the gate's "open in another tab" notice) and
+ * then waits up to `LOCK_TIMEOUT` (a bfcached holder is evicted; a live tab that closes hands the
+ * lock over, so the page opens without a reload), else fails with `DatabaseInUse`.
  * One controller per page: aborting it (interrupted wait, failed open, scope close) cancels a
  * pending request (even one granted late: the grant callback sees the abort) and releases a
  * granted lock. Returns that release action.
  */
-const holdDatabaseLock = (locks: DatabaseLocks) =>
+const holdDatabaseLock = (locks: DatabaseLocks, onWaiting: Effect.Effect<void>) =>
   Effect.gen(function* () {
     const controller = yield* Effect.acquireRelease(
       Effect.sync(() => new AbortController()),
       (held) => Effect.sync(() => held.abort()),
     )
     const release = Effect.sync(() => controller.abort())
-    yield* Effect.callback<void, StoreError>((resume) => {
-      locks
-        .request(DATABASE_NAME, { signal: controller.signal }, () => {
-          resume(Effect.void)
-          return untilAborted(controller.signal)
-        })
-        .catch((cause: unknown) => resume(Effect.fail(new StoreError({ cause }))))
-      return release
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: LOCK_TIMEOUT,
-        orElse: () => Effect.fail(new DatabaseInUse({ lockName: DATABASE_NAME })),
-      }),
-    )
+    /** Requests the lock with `options`; resolves with whether it was granted (held until release). */
+    const request = (options: LockOptions) =>
+      Effect.callback<boolean, StoreError>((resume) => {
+        locks
+          .request(DATABASE_NAME, options, (lock) => {
+            resume(Effect.succeed(lock !== null))
+            return lock === null ? Promise.resolve() : untilAborted(controller.signal)
+          })
+          .catch((cause: unknown) => resume(Effect.fail(new StoreError({ cause }))))
+        return release
+      })
+    // The Web Locks spec rejects `signal` together with `ifAvailable`: the probe goes unsignalled.
+    const granted = yield* request({ ifAvailable: true })
+    if (!granted) {
+      yield* onWaiting
+      yield* request({ signal: controller.signal }).pipe(
+        Effect.timeoutOrElse({
+          duration: LOCK_TIMEOUT,
+          orElse: () => Effect.fail(new DatabaseInUse({ lockName: DATABASE_NAME })),
+        }),
+      )
+    }
     return release
   })
+
+/**
+ * Settles once this page found the database lock held (another tab, or a bfcached previous page):
+ * "this page ever waited". The runtime is built once per page, so it is never reset; a late
+ * subscriber sees the completed Deferred.
+ */
+const databaseLockBusy = Deferred.makeUnsafe<void>()
+
+/**
+ * Web: calls `listener` once if this page has to wait for another tab's database lock (the
+ * runtime build is still pending meanwhile). Returns the unsubscribe; native never calls it.
+ */
+export const onDatabaseWait = (listener: () => void): (() => void) => {
+  const cancel = Effect.runCallback(
+    Deferred.await(databaseLockBusy).pipe(Effect.andThen(Effect.sync(listener))),
+  )
+  return () => cancel()
+}
 
 /** The bfcached page's OPFS handle ("Access Handles cannot be created…"); expo-sqlite's worker
  * channel keeps only the message, so the class is matched on it. */
@@ -124,8 +154,12 @@ export const isAccessHandleError = (error: StoreError): boolean =>
 export const openPageStore = <A, R>(
   locks: Option.Option<DatabaseLocks>,
   open: Effect.Effect<A, StoreError, R>,
+  onWaiting: Effect.Effect<void> = Effect.void,
 ): Effect.Effect<A, StoreError | DatabaseInUse, R | Scope.Scope> =>
-  Option.match(locks, { onNone: () => Effect.succeed(Effect.void), onSome: holdDatabaseLock }).pipe(
+  Option.match(locks, {
+    onNone: () => Effect.succeed(Effect.void),
+    onSome: (held) => holdDatabaseLock(held, onWaiting),
+  }).pipe(
     Effect.flatMap((release) =>
       open.pipe(
         Effect.retry({
@@ -144,6 +178,7 @@ const PageSqlDriver = Layer.effectContext(
     openPageStore(
       Option.fromNullishOr(typeof navigator === "undefined" ? undefined : navigator.locks),
       Layer.build(SqlDriver.layer),
+      Deferred.succeed(databaseLockBusy, undefined).pipe(Effect.asVoid),
     ),
   ),
 )

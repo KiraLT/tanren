@@ -23,6 +23,7 @@ import {
   stepperSizes,
 } from "./controls"
 import { Icon, type IconName } from "./Icon"
+import { useInlineEdit } from "./inlineEdit"
 import { usePressableInteraction } from "./interaction"
 import { Text } from "./Text"
 import { ToggleChip } from "./ToggleChip"
@@ -94,6 +95,9 @@ const tick = (): void => {
     Haptics.selectionAsync().catch(() => undefined)
   }
 }
+
+/** A stepper without `onCommit` never starts an edit; the hook still needs a callback. */
+const ignoreCommit = (): void => undefined
 
 /** Width of one step chip (weight-entry.md §2). */
 const STEP_CHIP_MIN_WIDTH = 50
@@ -200,34 +204,13 @@ export function Stepper({
 }: StepperProps) {
   const { width } = useWindowDimensions()
   const { colors } = useTheme()
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(valueText)
+  const edit = useInlineEdit(valueText, onCommit ?? ignoreCommit)
   const inputRef = useRef<TextInputInstance>(null)
-  // Enter blurs the field on web, and blur also commits: the latch makes one edit commit once,
-  // and lets Escape end the edit without the unmount blur committing the draft.
-  const finished = useRef(true)
   const numeralStyle: ReadonlyArray<TextStyle> = [
     { fontVariant: ["tabular-nums"], flexShrink: 0 },
     size === "xxl" ? {} : webNumeralSize(width),
   ]
-  const finish = (commit: boolean, raw: string) => {
-    if (finished.current) {
-      return
-    }
-    // biome-ignore lint/plugin/noMutation: React ref latch, not shared state
-    finished.current = true
-    setEditing(false)
-    if (commit && onCommit !== undefined) {
-      onCommit(raw)
-    }
-  }
-  const startEditing = () => {
-    // biome-ignore lint/plugin/noMutation: React ref latch, not shared state
-    finished.current = false
-    setDraft(valueText)
-    setEditing(true)
-  }
-  const exact = isDraftExact === undefined || isDraftExact(draft)
+  const exact = isDraftExact === undefined || isDraftExact(edit.draft)
   const numeral = (
     <Text variant={stepperNumeral(size)} glow {...numeralFit} style={numeralStyle}>
       {valueText}
@@ -249,23 +232,23 @@ export function Stepper({
         {numeral}
         {caption}
       </View>
-    ) : editing ? (
+    ) : edit.editing ? (
       <View style={{ flex: 1, alignItems: "center" }}>
         <TextInput
           ref={inputRef}
           accessibilityLabel={`${label} in ${spokenUnit}`}
           defaultValue={valueText}
-          onChangeText={setDraft}
+          onChangeText={edit.type}
           autoFocus
           selectTextOnFocus
           keyboardType={inputMode === "numeric" ? "number-pad" : "decimal-pad"}
           inputMode={inputMode}
           returnKeyType="done"
-          onSubmitEditing={() => finish(true, draft)}
-          onBlur={() => finish(true, draft)}
+          onSubmitEditing={edit.commit}
+          onBlur={edit.commit}
           onKeyPress={(event) => {
             if (event.nativeEvent.key === "Escape") {
-              finish(false, draft)
+              edit.cancel()
             }
           }}
           style={[
@@ -300,7 +283,7 @@ export function Stepper({
         accessibilityLabel={`${label} ${valueText} ${spokenUnit}, tap to edit`}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={startEditing}
+        onPress={edit.start}
         style={{ flex: 1, alignItems: "center" }}
       >
         {numeral}

@@ -70,7 +70,8 @@ recipe) and ADRs, not here.
   build (ADR-0012): not added.
 - Web: sqlite wasm needs COOP + COEP (dev server sends them, export ships `public/_headers`, applied by `apps/worker/wrangler.web.jsonc`).
   `EXPO_PUBLIC_API_URL` (else `hostUri` host `:8787`) and `EXPO_PUBLIC_PLAYER_SPEED` are inlined at export; `__DEV__` is false in an
-  export. Web is single-tab: `PageSqlDriver` holds a Web Lock; a second tab fails with `DatabaseInUse` after `LOCK_TIMEOUT`.
+  export. Web is single-tab: `PageSqlDriver` holds a Web Lock; a held lock (second tab, bfcached page) shows a waiting notice at once
+  (`onDatabaseWait` → gate `"waiting"`), opens by itself when the holder lets go, else fails with `DatabaseInUse` after `LOCK_TIMEOUT`.
 - Breakpoints (`useBreakpoint`): phone < 600, tablet 600–899 (one 600 column), desktop ≥ 900. Column maths only in `src/ui/columns.ts`
   (splits `"7/5"` default · `"5/7"` · `"6/6"`). `Page` takes `aside` + `split` or `wide`; Loading/Empty/Failed states never pass
   either. `cardStyle` keeps a 1 px border in dark so both schemes measure the same.
@@ -105,6 +106,7 @@ recipe) and ADRs, not here.
 `src/ui/Stepper.tsx` `onCommit` turns the numeral into tap-to-type (Enter, blur or native Done commit; Escape cancels); callers parse
 with `stepMath` `parseWeight` / `parseReps`. The weight step is `useStep(stepKeyOf(exercise), equipmentOf(catalogId))`; an override is
 kept per exercise in `exercise_step` (v9, `StepRepo`).
+The editor's `CompactStepper` has the same entry; both share `useInlineEdit` (`src/ui/inlineEdit.ts`); `programEdit.ts` `enter*` fit typed text to `RANGES`.
 
 ## Feed, Progress, Garmin, Nutrition
 

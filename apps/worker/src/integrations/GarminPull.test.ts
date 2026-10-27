@@ -173,6 +173,8 @@ interface Setup {
   readonly race?: boolean
   /** User 1 has a live profile in this IANA zone (default: no profile → UTC). */
   readonly timezone?: string
+  /** With `timezone`: the profile is soft-deleted, so it counts as no profile. */
+  readonly deletedProfile?: boolean
 }
 
 /** The D1 error chain of a unique-index race: PersistenceError → SqlError-like → D1 error. */
@@ -259,7 +261,8 @@ const setup = (script: Script, opts: Setup = {}) =>
           userId: userId(1),
           createdAt: DateTime.makeUnsafe(NOW),
           updatedAt: DateTime.makeUnsafe(NOW),
-          deletedAt: Option.none(),
+          deletedAt:
+            opts.deletedProfile === true ? Option.some(DateTime.makeUnsafe(NOW)) : Option.none(),
           goals: [],
           constraints: [],
           availableDays: [],
@@ -629,7 +632,10 @@ describe("GarminPull local day (G-F1)", () => {
         timezone: "Europe/Vilnius",
         scope: cursorThrough("2026-10-25"),
       })
-      expect(result.daily).toEqual(["daily 2026-10-26", "daily 2026-10-27"])
+      expect(result).toEqual({
+        daily: ["daily 2026-10-26", "daily 2026-10-27"],
+        stored: ["2026-10-26", "2026-10-27"],
+      })
     }),
   )
 
@@ -638,7 +644,24 @@ describe("GarminPull local day (G-F1)", () => {
       const result = yield* pullAt("2026-10-27T22:30:00.000Z", {
         scope: cursorThrough("2026-10-25"),
       })
-      expect(result.daily).toEqual(["daily 2026-10-26", "daily 2026-10-27"])
+      expect(result).toEqual({
+        daily: ["daily 2026-10-26", "daily 2026-10-27"],
+        stored: ["2026-10-26", "2026-10-27"],
+      })
+    }),
+  )
+
+  it.effect("a deleted profile falls back to UTC: 22:30Z reads 26 and 27, not Vilnius' 28", () =>
+    Effect.gen(function* () {
+      const result = yield* pullAt("2026-10-27T22:30:00.000Z", {
+        timezone: "Europe/Vilnius",
+        deletedProfile: true,
+        scope: cursorThrough("2026-10-25"),
+      })
+      expect(result).toEqual({
+        daily: ["daily 2026-10-26", "daily 2026-10-27"],
+        stored: ["2026-10-26", "2026-10-27"],
+      })
     }),
   )
 

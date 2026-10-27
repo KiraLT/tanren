@@ -17,6 +17,8 @@ export interface TokenGens {
 
 export interface UserTokensShape {
   readonly tokenGens: (userId: UserId) => Effect.Effect<TokenGens, UserNotFound | PersistenceError>
+  /** `user.email`: shown on the native Strava connect interstitial (SEC-1c). Never log it. */
+  readonly email: (userId: UserId) => Effect.Effect<string, UserNotFound | PersistenceError>
   /** `appTokenGen = appTokenGen + 1`: revokes every app access and refresh token of the user. */
   readonly bumpAppTokenGen: (userId: UserId) => Effect.Effect<void, UserNotFound | PersistenceError>
   /** `mcpTokenGen = mcpTokenGen + 1`: revokes every MCP access, refresh token and auth code. */
@@ -67,6 +69,11 @@ export class UserTokens extends Context.Service<UserTokens, UserTokensShape>()(
         execute: ({ userId }) =>
           sql`SELECT "appTokenGen" AS app, "mcpTokenGen" AS mcp FROM "user" WHERE id = ${userId}`,
       })
+      const findEmail = SqlSchema.findOneOption({
+        Request: Schema.Struct({ userId: UserId }),
+        Result: Schema.Struct({ email: Schema.String }),
+        execute: ({ userId }) => sql`SELECT email FROM "user" WHERE id = ${userId}`,
+      })
       const bumpApp = SqlSchema.findAll({
         Request: Schema.Struct({ userId: UserId }),
         Result: Updated,
@@ -114,6 +121,16 @@ export class UserTokens extends Context.Service<UserTokens, UserTokensShape>()(
               Option.match({
                 onNone: () => Effect.fail(new UserNotFound({ userId })),
                 onSome: Effect.succeed,
+              }),
+            ),
+          ),
+        email: (userId) =>
+          findEmail({ userId }).pipe(
+            Effect.mapError(persistenceError("userTokens.email")),
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.fail(new UserNotFound({ userId })),
+                onSome: (row) => Effect.succeed(row.email),
               }),
             ),
           ),

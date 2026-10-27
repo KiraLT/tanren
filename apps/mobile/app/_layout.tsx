@@ -14,7 +14,7 @@ import { Platform, View, type ViewStyle } from "react-native"
 import { Landing } from "../src/components/landing/Landing"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import { useSync } from "../src/hooks/useSync"
-import { ConfirmProvider, ThemeProvider, useTheme } from "../src/ui"
+import { ConfirmProvider, EmptyState, ThemeProvider, useTheme } from "../src/ui"
 import { navigationTheme } from "../src/ui/navigationTheme"
 import { fonts } from "../src/ui/tokens"
 
@@ -50,6 +50,25 @@ function ForgeNavigationTheme({ children }: { readonly children: ReactNode }) {
   return <NavigationThemeProvider value={value}>{children}</NavigationThemeProvider>
 }
 
+/**
+ * Web: the database lock is held (`useAuthGate` → `"waiting"`): another tab, or a bfcached previous
+ * page the wait evicts, hence the conditional copy. Shown within the lock probe's round trip; the
+ * page continues by itself when the holder lets go, and after `LOCK_TIMEOUT`
+ * the screens show `DatabaseInUse`'s "close it and reload" copy. Must render inside `ThemeProvider`.
+ */
+function OtherTabNotice() {
+  const { colors } = useTheme()
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <EmptyState
+        icon="warning"
+        title="Waiting for another Tanren tab"
+        body="If Tanren is open in another tab, close it to continue here."
+      />
+    </View>
+  )
+}
+
 export default function RootLayout() {
   useSync()
   const [fontsLoaded, fontError] = useFonts(FONT_MAP)
@@ -65,6 +84,13 @@ export default function RootLayout() {
   }, [ready])
   if (!ready) {
     return null
+  }
+  if (gate === "waiting") {
+    return (
+      <ThemeProvider>
+        <OtherTabNotice />
+      </ThemeProvider>
+    )
   }
   return (
     <ThemeProvider>

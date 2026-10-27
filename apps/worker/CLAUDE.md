@@ -60,7 +60,7 @@ sync/                 push = `SyncStore.apply`, then for a completed session `Ex
                       before `apply`); only `GarminImportRepo` writes them. `SyncStoreMemory` (Node fake) has no LWW, no parent checks,
                       never reports conflicts — push rules are proven only in the db workerd project.
 time/localDate.ts     the ONE local-day module (`zoneOf` invalid/absent → UTC, `dayRange` half-open UTC + DST-correct, `weekOf` Mon–Sun).
-                      Never add a second one.
+                      Never add a second one. `time/profileZone.ts` (`zoneOfProfile`, `liveProfile`) is the one "live profile or UTC" rule.
 repos/                re-exports the `@tanren/db` ports; `Memory*.ts` fakes behind `Repositories.layerMemory` (Node tests only). `MemoryFoodEntry`
                       checks ownership and totals itself because `MemoryStore.put` does neither; `GarminImportRepo` is NOT in `layerMemory`
                       (tool tests add `MemoryGarminImport.layer`); `MemoryTokens`: every user exists at generation 0.

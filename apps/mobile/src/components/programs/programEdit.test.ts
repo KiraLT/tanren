@@ -7,6 +7,12 @@ import {
   BLANK_ITEM,
   daySubtitle,
   defaultSchedule,
+  enterRest,
+  enterRestBetweenRounds,
+  enterRounds,
+  enterSets,
+  enterWork,
+  fitTyped,
   itemFromCatalog,
   MAX_DAYS,
   MAX_ITEMS,
@@ -294,5 +300,59 @@ describe("sets stepper (programs-player-v2 §7.3)", () => {
   it("leaves a timed item unchanged and reads '1 set' / '4 sets'", () => {
     expect(stepSets(BLANK_ITEM, 1)).toBe(BLANK_ITEM)
     expect([setsText(1), setsText(4)]).toEqual(["1 set", "4 sets"])
+  })
+})
+
+describe("typed entry (tap-to-type on the editor steppers)", () => {
+  const reps = withKind(BLANK_ITEM, "reps")
+  const day: ProgramDay = {
+    dayNumber: 1,
+    title: "Day 1",
+    rounds: 2,
+    items: [BLANK_ITEM],
+    restBetweenRoundsSeconds: 60,
+  }
+
+  it("clamps seconds into 10–600", () => {
+    expect([enterWork(BLANK_ITEM, "7"), enterWork(BLANK_ITEM, "999")]).toMatchObject([
+      { seconds: 10 },
+      { seconds: 600 },
+    ])
+  })
+
+  it("snaps seconds to the 5 s grid", () => {
+    expect(enterWork(BLANK_ITEM, "33")).toMatchObject({ kind: "timed", seconds: 35 })
+  })
+
+  it("snaps rest between rounds to the nearest 15 s, a tie rounding up", () => {
+    expect(
+      ["20", "22.5", "23"].map((raw) => enterRestBetweenRounds(day, raw).restBetweenRoundsSeconds),
+    ).toEqual([15, 30, 30])
+  })
+
+  it("rounds reps and sets to whole numbers and clamps sets to 10", () => {
+    expect(enterWork(reps, "7.4")).toMatchObject({ kind: "reps", reps: 7 })
+    expect(enterSets(reps, "20")).toMatchObject({ sets: 10 })
+  })
+
+  it("keeps the value when the text is empty or not a number", () => {
+    expect([enterWork(BLANK_ITEM, ""), enterRest(BLANK_ITEM, "abc")]).toEqual([
+      BLANK_ITEM,
+      BLANK_ITEM,
+    ])
+    expect(enterRounds(day, "  ")).toBe(day)
+  })
+
+  it("sets rest and rounds inside their ranges", () => {
+    expect(enterRest(BLANK_ITEM, "47").restSeconds).toBe(45)
+    expect(enterRounds(day, "9").rounds).toBe(5)
+  })
+
+  it("leaves a timed item's sets alone", () => {
+    expect(enterSets(BLANK_ITEM, "4")).toBe(BLANK_ITEM)
+  })
+
+  it("never returns NaN for a garbage draft", () => {
+    expect(fitTyped("1e999", { min: 0, max: 300, step: 5 })).toEqual(Option.none())
   })
 })

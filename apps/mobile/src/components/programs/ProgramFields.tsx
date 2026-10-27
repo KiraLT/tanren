@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react"
-import { TextInput, View } from "react-native"
+import { useEffect, useRef, useState } from "react"
+import { Platform, Pressable, TextInput, type TextInputInstance, View } from "react-native"
 import { IconButton, radius, sizes, space, Text, type, useTheme } from "../../ui"
+import { useInlineEdit } from "../../ui/inlineEdit"
 
 export interface SectionLabelProps {
   readonly children: string
@@ -85,48 +86,119 @@ export interface CompactStepperProps {
   readonly label: string
   /** Shown between the buttons, already formatted: "30 s", "10 reps". */
   readonly valueText: string
+  /** The bare number the typed entry starts from: 30 for "30 s rest". */
+  readonly value: number
+  /** Tap-to-type: Enter, blur or Done hand over the raw text (the caller fits it to its range). */
+  readonly onCommit: (raw: string) => void
   readonly onDecrement: () => void
   readonly onIncrement: () => void
   readonly canDecrement: boolean
   readonly canIncrement: boolean
 }
 
+/** The entry field's height inside the 44 px row. */
+const ENTRY_HEIGHT = 36
+
+/** Native only: the number pad has no return key, so + turns into Done while editing (web keeps Enter). */
+const NATIVE_DONE = Platform.OS !== "web"
+
 /**
  * A 44 px − value + row for the editor's forms. The player's `Stepper` is a 72 px numeral built to
- * be read at arm's length; two of them do not fit a 157 px column.
+ * be read at arm's length; two of them do not fit a 157 px column. Tapping the value turns it into
+ * a number field in place (weight-entry.md §1); a ± press commits the draft first, then steps.
  */
 export function CompactStepper({
   label,
   valueText,
+  value,
+  onCommit,
   onDecrement,
   onIncrement,
   canDecrement,
   canIncrement,
 }: CompactStepperProps) {
+  const { colors } = useTheme()
+  const edit = useInlineEdit(String(value), onCommit)
+  const inputRef = useRef<TextInputInstance>(null)
   return (
     <View style={{ flexDirection: "row", alignItems: "center", height: sizes.tap }}>
       <IconButton
         icon="minus"
         accessibilityLabel={`Decrease ${label}`}
         disabled={!canDecrement}
-        onPress={onDecrement}
+        onPress={() => {
+          edit.commit()
+          onDecrement()
+        }}
       />
-      <View
-        style={{ flex: 1, alignItems: "center" }}
-        accessible
-        accessibilityRole="adjustable"
-        accessibilityLabel={`${label}: ${valueText}`}
-      >
-        <Text variant="subhead" tabular numberOfLines={1}>
-          {valueText}
-        </Text>
-      </View>
-      <IconButton
-        icon="plus"
-        accessibilityLabel={`Increase ${label}`}
-        disabled={!canIncrement}
-        onPress={onIncrement}
-      />
+      {edit.editing ? (
+        <TextInput
+          ref={inputRef}
+          accessibilityLabel={label}
+          defaultValue={String(value)}
+          onChangeText={edit.type}
+          autoFocus
+          selectTextOnFocus
+          keyboardType="number-pad"
+          inputMode="numeric"
+          returnKeyType="done"
+          onSubmitEditing={edit.commit}
+          onBlur={edit.commit}
+          onKeyPress={(event) => {
+            if (event.nativeEvent.key === "Escape") {
+              edit.cancel()
+            }
+          }}
+          style={[
+            type.subhead,
+            {
+              flex: 1,
+              minWidth: 0,
+              height: ENTRY_HEIGHT,
+              paddingHorizontal: space.xs,
+              paddingVertical: 0,
+              borderWidth: 1,
+              borderColor: colors.accent,
+              borderRadius: radius.sm,
+              borderCurve: "continuous",
+              backgroundColor: colors.surfaceRaised,
+              color: colors.text,
+              textAlign: "center",
+              fontVariant: ["tabular-nums"],
+            },
+          ]}
+        />
+      ) : (
+        <Pressable
+          accessibilityRole="adjustable"
+          accessibilityLabel={`${label}: ${valueText}`}
+          accessibilityHint="Double tap to type a value"
+          onPress={edit.start}
+          style={{ flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center" }}
+        >
+          <Text variant="subhead" tabular numberOfLines={1}>
+            {valueText}
+          </Text>
+        </Pressable>
+      )}
+      {edit.editing && NATIVE_DONE ? (
+        // The number pad has no return key on iOS: while editing, + is the Done that commits.
+        <IconButton
+          icon="check"
+          accessibilityLabel={`Done editing ${label}`}
+          onPress={() => inputRef.current?.blur()}
+        />
+      ) : (
+        <IconButton
+          icon="plus"
+          accessibilityLabel={`Increase ${label}`}
+          disabled={!canIncrement}
+          onPress={() => {
+            edit.commit()
+            onIncrement()
+          }}
+        />
+      )}
     </View>
   )
 }

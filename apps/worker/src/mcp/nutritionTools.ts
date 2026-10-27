@@ -25,6 +25,7 @@ import {
 import { Array as Arr, DateTime, Effect, Option } from "effect"
 import { PlanRepo, ProfileRepo, SessionRepo } from "../repos"
 import { addDays, dayRange, localDayOf, localHourOf, weekOf } from "../time/localDate"
+import { liveProfile, zoneOfProfile } from "../time/profileZone"
 import { type AnyTool, eraseTool, type Tool } from "./tools"
 
 // The MCP nutrition tools (docs/design/nutrition.md §3, ADR-0025). The tool layer only gathers
@@ -37,9 +38,6 @@ export const nutritionWriteAnnotations = {
   delete_food_entry: { readOnlyHint: false, idempotentHint: true, destructiveHint: true },
 } as const
 
-/** No profile (or no zone) means UTC. */
-const UTC = "UTC"
-
 interface NutritionContext {
   readonly timezone: string
   readonly nutrition: Profile["nutrition"]
@@ -48,16 +46,10 @@ interface NutritionContext {
 /** The caller's live profile zone and nutrition goal; no profile → UTC and no targets. */
 const contextOf = Effect.fn("nutritionContext")(function* (userId: UserId) {
   const stored = yield* (yield* ProfileRepo).get(userId)
-  return Option.match(
-    Option.filter(stored, (profile) => Option.isNone(profile.deletedAt)),
-    {
-      onNone: (): NutritionContext => ({ timezone: UTC, nutrition: Option.none() }),
-      onSome: (profile): NutritionContext => ({
-        timezone: profile.timezone,
-        nutrition: profile.nutrition,
-      }),
-    },
-  )
+  return {
+    timezone: zoneOfProfile(stored),
+    nutrition: Option.flatMap(liveProfile(stored), (profile) => profile.nutrition),
+  } satisfies NutritionContext
 })
 
 const healthOn = (rows: ReadonlyArray<DailyHealth>, date: LocalDate): Option.Option<DailyHealth> =>

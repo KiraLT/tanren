@@ -42,6 +42,7 @@ const makeMemory = Effect.gen(function* () {
 
   const userTokens: UserTokensShape = {
     tokenGens: (userId) => Effect.map(Ref.get(gens), (map) => current(map, userId)),
+    email: (userId) => Effect.succeed(`${userId}@memory.invalid`),
     bumpAppTokenGen: bump("app"),
     bumpMcpTokenGen: bump("mcp"),
     burnRefresh: ({ jti, expiresAt, burnedAt }) =>

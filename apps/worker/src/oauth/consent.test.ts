@@ -41,6 +41,7 @@ const statelessFor = (request: Request, user: Option.Option<UserId>) =>
           UserTokens,
           UserTokens.of({
             tokenGens: () => Effect.succeed({ app: 0, mcp: 3 }),
+            email: () => Effect.die("unused"),
             bumpAppTokenGen: () => Effect.void,
             bumpMcpTokenGen: () => Effect.void,
             burnRefresh: () => Effect.die("unused"),

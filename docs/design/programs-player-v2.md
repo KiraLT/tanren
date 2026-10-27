@@ -165,7 +165,7 @@ whether it marks 0-kg PRs and list it in the report as a follow-up question, do 
   (`formatSetText`, `progressFormat.ts`).
 - `isLoaded` lists: `packages/shared/src/catalog/loaded.ts` (`LOADED_EQUIPMENT`, `isLoadedEquipment`, `isLoaded`).
 
-### 2.9 Follow-up PROG-F1 (not built; brief in `docs/tasks/programs-player-briefs.md`)
+### 2.9 Follow-up PROG-F1 (built 2026-10-27 19:37, PROG-F1)
 
 PROG-3 made `weekSeries` and `ExerciseDetail` unit-aware but left three call sites on the old behaviour:
 1. `markPrs` (`packages/shared/src/activity.ts:62`, used by `apps/mobile/src/services/FeedRepo.ts:85`) is not

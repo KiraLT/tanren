@@ -51,6 +51,7 @@ import {
 import { Array as Arr, DateTime, Effect, Option, Order, Schema } from "effect"
 import { ProfileRepo } from "../repos"
 import { localDayOf } from "../time/localDate"
+import { zoneOfProfile } from "../time/profileZone"
 import { type AnyTool, eraseTool, type Tool, type ToolError } from "./tools"
 
 // The MCP program tools (docs/design/programs-mcp.md §3, ADR-0026). Built-in programs are static
@@ -567,10 +568,7 @@ export const enrollProgram: Tool<typeof EnrollProgramInput, typeof EnrollProgram
     }
     const now = yield* DateTime.now
     const stored = yield* (yield* ProfileRepo).get(userId)
-    const timezone = Option.match(
-      Option.filter(stored, (profile) => Option.isNone(profile.deletedAt)),
-      { onNone: () => "UTC", onSome: (profile) => profile.timezone },
-    )
+    const timezone = zoneOfProfile(stored)
     const enrollment = yield* ProgramEnrollment.makeEffect({
       id: yield* newId(ProgramEnrollmentId),
       userId,

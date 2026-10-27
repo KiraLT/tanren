@@ -155,6 +155,12 @@ worker verifies state → exchanges code → upserts integration → 303 to retu
   single-use nonce, so a state reused within its 10 minutes can pair with another code; the
   owner-phishing variant (the owner opens an attacker's connect link) needs the attacker to hold a
   Tanren account.
+- **Native interstitial (SEC-1c)**: a native state carries no binding cookie, so its callback GET
+  does not exchange; it answers 200 HTML naming the Tanren account email (from `user.email` via
+  `UserTokens.email`), with a never-framed form whose Continue / Cancel `POST` `state`, `code` and
+  `scope` back to `/integrations/strava/callback`. The POST shares the GET's limiter, re-runs every
+  check (state, binding, scope, user) and then exchanges exactly like the web GET; Cancel returns
+  `?error=denied`; the email, code and state are never logged. Web states keep the single GET.
 - **Console mode is refused outside local**: `connect` answers `ConnectRejected{not-configured}` and
   the callback answers 400 "Strava is not connected yet" whenever `STRAVA_MODE` is `console` and
   `ENVIRONMENT` is not `local` (`isConsoleOutsideLocal`, `connect.ts`), so a production deploy still in

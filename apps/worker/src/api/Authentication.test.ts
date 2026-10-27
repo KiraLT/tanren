@@ -55,6 +55,7 @@ describe("Authentication user-row check (STLS-F3)", () => {
     UserTokens.of({
       tokenGens: () =>
         Effect.fail(new PersistenceError({ operation: "userTokens.tokenGens", cause: "D1 down" })),
+      email: () => Effect.fail(new PersistenceError({ operation: "email", cause: "D1 down" })),
       bumpAppTokenGen: () =>
         Effect.fail(new PersistenceError({ operation: "bump", cause: "D1 down" })),
       bumpMcpTokenGen: () =>
@@ -98,6 +99,65 @@ describe("Authentication user-row check (STLS-F3)", () => {
       _tag: "SessionStoreUnavailable",
       message: "session store unavailable",
     })
+  })
+})
+
+describe("Authentication app token generation on writes (STLS-F7)", () => {
+  const user = UserId.make("00000000-0000-4000-8000-0000000f7d01")
+  /** `UserTokens` whose `user` row is at app generation `app`. */
+  const rowAt = (app: number) =>
+    Layer.succeed(
+      UserTokens,
+      UserTokens.of({
+        tokenGens: () => Effect.succeed({ app, mcp: 0 }),
+        email: () => Effect.die("unused"),
+        bumpAppTokenGen: () => Effect.die("unused"),
+        bumpMcpTokenGen: () => Effect.die("unused"),
+        burnRefresh: () => Effect.die("unused"),
+        purgeBurnedRefresh: () => Effect.die("unused"),
+      }),
+    )
+  /** An app access token for `user` minted at generation 0, sent to a row at `rowGen`. */
+  const send = async (rowGen: number, method: "GET" | "POST", path: string) => {
+    const app = makeApp(env, {
+      auth: {
+        _tag: "BetterAuth",
+        betterAuth: BetterAuth.layerMemory.pipe(Layer.provide(EmailSender.layerConsole)),
+      },
+      persistence: Layer.mergeAll(memoryPersistence(MemoryStore.layer), rowAt(rowGen)),
+    })
+    const pair = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Tokens).issueAppPair(user, 0)
+      }).pipe(Effect.provide(Tokens.layer), Effect.provide(WorkerConfig.layerFromEnv(env))),
+    )
+    const response = await app.handler(
+      new Request(`http://localhost${path}`, {
+        method,
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${pair.accessToken}`,
+        },
+        ...(method === "GET" ? {} : { body: JSON.stringify({ changes: [] }) }),
+      }),
+    )
+    await app.dispose()
+    return response
+  }
+
+  it("rejects a write with 401 when the token's gen is behind the user's appTokenGen", async () => {
+    const response = await send(1, "POST", "/sync/push")
+    expect(response.status).toBe(401)
+  })
+
+  it("accepts a write when the token's gen equals the user's appTokenGen", async () => {
+    const response = await send(0, "POST", "/sync/push")
+    expect(response.status).toBe(200)
+  })
+
+  it("keeps reads stateless: a stale-gen token still reads until it expires", async () => {
+    const response = await send(1, "GET", "/exercises")
+    expect(response.status).toBe(200)
   })
 })
 

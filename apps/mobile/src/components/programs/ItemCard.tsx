@@ -4,6 +4,9 @@ import { View } from "react-native"
 import { Card, IconButton, space, Text, ToggleChip } from "../../ui"
 import { CompactStepper, MoveButton } from "./ProgramFields"
 import {
+  enterRest,
+  enterSets,
+  enterWork,
   RANGES,
   type StepRange,
   setsText,
@@ -88,6 +91,8 @@ export function ItemCard({
             <CompactStepper
               label={item.kind === "timed" ? `${name} seconds` : `${name} reps`}
               valueText={workText(item)}
+              value={workValue(item)}
+              onCommit={(raw) => onChange((current) => enterWork(current, raw))}
               {...canStep(workValue(item), workRange(item))}
               onDecrement={() => onChange((current) => stepWork(current, -1))}
               onIncrement={() => onChange((current) => stepWork(current, 1))}
@@ -97,6 +102,8 @@ export function ItemCard({
             <CompactStepper
               label={`${name} rest`}
               valueText={`${item.restSeconds} s rest`}
+              value={item.restSeconds}
+              onCommit={(raw) => onChange((current) => enterRest(current, raw))}
               {...canStep(item.restSeconds, RANGES.rest)}
               onDecrement={() => onChange((current) => stepRest(current, -1))}
               onIncrement={() => onChange((current) => stepRest(current, 1))}
@@ -109,6 +116,8 @@ export function ItemCard({
               <CompactStepper
                 label={`${name} sets`}
                 valueText={setsText(item.sets)}
+                value={item.sets}
+                onCommit={(raw) => onChange((current) => enterSets(current, raw))}
                 {...canStep(item.sets, RANGES.sets)}
                 onDecrement={() => onChange((current) => stepSets(current, -1))}
                 onIncrement={() => onChange((current) => stepSets(current, 1))}

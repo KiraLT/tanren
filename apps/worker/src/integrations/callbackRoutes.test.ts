@@ -18,6 +18,7 @@ const attacker = UserId.make("00000000-0000-4000-8000-0000000000a1")
 const ACCESS = "secret-access-token-4f1c"
 const REFRESH = "secret-refresh-token-9b2e"
 const CODE = "one-time-code-77aa"
+const EMAIL = "ada+<x>@example.com"
 
 const grant: TokenGrant = {
   accessToken: Redacted.make(ACCESS),
@@ -87,6 +88,10 @@ const harness = (
             opts.user === "deleted"
               ? Effect.fail(new UserNotFound({ userId }))
               : Effect.succeed({ app: 0, mcp: 0 }),
+          email: (userId) =>
+            opts.user === "deleted"
+              ? Effect.fail(new UserNotFound({ userId }))
+              : Effect.succeed(EMAIL),
           bumpAppTokenGen: () => Effect.die("unused"),
           bumpMcpTokenGen: () => Effect.die("unused"),
           burnRefresh: () => Effect.die("unused"),
@@ -139,6 +144,19 @@ const get = (
       `http://localhost:8787/integrations/strava/callback?${new URLSearchParams(query)}`,
       { headers: { "cf-connecting-ip": "203.0.113.7", cookie: BINDING_COOKIE, ...headers } },
     ),
+  )
+
+/** The native interstitial's form submit: urlencoded fields, no cookie jar. */
+const post = (handler: (request: Request) => Promise<Response>, fields: Record<string, string>) =>
+  handler(
+    new Request("http://localhost:8787/integrations/strava/callback", {
+      method: "POST",
+      headers: {
+        "cf-connecting-ip": "203.0.113.7",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams(fields).toString(),
+    }),
   )
 
 const expectSecureHeaders = (response: Response) => {
@@ -225,12 +243,13 @@ describe("GET /integrations/strava/callback", () => {
     expect(row?.refreshToken).not.toContain(REFRESH)
   })
 
-  it("answers a native returnTo with a 200 page holding one escaped link", async () => {
+  it("answers a confirmed native connect with a 200 page holding one escaped link", async () => {
     const h = harness()
-    const response = await get(h.handler, {
+    const response = await post(h.handler, {
       state: await state(NATIVE),
       code: CODE,
       scope: "activity:write",
+      decision: "continue",
     })
     expect(response.status).toBe(200)
     expectSecureHeaders(response)
@@ -349,10 +368,99 @@ describe("forced connect: the web double-submit cookie (SEC-1 B1)", () => {
     expect(response.headers.get("set-cookie")).toContain(`${CONNECT_COOKIE}=;`)
   })
 
-  it("a native state (no cookie jar) still connects without the cookie", async () => {
+  it("a native state (no cookie jar) still connects without the cookie, after the interstitial", async () => {
     const h = harness()
-    const response = await callback(h, await state(NATIVE), "")
+    const signed = await state(NATIVE)
+    expect((await callback(h, signed, "")).status).toBe(200)
+    expect(read(h.upserts)).toEqual([])
+    const response = await post(h.handler, { state: signed, code: CODE, scope: "activity:write" })
     expect(response.status).toBe(200)
     expect(read(h.upserts)).toHaveLength(1)
+  })
+})
+
+describe("native connect interstitial (SEC-1c)", () => {
+  const fields = async () => ({ state: await state(NATIVE), code: CODE, scope: "activity:write" })
+
+  it("a native GET shows the account email and a form with the hidden fields, without exchanging", async () => {
+    const h = harness()
+    const query = await fields()
+    const response = await get(h.handler, query, { cookie: "" })
+    expect(response.status).toBe(200)
+    expectSecureHeaders(response)
+    expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'none'")
+    const body = await response.text()
+    expect(body).toContain("ada+&lt;x&gt;@example.com")
+    expect(body).toContain('<form method="post" action="/integrations/strava/callback">')
+    expect(body).toContain(`name="state" value="${query.state}"`)
+    expect(body).toContain(`name="code" value="${CODE}"`)
+    expect(body).toContain('name="scope" value="activity:write"')
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("the POST with the same fields exchanges once, stores the row and links to the native returnTo", async () => {
+    const h = harness()
+    const response = await post(h.handler, { ...(await fields()), decision: "continue" })
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(`href="${NATIVE}?connected=strava"`)
+    expect(read(h.exchanges)).toEqual([CODE])
+    expect(read(h.upserts)).toMatchObject([{ userId: attacker, provider: "strava" }])
+  })
+
+  it("Cancel sends the app ?error=denied and spends no code", async () => {
+    const h = harness()
+    const response = await post(h.handler, { ...(await fields()), decision: "cancel" })
+    expect(response.status).toBe(200)
+    expect(await response.text()).toContain(`href="${NATIVE}?error=denied"`)
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a HEAD with a native state spends no code and stores nothing", async () => {
+    const h = harness()
+    const query = new URLSearchParams(await fields())
+    await h.handler(
+      new Request(`http://localhost:8787/integrations/strava/callback?${query}`, {
+        method: "HEAD",
+        headers: { "cf-connecting-ip": "203.0.113.7" },
+      }),
+    )
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a POST with a tampered state answers 400 and exchanges nothing", async () => {
+    const h = harness()
+    const valid = await fields()
+    const response = await post(h.handler, { ...valid, state: `${valid.state}x` })
+    expect(response.status).toBe(400)
+    expectSecureHeaders(response)
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a POST of a web state still needs the binding cookie", async () => {
+    const h = harness()
+    const response = await post(h.handler, {
+      state: await state(WEB),
+      code: CODE,
+      scope: "activity:write",
+    })
+    expect(response.status).toBe(400)
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a native GET for an erased user shows no email and spends no code", async () => {
+    const h = harness({ exchange: "ok", user: "deleted" })
+    const response = await get(h.handler, await fields(), { cookie: "" })
+    expect(await response.text()).toContain(`href="${NATIVE}?error=provider"`)
+    expect(read(h.exchanges)).toEqual([])
+  })
+
+  it("never logs the email", async () => {
+    const h = harness()
+    await get(h.handler, await fields(), { cookie: "" })
+    expect(read(h.logs).filter((line) => line.includes("example.com"))).toEqual([])
   })
 })
