@@ -1,598 +1,164 @@
 # @tanren/mobile
 
-Expo SDK 58 + Expo Router app (iPhone via Expo Go, web via `expo start --web`).
-A fast offline-first logger: local expo-sqlite store, batched push/pull sync
-with the worker, Today and Plan screens, web export.
+Expo SDK 58 + Expo Router app (iPhone via Expo Go, web via `expo start --web`): an offline-first logger on a local
+expo-sqlite store with batched push/pull sync. Contracts live in `docs/design/`, not here: `design-system.md`,
+`ui-direction-final.md` (Forge), `ui-desktop.md`, `ui-polish.md`, `v2-programs.md` + `programs-mcp.md` (ADR-0026),
+`v2-extras.md`, `feed.md` (ADR-0017), `integrations.md` (ADR-0018), `garmin.md` (ADR-0023), `nutrition.md` +
+`health-module.md` (ADR-0025), `native-auth.md` + `auth-v2.md` (ADR-0022), `legal.md` (ADR-0024), `landing.md`
+(ADR-0021), `local-dev.md` §6a (phone recipe). History is in `git log` and `docs/tasks/*`, not this file.
 
 ## Boundaries
 
-- Depends on `@tanren/shared` for every data shape (entities, `*Row` codecs,
-  sync envelope). Never imports from `apps/worker` or `packages/db`.
-- React components are plain React; **no Effect inside components**. Effect
-  runs only in `src/services/` behind one `runtime` and is exposed through
-  `src/hooks/`.
+- Depends on `@tanren/shared` for every data shape. Never imports from `apps/worker` or `packages/db`. Budget, targets,
+  insights, PR math and `Activity` come from shared only, never re-implemented here.
+- Plain React components, **no Effect inside components**: Effect runs in `src/services/` behind one `runtime`
+  (`ManagedRuntime`) and reaches screens through `src/hooks/` (`runtime.runCallback` + `runFailed`, `src/hooks/runExit.ts`).
 - Everything on Today works with no network; sync is a background concern.
 
 ## Layout
+
+`ls src/*` and module headers give the exports; this is the map plus the gotcha per directory.
 
 ```
 app/          ROUTE INVENTORY — every route, kept complete by whoever adds one (the task that adds a route
               adds its line); UI specs, QA capture sets and the owner's gallery are built from this list.
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
   (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
-  root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`,
-  `?enrollmentId=` REQUIRED, only an `active` one opens), programs/[programId].tsx (detail),
+  root Stack: activity/[sessionId].tsx, activity/imported/[id].tsx, library/[catalogId].tsx, programs/play.tsx (Player,
+  `nav={false}`, `?enrollmentId=` REQUIRED, only an `active` one opens), programs/[programId].tsx (detail),
   programs/[programId]/day/[n].tsx (read-only day preview; folder beside `[programId].tsx`, both resolve),
   programs/new.tsx (blank or `?from=` duplicate), programs/edit/[programId].tsx (program editor),
   programs/edit/[programId]/day/[n].tsx (day editor), programs/pick.tsx (`?pickFor=<programId>/<day>`
   exercise picker), programs/swap.tsx (`?enrollmentId=&from=` swap sheet) — team programs v6b,
   progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
   settings/integrations/{index,[provider]}.tsx, settings/nutrition.tsx, health/index.tsx (Health),
-  health/add.tsx (quick-add modal) — v6 nutrition, privacy.tsx + terms.tsx (public legal pages, ADR-0024:
-  `isPublicRoute` in `authGate.ts` lets a signed-out device open them; both render `LegalPage`)
-  Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1); the
-  signed-out web landing (`src/components/landing/Landing.tsx`, rendered by `_layout.tsx` on every
-  gated route instead of the `/sign-in` redirect, ADR-0021, `docs/design/landing.md`).
-src/
-  ui/         the design system (docs/design/design-system.md); screens import UI from `src/ui` only:
-              tokens + colors (the only hex), ThemeProvider/useTheme/useStyles, Page, AppBar (+ `APP_NAV`
-              desktop nav), Text, Card, Button, IconButton, Icon, ListRow (`checked` = switch role + state), Stepper, SegmentedControl,
-              StatusPill, TimerRing, EmptyState, Banner, Skeleton, `interaction.ts` (web hover/focus);
-              Forge (docs/design/ui-direction-final.md): `controls.ts` pure style tables (+ test), `iconPaths.ts`
-              glyph table, ListGroup (+ `useGrouped`), ToggleChip, ProgressRing, SegmentBar, SetDots; fonts Barlow
-              Condensed 700/800 (`assets/fonts/`, `useFonts` in `app/_layout.tsx`)
-  services/   SqlDriver (+ .testing), LocalStore, TodayRepo, PlanWeekRepo, FeedRepo, StoreEvents,
-              CurrentUser, SyncEngine, SyncTransport, MockSyncServer, apiBaseUrl, magicLink, runtime,
-              HistoryRepo (Progress reads: live sets of live sessions, ≤ 3 SELECTs per method) over
-              pure progressMath (epley1Rm, SetScore, markPrs, local-Monday weekStartOf),
-              ProgramRepo (find/list/activeEnrollments/dueToday/enroll/setStatus/setSwap/todayFor/
-              save/findRow/deleteProgram/complete → completion + session + sets), PhaseAlerts
-              (+ .notifications adapter)
-  player/     playerMachine (pure), cues, playerEffects, usePrograms (+ useProgramDetail, useStoreVersion),
-              programList (pure), components/{ProgramHome,ProgramList,ProgramActions,PlayerView};
-              components/programs/ = editor, picker, day preview, swap list; components/TodayPrograms.tsx
-              — team programs; route app/programs/play.tsx, hook src/hooks/usePlayer.ts
-  store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
-  hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
-              useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
-  components/legal/  legalCopy (typed Privacy + Terms texts verbatim from docs/design/legal.md §1–§2, sign-in
-              agreement parts, About row titles; `LAST_UPDATED` is the one date), LegalPage (Page + AppBar,
-              section `nativeID` = DOM anchor, `Head` title, `LegalLink` / `InlineAnchor`; web heading levels via `Text headingLevel` and `AppBar titleLevel`)
-  library/    CatalogList/Filter/Detail, ExerciseIllustration (webp or fallback tile), MuscleMapImage (webp or SVG), illustration.ts
-  illustrations/ imagePrompt (pure half of the generator), images.ts (generated map), muscleMap/
-  components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
-              PlannedSessionCard (+ SessionBlocks), stepMath, setRows, planFormat, planSelection,
-              planWeekFixture (tests only), feed/; built on `src/ui`
-scripts/     generateIllustrations, shrinkImages, imageMap, contactSheet, muscleMapSheet, resolveTs
-assets/illustrations/  <catalogId>.webp (512x512) + style.md
-assets/brand/  W1 wordmark (PNG + SVG, ink and paper) and its T mark = icon set + PWA icons (LOGO-4, plan
-             Amendment 15); the superseded 力 set under candidates/final-kanji/. PNG→SVG traces run with a
-             potrace from a scratch install (BRAND-2a, LOGO-4), not a repo dependency; `scripts/generateLogo.ts
-             --w1-export <png>` rebuilds the set from the wordmark PNG without a paid run.
-public/_headers (COOP/COEP, copied into dist/ by `expo export`)
-expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vitest.config.ts
+  health/add.tsx (quick-add modal; the one `Stack.Screen` child in `_layout.tsx`) — v6 nutrition, privacy.tsx +
+  terms.tsx (public legal pages, ADR-0024: `isPublicRoute` in `authGate.ts` lets a signed-out device open them; both render `LegalPage`)
+  Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`); the signed-out web landing
+  (`src/components/landing/Landing.tsx`, rendered by `_layout.tsx` on every gated route instead of the `/sign-in` redirect).
+src/ui/       the design system; screens import UI from `src/ui` ONLY. `colors.ts` is the one place with hex; pure style tables
+              (`tokens`, `controls`, `chipVariant`, `columns`, `confirmLayout`) each have a test; `iconPaths.ts` has no `chevronUp`
+              (rotate `chevronDown`); `Confirm.tsx` = `useConfirm` / `ConfirmProvider` (native Alert, Forge alertdialog on web —
+              bare `Alert.alert` is a no-op on web).
+src/services/ one Effect service per repo/port (`*Repo`, CurrentUser, NativeSession, Account, SyncEngine, PhaseAlerts, …).
+              `Integrations` and `AccountErasure` are provided per call, not in `runtime.ts`. `DataExporter` (the shared schema is
+              `DataExport`). `authGate.ts` is pure.
+src/components/ screen pieces on `src/ui`, one folder per screen. Pure modules sit beside the `.tsx` under ANOTHER name (`Foo.tsx` +
+              `foo.ts` collide on macOS, TS1261). `volumeFormat.ts` is the leaf (planFormat/progressFormat import it, never each
+              other). Charts are hand-rolled react-native-svg, no chart library. legal/legalCopy is verbatim legal.md §1–§2.
+src/player/   playerMachine (pure), cues, playerEffects, usePrograms, components/     src/hooks/  one hook per read/write; Promise APIs never reject
+src/library/  catalog list/detail; `clampSubtitle` clamps phone subtitles (33 chars at 390) although ListRow has `titleLines`/`subtitleLines`
+src/store/    migrations (append-only, `PRAGMA user_version`), seed (demo rows, `_dirty=0`), localUser (LOCAL_USER_ID), syncQueries
+src/illustrations/ prompts (`MISSING_MUSCLE_MAPS` = []) + generated `require` maps images.ts / muscleMapImages.ts   src/pwa/  sw template, precache
+scripts/      image / muscle-map / logo / landing generators (OpenAI), shrink, index, serviceWorker, resolveTs
+assets/illustrations/<id>.webp 512² + style.md · assets/musclemaps/<id>.webp 384² · assets/brand/ W1 wordmark + T mark icon set
+public/_headers (COOP/COEP, copied into dist/) · public/manifest.json + icons/ · expo-types.d.ts (typed routes, committed)
 ```
 
 ## Local store contract
 
-- Quoted camelCase columns so the shared `*Row` codecs decode records
-  unchanged; extra columns `_dirty`, `_rejected`; table `sync_state`;
-  schema version via `PRAGMA user_version`; no foreign keys.
-- Writes go through `TodayRepo` (serialised by a semaphore) and emit
-  `StoreEvents`, which reloads Today.
-- Today finishes its session explicitly (ADR-0018 decision 2026-10-26, TODAY-FIN): `Today.session`
-  is the open session + live set count; `src/components/today/FinishWorkout.tsx` (passed to
-  `TodayReady` as `footer`) shows a secondary lg "Finish workout" button while it has ≥ 1 set;
-  `TodayRepo.finishSession` sets `finishedAt` (≥ `startedAt`) and bumps `updatedAt`, dirty, no-op
-  (None) for unknown / finished / zero-set sessions; Today then reads as before the first set with
-  "Workout saved · n sets · <duration>" until the next set or blur. The open-session query filters
-  `finishedAt IS NULL`, so the next set opens a new session. Auto-finish (AUTO-FIN, REV-AF):
-  `SyncEngine` runs `TodayRepo.finishStaleSessions(now)` only after a complete `pullLoop` in `syncOnce`
-  (never at startup: an un-pulled device could give an already-finished session an earlier
-  `finishedAt`; never from `useToday`: a reload can land between pull pages); `TodayRepo` is read with `Effect.serviceOption` from the caller's context, so engine-only
-  tests skip it. An open session whose last live set is more than `STALE_SESSION_HOURS` (3) old is
-  finished at that `loggedAt`; one with no live set is soft-deleted only when `_dirty` = 1 (never
-  pushed); no write when nothing is stale.
-- Sync (`SyncEngine.background`, run by `useSync`): on mount, every 60 s, and 500 ms
-  (`PUSH_DEBOUNCE`) after `requestSync`, which `useLogSet` sends after every logged set
-  (taps in the window share one push; offline fails once, then waits for the loop); pull applies a
-  row only if strictly newer, push conflicts tie to the server; accepted /
-  rejected marks apply only if `updatedAt` is unchanged since the push.
-  An undecodable dirty row is flagged `_rejected = "invalid"` (warning logged, not retried) while
-  healthy rows push in the same pass; an unplanned session is reused only on the local date it
-  started; `TodayRepo.exerciseChoices` (swap / add) skips tombstoned exercises, Today does not.
-  Transport methods are `sendChanges` / `fetchChanges`: the noMutation
-  plugin is purely syntactic and flags any `x.push(...)` / `pop` / `shift` /
-  `unshift` / `splice` / `sort` / `reverse` / `fill` call. Convention: never
-  name an own method after one of these; for third-party ones
-  (`router.push`) suppress the one line with
-  `// biome-ignore lint/plugin/noMutation: <reason>`.
-- Owner (INT-2): `CurrentUser.signedIn` is resolved once when the runtime
-  is built (dev override `EXPO_PUBLIC_DEV_USER_ID`, else Better Auth
-  `GET /api/auth/get-session`, else the stored `sync_state` `ownerUserId`
-  when offline). Signed out: rows carry `LOCAL_USER_ID` and the demo seed
-  runs. Signed in: no seed; `SyncEngine.rekeyLocalUser` (one batch, under
-  the sync lock, skipped when `ownerUserId` already matches) moves local rows
-  to the user before the first sync. Sign-in UI: `/sign-in` (step 7). "Different user on the
-  same device" (full wipe) is not built yet.
+- Quoted camelCase columns so the shared `*Row` codecs decode records unchanged; extra columns `_dirty`, `_rejected`; table
+  `sync_state`; no foreign keys. v4 = `imported_activity` + `daily_health` (pull-only, never dirtied), v5 = `food_entry` +
+  `profile.nutrition`, v6 = `program` + `program_enrollment.swaps`. `DataExporter` covers all 13 sync tables; `AccountErasure`
+  wipes every table `sqlite_master` lists.
+- Writes go through the repos (TodayRepo serialised by a semaphore) and emit `StoreEvents`, which reloads Today.
+- Finish: `TodayRepo.finishSession` sets `finishedAt` (no-op for unknown/finished/zero-set sessions); the open-session query
+  filters `finishedAt IS NULL`. `SyncEngine` runs `finishStaleSessions(now)` (`STALE_SESSION_HOURS` 3) only after a complete
+  `pullLoop` — never at startup or from `useToday` (an un-pulled device would back-date `finishedAt`).
+- Sync (`SyncEngine.background` via `useSync`): on mount, every 60 s, and `PUSH_DEBOUNCE` 500 ms after `requestSync` (every write
+  hook sends it). Pull applies a row only if strictly newer; push conflicts tie to the server; accepted/rejected marks apply only if
+  `updatedAt` is unchanged; an undecodable dirty row is flagged `_rejected = "invalid"`, not retried. Transport methods are
+  `sendChanges`/`fetchChanges`: the noMutation plugin is syntactic and flags any `x.push/pop/shift/unshift/splice/sort/reverse/fill(...)`
+  — never name an own method so; third-party ones (`router.push`) get `// biome-ignore lint/plugin/noMutation: <reason>`.
+- Owner: `CurrentUser.signedIn` resolves once per runtime (dev `EXPO_PUBLIC_DEV_USER_ID`, else Better Auth / `NativeSession`, else
+  stored `sync_state.ownerUserId` offline). Signed out: rows carry `LOCAL_USER_ID` and the demo seed runs. Signed in:
+  `SyncEngine.rekeyLocalUser` moves local rows to the user before the first sync. Not built: a different user on the same device
+  (full wipe); reads have no `userId` filter (one owner per device after re-key).
 
 ## Expo facts
 
-- tsconfig extends `expo/tsconfig.base.json` (with the `.json` suffix) and
-  `../../tsconfig.base.json`; `typedRoutes` on (else `expo start` rewrites
-  tsconfig). Isolated pnpm linker, no metro `watchFolders`.
-- v2 deps (V2-F2, all in Expo Go, pinned from SDK 58 `bundledNativeModules.json`):
-  `expo-notifications` (plugin, `enableRemoteNotifications: false`: local only), `expo-haptics`,
-  `expo-audio`, `expo-keep-awake`, `expo-secure-store`; store migration v2 adds `exercise.catalogId`,
-  `program_enrollment`, `program_day_completion`. `expo-widgets` (dev build only, ADR-0012) and
-  its `app.json` plugin are added by V2-P7, not before.
-- Ids from `expo-crypto` behind an app `IdGenerator` (Hermes
-  `crypto.randomUUID` unverified).
-- Web: sqlite wasm needs cross-origin isolation (COOP `same-origin` + COEP).
-  The dev server sends the headers; the exported build ships them in
-  `public/_headers`, which Expo copies into `dist/` and the assets-only Worker
-  (`apps/worker/wrangler.web.jsonc`, SPA fallback) applies, also under
-  `wrangler dev`. Credentialed CORS fetches to the API work under the COEP
-  value in `_headers` (proven S7-P4).
-- Web is single-tab in v1: `runtime.ts` `openPageStore` fails a second live tab with
-  `DatabaseInUse` after `LOCK_TIMEOUT` (cached by `ManagedRuntime`; hooks reach it only through
-  `runtime.runCallback` + `runFailed` from `src/hooks/runExit.ts`, so `useAuthGate` shows the
-  "open in another tab" copy instead of a blank page — BS-1, 2026-10-27),
-  aborts or releases the Web Lock on interrupt, failed open or scope close, and retries only
-  the bfcache "Access Handle" open failure (`isAccessHandleError`).
-- `EXPO_PUBLIC_API_URL` is inlined at export time (local export:
-  `http://localhost:8787`; production: `https://api.tanren.me`). `__DEV__` is
-  false in an export (no dev prefills).
-- Breakpoints (`breakpointFor` / `useBreakpoint`, width from `useWindowDimensions`): phone < 600,
-  tablet 600–899, desktop >= 900. Phone: one full-width column, bottom tabs. Tablet: one column
-  centred at `contentMaxWidth` 600, gutter 24, bottom tabs. 390 and 768 trees are unchanged by the
-  desktop work. Desktop: the tab bar is hidden (`tabBarStyle display none`) and `AppBar` renders the
-  nav (`APP_NAV`: Feed, Today, Plan, Programs, Library; active from `usePathname()`) itself, so
-  every screen with an `AppBar` gets it.
-  Desktop columns (docs/design/ui-desktop.md §2–§3): `columnsFor(width, split)` (`src/ui/columns.ts`,
-  the one place with the maths) centres a page of `min(window − 64, pageMaxWidth 1360)` (gap 24, gutter 32; frame identical on every
-  route, probe `page-frame` / `app-bar` in `docs/design/ui-columns.js`) and splits it `"7/5"` (default,
-  focus left) · `"5/7"` (master-detail) · `"6/6"`; main is rounded to the 4-pt grid, columns never
-  below `MIN_COLUMN` 364; below a 1024 window every split is 6/6 (`effectiveSplit`). Pinned: at 1280
-  (page 1216) 7/5 = 696/496, 5/7 = 496/696, 6/6 = 596/596; at 900 (page 836) any split 404/408; at
-  1440 page 1360. Narrow pages (no aside/`wide`) keep header + AppBar on the page width and centre a
-  600 body (`pageWidths`). The aside needs no sticky: only main scrolls. `Page sectionGap` (default
-  16). `Page` takes `aside` + `split` (two columns, main
-  `role="main"`, aside `role="complementary"`) or `wide` (a page with no aside, whose children
-  lay themselves out with `Columns`); `Columns` / `useColumns` live in `src/ui/ColumnsView.tsx`
-  (below desktop `Columns` stacks). Without `aside` or `wide` the page is the single 600 column.
-  Master-detail 5/7: Library (list + `CatalogDetail`, `inline` hero only when the aside's inner width
-  fits 584, i.e. at 1280 not 900) and Progress (exercise list + `ExerciseDetail`, aside only when the
-  list is Ready). Today aside = Session list (`sessionRows`: one `ListRow` per exercise with state
-  disc and n/m sets) + the current exercise's SetList + RestTimerBar ring (neutral arc; read-only,
-  no Log set button); Plan aside = the selected session's card (tap selects; default today's, else
-  next upcoming, else first). Settings is `wide` with `Columns 6/6`, the location editor `wide`
-  with `Columns 5/7`, `/progress/[exerciseId]` `wide` with a split detail. Loading, empty, not-found
-  and failed states never pass `wide` or `aside`: they stay one 600 column. Ready states render
-  their own `Page`.
-  Desktop round 4 (designer PASS, `docs/design/reviews/UI-Pdesktop-r4.md`; shared with Lead):
-  stat rows are in-card tiles (`StatRow variant="tile"`, 72 high) on desktop for Today, Plan (aside,
-  stacked) and Programs (enrolled `DayStats`); bare only at phone/tablet; `dense` (gap 8, padding 12)
-  when the Today block is 340 (900 window) so "10,000 kg" fits 3 x 108. (Feed/Activity tiles
-  became `StatRow variant="plain"` in round 5.) Additive `src/ui` props: `ListRow titleLines/subtitleLines/tabularTitle`,
-  `ToggleChip compact` (Pressable stays 44 with `marginVertical -6`; RNW ignores `hitSlop`),
-  `sizes.labelRow` 28 (Today aside "Sets · name" one row) and `sizes.upNextCard` 150. Plan aside adds an
-  "Up next" card (`planUpNext.ts`: first `upcoming` session on a later day; renders nothing when none;
-  unreviewed visually: the seeded week is all done). Plan rest rows 64 at desktop (`PlanDayRow`). Library
-  desktop: compact chips, one-line rows (7 visible). Progress detail: map beside the Best-set card.
-  Player enrolled at 1280/900: ring 280, clock `numeralLg` 96 (`playerRing.ts ringSpec`); `Button xl` is
-  64 (`logButton`), `lg` 56. Status: PASS 4 on every desktop screen opened; left for r5: Today 390 Finish
-  button overlaps the set list (`footer` slot), Library empty pane, Player reps numeral/Finish tone,
-  Programs day rows 64.
-  Polish round 5 (designer PASS 4 on every screen, `docs/design/reviews/UI-P5.md`; shared with Lead):
-  Feed/Activity stat tiles are now `StatRow variant="plain"` (title2 value over a muted caption, flex 1,
-  gap 12); `statValueVariant` (feedGroups.ts) steps a value longer than 8 chars to `headline` so
-  "1 h 10 min" fits a ~100 px tile at 390. `StatusPill align="center"` (opt-in, +2 marginTop) puts the
-  one-line Apple Health pill on the title baseline (Strava's two-line row is flex-start). `ToggleChip
-  variant="outline"` (pure style in `ui/chipVariant.ts`) is the Library location chip at both widths;
-  the local `LocationChip` is gone. Tokens: `stroke.ring` 10 / `stroke.ringSm` 3 (Player ring, 20 px
-  ring) and `tooltip {padX 12, labelRow 20, labelWidth 72}` (Sparkline tooltip); the strip now sits
-  below the card header (+32 px, empty when not hovered) and the pill is content-sized, clamped to the
-  plot (`tooltipWidth`/`tooltipLeft`). Plan week summary labels read "Planned sets / Planned volume";
-  each `PlanWeekView` session carries `logged {sets, volumeKg}` (one `GROUP BY` aggregate over live sets of
-  live linked sessions in `PlanWeekRepo`; bodyweight = 0 kg) and `WeekStats` (PlanWeek.tsx) renders the
-  week line "Logged 3 sets · 1,500 kg" as a `caption` under the tiles only when the week has logged sets
-  (PLAN-LOG; `weekLoggedLine` in planFormat.ts). `formatVolume` lives in the leaf
-  `components/volumeFormat.ts` (planFormat and progressFormat import it, never each other).
-  `cardStyle` keeps a 1 px border in dark (transparent) so light and dark cards measure the same.
-  Progress rows are one line (`rowDetail.ts fitRowDetail` clamps at the separator); Library detail
-  "Last done" carries a clock glyph; `clampSubtitle` cuts at a separator boundary. Status: PASS.
-- Theme and design: colours only from `useTheme().colors` / `useStyles` (`src/ui/colors.ts` is the one
-  place with hex; light and dark follow the device or `useThemePreference`). Web hover/focus come
-  from `usePressableInteraction` (`onHoverIn/Out` state, `:focus-visible` gated `outline*` ring in
-  `colors.focus`): RNW's `hovered` flag is not typed. Never pass `accessibilityElementsHidden` /
-  `importantForAccessibility` to a DOM-backed element (react-native-svg `Svg`, `Animated.View`): wrap
-  it in a `View` (React warns about unknown DOM props on web). A child of `Link asChild` must have an
-  object `style`, not an array (expo-router Slot shim throws, and in an export the page is just blank).
-- Plan screen reads only `PlanWeekRepo.currentWeek` (live active plan, live
-  week with `weekStart <= today < weekStart + 7`, any weekday — ADR-0007),
-  no endpoint. Status: done (live workout_session links it) > today > missed
-  > upcoming. No `userId` filter (one owner per device after re-key).
-- Sign-in: `/sign-in` posts `/api/auth/sign-in/magic-link` with
-  `credentials: "include"` and an absolute `<origin>/today` callbackURL
-  (Better Auth `trustedOrigins` = worker `ALLOWED_ORIGINS`); the link's
-  redirect is a full page load, so the runtime rebuilds and `CurrentUser`
-  resolves the session. Adding a route needs one `expo start` to regenerate
-  `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. **Native sign-in works via a
-  one-time code** (docs/design/native-auth.md): the emailed link opens in Safari, whose "Open Tanren"
-  button deep-links `exp://…/--/auth/callback?code=…` into Expo Go; `NativeSession` exchanges the code
-  (PKCE verifier) at `POST /api/native/session` and keeps the Tanren app token pair (ADR-0022;
-  SecureStore `tanren.access` / `tanren.refresh` / `tanren.expiresAt`, a leftover `tanren.session` is
-  deleted and reads as signed out) in `expo-secure-store`, sent as `Authorization: Bearer` (`withSession`).
-  `NativeSession.token` (`Option<string>`) refreshes once, single-flight, at `expiresAt - 30 s` via
-  `POST /api/token/refresh`; only a 401 clears the pair, a network/5xx failure keeps it and returns none. Web keeps the cookie flow above. Phone recipe:
-  `docs/design/local-dev.md` §6a (`pnpm dev:phone`). Live Activities still need a dev build, not
-  Expo Go.
-- Sign-in gate (ADR-0019): `app/_layout.tsx` calls `useAuthGate(usePathname())` (web and native). `gateFor`
-  (`src/services/authGate.ts`, pure) says `"sign-in"` only with no account (`gateAccount`: resolved user,
-  dev override, else stored owner) AND `localSetCount` = 0 AND a route outside `/sign-in`, `/auth/*`.
-  The layout renders nothing while loading, keeps the `Stack` mounted but invisible while gated and
-  `<Redirect href="/sign-in" />`s. An expired session or an offline start is not a gate; sign-out keeps
-  local sets, so it does not lock the user out. Proof: `ab network route "<api>/**" --abort` then a direct
-  load (the dev server is unreachable under `set offline on`, so that only proves client navigation).
-- API base: `EXPO_PUBLIC_API_URL`, else Expo `hostUri` host with `:8787`,
-  else `http://localhost:8787`.
-- Rest-day proofs: the seed plan has no session on Tuesdays; to see Today on a rest day launch
-  agent-browser with e.g. `TZ=Pacific/Kiritimati` (Chrome inherits `TZ`). Empty-state proofs: signed
-  out always seeds the demo plan, so use Library "no results" or a signed-in empty account.
-- Web OPFS + bfcache (S7-P1): on a full cross-route navigation Chrome bfcaches the old page, whose
-  sqlite worker keeps the OPFS access handle, so the new page's open failed and `ManagedRuntime`
-  cached the failure. `runtime.ts` `PageSqlDriver` takes a page-lifetime Web Lock named after the
-  database (evicts the bfcached holder; 10 s timeout; skipped on native) and retries the open
-  (250 ms × 20). Two live tabs still cannot share the store: the second one fails after ~10 s with
-  "Tanren is open in another tab" (open product decision; BS-1 made that failure visible).
-- Stale Metro after edits: restart the server, `--clear` is not enough.
-- History (steps 6–7, INT-A/X1, v2 design, 2026-10-20/21): `docs/tasks/step-2.md` Log and `git log`,
-  not this file.
+- tsconfig extends `expo/tsconfig.base.json` (with `.json`) and `../../tsconfig.base.json`; `typedRoutes` on (else `expo start`
+  rewrites tsconfig). Isolated pnpm linker, no metro `watchFolders`. A new route needs one `CI=1 expo start --port <n>` to
+  regenerate `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. Stale Metro after edits: restart; `--clear` is not enough.
+- Native deps (all Expo Go, pinned from SDK 58 `bundledNativeModules.json`): `expo-notifications` (plugin,
+  `enableRemoteNotifications: false`), `expo-haptics`, `expo-audio`, `expo-keep-awake`, `expo-secure-store`, `expo-crypto` (ids via
+  an app `IdGenerator`; Hermes `crypto.randomUUID` unverified). `expo-widgets` / Live Activities need a dev build (ADR-0012): not added.
+- Web: sqlite wasm needs cross-origin isolation (COOP + COEP): the dev server sends it, the export ships `public/_headers`, applied by
+  the assets-only Worker (`apps/worker/wrangler.web.jsonc`). `EXPO_PUBLIC_API_URL` (else Expo `hostUri` host `:8787`, else
+  `localhost:8787`) and `EXPO_PUBLIC_PLAYER_SPEED` are inlined at export time; `__DEV__` is false in an export. Web is single-tab:
+  `PageSqlDriver` holds a page-lifetime Web Lock (evicts a bfcached holder of the OPFS handle); a second tab fails with
+  `DatabaseInUse` after `LOCK_TIMEOUT` and shows "Tanren is open in another tab" (open product decision).
+- Breakpoints (`useBreakpoint`): phone < 600, tablet 600–899 (one 600 column, bottom tabs), desktop ≥ 900 (tab bar hidden, `AppBar`
+  renders `APP_NAV`). Desktop columns (ui-desktop.md §2–§3; maths only in `src/ui/columns.ts`): splits `"7/5"` (default) · `"5/7"` ·
+  `"6/6"`, columns ≥ `MIN_COLUMN` 364, every split 6/6 below a 1024 window; at 1280 7/5 = 696/496. `Page` takes `aside` + `split` or
+  `wide`; Loading/Empty/Failed/not-found states never pass either. `sectionGap` default `space.lg` 16. `StatRow variant="tile"` at
+  desktop for Today/Plan/Programs, `"plain"` for Feed/Activity. `cardStyle` keeps a 1 px border in dark so both schemes measure the same.
+- Theme: colours only from `useTheme().colors` / `useStyles`; `useThemePreference` persists on web only. Web hover/focus via
+  `usePressableInteraction`. Never pass `accessibilityElementsHidden` / `importantForAccessibility` to a DOM-backed element (`Svg`,
+  `Animated.View`): wrap it in a `View`. A child of `Link asChild` needs an object `style`, not an array (an export renders blank).
+  RN web ignores `hitSlop` (small controls keep a 44-px Pressable). A button inside a `Card` uses `variant="raised"`.
+- Plan reads only `PlanWeekRepo.currentWeek` (live active plan, `weekStart <= today < weekStart + 7`, ADR-0007). Rest-day proofs: the
+  seed plan has no Tuesday session — run agent-browser with e.g. `TZ=Pacific/Kiritimati`. Signed out always seeds the demo plan, so
+  empty-state proofs need a signed-in empty account.
+- Auth (native-auth.md, ADR-0022): web = magic-link cookie flow (`credentials: "include"`, absolute `<origin>/today` callbackURL;
+  the redirect is a full load, so the runtime rebuilds). Native = one-time code at `/auth/callback?code=` → `NativeSession` (PKCE,
+  SecureStore `tanren.access/refresh/expiresAt`, Bearer, single-flight refresh at `expiresAt − 30 s`; only a 401 clears the pair;
+  a failed sign-out revoke is deferred in `tanren.pendingRevoke` and retried before any new pair is stored, STLS-R). Sign-out keeps
+  local rows. Gate (ADR-0019): `gateFor` says `"sign-in"` only with no account AND `localSetCount` = 0 AND a non-public route.
 
-## Programs (v2, team programs — docs/design/v2-programs.md)
+## Programs (v2-programs.md; programs-mcp.md §4, ADR-0026)
 
-- Definitions are static shared data (`CORE30` in `@tanren/shared` `programs/`); progress is the
-  synced `program_enrollment` / `program_day_completion` rows. `ProgramRepo.complete` writes the
-  completion, bumps `currentDay` (only `day === currentDay` is accepted, any other day → `StoreError`
-  `DayOutOfOrder { expected, got }`; non-active enrollment → `EnrollmentNotActive`), and logs one ordinary `session` + one `set` per *performed* item-round
-  (`CompletionInput.performedItems`, round-major; the player counts it, an early Finish logs less)
-  (`reps` = seconds, `weightKg` 0, `order` from 0, `loggedAt` = planned item end ≤ now) in one dirty
-  batch; exercises come from `ExerciseLink.ensure` (team catalog); ids missing from the catalog are
-  skipped, none left → `sessionId` None. A repeat for the same day writes nothing.
-- Player: `playerMachine` is pure (`step(config)(state, event)`), remaining = `endsAtMs − nowMs`,
-  a late `tick` chains every elapsed phase from the previous deadline; duration excludes pauses.
-  `phaseKey` also changes on pause/resume, so cues compare `_tag`s (`cues.ts`). `usePlayer` ticks
-  every 250 ms and on `AppState → active`; `KeepAwake` is mounted in `app/programs/play.tsx` only
-  while Working/Resting. The play screen latches the day it opened with (v6b swaps: see below).
-- `PhaseAlerts` (port, ADR-0012): one pending local notification at the phase end; the layer loads
-  `expo-notifications` via dynamic `import()` (node tests never load it; web or failed import →
-  no-op). No foreground notification handler. Live Activity adapter (P7) not built (gated).
-- Reps items (ADR-0020): numeral + Done `xl`, no ring, `next` on Done; sets log `reps = count`.
-- `EXPO_PUBLIC_PLAYER_SPEED` (export-time inlined) divides every duration — browser proofs only.
-- The Today "Core 30 · Day N" banner belongs in `src/components/TodayReady.tsx` (design's file).
-- Phone layout (pair mobile-A, ratified r3, `docs/design/reviews/UI-PmobileA-r3.md`; measured at 390):
-  Today setup row = 56–60-px `ListRow` on a `surface` group (`surfaceRaised` equals the page
-  background in light); weight/reps blocks 92 high, gap 24, unit as `caption`; `SetDots
-  variant="pill"` (10×6, current set 16×6 accent). Player: body `space-between`, pause 64 filled
-  `surface`, prev/next 48, "Next · <exercise> <s>" caption (`nextAfterWork`, `playerMachine.ts`),
-  clock `Text variant="clock"` 64/68, `TimerRing` stroke 10 (local `RING_STROKE`), the eyebrow ring
-  dropped on phone (tablet/desktop keep it). Plan: rest rows 52, one-line session items and day
-  header, `StatRow` week stats (done = sessions with status done; a rep range counts its minimum),
-  section gap 24. Programs: `ProgressRing` with the day number (stroke 3); not-enrolled detail lists
-  the days (v6b, below). Open (UI-P-left): `Stepper` unit slot (the "kg" caption still sits under the
-  numeral), Plan session row 172 vs 156 (card padding 11 vs 8), Programs hero 56 vs 104, `Page`
-  `sectionGap` default 16 (24 wanted).
-- Phone layout (pair mobile-B, accepted r2, `docs/design/reviews/UI-PmobileB-r2.md`; 390):
-  Library = search + "Filters · n" chip (opens `FilterSheet`, an RN `Modal` slide sheet with the
-  Equipment and Kind facets and "Clear filters"; `@expo/ui` is not installed, pageSheet is ignored
-  on web), one muscle chip row starting with "All", then a 28-px count row with the outlined local
-  `LocationChip` ("At <location>", accent border + pin) on the right so "All" is the only filled pill;
-  first row at 148 in the content frame. Rows are `ListRow thumb` (64, hairline at 84); the phone
-  subtitle is clamped by `clampSubtitle`/`subtitleMaxChars` (33 chars at 390, `catalogFormat.ts`)
-  because `ListRow` has no `numberOfLines`. Chips: pitch 32 + 8: `ToggleChip` taps are 44 tall, so wrap
-  views pull each chip by `CHIP_PULL` (-6) and add `rowGap` 8. Library detail: availability chip,
-  then `lastDoneText` ("Last done 24 Oct · 75 kg × 8", via `illustrationIdFor` → `useExerciseSummaries`
-  → `useExerciseHistory`) when history exists. Progress rows `thumb` + tabular date. Progress detail
-  (stacked): two-up tiles map 160 × 176 + Best-set 182 × 176 (numeral 56, local constant: the ramp has
-  no 56 step), Volume bars, Estimated 1RM card (header + trailing latest value, `Sparkline` 72, end
-  dates from `sparklineEndLabels`), recent-session values tabular. Tooltip: one-line pill
-  (`tooltipCaption`, `tooltipWidth` rounds the measured padded width up + 1: a fractional
-  `onLayout` width truncated the label; measured once). Settings: label→group 8 / group→label 24
-  (`rhythm`), Sign out aligned at x = 64 with a 20-wide spacer (`leading={null}` is a 24 slot, icons
-  are 20), preset rows read "Preset · n items". Location editor: "N items selected" caption under the
-  name field. Back from Settings falls back to `/feed`. Open (UI-P-left): dark `surfaceRaised` tile
-  behind illustrations stays until IMG-7 re-tints the art (§7 says transparent); `ListRow`
-  `titleLines`/`subtitleLines` + tabular title (src/ui) would replace the clamp and the empty-title
-  hack; Volume/1RM cards are 4 px shorter in dark than light.
+- Built-ins (`PROGRAMS`) + the owner's live `program` rows (ids matched case-insensitively). Statuses `active | paused | completed |
+  abandoned` (several active, one per program; terminal → `EnrollmentTerminal`). `complete` accepts only `day === currentDay`
+  (`DayOutOfOrder`) and logs one session + one set per performed item-round; a repeat for the same day writes nothing.
+- Swaps live on the enrollment keyed by the ORIGINAL catalog id. Mid-workout `mergeDay` renames only open item-rounds; done rounds
+  keep the exercise performed (`performedIds`) — history is never rewritten.
+- Player: `playerMachine` is pure, a late `tick` chains every elapsed phase; `phaseKey` changes on pause/resume so cues compare
+  `_tag`s. `PhaseAlerts` loads `expo-notifications` by dynamic `import()` (web/tests → no-op). Editor: no draft, every change writes
+  `ProgramRepo.save` (version + 1); `writeGate` drops `queued` writes while a `positional`/`leave` write is pending. Every
+  destructive action confirms through `useConfirm` (CONFIRM-1/2), never an inline Banner.
 
-## v6b programs: user programs, statuses, swaps, editor (ADR-0026, docs/design/programs-mcp.md §4; team programs)
+## Illustrations and brand
 
-- Finder: built-ins (`PROGRAMS`: Core 30, 12-Week Lean Build) then the owner's live `program` rows
-  (`toProgram`); a custom `programId` is its lower-case row UUID; `findRow`/`programRow` match ids
-  case-insensitively. Store v6 = `program` table + `program_enrollment.swaps` (JSON, default `[]`).
-- Statuses `active | paused | completed | abandoned`, several active at once (one per program).
-  `paused` freezes `currentDay`, `complete` → `EnrollmentNotActive`; `completed`/`abandoned` are
-  terminal (`EnrollmentTerminal`); `setStatus` to the current status writes nothing. "Leave
-  program" = `setStatus(id, "abandoned")`. `enroll` returns an existing active/paused enrollment.
-- `dueToday(now)` = active, has a next day, no completion of that enrollment on today's local date
-  (a day done today hides the program until tomorrow). Today: `<TodayPrograms />` ("Programs due",
-  358×60 rows, `Button size="sm"` "Start"), mounted by nutri-today in `(tabs)/today.tsx`; Today's eyebrow
-  is the first `active` (not paused) entry with a day left.
-- Swaps live on the enrollment, keyed by the ORIGINAL catalog id (≤ 30), applied in `todayFor`,
-  `activeEnrollments[].day` and the preview; candidates =
-  `swapCandidates(original, CATALOG, Some(active location equipment))` (≤ 8); revert = remove entry.
-  Mid-workout (P-M4/P-M6): `play.tsx` re-reads the day after a swap and `mergeDay` renames only the
-  open item-rounds (running item onwards, `kind` must match; clocks untouched); `usePlayer` keeps the
-  catalog id of every item-round (`RunPlan`/`reconcilePlan`) and `complete` logs `performedIds`, so
-  rounds done before a swap keep the exercise actually performed (history never rewritten).
-- Play opens only the `active` enrollment named by `?enrollmentId=`; missing/unknown/paused/finished →
-  danger Banner "This workout is not available. Start it from the Programs tab."
-- Tab: "Active" (DayCard per active/paused; a paused card shows a `raised` Resume, not Start,
-  StatusPill `muted` "Paused" under the subtitle) + "Programs" (ListRow 358×60, subtitle "N days · a–b min"
-  [+ " · Made with Claude"], one trailing slot: status pill beats the "Yours" badge); 1280 Columns 6/6,
-  idle → left "No active program" Card 564 wide. Detail: meta caption (13/18/500) under the title,
-  Pause row only while active (paused → the EnrolCard carries Resume), Delete disabled with
-  "Leave the program first" while active/paused, inline Banner confirm (Alert is a no-op on web).
-  Days: `DayList` on every width (phone: week window + "Show all N days"; desktop: side column, all
-  days); not enrolled → header "Days", no counter, no "now"/"up next" marker. Every day row (chevron)
-  opens the read-only preview `programs/[programId]/day/[n]` ("Preview day N, <state>": position card,
-  `src/ui` StatRow, items with illustrations); "Start this day" only for the active enrollment's
-  current day. Navigating controls go through `useNavGuard`/`useGoBack` (`components/programs/useGoBack.ts`).
-- Editor: no draft; every change writes the row via `ProgramRepo.save` (version + 1, slug/source/
-  createdAt kept); text fields save on blur; edits are change functions applied to the freshly read
-  row. `writeGate` (pure, tested) + `useWriteGate`: `queued` (steppers, chips, text) is dropped while a
-  `positional` (move/remove) or `leave` (remove day, pick, create) write is pending; a positional write
-  stays claimed until the reloaded row renders; a saved `leave` locks until the screen goes, a failed
-  one unlocks. `ProgramDays` 1–84, ≤ 12 items
-  per day. 1280: program and day editors `Page wide` + Columns 5/7; the picker stays a single
-  column (named exception). Item card 358×176 (+1 px borders), CompactStepper (unit in the value),
-  Timed/Reps = two ToggleChips 125×32; "up" = `chevronDown` rotated 180° (no `chevronUp` glyph yet).
-- `src/ui` rules from v6b (P-UI): a button inside a `Card` uses `variant="raised"` (`surfaceRaised`
-  fill + hairline `border` in both schemes; `secondary` has the Card's fill and vanishes there);
-  `Button size="sm"` = 36-px pill in a 44-px Pressable (RN web ignores `hitSlop`); `StatusPill
-  tone="muted"`; under an `AppBar` h1 an `EmptyState` takes `headingLevel={2}`, errors stay `Banner`.
+- Generated, not drawn: `pnpm images:generate [--only <id,…> | --all] [--transparent] [--out <dir>]` → `images:shrink` → `images:map`
+  (rewrites `images.ts`; `illustration.test.ts` checks map vs files vs catalog); muscle maps `muscle:generate` (`--reference`
+  recolours a good map) → `scripts/muscleMapIndex.ts`; `logo:generate --w1-export <png>` rebuilds the icon set without a paid run.
+  Key = `OPENAI_API_KEY` in git-ignored `.env.images`, read only by the scripts. `gpt-image-1` is refused for this account on both
+  image endpoints (probed 2026-10-26): use `gpt-image-1.5`, `background: "opaque"` for icons. The safety filter refuses some ids at
+  random: rerun them. All 291 ids have both images. In dark, `ExerciseIllustration` puts a `surfaceRaised` backdrop behind the figure on purpose.
+- PWA: `manifest.json` + `index.html` colours = brand graphite `#16181D` (`manifest.test.ts`); `public/index.html` comes from `expo
+  customize` and needs its `biome-ignore lint/a11y/useValidLang` comment re-added after a re-customize. `scripts/serviceWorker.ts`
+  writes `dist/sw.js` AFTER `expo export` (no skipWaiting; `_headers` sends `/sw.js` `no-cache`).
+
+## Feed, Progress, Garmin (feed.md, v2-extras.md, garmin.md)
+
+- Tabs: Feed · Today · Plan · Programs · Library. `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`;
+  `activity(id)` is session-only, so an imported card opens `/activity/imported/[id]` (one 600 column at every width). Feed desktop
+  aside is built only when Ready with items. `HistoryRepo` serves only Progress (a PR strictly beats every earlier set).
+- Garmin (`GarminCard`): the token is component state, cleared after every attempt; Connect has its own 30 s timeout
+  (`GARMIN_CONNECT_TIMEOUT_SECONDS`, other calls 5 s) and reloads status after a failure; a rejected connect keeps "Not connected"
+  (only the revoked status says "Token rejected"). The Worker's "today" is UTC: Today can read "Burned: no data" 00:00–02:00 EET.
+
+## Nutrition (nutrition.md §3–§7, health-module.md, ADR-0025)
+
+- `FoodEntryRepo.insert(FoodEntryDraft)` assigns id/owner/timestamps/totals; `NutritionRepo.day(date)` / `.week(monday)` read in
+  `CurrentTimeZone` (a day = device-local midnight to midnight; insights read the 7 days ENDING the date). Rulings: budget = goal
+  intake (burn is information, "as of HH:MM"); eat-back only when `eatBackActive`; insights ≤ 3; numbers via shared `formatInt`.
+- Today `HealthModule` (pressable → `/health`; phone = `TodayReady banner`, two-column = `asideTop`): rings + "Left today" + Eaten ·
+  Burned · Protein + `metaLine` (never bpm) + first insight; 358 × 214 without an insight, 236 with one line, 252 when it wraps
+  (HM-F2). Hidden when `moduleHidden`. Row 3: "Waiting for Garmin" when connected but no `daily_health` row yet, "No tracker
+  connected" only without a tracker (HM-F1). Text in `health/nutritionText.ts` (`healthStats`).
+- `/health`: Off (no targets) never waits on the week read; `WeekBars` are the calendar week Mon–Sun (7 burned bars need a seed
+  `--end <a Sunday>`); resting HR only here (plan Amendment 26). Quick-add: local `QUICK_ADD` only, a direct load pops to `/today`.
+  Settings → Nutrition: the draft is seeded once (a sync pull mid-edit is overwritten by Save; known limit); eat-back row only while
+  Garmin is `connected`. vitest runs only `src/**/*.test.ts`: a `.test.tsx` never runs.
 
 ## Commands
 
 `pnpm -F @tanren/mobile web` · `dev` (Expo Go) · `test` · `typecheck` · UI acceptance via the `ui-check` skill (agent-browser).
-Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm -F @tanren/mobile export:web` → `apps/mobile/dist/` (git-ignored; the script also writes `dist/sw.js`, the precache service worker, from `src/pwa/*` via `scripts/serviceWorker.ts`) · `pnpm web:serve` (= `wrangler dev -c wrangler.web.jsonc --port 8790`) · `pnpm -F @tanren/worker exec wrangler deploy --dry-run -c wrangler.web.jsonc`. Start wrangler through the bare binary with a pid file (`node_modules/.bin/wrangler dev … & echo $! > $S/<task>-web.pid`) and stop it by pid (`P=$(cat $S/<task>-web.pid); [ "${P:-0}" -gt 1 ] && kill "$P"`); never `pkill` (engineer rule 9).
-Load `expo:expo-overview` before Expo work; our rules win on conflict.
-Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wrangler.web.jsonc --port <n> --assets <dir>` (the config hardcodes `../mobile/dist`); a new route needs `CI=1 expo start --port <n>` until `.expo/types/router.d.ts` lists it.
-
-## Illustrations
-
-- Exercise images are generated, not drawn: `pnpm images:generate [--samples | --only <id,…> | --all]`
-  (`scripts/generateIllustrations.ts`) calls OpenAI `gpt-image-1` (1024², medium, webp) from the prompt
-  template in `assets/illustrations/style.md` and the catalog entry (`src/illustrations/imagePrompt.ts`;
-  per-id wording in `PROMPT_INSTRUCTIONS` / `NAME_OVERRIDES`). The key is `OPENAI_API_KEY` in the
-  git-ignored `apps/mobile/.env.images`, read only by that script (`node --env-file-if-exists`); agents
-  never open the file. Runs are capped at 8 images unless `--all`; existing files are skipped.
-- Add `--transparent` (RGBA, works on both themes) and `--out <dir>` (generate into a scratch dir, then copy over the assets) for a full regeneration.
-- Then `pnpm images:shrink` (sharp, 512² q75 + alphaQuality 80, idempotent: files <= 520 px are skipped; 3.9 MB for 291) and
-  `pnpm images:map` (rewrites `src/illustrations/images.ts`, a literal `require` per webp that Metro
-  bundles; `src/library/illustration.test.ts` checks the map against the files and the catalog).
-  `assets/illustrations/_contact-sheet.html` is the reviewer preview.
-- `ExerciseIllustration` shows `IMAGES[catalogId]` on the library detail, or a neutral placeholder when
-  an id has no file. The safety system refuses some ids at random (`cable-crunch` three times, then
-  passed in the IMG-4 transparent run; `cable-chest-press`, `standing-cable-crunch` once): rerun the
-  failed ids. All 291 catalog ids have a transparent file (IMG-4). `frog-pump` and `cable-shrug` needed `NAME_OVERRIDES` / `PROMPT_INSTRUCTIONS` rewording.
-- Muscle maps (IMG-5b/5c): per-exercise gpt-image-1 images in `assets/musclemaps/<catalogId>.webp`
-  (384 px square, transparent, front and back figure side by side; generator `scripts/generateMuscleMap.ts`,
-  shrink `scripts/shrinkMuscleMaps.ts`, index `scripts/muscleMapIndex.ts` writes
-  `src/illustrations/muscleMapImages.ts`, a `require` per file). `MuscleMapImage` (`src/library/`) shows
-  the file for a catalog id (`muscleMapImageFor`, pure, takes the map) and falls back to the SVG
-  `MuscleMap` (front view) with the entry's primary/secondary muscles when the id has no file
-  (`MISSING_MUSCLE_MAPS` is empty since IMG-6: 291 of 291; a map text-to-image paints wrongly is redone with
-  `muscle:generate --out <dir> --catalog <id> --reference <goodId|auto>`, an `/v1/images/edits` recolour of a
-  good map; edits default to `gpt-image-1.5` (override `MUSCLE_EDIT_MODEL`) because `gpt-image-1` is refused on
-  `/v1/images/edits` for this account, probed 2026-10-26); used in
-  `CatalogHero` (160 px slot) and the Progress exercise detail (176 px). `ExerciseIllustration`'s fallback tile
-  is `surfaceRaised` inside a `ListGroup` (`useGrouped()` from `src/ui`).
-- The body diagram is `src/illustrations/muscleMap/` (front/back silhouettes, 22 regions, primary and
-  secondary highlights from the catalog taxonomy). `MuscleMap view`: `"both"` (default, square, front +
-  back) or `"front"` / `"back"` (cropped to one figure, about 0.38 × `size` wide); `scripts/muscleMapSheet.ts` writes its git-ignored
-  preview. The old hand-built SVG pipeline (scenes, rig, `illustrations:check`) is retired.
-- Logo candidates (LOGO-1): `pnpm logo:generate [--only A1,C2] [--transparent] [--out <dir>]`
-  (`scripts/generateLogo.ts`, same key loading as the other generators) writes nine 1024² png icon candidates
-  (A forged kanji stroke, B anvil and spark, C forged T; three variants each) into the git-ignored
-  `assets/brand/candidates/`; `pnpm -F @tanren/mobile logo:sheet` (no key) builds
-  `docs/design/screens/LOGO-1-sheet.png` (3x3, labelled) and `LOGO-1-sheet-small.png` (60 and 29 px renders on
-  paper and graphite). `gpt-image-1` is refused on `/v1/images/generations` for this account (probed 2026-10-26),
-  so every call falls back once to `gpt-image-1.5` (a refused call is not billed, but counts as an API call); the
-  request sends `background: "opaque"` because `auto` returned alpha for 2 of 9 icons.
-
-- Final mark (LOGO-2, owner pick J3: kanji 力, off-white first stroke, amber `#F59E0B` hook, on graphite `#16181D`):
-  `pnpm logo:generate --final --out <dir>` makes `F-icon`, `F-paper`, `F-mark` at quality `high` (about $0.60 per
-  attempt; a second attempt goes to another `--out`); `F-mark` (`background: transparent`) came back as a glow
-  twice, so it is unused. `pnpm exec node scripts/generateLogo.ts --export <dir>` (no key; `<dir>` holds the
-  chosen `F-icon.png` + `F-paper.png`) keys the glyph out of them (alpha from the distance to the corner
-  background, strokes recoloured to the exact brand colours, so the icon background is exactly `#16181D`,
-  not the model's drifted `#282B33`), trims it and writes the tracked `assets/brand/{icon,adaptive-icon,
-  splash-icon,favicon,mark,mark-paper}.png` and `public/icons/{icon-192,icon-512,maskable-512,apple-touch-180}.png`
-  (`app.json` icon/splash/adaptiveIcon/favicon point at them). The first stroke is off-white: use `mark.png` only
-  on dark surfaces and `mark-paper.png` (paper tile) on light ones (`app/sign-in.tsx`). `candidates/` stays ignored.
-
-## v2 extras (progress, settings, PWA; docs/design/v2-extras.md)
-
-- Routes: `/progress` (root Stack, reached from the Feed AppBar chart button; exercise list, desktop aside);
-  `/progress/[exerciseId]` (root Stack detail; a direct load with no data goes back to `/progress`);
-  `/settings` (root Stack, reached from the gear `IconButton` "Settings" in the Feed AppBar, not a tab);
-  `/settings/integrations` + `/settings/integrations/[provider]` (v4 Strava, docs/design/integrations.md §8:
-  `Integrations` service, `useIntegrations` hooks, `src/components/integrations/`, copy in
-  `components/settings/integrationsCopy.ts`; the service layer is provided per call, not in `runtime.ts`).
-- `HistoryRepo` (`src/services/HistoryRepo.ts`): local store only, live rows only, 8 Monday-based weeks;
-  a PR is a set that strictly beats every earlier set.
-- `progressMath`: Epley e1RM (`epley1Rm`, `SetScore`, `markPrs`) (PR math re-exported from `@tanren/shared`). `useHistory` (`src/hooks`): the Progress screens' hook over `HistoryRepo` (exercises + one exercise's history; session lists are `FeedRepo`'s).
-- `chartGeometry` (`src/components/progress/`): pure geometry for the hand-rolled `react-native-svg`
-  charts (`WeekBars`, `Sparkline`); no chart library.
-- `Account` (`src/services/Account.ts`): `session`, `signOut`, `forgetOwner`.
-- `AccountErasure` (`src/services/AccountErasure.ts`, LEGAL-2, ADR-0024): `POST /api/account/delete`, then
-  `DELETE FROM` every table `sqlite_master` lists (runtime enumeration, so new tables are wiped too), then
-  `NativeSession.clear`; hook `useAccountErasure`, UI Settings → Data → Delete account (inline danger confirm);
-  web reloads to `/sign-in`, native `router.replace("/sign-in")`. Provided per call, not in `runtime.ts`.
-- `DataExporter` (`src/services/DataExport.ts`): named so because `DataExport` is the shared schema;
-  covers all 13 sync tables (store v4 added `imported_activity`, `daily_health`; v5, nutrition N-F0, adds
-  `food_entry` (synced both ways, `items` JSON) and `profile.nutrition`). Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
-  "Export on the web app".
-- Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
-  (`themePreferenceStore.web.ts`); native keeps it for the session only.
-- Sign-out policy (native, v5 STLS-5): `POST /api/token/revoke` with the Bearer access token, best-effort
-  (3 s; 2xx or 401 = done), then `forgetOwner`, then — only if the revoke was not done — `deferRevoke`
-  (SecureStore `tanren.pendingRevoke` = the refresh token; `clear` keeps it), then `NativeSession.clear`.
-  `complete` (sign-in) always runs the retry first and removes the marker after storing the new pair, so a
-  deferred revoke can never bump the generation of a later session (STLS-R).
-  The marker is retried once per layer build, first under the session Semaphore (refresh → revoke with
-  the new access, the pair is never stored; 2xx/401 deletes it, offline/5xx keeps it, errors swallowed); `Account` picks native when `NativeSession.hasSession`. Settings →
-  Account "Disconnect AI clients" (danger `ListRow`, native + web) → `POST /api/token/revoke-mcp` + `Banner`.
-  Web sign-out, unchanged: server first (`POST /api/auth/sign-out`), then
-  `forgetOwner`, then `NativeSession.clear` (a failed forget keeps the token: `SignOutFailed("server")`; a 401 from the POST means the server session is already gone and counts as success). Local rows are kept. Web then does a full reload to `/today`;
-  native shows the banner "Signed out. Reopen the app to finish." Offline or non-2xx gives `SignOutFailed`
-  and nothing local changes. A different user on the same device is not built. The sign-out runtime proof
-  is pending INT-X.
-- PWA: `public/manifest.json` (`theme_color` and `background_color` #16181D = the LOGO-2 icon graphite) and
-  `public/icons/{icon-192, icon-512, maskable-512, apple-touch-180}.png` (exported from the final mark, see
-  Illustrations; the old `icon.svg` and `apple-touch-icon.png` are gone). `public/index.html` comes from `expo customize` (works under the isolated linker)
-  and carries a `biome-ignore lint/a11y/useValidLang` comment for the `%LANG_ISO_CODE%` placeholder: re-add
-  it after any re-customize. `src/pwa/manifest.test.ts` keeps the manifest and `index.html` colours equal to the brand graphite.
-  Service worker (PWA-1, hand-written, no Workbox): template `src/pwa/sw.template.js`, written into `dist/sw.js` by
-  `node --import ./scripts/resolveTs.ts scripts/serviceWorker.ts [dist]` AFTER `expo export` (list from
-  `src/pwa/precache.ts`, generated from `dist/`; version = sha256 of the precached files); shell `/` network-first
-  (4 s) with cached fallback, `/_expo/` + `/assets/` cache-first, illustrations/muscle maps cached on first view,
-  no skipWaiting (a new export activates on the next launch); `_headers` sends `/sw.js` `no-cache`.
-- Verified 2026-10-21 (X5): `Page.getInstallabilityErrors` returns `[]` with no service worker (CDP via
-  `agent-browser get cdp-url`); Workers static assets serve `manifest.json` as `application/json`;
-  `crossOriginIsolated` stays true.
-
-## v4 feed (ADR-0017, docs/design/feed.md)
-
-- Tab order: Feed · Today · Plan · Programs · Library (`APP_NAV`, first tab = `/feed`, icon `flame`).
-- Routes: `/feed` (`app/(tabs)/feed.tsx`; AppBar has the Progress chart button and the Settings gear),
-  `/activity/[sessionId]` (root Stack detail), `/progress` (root Stack, `app/progress/index.tsx`, Back
-  falls back to `/feed`; the old Sessions segment is gone).
-- Data: `Activity` / `buildActivity` live in `@tanren/shared` (`activity.ts`); `FeedRepo`
-  (`src/services/FeedRepo.ts`: `activities(limit)`, `activity(id)`, PR marking per exercise) over
-  `useFeed` / `useActivity` (`src/hooks/useFeed.ts`, built on `useStoreRead` from `useHistory`).
-- UI: `src/components/feed/` (`feedGroups`, `ActivityCard`, `ActivityDetail` + its pieces
-  `ActivityHead/Muscles/Tiles/Exercises`, `detailText`, `feedSelection`).
-  `HistoryRepo` serves only Progress (`exercises`, `exercise`).
-- Desktop: Feed is `Page aside split="5/7"` (card press selects, `effectiveActivity` = pick or newest;
-  an in-progress card still opens `/today`); the aside is only built when the feed is Ready with
-  items, so Loading/Empty/Failed stay one 600 column. `ActivityDetail layout="split"` shows four tiles
-  in a row when the column is >= 480 inner (`tilesPerRow`), else 2x2 (below 1024 every split is 6/6).
-  `/activity/[sessionId]` is `Page wide` + `Columns 7/5` from the same pieces at desktop.
-
-## v5 Garmin import (ADR-0023, docs/design/garmin.md; team garmin)
-
-- Data (pull-only, the app never writes or dirties these rows): local migration v4 adds `imported_activity`
-  + `daily_health` (indexes `imported_activity_started`, `daily_health_date`, dirty indexes for the generic
-  push scan); `LocalStore` members for both. `FeedRepo.activities(limit)` returns `ReadonlyArray<FeedItem>`
-  (`{_tag:"session"|"imported", activity}`, ≤ limit in total, `startedAt` desc then id desc; deleted rows
-  excluded); `activity(id)` stays session-only. `daily_health` is read only by `NutritionRepo` (the v5 strip's
-  repo and hook were deleted, HM-3); `ImportedActivityRepo.byId` (live rows) → `useImportedActivity(id)`.
-- Feed: `FeedRow` gains `Imported` (`feedGroups.ts`, `sessionOnly`); week summary counts sessions, a week of
-  only imports reads "N activities"; the desktop aside takes sessions only, so an imported card opens its own
-  route `/activity/imported/[id]` (one 600 column at every width). `ImportedCard` (`src/components/feed/`,
-  text in `importedText.ts`): 40 sport disc + title/caption head, 4 stats as `StatRow variant="plain"`
-  (the dense tile is 72 high and truncates "412 kcal" at 51.5 px/slot), "from Garmin"; 160 high at 390
-  (158 + 1 px Card border top/bottom). Card values come from `cardStats`: bare numbers ≤ 7 chars, the label
-  carries the meaning ("410" over "Calories", "152" over "Avg HR"; `formatDistanceCompact` drops the decimal
-  from 99,950 m); the detail and the spoken label keep units ("410 kcal"). Detail stat tiles sit on the bare
-  page (no Card: `surface` tiles on a `surface` Card are invisible). Sport glyphs `run`, `walk`, `bike`, `swim`
-  (+ existing `dumbbell`, `zap`, `more`).
-- Today: the Garmin day (burned, steps) shows in the v6 `HealthModule` (see the nutrition Today line below); the
-  v5 text strip is gone (HM-2).
-- Settings: `ProviderList` has `garmin` (second row, before Apple Health); `/settings/integrations/garmin` =
-  `GarminCard` (paste field 48 high per design §8, token trimmed, component state only, cleared after every
-  attempt, secure-entry props; Connect disabled < 16 chars; Disconnect `variant="destructive"`; revoked banner
-  above the card). `Integrations.connectGarmin(token)` / `disconnectGarmin`; `useIntegrations` exposes
-  `garmin`, `useGarminDetail`; `ActionState` has `Rejected` (reason → `GARMIN_REJECT_COPY`). Connect has its own
-  30 s timeout (`GARMIN_CONNECT_TIMEOUT_SECONDS`; server exchange + profile + inline pull ≤ 25 s; every other
-  call 5 s), the button reads "Connecting… up to 30 s" and the field is not editable while busy, and a failed
-  connect reloads the status (`GARMIN_CONNECT_RELOAD`; `garminVisibleFailure` hides the banner when the reload
-  reads connected). A rejected connect keeps the pill "Not connected" (only the revoked status says "Token
-  rejected"). About copy is per scope (`ABOUT_BODIES` list / strava / garmin). Garmin idle subtitle "Imports
-  runs, rides and daily calories" (2 lines at 390, row 80 = Strava's); counts use NBSP ("2 activities").
-  GarminCard field and button are 324 wide at 390 (inner 326 − 1 px border each side).
-- Status: done (team garmin, 2026-10-27; GM-R APPROVE in 3 delta passes, GM-D fixes applied). Proven with
-  agent-browser on 9011/9012 console mode at 390 + 1280, light + dark (`docs/design/screens/UI-GM-*`, rows in
-  `UI-GM-rows.html`): connect → cron → sync → feed cards + strip → disconnect → cards and strip gone; strip
-  358x36 at top 56 (AppBar bottom 43). Open: Today Ready with the strip not driven (no plan on a fresh
-  account); revoked state has no console path (GM-Q1); the Worker's "today" is UTC, so the strip can be
-  missing 00:00–02:00 EET until the next pull after UTC midnight.
-
-## v6 nutrition: quick-add, food log, Settings → Nutrition (ADR-0025, docs/design/nutrition.md §6–§7; team nutri-food)
-
-- Routes: `/health/add` (`app/health/add.tsx`, root-Stack modal: the one `Stack.Screen name="health/add"` child in
-  `app/_layout.tsx`) and `/settings/nutrition` (`app/settings/nutrition.tsx`, row `NutritionSection` after Equipment in
-  `app/settings.tsx`). Both `Page wide`, `Columns 7/5` at desktop. Numbers use shared `formatInt` (comma grouping).
-- Pure modules sit beside the `.tsx` under other names: `Foo.tsx` + `foo.ts` collide on case-insensitive macOS
-  (TS1261), hence `components/health/{quickAddMath,foodLogRows}.ts`, `components/settings/{nutritionCopy,nutritionSettings}.ts`
-  (each with a `.test.ts`; vitest runs only `src/**/*.test.ts`, so a `.test.tsx` never runs).
-- Quick-add (`QuickAddSheet`): local `QUICK_ADD` only (23 rows, no network); search via shared `searchQuickAdd`, empty
-  query lists all; row subtitle "106 kcal · 23 g · 1 scoop in water, 30 g" (`subtitleLines={2}`; the milk row is 80
-  high). Tap → inline editor: multiplier Stepper ×0.5–5 (scaling only via shared `quickAddToFoodItem`), meal = five
-  `ToggleChip`s, full words, outline/solid, in a `radiogroup` wrap (4 + 1 rows at 390, one row at 1280; a
-  5-option `SegmentedControl` scrolls and clipped). Primary lg "Add 159 kcal". Phone collapses the list to the chosen row
-  (no headline); desktop keeps the full list + headline, editor in the side column with a top-aligned "Pick a food"
-  hint. `useAddFood` → `FoodEntryRepo.insert(buildQuickAddDraft(...))` + `requestSync`, never rejects; a direct load
-  pops to `/today`. Search input focus ring copies `usePressableInteraction` (`colors.focus`, `stroke.outline`).
-- `FoodLog({ entries, onDelete, onRestore })` (pure, mounted by `/health`): newest first, trash `IconButton`, Banner
-  "Entry deleted" + Undo for 15 s (pure reducer in `foodLogRows.ts`, timer cleared on unmount).
-- Settings → Nutrition: goal SegmentedControl (Gain muscle / Lose weight / Maintain), weight Stepper 0.5 kg, optional
-  height / birth year ("Not set" + Add; set → Stepper lg + right-aligned "Clear"; caption "age 36"), sex (Male / Female
-  / Skip), activity as five radio `ListRow`s with subtitles (5th "Very active"), targets tiles from shared
-  `nutritionTargets` (overrides win; "Edit" → override Steppers snap to 50 kcal / 5 g, "Use derived"), the "add height…"
-  hint only while a body fact is unset, eat-back row only when `useIntegrationsOverview` garmin is `connected` (whole
-  358×80 row pressable, Switch hidden from a11y/focus, off track `textMuted`, thumb `onAccent`), primary Save, text
-  "Turn off" (→ `nutrition: None`). Desktop: Goal + Body in main, Activity + Targets + actions in side. The draft is
-  seeded once (a sync pull mid-edit is overwritten by Save; known limit). New draft = maintain, 75 kg, moderate.
-- Status: done (team nutri-food, 2026-10-27; REV-1/REV-2 APPROVE, designer N20–N25 PASS 4–4.5). Proven with
-  agent-browser: dev servers 9033/9035 (empty store) and worker 9034 Garmin console (eat-back on → Save → reload on);
-  shots `docs/design/screens/UI-NUTRI-N20..N25-*`, rows `NUTRI-Q{1,2}-rows.html`. Open: dark Switch thumb white
-  (designer nit), ListRow role/state override for the eat-back row (src/ui).
-
-## v6 nutrition: Today strip + /health (ADR-0025, docs/design/nutrition.md §3–§6; team nutri-today)
-
-- Data: `FoodEntryRepo` (`src/services/FoodEntryRepo.ts`, contract shared with nutri-food): `insert(FoodEntryDraft)` (=
-  `FoodEntryInsert` minus the four totals; the repo assigns id, `ownerId`, timestamps and totals = `totalsOf(items)`, the
-  SyncStore invariant), `list({ from, to })` (live, `loggedAt` in [from, to), asc; the SQL lives once in `liveFoodEntries`),
-  `softDelete` / `restore` → boolean; every write dirty. `NutritionRepo.day(date)` → `NutritionDay { day: DayTotals, insights }`
-  (shared `buildDayTotals` + `insights`; insights read the 7 days ENDING the date); `.week(monday)` → `HealthWeek { review:
-  WeekReview, activities, health }` (`health` = the week's `daily_health` rows, one per date) (shared `weekSummary`, Mon–Sun, a future week has no insights, `workoutsPlanned` from
-  `PlanWeekRepo.currentWeek`). Both read `daily_health` / `imported_activity` / `workout_session` with their own range SELECTs
-  (Garmin's repos stay single-row) and take `CurrentTimeZone` per call; a day is device-zone local midnight to midnight.
-  Hooks `useNutritionDay` / `useNutritionWeek` sit on `useStoreRead` (`StoreRead` admits `NutritionRepo`); `useFoodEntryActions`
-  (softDelete / restore → Promise<boolean>, never rejects, requests a sync). Budget, targets and insights are never
-  re-implemented on device; they come from shared only.
-- Lead rulings: budget = goal intake (Garmin burn is information, shown "as of HH:MM"); eat-back only when `eatBackActive`
-  (default off); "Burned: no data" when the day has no `daily_health` row; commas (`formatInt`); insights ≤ 3 in
-  group order.
-- Today (HM-2, docs/design/health-module.md §3 merge, plan Amendment 26): one `HealthModule` card (`src/components/today/`,
-  pressable → `/health`) in Empty (a `Page` section) and Ready (phone/tablet: `TodayReady` `banner`, gutter + `space.lg`;
-  two-column: `TodayReady` `asideTop`, the aside's first card, 431 wide at 1280). `HealthRings` 104 + "Left today" numeral
-  (`display`), `HealthStatRow` Eaten · Burned · Protein, `metaLine` (as of HH:MM · steps, never resting bpm), first insight;
-  358 × 236 at 390 (214 without an insight). Reads only `useNutritionDay` (`DayTotals` carries burned/steps); null while
-  Loading/Failed and when `moduleHidden` (no targets, no burned, no entries). Pure text in `components/health/nutritionText.ts`
-  (`healthStats(day, stale, "headline" | "title")` for Today and the hero, `moduleHidden`, `moduleLabel`), maths in
-  `today/healthModuleMath.ts`; row 3 reads "Waiting for Garmin" when Garmin is connected (`useGarminConnected`) but the
-  day has no `daily_health` row yet, "No tracker connected" only without a tracker (HM-F1).
-- `/health` (`app/health/index.tsx`, root Stack, not a tab): Loading | Off | Failed | Ready, all in one `Page wide` frame with
-  `AppBar "Health"` (Back falls back to `/today`, `plus` → `/health/add`, `settings` → `/settings/nutrition`). Off = no targets →
-  EmptyState "Set a nutrition goal"; it never waits on the week read. Ready (HM-3, health-module.md §4, designer UI-HM-r1):
-  `HealthHero` = `HealthRings` + "Left today"/"Over today" `numeral` + caption + `HealthStatRow` (`title`); a column with ring 176
-  (364 high at 390) below a 640 main column (`heroIsRow`), else a row: ring 240 beside a text block flex ≤ 424. `WeekBars` (local in
-  the route) = `DayBars` (Mon–Sun; 164 high = legend 16 (aria-hidden) + 8 + bars 120 + 4 + letter 16; `surface` track per column; eaten
-  `accent`, `danger` on a day with eaten > budget (`isOver`, label adds ", over budget"), burned `textMuted`; bars 18 wide everywhere)
-  + `freshnessLine` caption (`metaLine` without the steps: "as of 16:50" / "as of 27 Oct 16:37" / "No tracker connected") + a `Card` of two `HealthStat`s "Steps today" · "Resting HR · 7 days"
-  (`healthWeekMath.restingHrWeek` over `HealthWeek.health`, Mon–Sun mean, `muted` under 3 days). `HealthStat` units are a baseline
-  sibling in the caption face, gap 4, strings without a leading space ("kcal", "/ 155 g"). Then protein days `Card` + `SegmentBar`,
-  `InsightList` (≤ 3 `Banner info`), `WeekReviewCard`, the week's `ImportedCard`s, `FoodLog`. Phone: hero, week, protein, insights,
-  review, activities, food log. Desktop ≥ 900 `Columns 7/5` (658/470 at 1280): main = hero, protein, food log; side = insights,
-  review, week, activities.
-- Status: done (team nutri-today, 2026-10-27; REV-1/REV-2/N-MR APPROVE, designer `docs/design/reviews/UI-NUTRI-r1.md` N1 Today
-  strip PASS 4, N2 Health Ready PASS 4 after r2, N3 Off PASS 4). Proven with agent-browser: an exported build on web 9032 signed in to
-  an isolated worker on 9035 (scratch D1 migrated 0001–0009, month seed + 10 food entries); shots `docs/design/screens/UI-NUTRI-N{1,2,3}-*`,
-  rows `UI-NUTRI-rows.html`. INT-N (2026-10-27): the month seed now writes 7 `daily_health` rows (end − 6 … end); `/health`
-  DayBars is the calendar week Mon–Sun, so 7 burned bars need `--end <a Sunday>` + a fake date on it (`docs/design/reviews/UI-NUTRI-e2e.md`,
-  shots N2b); FoodLog delete → Undo → entry back driven (N4); the eat-back row (only with Garmin connected) is `switch [checked]`.
+Web build: `EXPO_PUBLIC_API_URL=http://localhost:8787 pnpm -F @tanren/mobile export:web` → `apps/mobile/dist/` (git-ignored; also
+writes `dist/sw.js`) · `pnpm web:serve` (= `wrangler dev -c wrangler.web.jsonc --port 8790`) · `pnpm -F @tanren/worker exec wrangler
+deploy --dry-run -c wrangler.web.jsonc`. Start wrangler through the bare binary with a pid file (`node_modules/.bin/wrangler dev … &
+echo $! > $S/<task>-web.pid`) and stop it by pid (`P=$(cat $S/<task>-web.pid); [ "${P:-0}" -gt 1 ] && kill "$P"`); never `pkill`
+(engineer rule 9). Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wrangler.web.jsonc --port <n>
+--assets <dir>` (the config hardcodes `../mobile/dist`). Load `expo:expo-overview` before Expo work; our rules win on conflict.
