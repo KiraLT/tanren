@@ -114,3 +114,5 @@ layout lines for `auth/Tokens.ts`, `auth/tokenRoutes.ts`, `oauth/{clients,consen
 ## OAUTH-UI
 
 Log 2026-10-27 14:13 (engineer, fable): consent/login/check-email/error pages and the MCP root wear the Forge frame (`oauth/pages.ts` `shell`, W1 wordmark as a 5 KB alpha-mask data: PNG in `oauth/assets.ts`, platform font stack, `PAGE_CSP` added to `authorize.ts` html helper); 9 shots + measured JSON `docs/design/screens/UI-OAUTH-*`, `UI-OAUTH-rows.html` (OA1–OA9). Known-client consent rendered from a fixture (CIMD https client not producible locally); MCP root shot live on wrangler dev :8960.
+
+Log 2026-10-27 14:29 (engineer, opus) OAUTH-FONT: h1 on every Worker page in Barlow Condensed 800 (28/30, 34/38 at >= 900), Latin-subset woff2 23 668 B served by the Worker at `/oauth/assets/barlow-condensed-800.woff2` (Data-module `rules`, `oauth/fontRoute.ts`, dispatched in `index.ts`), `font-src 'self'` in `PAGE_CSP`; workerd test `oauth/fontRoute.workerd.test.ts`; OA1 h1 60 px, OA4 76 px re-shot.

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers"
-import { Layer } from "effect"
+import { Layer, Option } from "effect"
 import { d1Persistence, makeApp } from "./app"
 import { BetterAuth } from "./auth/BetterAuth"
 import { EmailSender } from "./auth/EmailSender"
@@ -10,6 +10,7 @@ import { runScheduled } from "./integrations/scheduled"
 import { McpAuth } from "./mcp/McpAuth"
 import { makeMcp } from "./mcp/McpRoute"
 import { makeAuthorize } from "./oauth/authorize"
+import { serveOAuthAsset } from "./oauth/fontRoute"
 import { makeRouter, statelessOAuth } from "./oauth/provider"
 
 /**
@@ -43,7 +44,7 @@ const router = makeRouter(env, config, { app, mcp, authorize }, persistence)
  */
 export default {
   fetch: (request: Request, workerEnv: Env, ctx: ExecutionContext) =>
-    router.fetch(request, workerEnv, ctx),
+    Option.getOrElse(serveOAuthAsset(request), () => router.fetch(request, workerEnv, ctx)),
   scheduled: (_controller: ScheduledController, workerEnv: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runScheduled(workerEnv))
   },

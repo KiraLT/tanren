@@ -5,6 +5,8 @@
   "compatibility_date": "2026-10-19",
   // Same flags as wrangler.jsonc: the OAuth provider refuses CIMD without `global_fetch_strictly_public`.
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Same as wrangler.jsonc: the pages' woff2 font is a Data module.
+  "rules": [{ "type": "Data", "globs": ["**/*.woff2"], "fallthrough": true }],
   // Same local values as wrangler.jsonc, so a workerd test can boot src/index.ts (module-scope `env`).
   "vars": {
     "ENVIRONMENT": "local",

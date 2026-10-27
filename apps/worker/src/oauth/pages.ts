@@ -1,6 +1,6 @@
 import { MCP_SCOPES, type McpScope } from "@tanren/shared"
 import { Array as Arr, Match, Schema } from "effect"
-import { WORDMARK_ASPECT, WORDMARK_MASK_DATA_URI } from "./assets"
+import { DISPLAY_FONT_PATH, WORDMARK_ASPECT, WORDMARK_MASK_DATA_URI } from "./assets"
 import type { ConsentDescription } from "./consent"
 import type { ClientTrust } from "./knownClients"
 
@@ -26,11 +26,14 @@ const WEB_URL = "https://tanren.me"
 
 /**
  * The CSP every human-facing page of the OAuth server sends (OAUTH-UI): inline `<style>` only, the
- * wordmark as a `data:` mask image, no scripts, no fetches, never framed. No `form-action`: Chrome
- * applies it to the 302 after `POST /authorize`, which leaves for the client's redirect URI.
+ * wordmark as a `data:` mask image, the display font from this Worker (`font-src 'self'`), no
+ * scripts, no other fetches, never framed. No `form-action`: Chrome applies it to the 302 after
+ * `POST /authorize`, which leaves for the client's redirect URI.
  */
 export const PAGE_CSP =
-  "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'"
+  "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+
+const SYSTEM_FONTS = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'
 
 /**
  * Forge tokens (ui-direction-final §2), copied from `apps/mobile/src/ui/colors.ts`: light = bg
@@ -39,21 +42,23 @@ export const PAGE_CSP =
  * pair carries it), success #1E7F3C / #E3F3E8, danger #B3261E / #FBE7E5, focus #1D4ED8; dark = bg #0F1113,
  * surface #181B1F, border #2C3137, text #F2F3F5, textMuted #A3A8B0, accent #FFB020 on #141210, accentSoft #3A2A10,
  * success #4ADE80 / #15301F, danger #FF6B6B / #3A1A19, focus #93C5FD. Space 4/8/12/16/24/48,
- * radius 12/16/999, controls 56 (primary) and 44 (text, links). Fonts: the platform stack, as the
- * app's body text (the condensed display face is not bundled here: no third-party fonts, and a
- * wrangler Data-module route was out of the box).
+ * radius 12/16/999, controls 56 (primary) and 44 (text, links). Fonts: the platform stack for body
+ * text, as the app; the h1 in the app's display face (`type.title`: Barlow Condensed 800, 28/30,
+ * 34/38 at ≥ 900), served by this Worker (`fontRoute.ts`, OAUTH-FONT), never a third-party host.
  */
 const STYLE = `
+@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:800;font-display:swap;src:url("${DISPLAY_FONT_PATH}") format("woff2")}
 :root{color-scheme:light dark;--bg:#FFFFFF;--surface:#F6F6F7;--border:#E6E6E8;--text:#141416;--muted:#5F5F66;--accent:#C2410C;--on-accent:#FFFFFF;--accent-soft:#FCE9E0;--success:#1E7F3C;--success-soft:#E3F3E8;--danger:#B3261E;--danger-soft:#FBE7E5;--focus:#1D4ED8;--wordmark-h:32px}
 @media (prefers-color-scheme:dark){:root{--bg:#0F1113;--surface:#181B1F;--border:#2C3137;--text:#F2F3F5;--muted:#A3A8B0;--accent:#FFB020;--on-accent:#141210;--accent-soft:#3A2A10;--success:#4ADE80;--success-soft:#15301F;--danger:#FF6B6B;--danger-soft:#3A1A19;--focus:#93C5FD}}
 @media (min-width:900px){:root{--wordmark-h:40px}}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text)}
-body{min-height:100svh;display:flex;flex-direction:column;align-items:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{min-height:100svh;display:flex;flex-direction:column;align-items:center;font-family:${SYSTEM_FONTS};font-size:17px;line-height:22px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 main{width:100%;max-width:28rem;flex:1;display:flex;flex-direction:column;gap:24px;padding:48px 16px 16px}
 @media (min-width:900px){main{padding-top:72px}}
 .wordmark{display:block;margin:0;height:var(--wordmark-h);width:calc(var(--wordmark-h) * ${WORDMARK_ASPECT});background:var(--text);-webkit-mask:url("${WORDMARK_MASK_DATA_URI}") center/contain no-repeat;mask:url("${WORDMARK_MASK_DATA_URI}") center/contain no-repeat}
-h1{margin:0;font-size:28px;line-height:32px;font-weight:800;letter-spacing:-0.01em}
+h1{margin:0;font-family:"Barlow Condensed",${SYSTEM_FONTS};font-size:28px;line-height:30px;font-weight:800;letter-spacing:-0.01em}
+@media (min-width:900px){h1{font-size:34px;line-height:38px}}
 h1 span{color:var(--accent)}
 h2{margin:0;font-size:17px;line-height:22px;font-weight:700}
 p{margin:0}

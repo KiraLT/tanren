@@ -66,11 +66,22 @@ describe("consentPage", () => {
     )
   })
 
-  it("the CSP allows inline styles and the data: wordmark only", () => {
+  it("the CSP allows inline styles, the data: wordmark and same-origin fonts only", () => {
     expect(PAGE_CSP).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'",
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src 'self'; base-uri 'none'; frame-ancestors 'none'",
     )
     expect(consentPage(base, "h-6")).not.toContain("<script")
+  })
+
+  it("the h1 uses the display face from this Worker, no third-party font host", () => {
+    const page = consentPage(base, "h-7")
+    expect(page).toContain(
+      '@font-face{font-family:"Barlow Condensed";font-style:normal;font-weight:800;font-display:swap;src:url("/oauth/assets/barlow-condensed-800.woff2") format("woff2")}',
+    )
+    expect(page).toContain('h1{margin:0;font-family:"Barlow Condensed",')
+    expect(page).toContain("font-size:28px;line-height:30px")
+    expect(page).toContain("@media (min-width:900px){h1{font-size:34px;line-height:38px}}")
+    expect(page).not.toMatch(/fonts\.(googleapis|gstatic)\.com/)
   })
 
   it("an unknown CIMD client also names the host of its document", () => {
