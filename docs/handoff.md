@@ -44,14 +44,16 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
    `wrangler.jsonc`; then **owner O1: reconnect the Claude app once** (grants in KV are gone); O2 delete the KV
    namespace later. Ratified rulings are in the sheet (revoke 204, PKCE S256, refresh-after-revoke 400, pending-revoke
    retry marker or follow-up STLS-F1).
-2. **GM-1** (engineer/sonnet, Garmin shared schemas, `docs/tasks/v5-garmin.md`): on its report accept, then write the
-   Garmin team charter (`docs/tasks/v5-garmin/team-garmin.md`: GM-2 ∥ GM-3 ∥ GM-5 → GM-4 ∥ GM-6 → GM-7 → GM-R ∥ GM-D →
-   GM-Q1 → GM-Q2; file sets in the sheet's table; migration **0007** only after the STLS commit; ports 9011/9012; the TEST
-   key lives at `scratchpad/secrets/garmin.token`, never in the repo or a log) and dispatch a team-lead (opus).
-3. **LEGAL-1** (engineer/sonnet, privacy + terms pages, gate exception, links; port 8991): on its report → LEGAL-R r1
-   (reviewer/opus: texts verbatim vs `docs/design/legal.md`, §6 greps) ∥ LEGAL-D (designer, 8 shots → gallery) →
-   commit → web deploy (rides the next deploy) → LEGAL-Q; LEGAL-2 (account deletion, opus, briefs file) after the
-   STLS commit; LEGAL-3 done (Email Routing live); LEGAL-4 committed `a7d9e81`.
+2. **Garmin**: GM-1 landed and green (shared schemas; sync members deferred to GM-2; the two literal holes in
+   `integrationsCopy.ts` / `ExportQueue.ts` were filled under a Lead grant). GM-1's files are uncommitted: commit them with
+   or right after the STLS commit (`packages/shared/src/index.ts` carries both teams' export lines; GM-1's new files
+   `packages/shared/src/garmin.ts` + test must go in the same commit). The team charter is pre-written:
+   `docs/tasks/v5-garmin/team-garmin.md` — dispatch a `team-lead` (opus) with it the moment the STLS commit is in HEAD.
+3. **Legal**: LEGAL-1 committed WIP `c22590d` (pages, gate exception, links; box proofs in the Log). Running: LEGAL-R r1
+   (reviewer/opus) and the LEGAL-D capture (engineer/sonnet → `UI-LEGAL-*` shots + `UI-LEGAL-rows.html`, badges G1–G9) →
+   then a fable designer verdict on the shots (open question: hide the AppBar nav on signed-out legal pages at 1280?) →
+   reviewed commit → gallery section `legal` → web deploy → LEGAL-Q. LEGAL-2 (account deletion, opus, brief in
+   `docs/tasks/v5-legal-briefs.md`) after the STLS commit. LEGAL-3 done (Email Routing live), LEGAL-4 committed `a7d9e81`.
 4. EM batch 8 is due (≥ 10 commits since batch 7): incidents to include — the Lead's IDENT-1 "host or subdomain"
    ruling (REV-ID caught), the spike leaving a dev server running, the partial token print, WD-1 brief asking for
    dry-run output, zsh word-splitting.
