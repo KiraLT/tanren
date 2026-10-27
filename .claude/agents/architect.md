@@ -154,6 +154,14 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
 
 ## Time box
 
+An owner instruction that reaches you mid-box (forwarded by the Lead) is
+applied in the same run, not queued: change the decision, add an
+`## Overrides` line to the ADR (time, the owner's words verbatim, what
+changed) and the design, and drop a lower-priority section if the box
+needs it. The legal architect (2026-10-27) took "no placeholders, operator
+Tanren, no address" at minute 6 of 8 and shipped ADR-0024 with it; that is
+the rule.
+
 Default 15 minutes of work for ONE deliverable; add 5 per further deliverable
 (ADR, design note, task sheet with briefs) and write the sum in the report:
 LAND-0 (ADR + design + sheet + 4 briefs) ran 24.7 min on a 15-min box,

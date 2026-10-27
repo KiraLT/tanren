@@ -150,6 +150,10 @@ pnpm typecheck  =  pnpm typecheck:root  &&  pnpm -r typecheck
 
 It must be green before any task is reported done. Run it from the repo root and paste the
 trimmed output into the engineer report.
+`pnpm -r typecheck` stops at the first failing package and kills the others: a line
+`apps/worker typecheck: Failed … with signal SIGKILL` after `apps/mobile typecheck: … exit code 1`
+plus `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL` means only mobile failed; the worker was aborted, not
+broken and not out of memory. Re-run `pnpm -F @tanren/worker typecheck` if you need its result.
 
 Company mode (several teams editing in parallel): when `pnpm check` is red only in files outside
 your scope, run the package-level gate and paste both outputs, naming the foreign failures:

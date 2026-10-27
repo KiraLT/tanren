@@ -197,7 +197,12 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    the Lead committed mobile-B's `settings.tsx` with strava's import of the
    uncommitted `IntegrationsSection` (22:11, 2026-10-26) and HEAD stopped
    building until SV-6 landed; a shared file is committed only with both
-   streams' pieces, so both team-leads say when theirs is ready.
+   streams' pieces, so both team-leads say when theirs is ready. The same
+   test gates a wave: never ask the Lead to commit wave N while any file in it
+   imports a symbol that only wave N+1 defines or exports (`git diff --name-only`
+   of the wave → `grep -n "from '" <file>` against files still in flight);
+   say "no W1-only commit, root gate red by design until W2" in the interim,
+   as the STLS team-lead did (2026-10-27), and name the commit point.
 7. Spawn `qa` (model `sonnet`) with the done-criteria only if the charter
    asks for QA. Otherwise the reviewer runs the package-level gate (`monorepo`
    skill, "The gate") and quotes it; no separate QA round. `FAIL` → one more

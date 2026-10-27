@@ -75,6 +75,21 @@ Lead had to route it back through the team-lead, one extra turn each way).
    Parallel engineers share the workspace: a gate or test failure in a file outside your brief
    is probably another engineer mid-edit. Re-run once after a minute; if it persists, report it
    as foreign and move on. Do not diagnose or touch it.
+   When your brief adds a literal to a union in `packages/shared` (a new
+   provider, entity or table name), every exhaustive consumer (`Match`,
+   `Record<Union, …>` copy maps, `satisfies` tables) is in your task: `grep -rn
+   "<ExistingLiteral>" apps packages --include=*.ts -l` lists them; fill each
+   one-liner yourself even outside your owned paths and mark the file `shared
+   with <stream>`, or — when the fill is more than a line or would break a
+   live stream's design (db `SyncStore` matches) — leave the literal out and
+   name `file:line → who` in Scope deviations. GM-1 (2026-10-27) landed
+   `garmin` literals and left `integrationsCopy.ts` and `ExportQueue.ts` red,
+   so the whole tree was red while another team needed a green gate to commit.
+   `apps/worker typecheck: … Command failed with signal SIGKILL` right after a
+   sibling package's `exit code 1` is `pnpm -r` aborting the rest
+   (`ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`), not memory or another agent: fix or
+   report the FIRST failure, and never call it a machine problem (three
+   reports on 2026-10-27 did).
 7. Verify before you report. Run the brief's gate (default `pnpm check` from
    the repo root). Red output means you are not done: fix it, or report the
    failure with the output. Never claim green without pasting it. A config

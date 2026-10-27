@@ -35,6 +35,18 @@ report what happened. Reading is only to design the experiment.
   steps. STRAVA-S (2026-10-26) settled the API in 3 min; the owner's first
   question ("can I cancel the subscription afterwards?") needed a second
   spike.
+- Any server you start (`wrangler dev`, a probe HTTP server) runs backgrounded
+  with its PID in `$S/<spike>-<name>.pid`; before the final message, kill it by
+  that pid (`P=$(cat f); [ "${P:-0}" -gt 1 ] && kill "$P"`) and paste
+  `ps -ef | grep "port <n>" | grep -v grep` printing nothing. S1 (2026-10-27)
+  left `wrangler dev` on 8961 running after its report; the Lead had to kill it.
+- Never print any bytes of a secret or token — not the first four, not a
+  tail, not a JWT body. Prove you have one with its length and shape only
+  (`wc -c`, `cut -d. -f1 | head -c 0`, `grep -c '^eyJ'`), and redirect
+  responses that carry one to a scratch file you `jq` for the non-secret
+  fields. G1 (2026-10-27) echoed 4 bytes of the owner's Garmin key and ~200
+  chars of a 24 h access token into the transcript; the owner had to
+  regenerate the key.
 - Never modify the repo except `docs/research/YYYY-MM-DD-<slug>.md` (≤ 60
   lines): question · setup (commands) · observation (output, trimmed) ·
   answer · confidence (`observed` / `inferred` / `unknown`) · what it means

@@ -560,11 +560,33 @@ design streams and owner chat by hand. Rules that make the loop mechanical:
   `appNav.ts` to the feed team) is logged in BOTH affected task sheets in
   the same minute, not only in the master Log. When briefing a spike on a
   third-party platform, forward spike.md's owner-question set verbatim
-  (pay / keep paying, eligibility, limits, terms, owner steps). A colour
+  (pay / keep paying, eligibility, limits, terms, owner steps) AND its two
+  hygiene lines (stop every server you start by guarded pid + `ps` re-check;
+  never print a byte of a secret or token, shape and length only) until the
+  role-file lag is gone (EM batch 8, P3: S1 left `wrangler dev` on 8961
+  alive; G1's transcript carries a full access JWT and 4 key bytes). A colour
   ruling names the token AND its light/dark hex from
   `apps/mobile/src/ui/colors.ts`, or says "engineer picks against colors.ts
   and reports the pair": the Lead's `surfaceRaised` ruling for the Player
-  disc was the page `bg` in light (EM batch 7, P3).
+  disc was the page `bg` in light (EM batch 7, P3). A security or trust
+  ruling (what counts as a trusted OAuth client, who may see a "Verified"
+  badge, which origin a cookie or token is bound to) is never written as a
+  predicate. Write it as a question for the engineer AND the reviewer with
+  the properties to pin: host matched exactly (no subdomain rule), the path
+  or path prefix, the final redirect target of any document fetch (pinned to
+  the same host or redirects refused), and the failure mode when a check
+  cannot run; the reviewer's brief names the same properties as its
+  checklist. IDENT-1 (2026-10-27): the ruling "trusted iff clientDomain
+  equals a trusted host or a subdomain" ignored the library's
+  redirect-following fetch; REV-ID showed a spoofed "Verified · Claude" and
+  cost an 8-min fix round (EM batch 8, P1).
+- **Gate-red triage**: `apps/worker typecheck … SIGKILL` right after
+  `apps/mobile typecheck … exit code 1` with `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`
+  is pnpm aborting the sibling after the first failure, not memory and not a
+  concurrency limit. Accept only the first failure as the cause, re-run the
+  killed package alone (`pnpm -F @tanren/worker typecheck`), and never
+  throttle gates for it (three reports 2026-10-27, one 2026-10-21; the Lead
+  repeated the "memory" reading in a charter and an EM brief — EM batch 8, P2).
 - **Team-lead children run in parallel only when dispatched in ONE message**
   (retro 2026-10-26-v4-evening corrects the earlier "sequential by
   construction" reading: the strava team-lead ran 2–3 children at once four

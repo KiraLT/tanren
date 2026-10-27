@@ -66,8 +66,9 @@ Budget: 3 engineers in parallel, 1 reviewer (opus), 1 designer (fable), 1 QA (so
 interims to the Lead after each wave with the file list and markers (`shared with`, `imports untracked`, `granted`).
 Forbidden: dependency changes, root config, files outside owned paths, `git commit|push|reset|checkout`, `rm -r*`, `wrangler
 deploy|login|secret|d1 execute --remote|d1 migrations apply --remote|deploy --dry-run`, `eas *`, reading `.env*`, writing the
-TEST key anywhere but a shell variable (GM-Q2 only), more than 2 live `tsc`/gate runs at once in the team (a worker typecheck was
-SIGKILLed for memory at 15:00 with three streams gating).
+TEST key anywhere but a shell variable (GM-Q2 only). Gate note (EM batch 8): `apps/worker typecheck … SIGKILL` right after
+`apps/mobile typecheck … exit code 1` + `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL` is pnpm aborting the sibling after the first failure,
+not memory — fix the first failure and re-run the killed package alone (`pnpm -F @tanren/worker typecheck`); no concurrency cap.
 Done when: root `pnpm check` green (paste tail) · GM-R APPROVE with blocking fixed · GM-D PASS · GM-Q1 + GM-Q2 measured in the sheet
 Log · `grep -rn "imported_activity\|daily_health" apps/worker/src/mcp` = 0 · every touched file listed with markers.
 Report: team report format from `.claude/agents/team-lead.md`.
