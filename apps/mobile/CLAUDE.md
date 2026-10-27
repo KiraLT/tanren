@@ -357,6 +357,10 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
 - `chartGeometry` (`src/components/progress/`): pure geometry for the hand-rolled `react-native-svg`
   charts (`WeekBars`, `Sparkline`); no chart library.
 - `Account` (`src/services/Account.ts`): `session`, `signOut`, `forgetOwner`.
+- `AccountErasure` (`src/services/AccountErasure.ts`, LEGAL-2, ADR-0024): `POST /api/account/delete`, then
+  `DELETE FROM` every table `sqlite_master` lists (runtime enumeration, so new tables are wiped too), then
+  `NativeSession.clear`; hook `useAccountErasure`, UI Settings → Data → Delete account (inline danger confirm);
+  web reloads to `/sign-in`, native `router.replace("/sign-in")`. Provided per call, not in `runtime.ts`.
 - `DataExporter` (`src/services/DataExport.ts`): named so because `DataExport` is the shared schema;
   covers all 10 sync tables. Web downloads `tanren-export-YYYY-MM-DD.json`; the native row reads
   "Export on the web app".

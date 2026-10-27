@@ -6,7 +6,6 @@ import {
   LAST_UPDATED,
   type LegalDoc,
   PRIVACY,
-  PRIVACY_DELETION_INTERIM,
   SIGN_IN_AGREEMENT,
   SIGN_IN_AGREEMENT_PARTS,
   TERMS,
@@ -75,12 +74,11 @@ describe("legal copy (design legal.md §1–§3)", () => {
     expect(docs.map((doc) => doc.updated)).toEqual(docs.map(() => LAST_UPDATED))
   })
 
-  it("opens the deletion section with the interim sentence until LEGAL-2", () => {
+  it("opens the deletion section with the in-app Delete account sentence (design §1.7)", () => {
     const deletion = PRIVACY.sections.find((section) => section.id === "deletion")
     const first = deletion?.blocks[0]
-    expect(first?._tag === "p" && first.text.startsWith(PRIVACY_DELETION_INTERIM)).toBe(true)
-    expect(PRIVACY_DELETION_INTERIM).toBe(
-      "Email hello@tanren.me from your account address and we remove your account and every record linked to it within 30 days.",
+    expect(first?._tag === "p" ? first.text : "").toBe(
+      "Settings → Data → Delete account removes your account and every record linked to it from our database, and clears the copy on that device. Delete the app or clear site data to remove copies on other devices. You can also ask by email at hello@tanren.me and we will do it within 30 days. Data already pushed to Strava stays in your Strava account under Strava's terms.",
     )
   })
 

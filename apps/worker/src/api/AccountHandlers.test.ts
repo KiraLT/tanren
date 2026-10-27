@@ -96,6 +96,15 @@ describe("POST /api/account/delete", () => {
     }),
   )
 
+  it.effect("expires cookies only on the delete response, not on later requests", () =>
+    Effect.gen(function* () {
+      const app = newApp()
+      yield* call(app, "POST", "/api/account/delete", Option.some(owner))
+      const after = yield* call(app, "GET", "/exercises", Option.some(other))
+      expect(after.headers.getSetCookie()).toEqual([])
+    }),
+  )
+
   it.effect("erases the caller's rows and keeps another user's", () =>
     Effect.gen(function* () {
       const app = newApp()

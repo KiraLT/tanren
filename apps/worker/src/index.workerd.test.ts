@@ -53,10 +53,10 @@ const SessionBody = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) }
  * `verification` row (`identifier = "magic-link:<token>"`, plain storage) → GET
  * /api/auth/magic-link/verify → `better-auth.session_token` cookie. The dev email maps to DEV_USER_ID.
  */
-const signIn = async (): Promise<string> => {
+const signIn = async (email: string = DEV_USER_EMAIL): Promise<string> => {
   const sent = await call(
     "/api/auth/sign-in/magic-link",
-    json("", "POST", { email: DEV_USER_EMAIL, callbackURL: "/" }),
+    json("", "POST", { email, callbackURL: "/" }),
   )
   expect(sent.status).toBe(200)
   const row = Schema.decodeUnknownSync(VerificationRow)(
@@ -75,7 +75,7 @@ const signIn = async (): Promise<string> => {
 }
 
 /** One sign-in per file, shared by every test that needs a cookie. */
-const session = Effect.runSync(Effect.cached(Effect.promise(signIn)))
+const session = Effect.runSync(Effect.cached(Effect.promise(() => signIn())))
 const cookie = () => Effect.runPromise(session)
 
 describe("src/index.ts default export in workerd", () => {
@@ -532,5 +532,25 @@ describe("/integrations/strava/callback through the default export (design §4)"
       scope: "read,activity:write",
     })
     expect(String(row?.access_token).startsWith("v1.")).toBe(true)
+  })
+})
+
+describe("POST /api/account/delete through the default export (LEGAL-2)", () => {
+  it("erases a real Better Auth user in D1; the same cookies afterwards", async () => {
+    const own = await signIn("erase-me@example.com")
+    const count = () =>
+      env.DB.prepare(`SELECT count(*) AS n FROM "user" WHERE email = 'erase-me@example.com'`).first(
+        "n",
+      )
+    expect(await count()).toBe(1)
+    const deleted = await call("/api/account/delete", json(own, "POST", {}))
+    expect(deleted.status).toBe(200)
+    expect(await deleted.json()).toEqual({ deleted: true })
+    expect(deleted.headers.get("cache-control")).toBe("no-store")
+    expect(await count()).toBe(0)
+    const after = await call("/exercises", { headers: { cookie: own, origin: ORIGIN } })
+    // A copy of the cookies still authenticates for up to 15 min (Better Auth `cookieCache`, no D1
+    // read): the read is empty, not 401. The response's expired Set-Cookies end the browser's copy.
+    expect({ status: after.status, body: await after.text() }).toEqual({ status: 200, body: "[]" })
   })
 })

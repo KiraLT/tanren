@@ -74,3 +74,21 @@ const EQUIPMENT_GLYPHS: Readonly<Partial<Record<CatalogEquipment, IconName>>> = 
 /** `Tanren 0.1.0`; just `Tanren` when the app config has no version. */
 export const aboutTitle = (version: string | undefined): string =>
   version === undefined || version.length === 0 ? "Tanren" : `Tanren ${version}`
+
+/** Settings → Data → Delete account (LEGAL-2, ADR-0024, legal.md §1.7). */
+export const DELETE_ACCOUNT_TITLE = "Delete account"
+export const DELETE_ACCOUNT_NOTE = "Remove your account and every record"
+export const DELETE_ACCOUNT_CONFIRM_TITLE =
+  "This removes your account and every record. There is no undo."
+export const DELETE_ACCOUNT_CONFIRM = "Delete everything"
+export const DELETE_ACCOUNT_WORKING = "Deleting…"
+export const DELETE_ACCOUNT_CANCEL = "Cancel"
+
+/** One line per failure reason; the account is untouched unless the reason is `local`. */
+export const deleteAccountFailure = (reason: "offline" | "server" | "local"): string =>
+  ({
+    offline: "You are offline. Nothing was deleted. Try again when connected.",
+    server: "The server could not delete the account. Nothing was deleted. Try again.",
+    local:
+      "Your account is deleted. Clear this site's data or reinstall the app to remove the copy on this device.",
+  })[reason]

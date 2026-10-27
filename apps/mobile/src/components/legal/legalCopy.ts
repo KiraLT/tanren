@@ -22,14 +22,6 @@ export const CONTACT_EMAIL = "hello@tanren.me"
 
 const p = (text: string): LegalBlock => ({ _tag: "p", text })
 
-/**
- * The first sentence of Privacy §1.7 until LEGAL-2 ships the Settings row (design §1.7). LEGAL-2
- * replaces it with "Settings → Data → Delete account removes your account and every record linked
- * to it from our database, and clears the copy on that device."
- */
-export const PRIVACY_DELETION_INTERIM =
-  "Email hello@tanren.me from your account address and we remove your account and every record linked to it within 30 days."
-
 /** Privacy Policy, verbatim from design `legal.md` §1. `**x**` marks the bold lead of a bullet. */
 export const PRIVACY: LegalDoc = {
   slug: "privacy",
@@ -106,7 +98,7 @@ export const PRIVACY: LegalDoc = {
       heading: "Deleting your account",
       blocks: [
         p(
-          `${PRIVACY_DELETION_INTERIM} Delete the app or clear site data to remove copies on other devices. You can also ask by email at hello@tanren.me and we will do it within 30 days. Data already pushed to Strava stays in your Strava account under Strava's terms.`,
+          `Settings → Data → Delete account removes your account and every record linked to it from our database, and clears the copy on that device. Delete the app or clear site data to remove copies on other devices. You can also ask by email at hello@tanren.me and we will do it within 30 days. Data already pushed to Strava stays in your Strava account under Strava's terms.`,
         ),
       ],
     },
