@@ -288,3 +288,12 @@ Recorded 2026-10-19, from the owner's kickoff message:
    eaten with insights; a Health insights view and a weekly review against
    the goal (ADR-0025, `docs/design/nutrition.md`, `docs/tasks/v6-nutrition.md`,
    research `docs/research/2026-10-27-nutrition-tracking.md`).
+21. **Programs via MCP** (2026-10-27 14:34, owner, verbatim): "Can you create your
+   own programs? Or create and modify via MCP?" Lead reading: guided programs
+   stop being code-only data — a user-owned synced `program` table lets Claude
+   create, update and delete programs through MCP tools (`list_programs`,
+   `get_program`, `write_program`, `update_program`, `delete_program`,
+   `enroll_program`), the built-in catalog (Core 30) stays read-only, the
+   app's Programs tab and player run both kinds unchanged, and in-app
+   authoring is deferred (ADR-0026, `docs/design/programs-mcp.md`,
+   `docs/tasks/v6b-programs.md`; built after the nutrition foundation).
