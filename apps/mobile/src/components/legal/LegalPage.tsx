@@ -1,7 +1,18 @@
 import { type Href, Link, useRouter } from "expo-router"
 import Head from "expo-router/head"
-import { Linking, Pressable, View, type ViewStyle } from "react-native"
-import { AppBar, IconButton, Page, rhythm, space, Text, usePressableInteraction } from "../../ui"
+import { Pressable, View, type ViewStyle } from "react-native"
+import {
+  AppBar,
+  IconButton,
+  Page,
+  rhythm,
+  sizes,
+  space,
+  Text,
+  type,
+  usePressableInteraction,
+  useTheme,
+} from "../../ui"
 import {
   CONTACT_EMAIL,
   emphasisRuns,
@@ -10,6 +21,9 @@ import {
   type LegalDoc,
   type LegalSection,
 } from "./legalCopy"
+
+/** The AppBar title of a legal page: the brand, since the document title is the body heading. */
+const BRAND = "Tanren"
 
 /** Width of the "•" column of a bullet row (design §3). */
 const BULLET_WIDTH = 16
@@ -59,9 +73,11 @@ function Section({ section }: { readonly section: LegalSection }) {
       <Text variant="title2" accessibilityRole="header">
         {section.heading}
       </Text>
-      {section.blocks.map((block) => (
-        <Block key={block._tag === "p" ? block.text : block.items.join("|")} block={block} />
-      ))}
+      <View style={blocksStyle}>
+        {section.blocks.map((block) => (
+          <Block key={block._tag === "p" ? block.text : block.items.join("|")} block={block} />
+        ))}
+      </View>
     </View>
   )
 }
@@ -75,9 +91,14 @@ export function LegalLink({ label, href }: { readonly label: string; readonly hr
         accessibilityRole="link"
         accessibilityLabel={label}
         {...handlers}
-        hitSlop={8}
+        // 44 px tap area (RNW ignores `hitSlop`); the text keeps its caption size.
         // One object, not an array: `Link asChild` rejects array styles on its child.
-        style={{ ...focusStyle }}
+        style={{
+          minHeight: sizes.tap,
+          justifyContent: "center",
+          paddingHorizontal: space.sm,
+          ...focusStyle,
+        }}
       >
         <Text
           variant="caption"
@@ -99,19 +120,19 @@ export function InlineLegalLink({
   readonly label: string
   readonly href: "/terms" | "/privacy"
 }) {
-  const router = useRouter()
-  // biome-ignore lint/plugin/noMutation: expo-router navigation, not Array.push
-  const open = () => router.push(href)
+  return <InlineAnchor label={label} href={href} />
+}
+
+/** A real anchor on web (`Link` is a `Text` with an href, so it nests in a caption sentence). */
+function InlineAnchor({ label, href }: { readonly label: string; readonly href: Href }) {
+  const { colors } = useTheme()
   return (
-    <Text
-      variant="caption"
-      tone="accent"
-      accessibilityRole="link"
-      onPress={open}
-      style={{ textDecorationLine: "underline" }}
+    <Link
+      href={href}
+      style={{ ...type.caption, color: colors.accent, textDecorationLine: "underline" }}
     >
       {label}
-    </Text>
+    </Link>
   )
 }
 
@@ -129,8 +150,10 @@ export function LegalPage({ doc }: { readonly doc: LegalDoc }) {
       <Page
         scroll
         header={
+          // A document page, not an app screen: back control and the brand only, no app nav.
           <AppBar
-            title={doc.title}
+            title={BRAND}
+            nav={false}
             leading={<IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={back} />}
           />
         }
@@ -150,26 +173,21 @@ export function LegalPage({ doc }: { readonly doc: LegalDoc }) {
         <View style={footer}>
           <Text variant="caption" tone="muted">
             {"Questions? "}
-            <Text
-              variant="caption"
-              tone="accent"
-              accessibilityRole="link"
-              onPress={() => {
-                void Linking.openURL(`mailto:${CONTACT_EMAIL}`)
-              }}
-              style={{ textDecorationLine: "underline" }}
-            >
-              {CONTACT_EMAIL}
-            </Text>
+            <InlineAnchor label={CONTACT_EMAIL} href={`mailto:${CONTACT_EMAIL}`} />
           </Text>
-          <LegalLink label={other.label} href={other.href} />
+          {/* The link pads 8 px for its 44 px tap area: pull it back so the text aligns with the column. */}
+          <View style={{ alignSelf: "flex-start", marginLeft: -space.sm, marginTop: -space.sm }}>
+            <LegalLink label={other.label} href={other.href} />
+          </View>
         </View>
       </Page>
     </>
   )
 }
 
-const sectionStyle: ViewStyle = { gap: space.md }
+/** Heading → first block 8 (`rhythm.labelToGroup`), block → block 12 (design §3). */
+const sectionStyle: ViewStyle = { gap: rhythm.labelToGroup }
+const blocksStyle: ViewStyle = { gap: space.md }
 const bullets: ViewStyle = { gap: space.sm }
 const bulletRow: ViewStyle = { flexDirection: "row", gap: space.sm }
 const footer: ViewStyle = { gap: space.sm }

@@ -60,6 +60,9 @@ export const PRIVACY: LegalDoc = {
             "**On your device**: the app keeps a copy of your training data in a local database so it works offline, plus your theme preference. On the web this lives in your browser's storage for tanren.me.",
           ],
         },
+        p(
+          "Your email address is the only data you must provide: without it Tanren cannot sign you in. Everything else is optional.",
+        ),
       ],
     },
     {
@@ -76,7 +79,7 @@ export const PRIVACY: LegalDoc = {
       heading: "Where it is stored, and who else sees it",
       blocks: [
         p(
-          "Your account and training data are stored in a Cloudflare database and run on Cloudflare's network. Cloudflare also keeps standard request logs and traffic analytics on its side. Magic-link emails are delivered by Resend, which keeps delivery logs including your address. Strava and Garmin receive or provide only what the integration you enabled needs; their own terms apply to the data you hold there. The iPhone app is delivered through Expo's update service; it does not receive your training data. These providers are based in the United States and process data under their GDPR data processing terms and the EU standard contractual clauses. We do not share your data with anyone else, except when the law requires.",
+          "Your account and training data are stored in a Cloudflare database and run on Cloudflare's network. Cloudflare also keeps standard request logs and traffic analytics on its side. Magic-link emails are delivered by Resend, which keeps delivery logs including your address. Strava and Garmin receive or provide only what the integration you enabled needs; their own terms apply to the data you hold there. The iPhone app is built and delivered with Expo's tools; Expo does not receive your training data. These providers are based in the United States and process data under their GDPR data processing terms and the EU standard contractual clauses. We do not share your data with anyone else, except when the law requires.",
         ),
       ],
     },

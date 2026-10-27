@@ -84,6 +84,17 @@ describe("legal copy (design legal.md §1–§3)", () => {
     )
   })
 
+  it("carries the LEGAL-R sentences exactly", () => {
+    const text = allText(PRIVACY)
+    expect(text).toContain(
+      "The iPhone app is built and delivered with Expo's tools; Expo does not receive your training data.",
+    )
+    expect(text).not.toContain("update service")
+    expect(text).toContain(
+      "Your email address is the only data you must provide: without it Tanren cannot sign you in. Everything else is optional.",
+    )
+  })
+
   it("titles the documents and the About rows", () => {
     expect(PRIVACY.title).toBe("Privacy Policy")
     expect(TERMS.title).toBe("Terms of Service")
