@@ -33,7 +33,29 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
-## Live at hand-off (2026-10-27 11:00; resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
+## Live at hand-off (2026-10-27 14:50, written for a context compaction; agent ids in the scratchpad `live-agents.txt`)
+**Resume checklist (in order):**
+1. **STLS team-lead** (opus, charter `docs/tasks/v5-auth/team-stateless.md`, sheet `docs/tasks/v5-auth.md`, hard stop ≈ 14:37
+   on its clock): W1 + W2 landed and reviewed (root gate was green at 2186 at W2); W3 = STLS-4b (OAuth cut-over: KV +
+   library removal, `McpAuth.layerJwt`, router) in flight, then STLS-6 docs, STLS-R, fix round, STLS-Q. On its W3
+   interim / final: ONE build-clean commit of its full file list (it names every file; tree must build), then
+   DEPLOY-9 (`scratchpad/deploy.sh`, no migration needed beyond 0006 → run with `MIGRATE=1` since 0006 is new),
+   verify `/.well-known/oauth-authorization-server`, `/mcp` 401, `/api/token/refresh` 401 shape, no `OAUTH_KV` in
+   `wrangler.jsonc`; then **owner O1: reconnect the Claude app once** (grants in KV are gone); O2 delete the KV
+   namespace later. Ratified rulings are in the sheet (revoke 204, PKCE S256, refresh-after-revoke 400, pending-revoke
+   retry marker or follow-up STLS-F1).
+2. **GM-1** (engineer/sonnet, Garmin shared schemas, `docs/tasks/v5-garmin.md`): on its report accept, then write the
+   Garmin team charter (`docs/tasks/v5-garmin/team-garmin.md`: GM-2 ∥ GM-3 ∥ GM-5 → GM-4 ∥ GM-6 → GM-7 → GM-R ∥ GM-D →
+   GM-Q1 → GM-Q2; file sets in the sheet's table; migration **0007** only after the STLS commit; ports 9011/9012; the TEST
+   key lives at `scratchpad/secrets/garmin.token`, never in the repo or a log) and dispatch a team-lead (opus).
+3. **LEGAL-1** (engineer/sonnet, privacy + terms pages, gate exception, links; port 8991): on its report → LEGAL-R r1
+   (reviewer/opus: texts verbatim vs `docs/design/legal.md`, §6 greps) ∥ LEGAL-D (designer, 8 shots → gallery) →
+   commit → web deploy (rides the next deploy) → LEGAL-Q; LEGAL-2 (account deletion, opus, briefs file) after the
+   STLS commit; LEGAL-3 done (Email Routing live); LEGAL-4 committed `a7d9e81`.
+4. EM batch 8 is due (≥ 10 commits since batch 7): incidents to include — the Lead's IDENT-1 "host or subdomain"
+   ruling (REV-ID caught), the spike leaving a dev server running, the partial token print, WD-1 brief asking for
+   dry-run output, zsh word-splitting.
+5. Owner-facing asks go in **bold** on their own line (memory `owner-asks-in-bold`).
 - DEPLOY-5 DONE 10:55 (`MIGRATE=1 scratchpad/deploy.sh`): migration 0005 applied to production D1 (✅ in the log),
   Worker version 74509783 with `schedule: */5 * * * *` registered (no 10063), web version db23adb9; verified
   `/health` ok, `og.png` 200 + og metas in index.html, `icon-192.png` = the repo's T icon (3335 B).
@@ -67,7 +89,11 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
   `imported_activity` / `daily_health`, feed cards; migration **0007** after STLS's 0006 is committed); architect legal →
   ADR-0024 + `docs/design/legal.md` (draft Privacy Policy + Terms with `[OWNER]` markers, `/privacy` + `/terms` public
   pages, landing/sign-in/About/consent links, `hello@tanren.me` via Cloudflare Email Routing) + `docs/tasks/v5-legal.md`.
-  Engineering for both starts after the STLS W2 commit (shared files, migration order).
+  Status 14:45: both architects done (ADR-0023 + `docs/tasks/v5-garmin.md` GM-1…GM-7/R/D/Q; ADR-0024 +
+  `docs/tasks/v5-legal.md` + `v5-legal-briefs.md`). Running: GM-1 (shared schemas, sonnet), LEGAL-1 (pages + gate
+  exception + links, sonnet, port 8991). Done: LEGAL-4 (`a7d9e81`: email legal footer, robots.txt, security.txt),
+  LEGAL-3 (Email Routing). Next: after the STLS commit → Garmin team (GM-2…GM-7, team-lead) and LEGAL-2 (account
+  deletion, opus); LEGAL-R r1 + LEGAL-D after LEGAL-1; web deploy with the pages; LEGAL-Q.
 - **Auth v2 wave** (plan Amendments 16 + 17, dispatched 12:45): spike S1 → `docs/research/mcp-client-identities.md`
   (CIMD in workers-oauth-provider 1.2.3, the Claude/ChatGPT client ids, trust model), spike S2 →
   `docs/research/stateless-sessions.md` (Better Auth stateless options with a symmetric secret; what the OAuth

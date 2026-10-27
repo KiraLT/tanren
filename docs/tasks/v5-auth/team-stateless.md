@@ -92,15 +92,16 @@ Team-lead dispatched 12:47:21 · hard stop **14:37** · ports probed 12:49: 8981
 ### Tasks
 | id | model | depends | box | wave | agent id | status |
 | --- | --- | --- | --- | --- | --- | --- |
-| STLS-1 | sonnet | — | 20 | W1 | | dispatched 12:51 |
-| STLS-2 | opus | — | 20 | W1 | | dispatched 12:51 |
-| REV-W1 | opus | STLS-1, STLS-2 | 6 | W2 (with 3/4a/5) | | todo |
-| STLS-3 | opus | 1, 2 | 20 | W2 | | todo |
-| STLS-4a | opus | 1, 2 | 20 | W2 | | todo |
-| STLS-5 | sonnet | 1 | 20 | W2 | | todo |
-| STLS-4b | opus (resume 4a) | 4a, 1, 2 | 20 | W3 | | todo |
+| STLS-1 | sonnet | — | 20 | W1 | a20851f517fa17e07 | done 12:53 (in review REV-W1) |
+| STLS-2 | opus | — | 20 | W1 | a0d08878389be20e3 | done 12:55 (in review REV-W1) |
+| REV-W1 | opus | STLS-1, STLS-2 | 6 | W2 (with 3/4a/5) | a4a91ac8d051e07b8 | APPROVE 12:59 (should #2 + nit #3 → resumed 13:10; should #1 covered by STLS-3 workerd test) |
+| STLS-3 | opus | 1, 2 | 20 | W2 | a715e5c63cf3b23cb | done 13:08 |
+| STLS-4a | opus | 1, 2 | 20 | W2 | a5736abc27c1b6d2e | done 13:08 |
+| STLS-5 | sonnet | 1 | 20 | W2 | ab9dd7c02dde4468f | done 13:03 |
+| STLS-4b | opus (resume 4a) | 4a, 1, 2 | 20 | W3 | a5736abc27c1b6d2e | resumed 13:10 |
 | STLS-6 | sonnet | 3, 4b | 10 | W4 | | todo |
 | STLS-R | opus | 3, 4b, 5 (delta over W1) | 10 | W4 (with 6) | | todo |
+| STLS-5 r2 | sonnet (resume) | Lead ruling 14:15-msg | 10 | W3 | ab9dd7c02dde4468f | dispatched 13:12 (if over → STLS-F1 follow-up) |
 | fix | same engineers | R | 10 | W5 | | todo |
 | STLS-Q | sonnet | R clean | 10 | W6 | | todo |
 
@@ -109,8 +110,27 @@ across waves is promised.
 
 ### Log
 `HH:MM→HH:MM · task · role/model · agent id · tokens · tool uses · rounds · outcome`
+- 12:48:59→12:52:49 · STLS-1 · engineer/sonnet · a20851f517fa17e07 · 131k · 36 · r1 · shared/db gates green (390 + 159 tests); 0006 generated (drizzle order/backticks); parity ruling: no `userId` (parity covers the 10 sync tables only); root red only in STLS-3/5 consumers (expected)
+- 12:48:59→12:54:35 · STLS-2 · engineer/opus · a0d08878389be20e3 · 146k · 29 · r1 · Tokens.ts 14 tests green; jose 6.2.12 catalog + worker package.json + lockfile (+6 lines); root red only at mobile NativeSession.ts:123 (STLS-5) + nativeAuthRoutes.test.ts ×3 (STLS-3)
 
+- 12:57→12:59 · REV-W1 · reviewer/opus · a4a91ac8d051e07b8 · 79k · 10 · r1 · APPROVE; should: jose not run in workerd (covered by STLS-3 nativeAuth.workerd), expiresAt second clock read; nits: Option.match in UserTokens, expired-before-aud ordering (design order, left)
+- 12:57:59→13:03 · STLS-5 · engineer/sonnet · ab9dd7c02dde4468f · 204k · 69 · r1 · mobile check 85 files / 981 tests green; token pair + refresh (Semaphore single-flight), native revoke best-effort, Disconnect AI clients row; 4 granted fixtures
+- 12:58:00→13:08:33 · STLS-3 · engineer/opus · a715e5c63cf3b23cb · 210k · 90 · r1 · worker 48 files / 656 tests; workerd: app-JWT request 0 `session` queries; smoke 8981 real native flow, refresh/revoke/revoke-mcp, 0×500; scope deviation: auth.test.ts + authRoutes.test.ts one-line `MemoryTokens` provide (compile) — accepted
+- 12:58:00→13:08:24 · STLS-4a · engineer/opus · a5736abc27c1b6d2e · 199k · 59 · r1 · src/oauth 7 files / 118 tests; §7 bypass list + burn-last asserted; OAuthApiShape identical
+- 13:09:28→13:09:58 · root `pnpm check` (team-lead) · green: biome 536 files, 172 test files / 2186 tests
+- 13:10 · STLS-4b resume a5736abc27c1b6d2e; REV-W1 fixes: STLS-2 a0d08878389be20e3 (expiresAt), STLS-1 a20851f517fa17e07 (nit)
+- 13:10→13:11:14 · REV-W1 nit · engineer/sonnet · a20851f517fa17e07 · ~3k delta · 6 · r2 · UserTokens Option.match; db check 159 green
+- 13:12 · STLS-5 r2 (Lead ruling: pending-revoke marker) · resume ab9dd7c02dde4468f · box 10
+- 13:12 · team-lead Edit `apps/mobile/CLAUDE.md` :209 (token pair keys, refresh) + :358 (native sign-out = revoke best-effort → forgetOwner → clear; Disconnect AI clients row)
 ### Decisions
+- 12:55 Path release: IDENT-1 fix r2 committed 9484553 (`knownClients.ts` final: `TRUSTED_CLIENT_HOSTS` tuples, `clientTrust(input: ClientTrustInput): ClientTrust` plain type) → STLS-4a may start on `oauth/**` (knownClients read-only); EAS-1 committed 89383c3 (`wrangler.jsonc` `env.production.vars.NATIVE_RETURN_PREFIXES` = `exps://u.expo.dev/71f6…/`) → STLS-4b re-reads wrangler.jsonc and keeps that value (Lead notice 13:10).
+- STLS-1 (ratify): repo methods carry `PersistenceError`; `UserNotFound` = internal `Data.TaggedError { userId }` (worker maps to `TokenRejected`); `OAuthCodeUseRepo.burn(jti, expiresAt: DateTime.Utc)` / `purge(now: DateTime.Utc)` stored as epoch ms; `burn` = `INSERT … ON CONFLICT DO NOTHING RETURNING jti`; services `UserTokens`, `OAuthCodeUseRepo`, registered in db `Repositories.layer`; migration via `pnpm generate --name token_generations`.
+- STLS-2 (ratify): lazy key derivation (`Effect.cached`); `scope` claim = granted scopes space-joined; verify returns supersets (`jti`, `clientId`, code `exp`); consent handle carries `sub` + `request` + `nonce`, `issueConsent({ userId, request }) → { handle, nonce }`; code signed with the mcp key (told apart by `aud`); DCR client id has `jti`, no `exp`; `layerWith(config)` for tests.
+- 12:57 Re-split by team-lead: `apps/worker/src/repos/**` → STLS-3 in W2 (memory `UserTokens` + `OAuthCodeUseRepo`; STLS-3's route tests need them), back to STLS-4b in W3. STLS-4a uses local fakes in its tests.
+
+- 13:10 W2 ratified by team-lead (Lead to confirm): STLS-3 revoke/revoke-mcp 204; malformed refresh body 401 invalid; deleted user at native session 400 `NativeCodeRejected`; JWT-shaped rejected Bearer on revoke-mcp → 401 (no cookie fallback; cookie path relies on SameSite=Lax); `SessionsLive` provides `Tokens.layer` internally; memory `UserTokens` every user `{0,0}`; new `repos/MemoryTokens.ts`; scope deviation `auth/{auth,authRoutes}.test.ts` (+1 provide line each). STLS-4a: `layerStateless({ request })` needs Sessions → additive `request` arg on `authorize.ts` `oauth` hook (granted to 4b); CIMD cache `caches.open("tanren:cimd:v1")` (types lack `caches.default`); PKCE S256 required at parse; `resource` ≠ MCP_RESOURCE_URL → `invalid_target`; refresh may only narrow scope; DCR default name "Unnamed app"; discovery CORS `*`. STLS-5: `token: Option<string>`; refresh network failure keeps pair, returns none; `hasSession`; native revoke best-effort (3 s) then clear — a failed revoke leaves the refresh token valid server-side ≤ 30 d; legacy `tanren.session` deleted; `userId` not stored on device; Disconnect row on native + web, `tone="danger"`.
+- 13:10 Ownership: `app.ts` + `repos/**` + `mcp/McpRoute*` + `authorize.ts` (hook arity only) → STLS-4b. `refresh after revoke-mcp` asserted as `/oauth/token` 400 `invalid_grant` (RFC 6749 §5.2).
+- Docs debt (STLS-6): `apps/mobile/CLAUDE.md` sign-out policy + SecureStore keys are stale (STLS-5) — mobile CLAUDE.md is in the package containing STLS-5's paths: team-lead edits those lines before the report.
 
 ### Escalations
 
