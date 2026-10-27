@@ -119,6 +119,10 @@ on AC). Retro verdict: throughput high (9 streams,
 7. **Restart Claude Code** only when the Lead says the streams are quiet (hooks snapshot at startup; the
    owner-registered `em-cadence.sh` becomes active then).
 8. Later: Apple Health needs the native dev build (Apple Developer account).
+8a. **Contact mailbox** — done 2026-10-27 14:08 by the Lead via the Cloudflare API: Email Routing enabled on tanren.me
+   (MX route1–3.mx.cloudflare.net added; no prior MX/SPF on the apex), destination `lukasmikuckis@gmail.com`
+   (verified at creation), rule `hello@tanren.me → forward` (id 281deedbf37341608e95c2c4b6091328). Legal texts and the
+   landing footer use `hello@tanren.me`; the operator is named "Tanren" with no postal address (owner, 13:45).
 9. **Permissions** — decided by the owner 2026-10-27 11:20 (`.claude/settings.json`): `Bash(wrangler:*)`,
    `Bash(pnpm:*)` and `Bash(git commit:*)` are allowed outright; `ask` holds only `rm -r*` variants; `deny` only
    the env files; `git push|reset|checkout`, `eas *` and the Cloudflare MCP `execute` are unlisted (auto-mode
