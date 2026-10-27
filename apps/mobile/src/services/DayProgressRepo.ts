@@ -12,6 +12,9 @@ import { StoreError } from "./SqlDriver"
 /** One performed step's load (`ProgramRepo.SetEntry`) on the wire of the snapshot JSON. */
 const SnapshotEntry = Schema.Struct({ weightKg: Schema.Number, reps: Schema.Number })
 
+/** A 0-based position (round or step) in the day: never negative. */
+const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))
+
 /**
  * An unfinished program day (programs-player-v2 §3.2, with PROG-3's `entries` / `draft` and
  * PROG-5's `stepIndex`): what the player needs to come back paused at the same step.
@@ -31,8 +34,8 @@ export const DaySnapshot = Schema.Struct({
   /** The open phase; restored as `Paused` with `remainingMs` (None for a reps item). */
   phase: Schema.Struct({
     _tag: Schema.Literals(["Working", "Resting"]),
-    round: Schema.Int,
-    stepIndex: Schema.Int,
+    round: NonNegativeInt,
+    stepIndex: NonNegativeInt,
     remainingMs: Schema.OptionFromNullOr(Schema.Number),
   }),
 })

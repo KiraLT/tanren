@@ -350,14 +350,19 @@ export const restore = (
 ): Option.Option<Paused> => {
   const { phase } = point
   const steps = expandDay(config.day)
-  if (phase.stepIndex < 0 || phase.stepIndex >= steps.length || phase.round >= config.day.rounds) {
+  if (
+    phase.stepIndex < 0 ||
+    phase.stepIndex >= steps.length ||
+    phase.round < 0 ||
+    phase.round >= config.day.rounds
+  ) {
     return Option.none()
   }
   const clock = {
     startedAtMs: point.startedAtMs,
     pausedMs: point.pausedMs + Math.max(0, nowMs - point.savedAtMs),
     phaseStartMs: nowMs,
-    round: Math.max(0, phase.round),
+    round: phase.round,
     stepIndex: phase.stepIndex,
   }
   const inner: Working | Resting =

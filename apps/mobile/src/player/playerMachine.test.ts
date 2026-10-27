@@ -465,6 +465,8 @@ describe("restore (PROG-2)", () => {
       restore(config, { ...point, phase: { ...point.phase, round, stepIndex } }, 5_000_000)
     expect(at(0, 2)).toEqual(Option.none())
     expect(at(2, 0)).toEqual(Option.none())
+    expect(at(0, -1)).toEqual(Option.none())
+    expect(at(-1, 0)).toEqual(Option.none())
   })
 
   it("start is a no-op on a restored run (Idle-only)", () => {
