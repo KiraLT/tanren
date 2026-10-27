@@ -70,7 +70,7 @@ function Section({ section }: { readonly section: LegalSection }) {
   return (
     // `nativeID` becomes the DOM id on web (react-native-web createDOMProps), so `/privacy#deletion` anchors.
     <View nativeID={section.id} style={sectionStyle}>
-      <Text variant="title2" accessibilityRole="header">
+      <Text variant="title2" headingLevel={2}>
         {section.heading}
       </Text>
       <View style={blocksStyle}>
@@ -112,24 +112,22 @@ export function LegalLink({ label, href }: { readonly label: string; readonly hr
   )
 }
 
-/** Inline link inside a caption sentence (sign-in agreement): accent, always underlined. */
-export function InlineLegalLink({
-  label,
-  href,
-}: {
-  readonly label: string
-  readonly href: "/terms" | "/privacy"
-}) {
-  return <InlineAnchor label={label} href={href} />
-}
-
-/** A real anchor on web (`Link` is a `Text` with an href, so it nests in a caption sentence). */
-function InlineAnchor({ label, href }: { readonly label: string; readonly href: Href }) {
+/**
+ * Inline link inside a caption sentence (sign-in agreement, mailto): accent, always underlined. A
+ * real anchor on web (`Link` is a `Text` with an href, so it nests in a caption).
+ */
+export function InlineAnchor({ label, href }: { readonly label: string; readonly href: Href }) {
   const { colors } = useTheme()
   return (
     <Link
       href={href}
-      style={{ ...type.caption, color: colors.accent, textDecorationLine: "underline" }}
+      // paddingVertical 14 makes the hit box 44 (16 + 2 x 14); measured not to move the line box.
+      style={{
+        ...type.caption,
+        color: colors.accent,
+        textDecorationLine: "underline",
+        paddingVertical: 14,
+      }}
     >
       {label}
     </Link>
@@ -154,13 +152,14 @@ export function LegalPage({ doc }: { readonly doc: LegalDoc }) {
           <AppBar
             title={BRAND}
             nav={false}
+            titleLevel={2}
             leading={<IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={back} />}
           />
         }
         sectionGap={rhythm.groupToLabel}
       >
         <View>
-          <Text variant="title" accessibilityRole="header">
+          <Text variant="title" headingLevel={1}>
             {doc.title}
           </Text>
           <Text variant="caption" tone="muted" style={{ marginTop: space.xs }}>
@@ -175,8 +174,10 @@ export function LegalPage({ doc }: { readonly doc: LegalDoc }) {
             {"Questions? "}
             <InlineAnchor label={CONTACT_EMAIL} href={`mailto:${CONTACT_EMAIL}`} />
           </Text>
-          {/* The link pads 8 px for its 44 px tap area: pull it back so the text aligns with the column. */}
-          <View style={{ alignSelf: "flex-start", marginLeft: -space.sm, marginTop: -space.sm }}>
+          {/* The link pads 8 px for its 44 px tap area: pull it left so the text aligns with the column.
+              marginTop adds to the footer gap (8 + 8 = 16 from the Questions line) so the 44 px mailto
+              anchor above and this 44 px link do not overlap. */}
+          <View style={{ alignSelf: "flex-start", marginLeft: -space.sm, marginTop: space.sm }}>
             <LegalLink label={other.label} href={other.href} />
           </View>
         </View>

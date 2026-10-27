@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router"
 import { useState } from "react"
 import { Image, type ImageStyle, TextInput, View, type ViewStyle } from "react-native"
-import { InlineLegalLink } from "../src/components/legal/LegalPage"
+import { InlineAnchor } from "../src/components/legal/LegalPage"
 import { SIGN_IN_AGREEMENT_PARTS } from "../src/components/legal/legalCopy"
 import { useAuthGate } from "../src/hooks/useAuthGate"
 import {
@@ -113,7 +113,7 @@ export default function SignInScreen() {
         <Text variant="caption" tone="muted" testID="sign-in-agreement">
           {SIGN_IN_AGREEMENT_PARTS.map((part) =>
             "href" in part ? (
-              <InlineLegalLink key={part.href} label={part.text} href={part.href} />
+              <InlineAnchor key={part.href} label={part.text} href={part.href} />
             ) : (
               part.text
             ),

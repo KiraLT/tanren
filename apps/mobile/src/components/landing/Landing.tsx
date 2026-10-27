@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router"
-import { Fragment } from "react"
 import { Image, type ImageStyle, View, type ViewStyle } from "react-native"
 import { Button, Columns, Page, space, Text, useBreakpoint, useTheme } from "../../ui"
 import { LegalLink } from "../legal/LegalPage"
@@ -155,17 +154,11 @@ export function Landing() {
           </Text>
           <View
             testID="landing-legal-links"
-            style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+            // No separator glyph: each link pads 8 px, so the gap between the texts is 16.
+            style={{ flexDirection: "row", alignItems: "center" }}
           >
-            {LANDING.footer.links.map((link, index) => (
-              <Fragment key={link.href}>
-                {index > 0 ? (
-                  <Text variant="caption" tone="muted">
-                    ·
-                  </Text>
-                ) : null}
-                <LegalLink label={link.label} href={link.href} />
-              </Fragment>
+            {LANDING.footer.links.map((link) => (
+              <LegalLink key={link.href} label={link.label} href={link.href} />
             ))}
           </View>
         </View>

@@ -270,7 +270,8 @@ export const SIGN_IN_AGREEMENT_PARTS = [
   { text: "By continuing you agree to the " },
   { text: "Terms", href: "/terms" },
   { text: " and acknowledge the " },
-  { text: "Privacy Policy", href: "/privacy" },
+  // A no-break space (U+00A0) keeps the anchor on one line.
+  { text: "Privacy Policy", href: "/privacy" },
   { text: "." },
 ] as const
 

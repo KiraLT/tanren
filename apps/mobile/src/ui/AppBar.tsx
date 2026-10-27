@@ -37,6 +37,8 @@ export interface AppBarProps {
    * the player passes false.
    */
   readonly nav?: boolean
+  /** Web heading level of the title (default 1); a page whose body carries the h1 passes 2. */
+  readonly titleLevel?: 1 | 2
   readonly style?: StyleProp<ViewStyle>
 }
 
@@ -80,6 +82,7 @@ export function AppBar({
   leading,
   trailing,
   nav = true,
+  titleLevel = 1,
   style,
 }: AppBarProps) {
   const { colors } = useTheme()
@@ -107,7 +110,7 @@ export function AppBar({
           </Text>
         </View>
       )}
-      <Text variant="title" accessibilityRole="header" numberOfLines={showNav ? 1 : 2}>
+      <Text variant="title" headingLevel={titleLevel} numberOfLines={showNav ? 1 : 2}>
         {title}
       </Text>
       {subtitle === undefined ? null : (

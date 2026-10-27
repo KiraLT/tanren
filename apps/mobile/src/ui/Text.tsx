@@ -25,7 +25,28 @@ export interface TextProps extends RNTextProps {
   readonly glow?: boolean
   /** Tabular figures (`fontVariant: ["tabular-nums"]`) for compared numbers (ui-polish D6). */
   readonly tabular?: boolean
+  /**
+   * Heading level on web (`<h1>`..`<h3>`). Without it `accessibilityRole="header"` renders every
+   * heading as `<h1>` (react-native-web 0.21.4). Setting it implies the heading role: do not combine
+   * it with `role` / `accessibilityRole` on the same element (the heading props follow `{...rest}`
+   * and would override a caller's `role`).
+   */
+  readonly headingLevel?: HeadingLevel
 }
+
+export type HeadingLevel = 1 | 2 | 3
+
+/**
+ * `role="heading"` is typed in react-native; `aria-level` is not on its Text props but
+ * react-native-web reads it (createDOMProps) to pick the element, and native ignores it. Spread
+ * as an object, so no cast is needed and the extra key is not excess-property checked.
+ */
+const headingProps = (
+  level: HeadingLevel,
+): { readonly role: "heading"; readonly "aria-level": HeadingLevel } => ({
+  role: "heading",
+  "aria-level": level,
+})
 
 /**
  * The only way to set a font size outside `src/ui`: a ramp variant plus a colour tone. The family
@@ -36,6 +57,7 @@ export function Text({
   tone = "default",
   glow = false,
   tabular = false,
+  headingLevel,
   style,
   ...rest
 }: TextProps) {
@@ -44,6 +66,7 @@ export function Text({
   return (
     <RNText
       {...rest}
+      {...(headingLevel === undefined ? {} : headingProps(headingLevel))}
       style={[
         type[variant],
         { color: colors[toneRole[tone]] },

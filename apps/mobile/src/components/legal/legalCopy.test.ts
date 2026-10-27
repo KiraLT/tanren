@@ -84,13 +84,16 @@ describe("legal copy (design legal.md §1–§3)", () => {
     )
   })
 
-  it("carries the LEGAL-R sentences exactly", () => {
+  it("names Expo's tools, not an update service", () => {
     const text = allText(PRIVACY)
     expect(text).toContain(
       "The iPhone app is built and delivered with Expo's tools; Expo does not receive your training data.",
     )
     expect(text).not.toContain("update service")
-    expect(text).toContain(
+  })
+
+  it("says email is the only required data", () => {
+    expect(allText(PRIVACY)).toContain(
       "Your email address is the only data you must provide: without it Tanren cannot sign you in. Everything else is optional.",
     )
   })
@@ -104,15 +107,17 @@ describe("legal copy (design legal.md §1–§3)", () => {
 
 describe("sign-in agreement line", () => {
   it("reads as the design sentence and links Terms and Privacy Policy", () => {
+    // The linked "Privacy Policy" carries a no-break space (U+00A0); the document title does not.
     expect(SIGN_IN_AGREEMENT).toBe(
-      "By continuing you agree to the Terms and acknowledge the Privacy Policy.",
+      "By continuing you agree to the Terms and acknowledge the Privacy Policy.",
     )
+    expect(SIGN_IN_AGREEMENT).toBe(SIGN_IN_AGREEMENT_PARTS.map((part) => part.text).join(""))
     const links = SIGN_IN_AGREEMENT_PARTS.flatMap((part) =>
       "href" in part ? [[part.text, part.href]] : [],
     )
     expect(links).toEqual([
       ["Terms", "/terms"],
-      ["Privacy Policy", "/privacy"],
+      ["Privacy Policy", "/privacy"],
     ])
   })
 })
