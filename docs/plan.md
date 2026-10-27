@@ -415,6 +415,16 @@ Recorded 2026-10-19, from the owner's kickoff message:
    day; at most one program day is completed per calendar day per enrollment
    (the next one becomes due the following day). Recorded in
    `docs/design/programs-player-v2.md` (PROG-D2 §d) and ADR-0026 amended.
+33. **Sets per exercise in gym programs** (2026-10-27 19:08, owner, verbatim):
+   "also 12 week program each exervice has only 1 repetition? its very
+   impractical." Lead reading: the program model only knows day-level
+   rounds (a circuit, right for Core 30) and a reps count per item, so a gym
+   day cannot say "bench press 4 × 8 with 90 s rest"; items gain a sets
+   count with rest between sets, the player runs set → rest → set per
+   exercise (with the weight entry of Amendment 31), the preview and editor
+   show "4 × 8", MCP `write_program` accepts it, and the built-in 12-week
+   program is rewritten to realistic prescriptions
+   (`docs/design/programs-player-v2.md` §e, PROG-5).
 31. **Program player: preview on press, weights per set, resume** (2026-10-27
    18:41, owner, verbatim): "More feedback: when I click on active program
    name I expect go to preview. / There is no ability to track weights for
