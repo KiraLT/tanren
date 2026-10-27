@@ -64,8 +64,19 @@ describe("MemoryIntegrations IntegrationRepo refresh lease", () => {
       expect(yield* repo.claimRefresh(row.id, T0, T0, secondsAfter(30))).toBe(true)
       expect(yield* repo.claimRefresh(row.id, T0, secondsAfter(10), secondsAfter(40))).toBe(false)
       expect(yield* repo.claimRefresh(row.id, T0, secondsAfter(31), secondsAfter(61))).toBe(true)
-      yield* repo.releaseRefresh(row.id)
+      yield* repo.releaseRefresh(row.id, secondsAfter(61))
       expect(yield* repo.claimRefresh(row.id, T0, secondsAfter(32), secondsAfter(62))).toBe(true)
+    }).pipe(Effect.provide(MemoryIntegrations.layer)),
+  )
+
+  it.effect("a release with a stale until leaves a newer lease in place", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      yield* repo.upsert(row)
+      expect(yield* repo.claimRefresh(row.id, T0, T0, secondsAfter(30))).toBe(true)
+      expect(yield* repo.claimRefresh(row.id, T0, secondsAfter(31), secondsAfter(61))).toBe(true)
+      yield* repo.releaseRefresh(row.id, secondsAfter(30))
+      expect(yield* repo.claimRefresh(row.id, T0, secondsAfter(32), secondsAfter(62))).toBe(false)
     }).pipe(Effect.provide(MemoryIntegrations.layer)),
   )
 

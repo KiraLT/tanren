@@ -250,16 +250,18 @@ const make = Effect.gen(function* () {
     integration: IntegrationRow,
     now: Timestamp,
   ) {
+    const until = DateTime.add(now, REFRESH_LEASE)
     const claimed = yield* integrations.claimRefresh(
       integration.id,
       integration.updatedAt,
       now,
-      DateTime.add(now, REFRESH_LEASE),
+      until,
     )
     if (!claimed) {
       return yield* rotatedElsewhere(integration)
     }
-    const release = Effect.ignore(integrations.releaseRefresh(integration.id))
+    // Releases only this drain's own lease (`until`), never one taken after it expired.
+    const release = Effect.ignore(integrations.releaseRefresh(integration.id, until))
     return yield* rotateClaimed(integration, now).pipe(
       Effect.tap((stored) => (stored.released ? Effect.void : release)),
       Effect.map((stored) => stored.token),

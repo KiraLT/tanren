@@ -209,13 +209,25 @@ describe("IntegrationRepo refresh lease", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("a release with a stale until leaves a newer lease in place", () =>
+    Effect.gen(function* () {
+      const repo = yield* IntegrationRepo
+      const stored = row(45, userOf(45))
+      yield* repo.upsert(stored)
+      expect(yield* repo.claimRefresh(stored.id, T0, T0, lease(30))).toBe(true)
+      expect(yield* repo.claimRefresh(stored.id, T0, lease(31), lease(61))).toBe(true)
+      yield* repo.releaseRefresh(stored.id, lease(30))
+      expect(yield* repo.claimRefresh(stored.id, T0, lease(32), lease(62))).toBe(false)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("setTokens and releaseRefresh both free the lease", () =>
     Effect.gen(function* () {
       const repo = yield* IntegrationRepo
       const stored = row(43, userOf(43))
       yield* repo.upsert(stored)
       expect(yield* repo.claimRefresh(stored.id, T0, T0, lease(30))).toBe(true)
-      yield* repo.releaseRefresh(stored.id)
+      yield* repo.releaseRefresh(stored.id, lease(30))
       expect(yield* repo.claimRefresh(stored.id, T0, lease(1), lease(31))).toBe(true)
       yield* repo.setTokens(stored.id, {
         access: SealedToken.make("v1.iv.a3"),

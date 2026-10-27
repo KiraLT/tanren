@@ -101,7 +101,13 @@ const make = Effect.gen(function* () {
           granted ? { ...s, leases: [...withoutLease(s, id).leases, { id, until }] } : s,
         ] as const
       }),
-    releaseRefresh: (id) => update((s) => withoutLease(s, id)),
+    // Like D1: only the caller's own lease (`until` matches) is freed.
+    releaseRefresh: (id, until) =>
+      update((s) =>
+        s.leases.some((lease) => lease.id === id && DateTime.Equivalence(lease.until, until))
+          ? withoutLease(s, id)
+          : s,
+      ),
     setTokens: (id, tokens) =>
       update((s) => ({
         ...withoutLease(s, id),
