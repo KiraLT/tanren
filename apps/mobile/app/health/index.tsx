@@ -226,7 +226,7 @@ export default function HealthScreen() {
   const today = localDateOf(new Date())
   const state = combine(useNutritionDay(today), useNutritionWeek(weekStartFor(today)))
   // A direct load has no history to go back to: fall back to Today.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/today"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/home"))
   const openActivity = (activity: ImportedActivity) =>
     router.navigate({ pathname: "/activity/imported/[id]", params: { id: activity.id } })
   const off = (

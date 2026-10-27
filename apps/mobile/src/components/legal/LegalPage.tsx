@@ -138,7 +138,7 @@ export function InlineAnchor({ label, href }: { readonly label: string; readonly
 export function LegalPage({ doc }: { readonly doc: LegalDoc }) {
   const router = useRouter()
   // A direct load has no history to go back to.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/today"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/home"))
   const other = LEGAL_PAGE.other[doc.slug]
   return (
     <>

@@ -37,17 +37,17 @@ const COLUMN_MAX_WIDTH = 420
 export default function SignInScreen() {
   const router = useRouter()
   const signedIn = useSignedIn()
-  const gated = useAuthGate("/today") === "sign-in"
+  const gated = useAuthGate("/home") === "sign-in"
   const { state, send } = useSendMagicLink()
   const [email, setEmail] = useState(__DEV__ ? DEV_EMAIL : "")
   const styles = useStyles(createStyles)
   const { colors, scheme } = useTheme()
   const sending = state._tag === "Sending"
   const sent = state._tag === "Sent"
-  const backToToday = () => router.replace("/today")
+  const backToHome = () => router.replace("/home")
   const backButton = gated ? null : (
     // Gated device (ADR-0019): Today would only bounce back here.
-    <Button label="Back to Today" variant="text" onPress={backToToday} />
+    <Button label="Back to Home" variant="text" onPress={backToHome} />
   )
 
   // Loading shows only the heading, so someone already signed in never sees the form flash.
@@ -67,7 +67,7 @@ export default function SignInScreen() {
 
   const body =
     !SIGN_IN_SUPPORTED || signedIn._tag === "SignedIn" ? (
-      <Button label="Back to Today" variant="primary" size="lg" onPress={backToToday} />
+      <Button label="Back to Home" variant="primary" size="lg" onPress={backToHome} />
     ) : signedIn._tag === "Loading" ? null : sent ? (
       <>
         <Text variant="headline" accessibilityLabel={`Link sent to ${email}`}>

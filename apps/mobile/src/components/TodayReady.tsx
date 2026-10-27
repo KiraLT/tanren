@@ -32,6 +32,8 @@ import { needsEquipmentSetup } from "./todaySetup"
 interface TodayReadyProps {
   /** The planned session's name: the AppBar title. */
   readonly title: string
+  /** AppBar control before the title (Home's back to its cards). */
+  readonly leading?: ReactNode
   /** Extra AppBar control after the exercise counter (the sign-in entry; renders null when not needed). */
   readonly accessory?: ReactNode
   readonly exercises: ReadonlyArray<TodayExercise>
@@ -171,6 +173,7 @@ function TodayAside({ exercises, index, onSelect, current, rest, top }: TodayAsi
  */
 export function TodayReady({
   title,
+  leading,
   accessory,
   exercises,
   footer,
@@ -197,6 +200,7 @@ export function TodayReady({
   const header = (
     <AppBar
       title={title}
+      leading={leading}
       {...Option.match(eyebrow, { onNone: () => ({}), onSome: (value) => ({ eyebrow: value }) })}
       trailing={
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>

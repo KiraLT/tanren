@@ -29,6 +29,7 @@ const entry = (day: Option.Option<ProgramDay>, status: "active" | "paused" = "ac
   enrollment: new ProgramEnrollment({ ...enrollment, status }),
   program: CORE30,
   day,
+  inProgress: Option.none(),
 })
 const ready = (...active: ReadonlyArray<ReturnType<typeof entry>>) =>
   ({ _tag: "Ready", summaries: [], active }) as const

@@ -23,7 +23,7 @@ expo-sqlite store with batched push/pull sync. Contracts live in `docs/design/`,
 app/          ROUTE INVENTORY — every route, kept complete by whoever adds one (the task that adds a route
               adds its line); UI specs, QA capture sets and the owner's gallery are built from this list.
   _layout.tsx, index.tsx, sign-in.tsx, auth/callback.tsx (native sign-in deep link),
-  (tabs)/_layout.tsx (themed tabs from `APP_NAV`, hidden at desktop), (tabs)/{today,train,activity}.tsx — Train
+  (tabs)/_layout.tsx (themed tabs from `APP_NAV`, hidden at desktop), (tabs)/{today,train,activity,you}.tsx — You (ADR-0029) = Account · Insights · Setup · About rows, gear → `/settings`; Train
   (ADR-0029) = Plan · Programs · Library segments, `?view=plan|programs|library` is the source of truth (in-app links use
   `/train?view=…`; `/plan`, `/programs`, `/library`, `/feed` are NotFound by design), bodies in `src/components/train/`
   root Stack: activity/[sessionId].tsx, activity/imported/[id].tsx, library/[catalogId].tsx, programs/play.tsx (Player,
@@ -134,7 +134,7 @@ public/_headers (COOP/COEP, copied into dist/) · public/manifest.json + icons/ 
 
 ## Feed, Progress, Garmin (feed.md, v2-extras.md, garmin.md)
 
-- Tabs: Home (`/today`) · Train · Activity (the feed, route `/activity`). `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`;
+- Tabs: Home (`/today`) · Train · Activity (the feed, route `/activity`) · You (`/you`; Progress, Health, Weekly review, Settings live behind it, not in Activity's bar). `FeedRepo.activities(limit)` → `FeedItem` `{_tag:"session"|"imported"}`;
   `activity(id)` is session-only, so an imported card opens `/activity/imported/[id]` (one 600 column at every width). Feed desktop
   aside is built only when Ready with items. `HistoryRepo` serves only Progress (a PR strictly beats every earlier set).
 - Garmin (`GarminCard`): the token is component state, cleared after every attempt; Connect has its own 30 s timeout

@@ -8,7 +8,7 @@ export default function AddFoodScreen() {
   const router = useRouter()
   const { add, pending, error, dismiss } = useAddFood()
   // A direct load has no history to go back to.
-  const close = () => (router.canGoBack() ? router.back() : router.replace("/today"))
+  const close = () => (router.canGoBack() ? router.back() : router.replace("/home"))
   return (
     <Page
       scroll

@@ -9,11 +9,11 @@ import { IntegrationsSection } from "../src/components/settings/IntegrationsSect
 import { NutritionSection } from "../src/components/settings/NutritionSection"
 import { AppBar, Columns, IconButton, Page, rhythm } from "../src/ui"
 
-/** Root-Stack route reached from the Progress header: Account, Appearance, Units, Data, About. */
+/** Root-Stack route reached from You (gear and rows): Account, Appearance, Units, Data, About. */
 export default function SettingsScreen() {
   const router = useRouter()
   // A direct load has no history to go back to.
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/activity"))
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/you"))
   return (
     <Page
       scroll

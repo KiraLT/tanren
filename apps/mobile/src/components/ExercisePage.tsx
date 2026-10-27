@@ -175,7 +175,7 @@ function ExerciseHead({ item }: { readonly item: TodayExercise }) {
         size={desktop ? sizes.illustrationLg : sizes.illustrationMd}
       />
       <View style={{ flex: 1, gap: space.xs }}>
-        <Text variant="display" accessibilityRole="header">
+        <Text variant="display" headingLevel={2}>
           {item.exercise.name}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>

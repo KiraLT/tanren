@@ -89,7 +89,7 @@ export const useAccount = (): {
     runtime.runPromiseExit(Account.use((current) => current.signOut)).then((exit) => {
       if (Exit.isSuccess(exit) && IS_WEB) {
         // The session is gone: reload even if the screen was left meanwhile.
-        window.location.assign("/today")
+        window.location.assign("/home")
         return
       }
       if (!mounted.current) {

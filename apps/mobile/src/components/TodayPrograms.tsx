@@ -108,9 +108,10 @@ function DueRow({ entry, onOpen, onStart }: DueRowProps) {
  * Today's "Programs due": one row per active program with a day left to do, "Start" opens the
  * player. Renders nothing when no program is due.
  */
-export function TodayPrograms() {
+export function TodayPrograms({ skipFirst = false }: { readonly skipFirst?: boolean }) {
   const router = useRouter()
-  const due = useDueToday()
+  // Home's Up-next card already shows the first due day when nothing is planned.
+  const due = Arr.drop(useDueToday(), skipFirst ? 1 : 0)
   if (Arr.isReadonlyArrayEmpty(due)) {
     return null
   }

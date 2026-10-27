@@ -1,11 +1,11 @@
 import { Cause, Effect, Exit, Option, Predicate } from "effect"
 import { useCallback, useState } from "react"
 import {
+  homeCallbackUrl,
   magicLinkFailureMessage,
   SIGN_IN_WEB_ONLY_NOTICE,
   sendMagicLink,
   signInSupported,
-  todayCallbackUrl,
 } from "../services/magicLink"
 import { NativeSession, nativeSignInFailureMessage } from "../services/NativeSession"
 import { runtime } from "../services/runtime"
@@ -29,13 +29,13 @@ const GENERIC_FAILURE = "Something went wrong. Try again."
 const SENT_HINT = IS_WEB ? "Open the link on this device." : "Open the link on this iPhone."
 
 /**
- * Web: the callbackURL is `<origin>/today`. Native: `NativeSession.begin` stores a fresh PKCE
+ * Web: the callbackURL is `<origin>/home`. Native: `NativeSession.begin` stores a fresh PKCE
  * verifier and posts `{ email, challenge, returnTo }` to the worker's `/api/native/begin`, which
  * signs the callbackURL and sends the link.
  */
 const requestLink = (email: string) =>
   IS_WEB
-    ? sendMagicLink(email, todayCallbackUrl(window.location.origin))
+    ? sendMagicLink(email, homeCallbackUrl(window.location.origin))
     : NativeSession.use((session) => session.begin(email)).pipe(Effect.provide(NativeSession.layer))
 
 /**

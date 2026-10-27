@@ -2,6 +2,7 @@ import { Match } from "effect"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import type { ReactNode } from "react"
 import { View } from "react-native"
+import { StartButton } from "../../src/components/today/StartButton"
 import { LibraryView } from "../../src/components/train/LibraryView"
 import { PlanView } from "../../src/components/train/PlanView"
 import { ProgramsView } from "../../src/components/train/ProgramsView"
@@ -13,7 +14,7 @@ import {
   trainViewFor,
 } from "../../src/components/train/trainView"
 import { type PlanWeekState, usePlanWeek } from "../../src/hooks/usePlanWeek"
-import { AppBar, gutter, SegmentedControl, sizes, space, useBreakpoint } from "../../src/ui"
+import { AppBar, gutter, SegmentedControl, space, useBreakpoint } from "../../src/ui"
 
 /** Segment row width: 3 × 119 at 390 (navigation-v2.md §7); desktop keeps the same width. */
 const SEGMENT_ROW_WIDTH = 358
@@ -40,12 +41,9 @@ export default function TrainScreen() {
   const view = trainViewFor(params.view, availability(state))
   const header = (trailing: ReactNode) => (
     <View>
-      {/* Without an action, a tap-high spacer keeps the bar at the same height in every segment
-          (56 vs 61 px measured), so the segment row never jumps when the view changes. */}
-      <AppBar
-        title="Train"
-        trailing={trailing === null ? <View style={{ height: sizes.tap }} /> : trailing}
-      />
+      {/* One action in the slot (§4 rule 5): Programs' own "New program", else the shared Start.
+          Both are 44 px tall, so the bar is 61 px in every segment and the row never jumps. */}
+      <AppBar title="Train" trailing={trailing === null ? <StartButton /> : trailing} />
       <View
         style={{
           paddingHorizontal: gutter[breakpoint],

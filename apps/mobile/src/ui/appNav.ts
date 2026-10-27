@@ -15,9 +15,10 @@ export interface AppNavLink {
  * render them. Plan, Programs and Library are segments of Train (`/train?view=`), not tabs.
  */
 export const APP_NAV: ReadonlyArray<AppNavLink> = [
-  { name: "today", href: "/today", label: "Home", icon: "home" },
+  { name: "home", href: "/home", label: "Home", icon: "home" },
   { name: "train", href: "/train", label: "Train", icon: "dumbbell" },
   { name: "activity", href: "/activity", label: "Activity", icon: "flame" },
+  { name: "you", href: "/you", label: "You", icon: "user" },
 ]
 
 /** `/train` and `/train/anything` are the Train destination; `/trainer` is not. */

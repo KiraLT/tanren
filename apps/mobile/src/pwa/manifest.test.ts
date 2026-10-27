@@ -36,7 +36,7 @@ describe("public/manifest.json", () => {
       name: "Tanren",
       short_name: "Tanren",
       id: "/",
-      start_url: "/today",
+      start_url: "/home",
       scope: "/",
       display: "standalone",
     })

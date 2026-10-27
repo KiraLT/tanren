@@ -15,13 +15,13 @@ import {
 import { effectiveActivity } from "../../src/components/feed/feedSelection"
 import { ImportedCard } from "../../src/components/feed/ImportedCard"
 import { type FeedItem, useFeed } from "../../src/hooks/useFeed"
+import { WORKOUT_HREF } from "../../src/hooks/useStartWorkout"
 import { FEED_PAGE, MAX_FEED_LIMIT } from "../../src/services/FeedRepo"
 import {
   AppBar,
   Button,
   EmptyState,
   gutter,
-  IconButton,
   Page,
   radius,
   Skeleton,
@@ -134,11 +134,11 @@ export default function ActivityScreen() {
   const openImported = (activity: ImportedActivity) =>
     router.navigate({ pathname: "/activity/imported/[id]", params: { id: activity.id } })
 
-  // An in-progress card is Today's session, so it goes there at every width; a finished one is
+  // An in-progress card is today's session, so it opens Home's pager at every width; a finished one is
   // selected into the aside at desktop and opens its page below it.
   const openActivity = (activity: Activity) =>
     activity.status === "inProgress"
-      ? router.navigate("/today")
+      ? router.navigate(WORKOUT_HREF)
       : desktop
         ? setPicked(Option.some(activity.sessionId))
         : router.navigate({
@@ -160,29 +160,7 @@ export default function ActivityScreen() {
   })
 
   return (
-    <Page
-      header={
-        <AppBar
-          title="Activity"
-          trailing={
-            <View style={{ flexDirection: "row", gap: space.sm }}>
-              <IconButton
-                icon="chart"
-                accessibilityLabel="Progress"
-                onPress={() => router.navigate("/progress")}
-              />
-              <IconButton
-                icon="settings"
-                accessibilityLabel="Settings"
-                onPress={() => router.navigate("/settings")}
-              />
-            </View>
-          }
-        />
-      }
-      aside={aside}
-      split="5/7"
-    >
+    <Page header={<AppBar title="Activity" />} aside={aside} split="5/7">
       {Match.value(feed).pipe(
         Match.tagsExhaustive({
           Loading: () => <FeedSkeleton />,
@@ -201,7 +179,7 @@ export default function ActivityScreen() {
                 headingLevel={2}
                 title="No workouts yet"
                 body="Log a set on Home or finish a program day and it shows up here."
-                action={{ label: "Go to Home", onPress: () => router.navigate("/today") }}
+                action={{ label: "Go to Home", onPress: () => router.navigate("/home") }}
               />
             ) : (
               <FeedList

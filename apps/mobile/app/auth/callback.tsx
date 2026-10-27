@@ -19,7 +19,7 @@ export default function AuthCallbackScreen() {
 
   useEffect(() => {
     if (state._tag === "Done") {
-      router.replace("/today")
+      router.replace("/home")
     }
   }, [state._tag, router])
 

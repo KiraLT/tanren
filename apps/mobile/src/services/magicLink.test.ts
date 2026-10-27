@@ -2,13 +2,13 @@ import { describe, expect, it } from "@effect/vitest"
 import { Array as Arr, Effect, Option, Ref, Result } from "effect"
 import { FetchHttpClient } from "effect/http"
 import {
+  homeCallbackUrl,
   MagicLinkFailed,
   magicLinkBody,
   magicLinkFailureMessage,
   normalizeEmail,
   sendMagicLink,
   signInSupported,
-  todayCallbackUrl,
 } from "./magicLink"
 
 describe("normalizeEmail", () => {
@@ -29,25 +29,25 @@ describe("signInSupported", () => {
   })
 })
 
-describe("todayCallbackUrl", () => {
-  it("is the page origin plus /today", () => {
-    expect(todayCallbackUrl("http://localhost:8790")).toBe("http://localhost:8790/today")
+describe("homeCallbackUrl", () => {
+  it("is the page origin plus /home", () => {
+    expect(homeCallbackUrl("http://localhost:8790")).toBe("http://localhost:8790/home")
   })
 
   it("ignores a trailing slash on the origin", () => {
-    expect(todayCallbackUrl("http://localhost:8790/")).toBe("http://localhost:8790/today")
+    expect(homeCallbackUrl("http://localhost:8790/")).toBe("http://localhost:8790/home")
   })
 
   it("never yields an exp:// callback", () => {
-    expect(todayCallbackUrl("http://192.168.1.5:8081").startsWith("exp://")).toBe(false)
+    expect(homeCallbackUrl("http://192.168.1.5:8081").startsWith("exp://")).toBe(false)
   })
 })
 
 describe("magicLinkBody", () => {
   it("carries exactly email and callbackURL", () => {
-    expect(magicLinkBody("dev@tanren.local", "http://localhost:8790/today")).toEqual({
+    expect(magicLinkBody("dev@tanren.local", "http://localhost:8790/home")).toEqual({
       email: "dev@tanren.local",
-      callbackURL: "http://localhost:8790/today",
+      callbackURL: "http://localhost:8790/home",
     })
   })
 })
@@ -102,7 +102,7 @@ const recordingFetch =
     return respond()
   }
 
-const callbackURL = "http://localhost:8790/today"
+const callbackURL = "http://localhost:8790/home"
 
 const sendWith = (rawEmail: string, respond: () => Promise<Response>) =>
   Effect.gen(function* () {

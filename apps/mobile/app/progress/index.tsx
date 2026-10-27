@@ -49,9 +49,10 @@ function ListState({ state, render, onLogFirstSet }: ListStateProps) {
       Ready: ({ value }) =>
         value.length === 0 ? (
           <EmptyState
-            title="Log your first set on Today"
+            headingLevel={2}
+            title="Log your first set on Home"
             body="Your best sets, volume and records show up here."
-            action={{ label: "Go to Today", onPress: onLogFirstSet }}
+            action={{ label: "Go to Home", onPress: onLogFirstSet }}
           />
         ) : (
           render(value)
@@ -77,8 +78,8 @@ export default function ProgressScreen() {
   const [picked, setPicked] = useState<Option.Option<ExerciseId>>(Option.none())
   const exercises = useExerciseSummaries().state
 
-  const goToToday = () => router.navigate("/today")
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/activity"))
+  const goToToday = () => router.navigate("/home")
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/you"))
   const selected = effectiveSelection(exercises._tag === "Ready" ? exercises.value : [], picked)
   const openExercise = (id: ExerciseId) =>
     desktop

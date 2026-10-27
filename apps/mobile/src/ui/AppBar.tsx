@@ -1,6 +1,6 @@
 import { Array as Arr } from "effect"
 import { type Href, Link, usePathname } from "expo-router"
-import type { ReactNode } from "react"
+import { createContext, type ReactNode, useContext } from "react"
 import { Pressable, type StyleProp, View, type ViewStyle } from "react-native"
 import { useBreakpoint } from "../hooks/useLayoutMode"
 import { APP_NAV, isActivePath } from "./appNav"
@@ -41,6 +41,12 @@ export interface AppBarProps {
   readonly titleLevel?: 1 | 2
   readonly style?: StyleProp<ViewStyle>
 }
+
+/**
+ * The desktop bar's trailing Start (navigation-v2.md §3), provided by `(tabs)/_layout.tsx` so this
+ * primitive needs no store hook. Shown with the nav links, never on `/train` or `/home`.
+ */
+export const AppBarStartContext = createContext<ReactNode>(null)
 
 function NavLink({ item }: { readonly item: AppBarNavItem }) {
   const { colors } = useTheme()
@@ -89,6 +95,9 @@ export function AppBar({
   const breakpoint = useBreakpoint()
   const pathname = usePathname()
   const showNav = nav && breakpoint === "desktop"
+  const start = useContext(AppBarStartContext)
+  // One Start per screen (§4 rule 3): Train's bar and Home's Up-next card carry their own.
+  const showStart = showNav && !isActivePath(pathname, "/train") && !isActivePath(pathname, "/home")
   const items: ReadonlyArray<AppBarNavItem> = Arr.map(APP_NAV, (link) => ({
     href: link.href,
     label: link.label,
@@ -167,6 +176,7 @@ export function AppBar({
           ))}
         </View>
       ) : null}
+      {showStart ? start : null}
       {trailing}
     </View>
   )
