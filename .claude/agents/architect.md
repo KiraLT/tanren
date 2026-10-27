@@ -151,6 +151,31 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   `Referer` (HTML page, not 302 with the secret in the URL when a page follows).
 - **Binding before consume**: the code is tied to the challenge/device and
   checked before it is burned; one-time, short expiry, HTTPS-only redemption.
+- **Outbound fetch of an attacker-named URL** (CIMD client documents,
+  webhooks, identity metadata): write the recipe, not the numbers — ONE
+  `AbortSignal` over the fetch AND the body read, a streamed byte cap with
+  `reader.cancel()` (never `arrayBuffer()` then `.byteLength`), `redirect:
+  "manual"`, content-type check, `global_fetch_strictly_public` — and name
+  the two tests (slow body, oversize body). auth-v2 wrote "5 s timeout, 5 KiB
+  cap"; STLS-4a timed the fetch only and capped after buffering; REV-W2
+  REQUEST CHANGES (2026-10-27).
+- **Sign-out / revoke when the server call fails** (offline, timeout): say
+  what the client stores and retries (pending-revoke marker cleared after
+  the next successful call) and what the server-side exposure window is.
+  STLS-5 needed a Lead ruling plus two fix rounds for this one line.
+
+## Screen design checklist (every design with a web-rendered page)
+
+- Heading levels: react-native-web renders `accessibilityRole="header"`
+  without a level as `<h1>`; the spec names the level per heading (page
+  title 1, sections 2) and the proof (`document.querySelectorAll("h1").length
+  === 1`). legal.md spec'd "header role" twice → /privacy had 12 h1s, fix r3.
+- One title: a document title lives in the body OR the AppBar, never both;
+  state the frame (app nav or document frame) per auth state and width.
+- Hit boxes: every anchor — footer links, inline text links, mailto — is a
+  44 px target (inline: `paddingVertical: 14` on a 16 px line), and adjacent
+  targets are ≥ 44 px apart; name the measurement (`getBoundingClientRect`).
+  legal.md said "caption links": rounds r2, r4 and r5 of LEGAL-1 were this.
 
 ## Time box
 

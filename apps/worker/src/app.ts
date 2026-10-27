@@ -1,4 +1,10 @@
-import type { ActivityExportRepo, IntegrationRepo } from "@tanren/db"
+import type {
+  AccountErasure,
+  ActivityExportRepo,
+  IntegrationRepo,
+  OAuthCodeUseRepo,
+  UserTokens,
+} from "@tanren/db"
 import { IdGenerator } from "@tanren/shared"
 import { Effect, Layer, Match } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
@@ -10,6 +16,8 @@ import { authRoutes } from "./auth/authRoutes"
 import type { BetterAuth } from "./auth/BetterAuth"
 import type { Sessions } from "./auth/Sessions"
 import { SessionsLive } from "./auth/SessionsLive"
+import { Tokens } from "./auth/Tokens"
+import { tokenRoutes } from "./auth/tokenRoutes"
 import { WorkerConfig } from "./Config"
 import type { EnvVars } from "./Env"
 import { callbackRoutes } from "./integrations/callbackRoutes"
@@ -25,7 +33,9 @@ import {
   Repositories,
   type SessionRepo,
 } from "./repos"
+import { MemoryAccountErasure } from "./repos/MemoryAccountErasure"
 import { MemoryIntegrations } from "./repos/MemoryIntegrations"
+import { MemoryTokens } from "./repos/MemoryTokens"
 import { Sync } from "./sync/Sync"
 import { SyncStore, SyncStoreMemory } from "./sync/SyncStore"
 
@@ -51,6 +61,9 @@ export type Persistence =
   | SyncStore
   | IntegrationRepo
   | ActivityExportRepo
+  | UserTokens
+  | OAuthCodeUseRepo
+  | AccountErasure
 
 export interface AppServices {
   readonly auth: AuthMode
@@ -67,9 +80,13 @@ export interface AppServices {
  * integration repositories keep their own in-memory state (`MemoryIntegrations`).
  */
 export const memoryPersistence = (store: Layer.Layer<MemoryStore>): Layer.Layer<Persistence> =>
-  Layer.mergeAll(Repositories.layerMemoryNoDeps, SyncStoreMemory, MemoryIntegrations.layer).pipe(
-    Layer.provide(store),
-  )
+  Layer.mergeAll(
+    Repositories.layerMemoryNoDeps,
+    SyncStoreMemory,
+    MemoryIntegrations.layer,
+    MemoryTokens.layer,
+    MemoryAccountErasure.layer,
+  ).pipe(Layer.provide(store))
 
 /**
  * The `@tanren/db` repositories and sync store on the D1 binding (the Worker). `D1Client.layer`
@@ -103,6 +120,7 @@ const authLayers = (mode: AuthMode): AuthLayers =>
     Match.tagsExhaustive({
       Fixed: ({ sessions }): AuthLayers => ({ sessions, routes: Layer.empty }),
       BetterAuth: ({ betterAuth }): AuthLayers => ({
+        // App JWT first (no D1), then the Better Auth cookie (auth-v2.md §4).
         sessions: SessionsLive.pipe(Layer.provide(betterAuth)),
         routes: betterAuthRoutes(betterAuth),
       }),
@@ -133,7 +151,11 @@ export const makeApp = (env: EnvVars, services: AppServices): App => {
   )
   // A plain route next to `auth.routes`: it answers 303 / HTML and reads no session (design §4).
   const callback = callbackRoutes.pipe(Layer.provide(shared))
-  const app = Layer.mergeAll(api, auth.routes, callback).pipe(
+  // Native session exchange (in `auth.routes`) and `/api/token/*` read the token generations from
+  // persistence; `Tokens.layer` is one reference, so every user shares one instance.
+  const routes = auth.routes.pipe(Layer.provide(shared))
+  const token = tokenRoutes.pipe(Layer.provide(Layer.mergeAll(shared, auth.sessions, Tokens.layer)))
+  const app = Layer.mergeAll(api, routes, token, callback).pipe(
     Layer.provide(corsLayer),
     Layer.provide(WorkerConfig.layerFromEnv(env)),
     Layer.provide(HttpServer.layerServices),

@@ -1,6 +1,7 @@
-import { MCP_SCOPES, type McpScope, OAuthProps, type UserId } from "@tanren/shared"
-import { Array as Arr, Context, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { MCP_SCOPES, type McpScope, type UserId } from "@tanren/shared"
+import { Array as Arr, Context, Effect, Layer, Option, Redacted } from "effect"
 import { DEV_USER_ID } from "../auth/devUser"
+import { Tokens } from "../auth/Tokens"
 import { WorkerConfig, type WorkerConfigShape } from "../Config"
 
 /** The authenticated caller of `/mcp` (docs/design/oauth.md §4). */
@@ -63,7 +64,7 @@ export const constantTimeEqual = (left: string, right: string): boolean => {
 
 /**
  * `token` is the configured `DEV_MCP_TOKEN` and `environment === "local"` → the dev principal.
- * Shared by `layerDevToken` and the provider's `resolveExternalToken` in `index.ts`.
+ * Used by `layerDevToken`.
  */
 export const devPrincipalFor = (
   config: Pick<WorkerConfigShape, "environment" | "devMcpToken">,
@@ -76,12 +77,6 @@ export const devPrincipalFor = (
           ? Option.some(DEV_PRINCIPAL)
           : Option.none(),
       )
-
-const decodeProps = Schema.decodeUnknownOption(OAuthProps)
-
-/** `ctx.props` as the provider sets it for a valid token (the grant's `OAuthProps`), else none. */
-export const principalFromProps = (props: unknown): Option.Option<McpPrincipal> =>
-  decodeProps(props)
 
 export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/worker/McpAuth") {
   /**
@@ -102,19 +97,34 @@ export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/w
   )
 
   /**
-   * OAuth (step 5): the `OAuthProvider` validated the bearer and put the grant's props in
-   * `ctx.props`; anything that does not decode as `OAuthProps` → `None`. Ignores the request.
+   * Stateless OAuth (ADR-0022, docs/design/auth-v2.md §1): the bearer is an MCP access JWT verified
+   * by `Tokens.verifyMcp` (signature, `exp`, `aud` = `MCP_RESOURCE_URL`, `iss`); no D1 read, so a
+   * revoked grant's access token lives out its 15 minutes. Anything else → `None`. Ignores `ctx`.
    */
-  static readonly layerOAuth: Layer.Layer<McpAuth> = Layer.succeed(
+  static readonly layerJwt: Layer.Layer<McpAuth, never, Tokens> = Layer.effect(
     this,
-    this.of({ resolve: (_request, ctx) => Effect.sync(() => principalFromProps(ctx.props)) }),
+    Effect.gen(function* () {
+      const tokens = yield* Tokens
+      const resolve = (request: Request): Effect.Effect<Option.Option<McpPrincipal>> =>
+        Option.match(bearerToken(request), {
+          onNone: () => Effect.succeed(Option.none()),
+          onSome: (token) =>
+            tokens.verifyMcp(token).pipe(
+              Effect.map(({ userId, scopes }) => Option.some({ userId, scopes })),
+              Effect.orElseSucceed(() => Option.none()),
+            ),
+        })
+      return { resolve }
+    }),
   )
 
-  /** The Worker: OAuth props first, then the local dev token. */
+  /** The Worker: an MCP access JWT first, then the local dev token. */
   static readonly layerLive: Layer.Layer<McpAuth, never, WorkerConfig> = Layer.effect(
     this,
     Effect.gen(function* () {
-      const oauth = yield* McpAuth.pipe(Effect.provide(McpAuth.layerOAuth))
+      const oauth = yield* McpAuth.pipe(
+        Effect.provide(McpAuth.layerJwt.pipe(Layer.provide(Tokens.layer))),
+      )
       const dev = yield* McpAuth.pipe(Effect.provide(McpAuth.layerDevToken))
       return McpAuth.of({
         resolve: (request, ctx) =>

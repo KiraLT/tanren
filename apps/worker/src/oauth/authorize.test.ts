@@ -7,7 +7,7 @@ import { Sessions } from "../auth/Sessions"
 import { envVars } from "../testing/fixtures"
 import { consentView, makeAuthorize, safeNext } from "./authorize"
 import { CLAUDE_CODE_DOCUMENT } from "./knownClients"
-import { FAKE_CLIENT_ID, FakeOAuth, OAuthApi, type OAuthApiShape, OAuthFailure } from "./OAuthApi"
+import { FAKE_CLIENT_ID, FakeOAuth, OAuthApi, type OAuthApiShape } from "./OAuthApi"
 import { escapeHtml } from "./pages"
 
 const BASE = "http://localhost:8787"
@@ -391,13 +391,14 @@ describe("POST /authorize", () => {
   )
 })
 
-describe("makeAuthorize without the provider helpers", () => {
-  it.effect("answers 503 when env.OAUTH_PROVIDER is missing", () =>
+describe("makeAuthorize without an OAuth port", () => {
+  it.effect("answers 503 when the oauth hook yields none", () =>
     Effect.gen(function* () {
       const emails = yield* Layer.build(EmailSender.layerCapture)
       const authorize = makeAuthorize(envVars, {
         betterAuth: BetterAuth.layerMemory.pipe(Layer.provide(Layer.succeedContext(emails))),
         sessions: signedIn,
+        oauth: () => Option.none(),
       })
       yield* Effect.addFinalizer(() => Effect.promise(authorize.dispose))
       const response = yield* Effect.promise(() =>
@@ -414,28 +415,6 @@ describe("helpers", () => {
     expect(safeNext("/authorize/login?a=1", BASE)).toEqual(Option.none())
     expect(safeNext("http://localhost:8787/authorize?a=1", BASE)).toEqual(Option.none())
     expect(safeNext("/\\evil.example/authorize?a=1", BASE)).toEqual(Option.none())
-  })
-
-  it("OAuthFailure keeps an AuthorizationError's code and redirect", () => {
-    const fromProvider = OAuthFailure.fromRejection({
-      name: "AuthorizationError",
-      code: "invalid_scope",
-      description: "bad scope",
-      redirectTo: "http://localhost:1/cb?error=invalid_scope",
-    })
-    expect(fromProvider.code).toEqual(Option.some("invalid_scope"))
-    expect(fromProvider.redirectTo).toEqual(
-      Option.some("http://localhost:1/cb?error=invalid_scope"),
-    )
-    const local = OAuthFailure.fromRejection({
-      name: "AuthorizationError",
-      code: "invalid_request",
-      description: "Invalid client_id",
-      redirectTo: undefined,
-    })
-    expect(local.redirectTo).toEqual(Option.none())
-    const plain = OAuthFailure.fromRejection(new Error("boom"))
-    expect(plain).toMatchObject({ message: "boom", code: Option.none(), redirectTo: Option.none() })
   })
 
   it("escapeHtml escapes markup and both quote styles", () => {

@@ -4,6 +4,10 @@ import { Option } from "effect"
 import {
   APPEARANCE_OPTIONS,
   aboutTitle,
+  DISCONNECT_AI_DONE_TITLE,
+  DISCONNECT_AI_TITLE,
+  disconnectFailureBody,
+  disconnectFailureTitle,
   equipmentGlyph,
   itemsSelectedLabel,
   presetItemsLabel,
@@ -24,6 +28,23 @@ describe("signOutFailureTitle", () => {
 describe("signOutFailureBody", () => {
   it("reassures that nothing changed offline", () => {
     expect(signOutFailureBody("offline")).toContain("Nothing on this device changed")
+  })
+})
+
+describe("Disconnect AI clients copy", () => {
+  it("names the row and the success banner", () => {
+    expect(DISCONNECT_AI_TITLE).toBe("Disconnect AI clients")
+    expect(DISCONNECT_AI_DONE_TITLE).toBe("Claude and other apps must reconnect")
+  })
+
+  it("asks for a connection when offline and keeps the clients connected", () => {
+    expect(disconnectFailureTitle("offline")).toBe("Disconnecting needs a connection")
+    expect(disconnectFailureBody("offline")).toContain("still connected")
+  })
+
+  it("reports a server refusal", () => {
+    expect(disconnectFailureTitle("server")).toBe("Could not disconnect AI clients")
+    expect(disconnectFailureBody("server")).toContain("did not revoke")
   })
 })
 

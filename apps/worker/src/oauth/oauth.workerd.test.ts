@@ -14,11 +14,11 @@ import { makeMcp } from "../mcp/McpRoute"
 import { ExerciseRepo, ProfileRepo } from "../repos"
 import { exercise } from "../sync/fixtures"
 import { makeAuthorize } from "./authorize"
-import { makeProvider } from "./provider"
+import { makeRouter, statelessOAuth } from "./provider"
 
-// The whole OAuth flow inside workerd, through the real `OAuthProvider` (KV = miniflare's
-// `OAUTH_KV`): register → authorize (fixed Better Auth session) → consent → token (PKCE S256) →
-// `/mcp` with the bearer, on a migrated D1. Same wiring as `index.ts` except the session.
+// The whole stateless OAuth flow inside workerd (ADR-0022): register → authorize (fixed Better Auth
+// session) → consent (cookie-bound JWT handle) → token (PKCE S256) → `/mcp` with the bearer, on a
+// migrated D1. Same wiring as `index.ts` except the session.
 const BASE = env.BETTER_AUTH_URL
 const REDIRECT = "http://localhost:33418/callback"
 const owner = Schema.decodeUnknownSync(UserId)("00000000-0000-4000-8000-0000000005a1")
@@ -27,14 +27,30 @@ const squatId = `00000000-0000-4000-8000-${SQUAT.toString(16).padStart(12, "0")}
 
 const persistence = d1Persistence(env.DB)
 const signedIn = Sessions.layerFixed(Option.some(owner))
-const provider = makeProvider(WorkerConfig.fromEnvSync(env), {
-  app: makeApp(env, { auth: { _tag: "Fixed", sessions: signedIn }, persistence }),
-  mcp: makeMcp(env, { persistence, auth: McpAuth.layerLive }),
-  authorize: makeAuthorize(env, {
-    betterAuth: BetterAuth.layerMemory.pipe(Layer.provide(EmailSender.layerConsole)),
-    sessions: signedIn,
-  }),
-})
+const provider = makeRouter(
+  env,
+  WorkerConfig.fromEnvSync(env),
+  {
+    app: makeApp(env, { auth: { _tag: "Fixed", sessions: signedIn }, persistence }),
+    mcp: makeMcp(env, { persistence, auth: McpAuth.layerLive }),
+    authorize: makeAuthorize(env, {
+      betterAuth: BetterAuth.layerMemory.pipe(Layer.provide(EmailSender.layerConsole)),
+      sessions: signedIn,
+      oauth: statelessOAuth(persistence),
+    }),
+  },
+  persistence,
+)
+
+/** The grant's user must exist: codes and refreshes are bound to `user.mcpTokenGen`. */
+const ensureOwner = () =>
+  env.DB.prepare(
+    `INSERT OR IGNORE INTO user (id, name, email, emailVerified, createdAt, updatedAt)
+     VALUES (?, 'Owner', 'owner-5a1@tanren.test', 1, '2026-10-27T00:00:00.000Z', '2026-10-27T00:00:00.000Z')`,
+  )
+    .bind(owner)
+    .run()
+beforeAll(ensureOwner)
 
 const send = async (path: string, init?: RequestInit): Promise<Response> => {
   const ctx = createExecutionContext()
@@ -129,6 +145,55 @@ const grant = async (
   expect(token.status).toBe(200)
   return str((await json(token)).access_token)
 }
+
+/** register → authorize → approve both scopes; `exchange()` posts the code to `/oauth/token`. */
+const codeGrant = async () => {
+  const clientId = await register()
+  const verifier = "workerd-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz"
+  const challenge = base64url(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
+  )
+  const query = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: REDIRECT,
+    scope: "tanren:read tanren:write",
+    state: "st-2",
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  })
+  const consent = await send(`/authorize?${query.toString()}`)
+  const handle = /name="handle" value="([^"]+)"/.exec(await consent.text())?.[1] ?? ""
+  const approved = await send("/authorize", {
+    method: "POST",
+    headers: { cookie: cookiesOf(consent), origin: BASE },
+    body: new URLSearchParams([
+      ["handle", handle],
+      ["decision", "approve"],
+      ["scope", "tanren:read"],
+      ["scope", "tanren:write"],
+    ]),
+  })
+  const code = new URL(approved.headers.get("location") ?? "").searchParams.get("code") ?? ""
+  const exchange = () =>
+    send("/oauth/token", {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: REDIRECT,
+        client_id: clientId,
+        code_verifier: verifier,
+      }),
+    })
+  return { exchange }
+}
+
+const refreshWith = (refreshToken: string) =>
+  send("/oauth/token", {
+    method: "POST",
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+  })
 
 const mcp = (bearer: Option.Option<string>, method: string, params: unknown) =>
   send("/mcp", {
@@ -248,6 +313,45 @@ describe("OAuth flow through the provider (workerd)", () => {
       })
     const [foreign, same] = await Promise.all([login("https://evil.example"), login(BASE)])
     expect([foreign.status, same.status]).toEqual([400, 200])
+  })
+
+  it("a replayed code → 400 invalid_grant, no-store", async () => {
+    const { exchange } = await codeGrant()
+    expect((await exchange()).status).toBe(200)
+    const replay = await exchange()
+    expect(replay.status).toBe(400)
+    expect(replay.headers.get("cache-control")).toBe("no-store")
+    expect(await json(replay)).toMatchObject({ error: "invalid_grant" })
+  })
+
+  it("refresh → a new pair whose access token lists the tools", async () => {
+    const { exchange } = await codeGrant()
+    const first = await json(await exchange())
+    const refreshed = await refreshWith(str(first.refresh_token))
+    expect(refreshed.status).toBe(200)
+    const body = await json(refreshed)
+    expect(body).toMatchObject({ token_type: "Bearer", scope: "tanren:read tanren:write" })
+    expect(await toolNames(Option.some(str(body.access_token)))).toEqual([...MCP_TOOLS])
+  })
+
+  it("revoke-mcp (web session) → the refresh token answers 400 invalid_grant", async () => {
+    const { exchange } = await codeGrant()
+    const first = await json(await exchange())
+    const revoked = await send("/api/token/revoke-mcp", { method: "POST" })
+    expect(revoked.status).toBe(204)
+    const refreshed = await refreshWith(str(first.refresh_token))
+    expect(refreshed.status).toBe(400)
+    expect(await json(refreshed)).toMatchObject({ error: "invalid_grant" })
+  })
+
+  it("a CORS preflight on /oauth/token answers 204 with the reflected origin", async () => {
+    const response = await send("/oauth/token", {
+      method: "OPTIONS",
+      headers: { origin: "https://claude.ai", "access-control-request-method": "POST" },
+    })
+    expect(response.status).toBe(204)
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://claude.ai")
+    expect(response.headers.get("access-control-expose-headers")).toContain("WWW-Authenticate")
   })
 
   it("the local dev token still resolves (resolveExternalToken)", async () => {

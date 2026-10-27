@@ -98,12 +98,13 @@ Team-lead dispatched 12:47:21 · hard stop **14:37** · ports probed 12:49: 8981
 | STLS-3 | opus | 1, 2 | 20 | W2 | a715e5c63cf3b23cb | done 13:08 |
 | STLS-4a | opus | 1, 2 | 20 | W2 | a5736abc27c1b6d2e | done 13:08 |
 | STLS-5 | sonnet | 1 | 20 | W2 | ab9dd7c02dde4468f | done 13:03 |
-| STLS-4b | opus (resume 4a) | 4a, 1, 2 | 20 | W3 | a5736abc27c1b6d2e | resumed 13:10 |
-| STLS-6 | sonnet | 3, 4b | 10 | W4 | | todo |
-| STLS-R | opus | 3, 4b, 5 (delta over W1) | 10 | W4 (with 6) | | todo |
+| STLS-4b | opus (resume 4a) | 4a, 1, 2 | 20 | W3 | a5736abc27c1b6d2e | done 13:21 (nits r2 13:29) |
+| STLS-6 | sonnet | 3, 4b | 10 | W3 | ab27d30ffc147b2bc | done 13:22 (QA doc fixes r2 13:29) |
+| REV-W2 | opus | 3, 4a | 10 | W3 | a6b260b84ed0136d0 | REQUEST CHANGES 13:14 (CIMD body timeout/cap) → fixed by REV-W2-F a26c19e417c0ef40a 13:17 |
+| STLS-R | opus | 4b, 5, 6, REV-W2-F | 12 | W4 | accf6a839ba385aaf | APPROVE 13:26 (should #1 mobile marker, nits → fix r 13:29) |
 | STLS-5 r2 | sonnet (resume) | Lead ruling 14:15-msg | 10 | W3 | ab9dd7c02dde4468f | dispatched 13:12 (if over → STLS-F1 follow-up) |
-| fix | same engineers | R | 10 | W5 | | todo |
-| STLS-Q | sonnet | R clean | 10 | W6 | | todo |
+| fix | same engineers | R | 8 | W5 | ab9dd7c0 / a5736abc / ab27d30f | done 13:31 |
+| STLS-Q | sonnet | (run ∥ STLS-R) | 20 | W4 | abcf0ea39e096fae4 | PASS 13:28 (13/13) |
 
 Note: inside a nested team-lead each Agent message returns when all its children finish, so a wave = one message; no overlap
 across waves is promised.
@@ -122,6 +123,19 @@ across waves is promised.
 - 13:10→13:11:14 · REV-W1 nit · engineer/sonnet · a20851f517fa17e07 · ~3k delta · 6 · r2 · UserTokens Option.match; db check 159 green
 - 13:12 · STLS-5 r2 (Lead ruling: pending-revoke marker) · resume ab9dd7c02dde4468f · box 10
 - 13:12 · team-lead Edit `apps/mobile/CLAUDE.md` :209 (token pair keys, refresh) + :358 (native sign-out = revoke best-effort → forgetOwner → clear; Disconnect AI clients row)
+- 13:11:11→13:21:48 · STLS-4b · engineer/opus (resume) · a5736abc27c1b6d2e · 312k total · 92 total · r1 · makeRouter + layerJwt + library/KV gone; workerd 8 files / 91–92 tests; smoke 8981 0×500; KV grep 0
+- 13:12:59→13:14:38 · STLS-5 r2 · engineer/sonnet · ab9dd7c02dde4468f · 251k total · 23 · r2 · pending-revoke marker; mobile 85 files / 991 tests
+- 13:12→13:14 · REV-W2 · reviewer/opus · a6b260b84ed0136d0 · 106k · 14 · r1 · REQUEST CHANGES: CIMD 5 s timeout excludes body read, 5 KiB cap after arrayBuffer (unauthenticated DoS)
+- 13:15:23→13:17:22 · REV-W2-F · engineer/opus · a26c19e417c0ef40a · 108k · 22 · r1 · single timeout over fetch+body, streamed cap + reader cancel, 7 tests; DCR ≤ 10 × ≤ 2048
+- 13:18:15→13:22:09 · STLS-6 · engineer/sonnet · ab27d30ffc147b2bc · 159k · 54 · r1 · deploy.md §3a O1/O2, local-dev §5, oauth.md banner, worker CLAUDE.md (shared with Lead)
+- 13:23→13:26 · STLS-R · reviewer/opus · accf6a839ba385aaf · 146k · 18 · r1 · APPROVE; should: marker vs re-sign-in; nits ×4 (catalog line = root config → Lead); root gate: typecheck green, 2244/2245 tests, 1 foreign GM-1 (`IntegrationsHandlers.test.ts:147`); workerd 8/92
+- 13:23:38→13:28:09 · STLS-Q · qa/sonnet · abcf0ea39e096fae4 · 88k · 34 · r1 · PASS 13/13 on :8982 + UI :8983 (Disconnect AI clients → revoke-mcp 204, banner); measured: 9 tools, replay → invalid_grant "code already used", revoke-mcp → refresh invalid_grant "grant revoked", access valid after revoke (≤ 15 min), native revoke → 401 revoked, get-session served from `session_data` with the session row deleted, 0×500, 0 token hits in logs
+- 13:29 · fix round: STLS-5 (marker, JSDoc), 4b (2 doc comments), STLS-6 (local-dev §5 iss/ALLOWED_ORIGINS/run markers)
+- 13:29:31→13:30:41 · STLS-R fix · STLS-5 sonnet ab9dd7c02dde4468f · 12 tools · r3 · complete always retries + removes marker after storePair; 2 tests; mobile 86 files / 1005 green
+- 13:29:33→13:29:42 · STLS-R nits · 4b opus a5736abc27c1b6d2e · 6 tools · McpAuth.ts:67, OAuthApi.ts:70 comments; biome clean
+- 13:29→13:30 · STLS-6 fix · sonnet ab27d30ffc147b2bc · 7 tools · local-dev §5 (iss removed, ALLOWED_ORIGINS, run markers)
+- 13:39:44→13:40:18 · root `pnpm check` (team-lead, final) · biome 545 files ok, typecheck ok, 174/175 test files, 2251/2252 tests; 1 FAIL foreign GM-1 `apps/worker/src/api/IntegrationsHandlers.test.ts` ("lists strava as disconnected…", garmin row); KV/library grep = 0; case check empty
+- 13:41 · team report sent. Wall 12:47 → 13:41 = 54 of 110 min.
 ### Decisions
 - 12:55 Path release: IDENT-1 fix r2 committed 9484553 (`knownClients.ts` final: `TRUSTED_CLIENT_HOSTS` tuples, `clientTrust(input: ClientTrustInput): ClientTrust` plain type) → STLS-4a may start on `oauth/**` (knownClients read-only); EAS-1 committed 89383c3 (`wrangler.jsonc` `env.production.vars.NATIVE_RETURN_PREFIXES` = `exps://u.expo.dev/71f6…/`) → STLS-4b re-reads wrangler.jsonc and keeps that value (Lead notice 13:10).
 - STLS-1 (ratify): repo methods carry `PersistenceError`; `UserNotFound` = internal `Data.TaggedError { userId }` (worker maps to `TokenRejected`); `OAuthCodeUseRepo.burn(jti, expiresAt: DateTime.Utc)` / `purge(now: DateTime.Utc)` stored as epoch ms; `burn` = `INSERT … ON CONFLICT DO NOTHING RETURNING jti`; services `UserTokens`, `OAuthCodeUseRepo`, registered in db `Repositories.layer`; migration via `pnpm generate --name token_generations`.
@@ -132,7 +146,17 @@ across waves is promised.
 - 13:10 Ownership: `app.ts` + `repos/**` + `mcp/McpRoute*` + `authorize.ts` (hook arity only) → STLS-4b. `refresh after revoke-mcp` asserted as `/oauth/token` 400 `invalid_grant` (RFC 6749 §5.2).
 - Docs debt (STLS-6): `apps/mobile/CLAUDE.md` sign-out policy + SecureStore keys are stale (STLS-5) — mobile CLAUDE.md is in the package containing STLS-5's paths: team-lead edits those lines before the report.
 
+- 13:29 Run STLS-Q ∥ STLS-R (not after): Q is read-only on its own port; R found no blocking, the fix round touches only mobile marker logic + comments + docs (no e2e path) → Q stands. Ratify.
+- 4b (ratify): authorize hook `oauth: (env, request) => Option<Layer<OAuthApi, never, Sessions | WorkerConfig>>` required; loopback registrations match any port (RFC 8252 §7.3, as the library); `withCors` = library's (origin reflected, no credentials); 405 JSON on wrong methods. REV-W2-F: oversize DCR → `invalid_client_metadata`.
+- STLS-Q observations accepted as design: consent handle reusable ≤ 10 min by a holder of both handle and binding cookie (browser approve clears the cookie) → follow-up STLS-F2 if single-use is wanted (needs storage); web session row deletion does not log out a browser holding `session_data` until `maxAge` 900 s (ADR §3 bound).
+- STLS-6 (ratify): deploy.md §3a "Stateless auth cutover (O1–O2)"; "Disconnect AI clients" is the MCP kill switch.
+
 ### Escalations
+- Root config: `pnpm-workspace.yaml:10` catalog line `"@cloudflare/workers-oauth-provider": 1.2.3` is now unused (lockfile entry gone); charter allows only the jose line → Lead removes it or grants it (1-line, `pnpm install` + gate).
 
 ### Integration checklist
+- [ ] `pnpm-workspace.yaml:10` · delete the unused workers-oauth-provider catalog line · `pnpm install && pnpm check`
+- [ ] Production: `wrangler d1 migrations apply tanren --remote` (0006) BEFORE the Worker deploy · `wrangler d1 execute tanren --remote --command "PRAGMA table_info(user)"` shows appTokenGen/mcpTokenGen
+- [ ] `docs/design/native-auth.md` may still describe the native token as a Better Auth session token (STLS-6 note) · doc check
+- [ ] Follow-ups: STLS-F2 single-use consent handle (optional); old `SessionToken` export in `packages/shared/src/nativeAuth.ts` now unused by mobile · grep `SessionToken` → delete
 - [ ] Lead: STLS-D deploy after STLS-Q (production KV binding removal in the same deploy; O1 reconnect).

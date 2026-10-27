@@ -109,6 +109,8 @@ export const EntityName = Schema.Literals([
   "set",
   "programEnrollment",
   "programDayCompletion",
+  "importedActivity",
+  "dailyHealth",
   /** A profile location (not a table): `search_exercises availableAt` with an unknown id. */
   "location",
   /** An outbound activity export (not a synced table): `POST /integrations/strava/exports/retry`. */

@@ -22,6 +22,9 @@ Facts at dispatch (Lead):
 - The owner's TEST key: `/private/tmp/claude-501/-Users-lukas-Documents-Personal-tanren/2f72436e-0cd5-4397-8737-fd4699a2ee88/scratchpad/secrets/garmin.token`
   — read ONLY by GM-Q2 into a shell variable for the local worker (`--var` or request body), never printed, never in a
   repo file, test fixture, log or report. Garmin's terms: own data, single user — the feature is owner-scoped (ADR).
+- INT-STLS (13:43) made `GET /integrations` list only `AVAILABLE_PROVIDERS = ["strava"]` in `apps/worker/src/api/IntegrationsHandlers.ts`
+  (the Garmin row must not appear in production before its card exists); **GM-4 adds `"garmin"` to that list** when the connect endpoint
+  lands, and GM-6's card is what the row opens. GM-4 also updates the test "does not list garmin until its connect endpoint exists".
 - Legal stream (live, disjoint): `app/{privacy,terms}.tsx`, `src/components/legal/**`, `authGate.ts`, landing, sign-in,
   `AboutSection.tsx`; later LEGAL-2 adds `api/{AccountApi,AccountHandlers}.ts`, `Api.ts`, `Handlers.ts`,
   `settings/{DataSection.tsx,dataCopy.ts}`, `services/AccountErasure.ts` — none of yours; GM-4's `IntegrationsApi.ts` /

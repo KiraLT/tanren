@@ -38,6 +38,12 @@ export type ProgramEnrollmentId = typeof ProgramEnrollmentId.Type
 export const ProgramDayCompletionId = Uuid.pipe(Schema.brand("ProgramDayCompletionId"))
 export type ProgramDayCompletionId = typeof ProgramDayCompletionId.Type
 
+export const ImportedActivityId = Uuid.pipe(Schema.brand("ImportedActivityId"))
+export type ImportedActivityId = typeof ImportedActivityId.Type
+
+export const DailyHealthId = Uuid.pipe(Schema.brand("DailyHealthId"))
+export type DailyHealthId = typeof DailyHealthId.Type
+
 export const LocationId = Uuid.pipe(Schema.brand("LocationId"))
 export type LocationId = typeof LocationId.Type
 

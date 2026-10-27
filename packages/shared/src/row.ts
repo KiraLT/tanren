@@ -1,6 +1,7 @@
 import { Schema, SchemaGetter, Struct } from "effect"
 import type { SyncTable } from "./common"
 import { Exercise } from "./exercise"
+import { DailyHealth, ImportedActivity } from "./garmin"
 import { Plan, PlannedSession, PlannedSet, PlanWeek } from "./plan"
 import { ProgramDayCompletion, ProgramEnrollment } from "./program"
 import { Session, WorkoutSet } from "./session"
@@ -80,6 +81,12 @@ export const ProgramEnrollmentRow = wireRecord(ProgramEnrollment.fields).pipe(
 export const ProgramDayCompletionRow = wireRecord(ProgramDayCompletion.fields).pipe(
   Schema.decodeTo(ProgramDayCompletion),
 )
+
+export const ImportedActivityRow = wireRecord(ImportedActivity.fields).pipe(
+  Schema.decodeTo(ImportedActivity),
+)
+
+export const DailyHealthRow = wireRecord(DailyHealth.fields).pipe(Schema.decodeTo(DailyHealth))
 
 /** SQL table per synced entity (DB §1). */
 export const ROW_TABLE = {

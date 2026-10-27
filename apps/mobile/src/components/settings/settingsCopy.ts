@@ -11,6 +11,23 @@ export const signOutFailureBody = (reason: "offline" | "server"): string =>
     ? "Connect to the internet and try again. Nothing on this device changed."
     : "The server did not sign you out. Try again in a moment."
 
+export const DISCONNECT_AI_TITLE = "Disconnect AI clients"
+
+export const DISCONNECT_AI_NOTE = "Signs Claude and other apps out of your Tanren data."
+
+export const DISCONNECT_AI_DONE_TITLE = "Claude and other apps must reconnect"
+
+export const DISCONNECT_AI_DONE_BODY = "You stay signed in here."
+
+/** Why "Disconnect AI clients" did not happen (the `DisconnectFailed` reasons). */
+export const disconnectFailureTitle = (reason: "offline" | "server"): string =>
+  reason === "offline" ? "Disconnecting needs a connection" : "Could not disconnect AI clients"
+
+export const disconnectFailureBody = (reason: "offline" | "server"): string =>
+  reason === "offline"
+    ? "Connect to the internet and try again. Claude and other apps are still connected."
+    : "The server did not revoke their access. Try again in a moment."
+
 export const SIGNED_OUT_NATIVE_TITLE = "Signed out. Reopen the app to finish."
 
 export const KEPT_DATA_NOTE = "Data on this device is kept."

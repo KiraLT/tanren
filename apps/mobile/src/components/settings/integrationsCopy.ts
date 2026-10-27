@@ -23,7 +23,10 @@ export interface ProviderRowCopy {
   readonly accessibilityLabel: string
 }
 
-export const PROVIDER_NAMES: { readonly [P in Provider]: string } = { strava: "Strava" }
+export const PROVIDER_NAMES: { readonly [P in Provider]: string } = {
+  strava: "Strava",
+  garmin: "Garmin",
+}
 
 export const BLOCKED_COPY = "Strava app inactive — resubscribe on strava.com"
 export const IDLE_SUBTITLE = "Exports finished sessions"
@@ -177,6 +180,7 @@ export const FAILURE_COPY: { readonly [R in ExportFailureReason]: string } = {
   transport: "No connection to Strava",
   session_missing: "The session no longer exists",
   app_inactive: BLOCKED_COPY,
+  token_rejected: "Garmin rejected the token. Paste a new personal API token.",
 }
 
 export type ExportAction =

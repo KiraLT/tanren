@@ -76,11 +76,9 @@ describe("SyncTransport.layerHttp", () => {
   it.effect("sends Authorization: Bearer when NativeSession holds a token", () =>
     Effect.gen(function* () {
       const header = yield* authorizationSeenBy({
-        "tanren.session": JSON.stringify({
-          token: "tok-123",
-          userId: "00000000-0000-4000-8000-0000000000aa",
-          expiresAt: "2099-01-01T00:00:00.000Z",
-        }),
+        "tanren.access": "tok-123",
+        "tanren.refresh": "ref-123",
+        "tanren.expiresAt": "2099-01-01T00:00:00.000Z",
       })
       expect(header).toEqual(Option.some("Bearer tok-123"))
     }),

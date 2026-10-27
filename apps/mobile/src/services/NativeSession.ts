@@ -1,4 +1,5 @@
 import {
+  AppTokenPair,
   NativeBeginRequest,
   NativeBeginResponse,
   NativeCode,
@@ -7,11 +8,12 @@ import {
   PendingNativeSignIn,
   PkceChallenge,
   PkceVerifier,
-  type SessionToken,
+  RefreshRequest,
   type UserId,
 } from "@tanren/shared"
 import {
   Array as Arr,
+  Clock,
   Context,
   Data,
   DateTime,
@@ -21,11 +23,12 @@ import {
   Option,
   Ref,
   Schema,
+  Semaphore,
 } from "effect"
 import {
   FetchHttpClient,
   HttpClient,
-  type HttpClientError,
+  HttpClientError,
   HttpClientRequest,
   HttpClientResponse,
 } from "effect/http"
@@ -43,8 +46,15 @@ export class NativeSignInFailed extends Data.TaggedError("NativeSignInFailed")<{
 }> {}
 
 export interface NativeSessionShape {
-  /** Bearer token, if stored and not past `expiresAt`. Always None on web. */
-  readonly token: Effect.Effect<Option.Option<SessionToken>>
+  /**
+   * The access JWT for `Authorization: Bearer`. Stored and more than 30 s from `expiresAt`: as is.
+   * Otherwise one `POST /api/token/refresh` (serialised): the new pair is stored and its access
+   * token returned; a 401 clears the session (None); a network failure or 5xx keeps the stored
+   * pair and answers None for this call only. Always None on web.
+   */
+  readonly token: Effect.Effect<Option.Option<string>>
+  /** A token pair is stored (even one that needs a refresh). False on web. */
+  readonly hasSession: Effect.Effect<boolean>
   /**
    * Step 1: new verifier, stores the pending sign-in, then `POST /api/native/begin` (the worker
    * signs the callbackURL and emails the link). Fails like the web request (`MagicLinkFailed`).
@@ -54,16 +64,39 @@ export interface NativeSessionShape {
   readonly complete: (code: string) => Effect.Effect<UserId, NativeSignInFailed>
   /** Sign-out / 401: deletes the stored session and any pending sign-in. */
   readonly clear: Effect.Effect<void>
+  /**
+   * Sign-out whose `POST /api/token/revoke` did not get through: stores the refresh token as the
+   * pending-revoke marker (call it before `clear`; no-op without a stored pair; a failed write is
+   * ignored). The next app start retries: refresh with the marker, then revoke with the new access
+   * token (never stored); a 401 anywhere or a 2xx deletes the marker, a network failure or 5xx
+   * keeps it. The retry runs once per layer build, before the first `token` / `complete`, and
+   * never fails or blocks them beyond 5 s.
+   */
+  readonly deferRevoke: Effect.Effect<void>
 }
 
-/** SecureStore keys (`[A-Za-z0-9._-]`). */
-export const SESSION_KEY = "tanren.session"
+/** SecureStore keys (`[A-Za-z0-9._-]`): the app token pair (auth-v2 §9) and the pending sign-in. */
+export const ACCESS_KEY = "tanren.access"
+export const REFRESH_KEY = "tanren.refresh"
+export const EXPIRES_KEY = "tanren.expiresAt"
+/** The pre-ADR-0022 single session JSON: never read, deleted when the service starts. */
+export const LEGACY_SESSION_KEY = "tanren.session"
 export const PENDING_KEY = "tanren.auth.pending"
+/** The refresh token of a sign-out whose server revoke failed; survives `clear`. */
+export const PENDING_REVOKE_KEY = "tanren.pendingRevoke"
 /** A stored verifier older than this is ignored (the one-time token lives 5 min). */
 export const PENDING_TTL_MS = 15 * 60 * 1000
+/** An access token this close to its expiry (or past it) is refreshed before use. */
+export const REFRESH_SKEW_MS = 30 * 1000
+/** A hung refresh must not block every request queued behind it. */
+const REFRESH_TIMEOUT = "10 seconds"
+/** The pending-revoke retry (refresh + revoke) as a whole; it holds the lock `token` waits on. */
+const REVOKE_RETRY_TIMEOUT = "5 seconds"
 
 const EXCHANGE_PATH = "/api/native/session"
 const BEGIN_PATH = "/api/native/begin"
+const REFRESH_PATH = "/api/token/refresh"
+const REVOKE_PATH = "/api/token/revoke"
 
 /** The slice of SecureStore this service uses: the real one on a device, a `Ref` in tests. */
 export interface SecureKv {
@@ -103,24 +136,153 @@ const encodeChunk = (chunk: ReadonlyArray<number>): string => {
 export const base64Url = (bytes: Uint8Array): string =>
   Arr.chunksOf(Arr.fromIterable(bytes), 3).map(encodeChunk).join("")
 
-const StoredSession = Schema.fromJsonString(NativeSessionResponse)
 const StoredPending = Schema.fromJsonString(PendingNativeSignIn)
 
 const storage = (): NativeSignInFailed => failed("storage")
+
+/** The refresh endpoint refused the refresh token (401): the session is over. */
+const isUnauthorised = (cause: unknown): boolean =>
+  HttpClientError.isHttpClientError(cause) &&
+  cause.reason._tag === "StatusCodeError" &&
+  cause.reason.response.status === 401
 
 const make = (deps: NativeSessionDeps) =>
   Effect.gen(function* () {
     const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
     const { kv, pkce } = deps
+    const refreshLock = yield* Semaphore.make(1)
 
-    const readSession = kv.get(SESSION_KEY).pipe(
-      Effect.map(Option.flatMap(Schema.decodeUnknownOption(StoredSession))),
-      Effect.orElseSucceed(() => Option.none<NativeSessionResponse>()),
+    // A leftover single-JSON session from before ADR-0022 is not a token pair: signed out.
+    yield* Effect.ignore(kv.remove(LEGACY_SESSION_KEY))
+
+    /** The stored pair; None when any key is missing, unreadable or does not decode. */
+    const readPair = Effect.all([
+      kv.get(ACCESS_KEY),
+      kv.get(REFRESH_KEY),
+      kv.get(EXPIRES_KEY),
+    ]).pipe(
+      Effect.map(([accessToken, refreshToken, expiresAt]) =>
+        Option.all({ accessToken, refreshToken, expiresAt }).pipe(
+          Option.flatMap(Schema.decodeUnknownOption(AppTokenPair)),
+        ),
+      ),
+      Effect.orElseSucceed(() => Option.none<AppTokenPair>()),
     )
 
-    // Not filtered by the stored `expiresAt`: Better Auth extends a session on use, so the server
-    // decides (`CurrentUser.fetchSession` clears the token when `get-session` answers `null`).
-    const token = readSession.pipe(Effect.map(Option.map((stored) => stored.token)))
+    const storePair = (pair: AppTokenPair) =>
+      Schema.encodeUnknownEffect(AppTokenPair)(pair).pipe(
+        Effect.mapError(storage),
+        Effect.flatMap((encoded) =>
+          Effect.all(
+            [
+              kv.set(ACCESS_KEY, encoded.accessToken),
+              kv.set(REFRESH_KEY, encoded.refreshToken),
+              kv.set(EXPIRES_KEY, encoded.expiresAt),
+            ],
+            { discard: true },
+          ),
+        ),
+      )
+
+    const clear = Effect.forEach(
+      [ACCESS_KEY, REFRESH_KEY, EXPIRES_KEY, LEGACY_SESSION_KEY, PENDING_KEY],
+      (key) => Effect.ignore(kv.remove(key)),
+      { discard: true },
+    )
+
+    /** `POST /api/token/refresh` with `refreshToken`: a fresh pair, nothing stored. */
+    const requestPair = (refreshToken: string) =>
+      Effect.gen(function* () {
+        const baseUrl = yield* deps.baseUrl
+        const request = yield* HttpClientRequest.post(`${baseUrl}${REFRESH_PATH}`).pipe(
+          HttpClientRequest.acceptJson,
+          HttpClientRequest.schemaBodyJson(RefreshRequest)({ refreshToken }),
+        )
+        const response = yield* client.execute(request)
+        return yield* HttpClientResponse.schemaBodyJson(AppTokenPair)(response)
+      }).pipe(Effect.provideService(HttpClient.TracerPropagationEnabled, false))
+
+    /** One attempt: 401 ends the session, any other failure keeps the stored pair (None now). */
+    const refresh = (pair: AppTokenPair) =>
+      requestPair(pair.refreshToken).pipe(
+        Effect.timeout(REFRESH_TIMEOUT),
+        Effect.matchEffect({
+          onFailure: (cause) =>
+            isUnauthorised(cause)
+              ? clear.pipe(Effect.as(Option.none<string>()))
+              : Effect.succeed(Option.none<string>()),
+          // A failed write still hands out the fresh access token; the next call refreshes again.
+          onSuccess: (next) =>
+            Effect.ignore(storePair(next)).pipe(Effect.as(Option.some(next.accessToken))),
+        }),
+      )
+
+    /** `POST /api/token/revoke` with a Bearer access token. */
+    const revokeWith = (accessToken: string) =>
+      Effect.gen(function* () {
+        const baseUrl = yield* deps.baseUrl
+        yield* client.execute(
+          HttpClientRequest.post(`${baseUrl}${REVOKE_PATH}`).pipe(
+            HttpClientRequest.acceptJson,
+            HttpClientRequest.bearerToken(accessToken),
+          ),
+        )
+      }).pipe(Effect.provideService(HttpClient.TracerPropagationEnabled, false))
+
+    /**
+     * Finishes a sign-out whose revoke failed: refresh with the marker, revoke with the new access
+     * token (never stored). Done (marker deleted) on 2xx or any 401 (already revoked or expired);
+     * anything else (offline, 5xx, timeout, decode) keeps the marker for the next start. Never fails.
+     */
+    const retryRevoke = Effect.gen(function* () {
+      const marker = yield* kv.get(PENDING_REVOKE_KEY)
+      if (Option.isNone(marker)) {
+        return
+      }
+      const done = yield* requestPair(marker.value).pipe(
+        Effect.flatMap((fresh) => revokeWith(fresh.accessToken)),
+        Effect.timeout(REVOKE_RETRY_TIMEOUT),
+        Effect.as(true),
+        Effect.catch((cause) => Effect.succeed(isUnauthorised(cause))),
+      )
+      if (done) {
+        yield* kv.remove(PENDING_REVOKE_KEY)
+      }
+    }).pipe(Effect.ignore)
+
+    // The retry runs once per layer build; whoever takes the lock first (the fork below, `token`
+    // or `complete`) runs it, the others see the flag.
+    const retried = yield* Ref.make(false)
+    const retryOnce = Effect.gen(function* () {
+      if (!(yield* Ref.getAndSet(retried, true))) {
+        yield* retryRevoke
+      }
+    })
+
+    const deferRevoke = Effect.gen(function* () {
+      const stored = yield* readPair
+      if (Option.isSome(stored)) {
+        yield* kv.set(PENDING_REVOKE_KEY, stored.value.refreshToken)
+      }
+    }).pipe(Effect.ignore)
+
+    yield* Effect.forkScoped(refreshLock.withPermits(1)(retryOnce))
+
+    const token = refreshLock.withPermits(1)(
+      Effect.gen(function* () {
+        yield* retryOnce
+        const stored = yield* readPair
+        if (Option.isNone(stored)) {
+          return Option.none<string>()
+        }
+        const now = yield* Clock.currentTimeMillis
+        return DateTime.toEpochMillis(stored.value.expiresAt) - REFRESH_SKEW_MS > now
+          ? Option.some(stored.value.accessToken)
+          : yield* refresh(stored.value)
+      }),
+    )
+
+    const hasSession = readPair.pipe(Effect.map(Option.isSome))
 
     const readPending = Effect.gen(function* () {
       const raw = yield* kv.get(PENDING_KEY)
@@ -201,6 +363,9 @@ const make = (deps: NativeSessionDeps) =>
       })
 
     const complete = Effect.fn("NativeSession.complete")(function* (rawCode: string) {
+      // Always retry here (not once per build): a marker kept by an offline sign-out or start must
+      // be revoked now, before the new pair exists, because the generation bump is per user.
+      yield* refreshLock.withPermits(1)(retryRevoke)
       const pending = yield* readPending
       if (Option.isNone(pending)) {
         return yield* failed("no-pending")
@@ -209,23 +374,15 @@ const make = (deps: NativeSessionDeps) =>
         Effect.mapError(() => failed("rejected")),
       )
       const session = yield* exchange({ code, verifier: pending.value.verifier })
-      const encoded = yield* Schema.encodeUnknownEffect(StoredSession)(session).pipe(
-        Effect.mapError(storage),
-      )
-      yield* kv.set(SESSION_KEY, encoded)
+      yield* storePair(session.access)
+      // Guard: a marker that survived the retry (offline) must not revoke this new session at the
+      // next start, so it goes regardless.
+      yield* kv.remove(PENDING_REVOKE_KEY).pipe(Effect.ignore)
       yield* kv.remove(PENDING_KEY).pipe(Effect.ignore)
       return session.userId
     })
 
-    const clear = Effect.forEach(
-      [SESSION_KEY, PENDING_KEY],
-      (key) => Effect.ignore(kv.remove(key)),
-      {
-        discard: true,
-      },
-    )
-
-    return { token, begin, complete, clear } satisfies NativeSessionShape
+    return { token, hasSession, begin, complete, clear, deferRevoke } satisfies NativeSessionShape
   })
 
 /** Same copy as the web request: a status error is `rejected` (with the status), else `unreachable`. */
@@ -296,6 +453,8 @@ export class NativeSession extends Context.Service<NativeSession, NativeSessionS
     this,
     this.of({
       token: Effect.succeed(Option.none()),
+      hasSession: Effect.succeed(false),
+      deferRevoke: Effect.void,
       begin: () => Effect.fail(failed("no-pending")),
       complete: () => Effect.fail(failed("no-pending")),
       clear: Effect.void,

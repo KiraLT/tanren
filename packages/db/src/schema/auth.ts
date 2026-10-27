@@ -22,6 +22,13 @@ export const user = sqliteTable("user", {
   image: text("image"),
   createdAt: text("createdAt").notNull(),
   updatedAt: text("updatedAt").notNull(),
+  /**
+   * Token generations (ADR-0022, migration 0006). The stateless app / MCP JWTs carry the `gen` they
+   * were issued at; bumping a column revokes every token of that family at once. Better Auth never
+   * writes them (the SQL default is 0).
+   */
+  appTokenGen: integer("appTokenGen").notNull().default(0),
+  mcpTokenGen: integer("mcpTokenGen").notNull().default(0),
 })
 
 export const authSession = sqliteTable(
@@ -75,3 +82,13 @@ export const verification = sqliteTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 )
+
+/**
+ * Single-use ledger for the stateless OAuth authorization codes (ADR-0022): a code's `jti` is
+ * inserted when it is redeemed, a duplicate means replay. Not user data, so no `userId`; rows are
+ * purged once `expiresAt` (epoch ms) has passed.
+ */
+export const oauthCodeUse = sqliteTable("oauth_code_use", {
+  jti: text("jti").primaryKey(),
+  expiresAt: integer("expiresAt").notNull(),
+})

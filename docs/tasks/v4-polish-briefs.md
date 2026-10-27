@@ -49,3 +49,4 @@ Forbidden: `git commit|push|reset|checkout`, `rm -r*`, `wrangler *`, `eas *`, de
 ## Queued nits for the next polish round (Lead, 2026-10-27 11:05)
 - AppBar eyebrow at 1280: the 28 px ring slot stays reserved at progress 0, so the eyebrow starts at x 148 while the title starts at x 120 (shooter probe, UI-P5-play-1280-light); at 390 both are flush. Designer decides: drop the slot at 0 (text shifts 28 px when progress starts) or keep it and indent the title the same.
 - Landing light scheme: illustration amber vs rust primary (one colour set, LAND-R item 3); eyebrow repeats the name (item 4).
+- Landing tagline at 390 (LEGAL-DV nit b, 2026-10-27): 62 ch at 13/18 ≈ 390 px > 358 column, wraps with a one-word orphan "holds." → maxWidth ≈ 300 or two balanced ≈ 31-ch lines (designer to pick).

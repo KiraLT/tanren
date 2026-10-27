@@ -15,6 +15,7 @@ import { Array as Arr, DateTime, Effect, Layer, Option } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/http-api"
 import { ExerciseRepo, PersistenceError, PlanRepo, ProfileRepo, SessionRepo } from "../repos"
 import { Sync } from "../sync/Sync"
+import { AccountLive } from "./AccountHandlers"
 import { Api } from "./Api"
 import { CurrentUser } from "./Authentication"
 import { IntegrationsLive } from "./IntegrationsHandlers"
@@ -305,4 +306,5 @@ export const HandlersLive = Layer.mergeAll(
   PlansLive,
   SyncLive,
   IntegrationsLive,
+  AccountLive,
 )

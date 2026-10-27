@@ -30,11 +30,9 @@ const json = (body: unknown, status = 200): Promise<Response> =>
 const unreachable: Respond = () => Promise.reject(new TypeError("Failed to fetch"))
 
 const SESSION_ENTRY = {
-  "tanren.session": JSON.stringify({
-    token: "tok-123",
-    userId: "00000000-0000-4000-8000-0000000000aa",
-    expiresAt: "2099-01-01T00:00:00.000Z",
-  }),
+  "tanren.access": "tok-123",
+  "tanren.refresh": "ref-123",
+  "tanren.expiresAt": "2099-01-01T00:00:00.000Z",
 }
 
 /** Runs `use` against `Integrations` and a stand-in worker; returns the outcome and the calls. */

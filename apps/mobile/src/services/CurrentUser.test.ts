@@ -92,11 +92,9 @@ describe("ownerId", () => {
 })
 
 const SESSION_ENTRY = {
-  "tanren.session": JSON.stringify({
-    token: "tok-123",
-    userId: USER,
-    expiresAt: "2099-01-01T00:00:00.000Z",
-  }),
+  "tanren.access": "tok-123",
+  "tanren.refresh": "ref-123",
+  "tanren.expiresAt": "2099-01-01T00:00:00.000Z",
 }
 
 /** `get-session` against a stand-in server; returns the result, the `authorization` header seen and the store. */

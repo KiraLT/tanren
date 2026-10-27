@@ -580,6 +580,32 @@
         "LOGO-4-landing-1280-light.png"
       ],
       "title": "Final W1 wordmark and the T mark (LOGO-4)"
+    },
+    {
+      "badges": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
+        "G8",
+        "G9"
+      ],
+      "id": "legal",
+      "shots": [
+        "UI-LEGAL-privacy-390-light.png",
+        "UI-LEGAL-privacy-390-dark.png",
+        "UI-LEGAL-privacy-1280-light.png",
+        "UI-LEGAL-privacy-1280-dark.png",
+        "UI-LEGAL-terms-390-light.png",
+        "UI-LEGAL-terms-1280-dark.png",
+        "UI-LEGAL-landing-footer-390-light.png",
+        "UI-LEGAL-signin-390-light.png",
+        "UI-LEGAL-signin-1280-dark.png"
+      ],
+      "title": "Legal pages and entry points (390 and 1280, light and dark)"
     }
   ]
 }

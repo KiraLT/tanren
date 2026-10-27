@@ -6,6 +6,15 @@ Status: accepted (Lead delegation, 2026-10-21) · Team: native-auth (`docs/tasks
 Goal: the owner signs in on the iPhone (Expo Go), logs a set, and it syncs. Today the emailed link
 opens in Safari, the cookie lands there, and an `exp://` callbackURL fails `trustedOrigins` (403).
 
+> **Amended 2026-10-27 (ADR-0022, `docs/design/auth-v2.md`).** Steps 1–6 below (PKCE, magic link, one-time
+> code) are unchanged. Step 7 no longer returns the Better Auth session token: the exchange returns a
+> stateless **app token pair** (access JWT 15 min, refresh JWT 30 d, `AppTokenPair`), the app sends the
+> access JWT as `Authorization: Bearer`, refreshes it at `POST /api/token/refresh` and signs out with
+> `POST /api/token/revoke`. Both bind to `user.appTokenGen`, so a revoke (or a bump) kills every app token
+> of the user at its next refresh. The Better Auth session row only serves Safari and the web. Sections
+> below are corrected in place where they described the old session-token flow; F1 and F2 remain true
+> of the Better Auth plugins but the app no longer depends on F1.
+
 ## 0. Verified facts (read before coding)
 
 | # | Fact | Source |
@@ -34,9 +43,12 @@ App (Expo Go)                       Worker (api host)                         Sa
                                     ott = generateOneTimeToken; code = ott + "." + mac(ott, challenge)
                                     200 HTML: "Open Tanren" button → returnTo?code=<code>
 6 Router opens /auth/callback?code=…  (tap; Safari asks "Open in Expo Go?")
-7 POST /api/native/session { code, verifier } → { token, userId, expiresAt }
-  SecureStore "tanren.session" ← response; delete pending; CurrentUser.refresh; requestSync
-8 every API/sync call: Authorization: Bearer <token>
+7 POST /api/native/session { code, verifier } → { userId, access: { accessToken, refreshToken, expiresAt } }
+  SecureStore "tanren.access" / "tanren.refresh" / "tanren.expiresAt" ← access; delete pending;
+  CurrentUser.refresh; requestSync
+8 every API/sync call: Authorization: Bearer <accessToken>; within 30 s of expiresAt (or past it) the
+  app first POSTs /api/token/refresh { refreshToken } → a new pair (401 = session over, clear)
+9 sign-out: POST /api/token/revoke (Bearer) bumps appTokenGen, then the app clears SecureStore
 ```
 
 ## 2. Worker contract (team native-auth, `apps/worker/src/auth/**`)
@@ -53,7 +65,9 @@ plugins: [
                  disableSetSessionCookie: true, storeToken: "hashed" }),
 ],
 ```
-`SessionsLive.ts`: **no change** (F1). `trustedOrigins`: unchanged. CORS: unchanged (`authorization` is
+`SessionsLive.ts` (ADR-0022): a Bearer app JWT is verified by `Tokens.verifyApp` (0 D1 reads); anything else
+goes to Better Auth `getSession` (cookie, `cookieCache` jwt 900 s). `bearer()` stays installed but the app no
+longer sends a session token. `trustedOrigins`: unchanged. CORS: unchanged (`authorization` is
 already an allowed header; native fetch does no CORS).
 
 ### 2.2 `auth/nativeCode.ts` (pure, WebCrypto; Node and workerd)
@@ -112,18 +126,32 @@ and removed from `access-control-expose-headers`, so the web app's JS never sees
 **`POST /api/native/session`** body `NativeSessionRequest` → 200 `NativeSessionResponse`.
 - Undecodable body → 400 `NativeCodeRejected{ reason: "malformed" }`.
 - `verifyCode` None → 400 `{ reason: "mismatch" }` (the OTT is **not** consumed).
-- `verifyOneTimeToken` BAD_REQUEST (unknown, used, expired code or session) → 400 `{ reason: "invalid" }`.
-- Success → `{ token: session.token, userId: user.id (decode UserId), expiresAt: session.expiresAt }`.
+- `verifyOneTimeToken` BAD_REQUEST (unknown, used, expired code or session) → 400 `{ reason: "invalid" }`;
+  a user row that no longer exists → the same `invalid`.
+- Success → `{ userId: user.id (decode UserId), access: AppTokenPair }`, the pair from
+  `Tokens.issueAppPair(userId, user.appTokenGen)`: access JWT 15 min, refresh JWT 30 d (`Tokens.ts`
+  `APP_ACCESS_TTL_SECONDS` / `APP_REFRESH_TTL_SECONDS`), `expiresAt` = the access expiry. The Better Auth
+  session token is never returned.
 - Store outage → 503 `SessionStoreUnavailable`; defect → 500 `InternalError`.
+
+**Token endpoints** (`auth/tokenRoutes.ts`, no rate limit of their own; every response `no-store`, every
+rejection 401 `TokenRejected { reason: "expired" | "revoked" | "invalid" }`):
+- `POST /api/token/refresh` body `RefreshRequest { refreshToken }` (no cookie read) → 200 `AppTokenPair` while the
+  refresh token's `gen` equals `user.appTokenGen`, else 401 `revoked`.
+- `POST /api/token/revoke` with `Authorization: Bearer <app access JWT>` only → bumps `appTokenGen` → 204.
+  Native sign-out; every app access token stays valid until its 15 min expiry (verification reads no D1),
+  every refresh token dies at once.
+- `POST /api/token/revoke-mcp` (app JWT or web cookie session) → bumps `mcpTokenGen` → 204 (MCP, not native sign-in).
 
 ### 2.4 Shared wire schemas: new `packages/shared/src/nativeAuth.ts` (+ one barrel line)
 ```ts
 export const PkceVerifier  = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("PkceVerifier"))
 export const PkceChallenge = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("PkceChallenge"))
 export const NativeCode    = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{32}\.[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("NativeCode"))
-export const SessionToken  = Schema.String.check(Schema.isMinLength(1)).pipe(Schema.brand("SessionToken")) // isMinLength as in common.ts:37
 export const NativeSessionRequest  = Schema.Struct({ code: NativeCode, verifier: PkceVerifier })
-export const NativeSessionResponse = Schema.Struct({ token: SessionToken, userId: UserId /* ids.ts */, expiresAt: Timestamp /* common.ts */ })
+// ADR-0022: the response is the app token pair (`AppTokenPair` in `auth.ts`: accessToken, refreshToken, expiresAt);
+// the old `{ token, userId, expiresAt }` wire shape is gone (the `SessionToken` brand is still exported, unused).
+export const NativeSessionResponse = Schema.Struct({ userId: UserId /* ids.ts */, access: AppTokenPair })
 /** Stored on the device between steps 1 and 7 (mobile only, not on the wire). */
 export const PendingNativeSignIn   = Schema.Struct({ verifier: PkceVerifier, createdAt: Timestamp })
 export class NativeCodeRejected extends Schema.TaggedError<NativeCodeRejected>()(
@@ -143,7 +171,7 @@ Wire example:
 ```http
 POST /api/native/session
 {"code":"Zk3…32 b64url….Qm9…43 b64url…","verifier":"dBjftJeZ4CVP-…43…"}
-200 {"token":"aB3x…","userId":"00000000-0000-4000-8000-000000000001","expiresAt":"2026-10-28T07:02:11.000Z"}
+200 {"userId":"00000000-0000-4000-8000-000000000001","access":{"accessToken":"eyJ…","refreshToken":"eyJ…","expiresAt":"2026-10-27T07:17:11.000Z"}}
 400 {"_tag":"NativeCodeRejected","reason":"invalid"}
 ```
 
@@ -155,14 +183,21 @@ export class NativeSignInFailed extends Data.TaggedError("NativeSignInFailed")<{
   readonly reason: "no-pending" | "rejected" | "unreachable" | "storage" | "link-invalid"
 }> {}
 export interface NativeSessionShape {
-  /** Bearer token, if stored and not past `expiresAt`. Always None on web. */
-  readonly token: Effect.Effect<Option.Option<SessionToken>>
-  /** Step 1: new verifier → stores PendingNativeSignIn → returns the relative callbackURL. */
-  readonly begin: Effect.Effect<string, NativeSignInFailed>
-  /** Step 7: exchanges code with the pending verifier, stores the response, deletes pending. */
+  /** The access JWT for Bearer; within 30 s of `expiresAt` it is refreshed first (`POST /api/token/refresh`,
+   *  serialised, the new pair stored); a 401 clears the session (None). Always None on web. */
+  readonly token: Effect.Effect<Option.Option<string>>
+  /** A token pair is stored (even one that needs a refresh). False on web. */
+  readonly hasSession: Effect.Effect<boolean>
+  /** Step 1: new verifier → stores PendingNativeSignIn → `POST /api/native/begin` (the worker signs the
+   *  callbackURL and sends the link). Fails like the web request (`MagicLinkFailed`). */
+  readonly begin: (email: string) => Effect.Effect<void, NativeSignInFailed | MagicLinkFailed>
+  /** Step 7: exchanges code with the pending verifier, stores the token pair, deletes pending. */
   readonly complete: (code: string) => Effect.Effect<UserId, NativeSignInFailed>
-  /** Sign-out / 401: deletes "tanren.session" and "tanren.auth.pending". */
+  /** Sign-out / 401: deletes the stored pair and "tanren.auth.pending". */
   readonly clear: Effect.Effect<void>
+  /** Sign-out whose `POST /api/token/revoke` failed: keeps the refresh token as a pending-revoke marker,
+   *  retried (refresh, then revoke) at the next app start / sign-in. */
+  readonly deferRevoke: Effect.Effect<void>
 }
 export class NativeSession extends Context.Service<NativeSession, NativeSessionShape>()("@tanren/NativeSession") {
   static readonly layer        // EXPO_OS !== "web": SecureStore via lazy import("expo-secure-store"); web: layerNone
@@ -173,8 +208,9 @@ export class NativeSession extends Context.Service<NativeSession, NativeSessionS
 export const withSession: (request: HttpClientRequest.HttpClientRequest)
   => Effect.Effect<HttpClientRequest.HttpClientRequest, never, NativeSession>
 ```
-Keys: `tanren.session` (JSON of `NativeSessionResponse` encoded), `tanren.auth.pending`
-(`PendingNativeSignIn`, ignored after 15 min). Stateless over SecureStore (reads per call), so layers
+Keys: `tanren.access`, `tanren.refresh`, `tanren.expiresAt` (the `AppTokenPair`; the pre-ADR-0022 `tanren.session`
+JSON is never read and is deleted at start), `tanren.pendingRevoke` (refresh token of an unfinished sign-out),
+`tanren.auth.pending` (`PendingNativeSignIn`, ignored after 15 min). Stateless over SecureStore (reads per call), so layers
 may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTransport.layer` add
 `Layer.provide(NativeSession.layer)` exactly as they provide `FetchHttpClient.layer`.
 
@@ -195,8 +231,9 @@ may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTranspo
   `SyncEngine.requestSync`; copy for `link-invalid`: "That link expired. Request a new one."
 - New route `app/auth/callback.tsx` (R2): reads `useLocalSearchParams`, calls the hook, on `Done`
   `router.replace("/today")`; renders a spinner / the failure + "Back to sign-in".
-- Sign-out (`Account`, team design phase 2 X4, R4): native posts `/api/auth/sign-out` through
-  `withSession`, then `NativeSession.clear`, then forgets the owner as on web.
+- Sign-out (`Account`, team design phase 2 X4, R4): native posts `/api/token/revoke` (Bearer; best effort, a
+  failure is ignored and `deferRevoke` keeps a retry marker), then forgets the owner, then
+  `NativeSession.clear`. Web posts `/api/auth/sign-out` (cookie).
 
 ## 4. Security
 
@@ -204,8 +241,8 @@ may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTranspo
   deep link (another app claiming `exp://`) is useless without the verifier, which never leaves the
   device. Login CSRF (attacker's code in the victim's app) fails the binding too.
 - The bare OTT cannot be redeemed over HTTP (`disabledPaths`, F3); the exchange is the only door.
-- Only the one-time code appears in a URL; the session token travels only in the exchange response
-  body and `Authorization` headers. No token or code in logs.
+- Only the one-time code appears in a URL; the app tokens travel only in the exchange and refresh response
+  bodies and `Authorization` headers. No token or code in logs.
 - `returnTo` allowlist (`RETURN_TO` + pinned hosts) prevents an open redirect; `trustedOrigins` unchanged.
 - **Session-export CSRF** (NA-REV, 2026-10-21): Safari holds a Lax session cookie, and a top-level GET
   sends it. With only (challenge, returnTo) in the URL, any page could navigate a signed-in owner to
@@ -220,14 +257,16 @@ may self-provide it (no `runtime.ts` edit): `CurrentUser.layer` and `SyncTranspo
   owner's phone could still receive the deep link. The PKCE binding makes that code useless without the
   verifier, but before a store build the hand-off should move to universal links
   (`https://tanren.me/auth/callback` + AASA, ADR-0012); until then production lists no `tanren://` prefix.
-- The session token never appears in a `/api/auth/*` response header (`set-auth-token` stripped).
+- The Better Auth session token never appears in a `/api/auth/*` response header (`set-auth-token` stripped).
 - Rate limits: code space is 64^32 plus a MAC, brute force is moot. The native routes have their own
   per-isolate limiter (10/min/IP, 429 `NativeRateLimited`); Better Auth's limiter (forced on in
   production via `rateLimitFor`) is per-isolate memory too (weak). Deploy note (owner action,
   `docs/design/deploy.md`): a Cloudflare rate-limiting rule on `POST /api/auth/sign-in/*` and
   `/api/native/*`, or the Workers rate-limiting binding.
-- The session is a normal Better Auth session (7-day expiry, refreshed on use); the app session is
-  the same row as Safari's cookie, so sign-out in the app ends both.
+- The app session is **not** the Safari session (ADR-0022): the app holds a stateless token pair (access 15 min,
+  refresh 30 d) bound to `user.appTokenGen`. App sign-out bumps that generation (`/api/token/revoke`): every
+  refresh token of the user dies at once, access tokens live out their 15 minutes, and the Safari/web cookie
+  session is untouched (web sign-out ends only the cookie).
 
 ## 5. Local dev (owner's morning recipe)
 

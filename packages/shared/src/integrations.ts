@@ -3,7 +3,7 @@ import { Label, PageLimit, Timestamp } from "./common"
 import { ActivityExportId, SessionId } from "./ids"
 
 /** Outbound activity providers. Grows per ADR; Apple Health is an app-side row, not a `Provider`. */
-export const Provider = Schema.Literals(["strava"])
+export const Provider = Schema.Literals(["strava", "garmin"])
 export type Provider = typeof Provider.Type
 
 /** `revoked` = the provider rejected the tokens; the user must reconnect. */
@@ -30,6 +30,8 @@ export const ExportFailureReason = Schema.Literals([
   "transport",
   "session_missing",
   "app_inactive",
+  /** Garmin answered 401/403 to the pasted token or the JWT minted from it. */
+  "token_rejected",
 ])
 export type ExportFailureReason = typeof ExportFailureReason.Type
 
@@ -51,6 +53,18 @@ export const ProviderStatus = Schema.Struct({
   failedExports: Count,
   /** Rows with status `blocked` (the provider app is inactive). */
   blockedExports: Count,
+  /** Import-side state (Garmin only; absent for export-only providers). */
+  imports: Schema.optionalKey(
+    Schema.Struct({
+      /** Last successful drain of this user. */
+      lastPullAt: Schema.OptionFromNullOr(Timestamp),
+      lastError: Schema.OptionFromNullOr(ExportFailureReason),
+      /** Live `imported_activity` rows. */
+      activities: Count,
+      /** Live `daily_health` rows. */
+      days: Count,
+    }),
+  ),
 })
 export type ProviderStatus = typeof ProviderStatus.Type
 
@@ -91,6 +105,22 @@ export const DEFAULT_EXPORTS_LIMIT = 20
  * default (the wire shape stays `{ limit? }`); the handler applies `DEFAULT_EXPORTS_LIMIT`.
  */
 export const ExportsQuery = { limit: Schema.optionalKey(PageLimit) }
+
+/** Garmin's paste-token connect body. The token is never echoed, logged or stored on the device. */
+export const GarminConnectRequest = Schema.Struct({
+  token: Schema.Trimmed.check(Schema.isMinLength(16), Schema.isMaxLength(512)),
+})
+export type GarminConnectRequest = typeof GarminConnectRequest.Type
+
+/**
+ * Validation failed: Garmin answered 401/403 (`rejected`), could not be reached (`unreachable`), or
+ * the Worker has no `GARMIN_MODE=provider` configuration (`not-configured`).
+ */
+export class GarminTokenRejected extends Schema.TaggedError<GarminTokenRejected>()(
+  "GarminTokenRejected",
+  { reason: Schema.Literals(["rejected", "not-configured", "unreachable"]) },
+  { httpApiStatus: 400 },
+) {}
 
 /** The provider has no active integration for this user. */
 export class IntegrationNotConnected extends Schema.TaggedError<IntegrationNotConnected>()(

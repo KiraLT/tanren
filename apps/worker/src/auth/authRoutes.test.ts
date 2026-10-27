@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer, Option } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig } from "../Config"
+import { MemoryTokens } from "../repos/MemoryTokens"
 import { envVars } from "../testing/fixtures"
 import { authRoutes } from "./authRoutes"
 import { BetterAuth } from "./BetterAuth"
@@ -65,6 +66,7 @@ const requestWith = (betterAuth: Layer.Layer<BetterAuth, unknown>) =>
       authRoutes.pipe(
         Layer.provide(betterAuth),
         Layer.provide(WorkerConfig.layerFromEnv(envVars)), // the native routes read the secret
+        Layer.provide(MemoryTokens.layer),
         Layer.provide(HttpServer.layerServices),
       ),
       { disableLogger: true },

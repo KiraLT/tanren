@@ -6,18 +6,22 @@ import { TestClock } from "effect/testing"
 import { OWNER_USER_ID_KEY, readOwner } from "../store/syncQueries"
 import { Account } from "./Account"
 import { LocalStore } from "./LocalStore"
-import { NativeSession, SESSION_KEY } from "./NativeSession"
+import {
+  ACCESS_KEY,
+  EXPIRES_KEY,
+  NativeSession,
+  PENDING_REVOKE_KEY,
+  REFRESH_KEY,
+} from "./NativeSession"
 import { SqlDriver } from "./SqlDriver"
 import { nodeSqlDriverLayer } from "./SqlDriver.testing"
 import { StoreEvents } from "./StoreEvents"
 
 const USER = UserId.make("00000000-0000-4000-8000-0000000000aa")
 const ENTRY = {
-  [SESSION_KEY]: JSON.stringify({
-    token: "tok-123",
-    userId: USER,
-    expiresAt: "2099-01-01T00:00:00.000Z",
-  }),
+  [ACCESS_KEY]: "tok-123",
+  [REFRESH_KEY]: "ref-123",
+  [EXPIRES_KEY]: "2099-01-01T00:00:00.000Z",
 }
 
 /** `fetch` answers per URL path; `hang` never resolves. */
@@ -56,19 +60,21 @@ const ok = (body: unknown, status = 200) =>
   )
 
 describe("Account edge cases", () => {
-  it.effect("a hung sign-out request times out as offline after 3 s and changes nothing", () =>
-    Effect.gen(function* () {
-      const { kv, layer, fetch } = yield* world(() => new Promise<Response>(() => undefined))
-      yield* Effect.gen(function* () {
-        yield* seedOwner
-        const fiber = yield* Effect.forkChild(Effect.result(Account.use((a) => a.signOut)))
-        yield* TestClock.adjust("4 seconds")
-        const result = yield* Fiber.join(fiber)
-        expect(Result.isFailure(result) && result.failure).toMatchObject({ reason: "offline" })
-        expect(yield* owner).toEqual([USER])
-      }).pipe(Effect.provide(layer), Effect.provideService(FetchHttpClient.Fetch, fetch))
-      expect(yield* Ref.get(kv)).toEqual(ENTRY)
-    }),
+  it.effect(
+    "a hung native revoke times out after 3 s and the sign-out still completes locally",
+    () =>
+      Effect.gen(function* () {
+        const { kv, layer, fetch } = yield* world(() => new Promise<Response>(() => undefined))
+        yield* Effect.gen(function* () {
+          yield* seedOwner
+          const fiber = yield* Effect.forkChild(Effect.result(Account.use((a) => a.signOut)))
+          yield* TestClock.adjust("4 seconds")
+          expect(Result.isSuccess(yield* Fiber.join(fiber))).toBe(true)
+          expect(yield* owner).toEqual([])
+        }).pipe(Effect.provide(layer), Effect.provideService(FetchHttpClient.Fetch, fetch))
+        // The marker is all that is left: the next start retries the revoke.
+        expect(yield* Ref.get(kv)).toEqual({ [PENDING_REVOKE_KEY]: "ref-123" })
+      }),
   )
 
   it.effect(
@@ -76,7 +82,7 @@ describe("Account edge cases", () => {
     () =>
       Effect.gen(function* () {
         const { kv, layer, fetch } = yield* world((url) =>
-          url.endsWith("/sign-out")
+          url.endsWith("/token/revoke")
             ? ok({ success: true })
             : new Promise<Response>(() => undefined),
         )
@@ -125,7 +131,7 @@ describe("Account edge cases", () => {
         expect(Result.isSuccess(result)).toBe(true)
         expect(yield* owner).toEqual([])
       }).pipe(Effect.provide(layer), Effect.provideService(FetchHttpClient.Fetch, fetch))
-      expect(Option.isNone(Option.fromNullishOr((yield* Ref.get(kv))[SESSION_KEY]))).toBe(true)
+      expect(Option.isNone(Option.fromNullishOr((yield* Ref.get(kv))[ACCESS_KEY]))).toBe(true)
     }),
   )
 })

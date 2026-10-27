@@ -158,6 +158,12 @@ describe("GET /integrations", () => {
     ])
   })
 
+  it("does not list garmin until its connect endpoint exists", async () => {
+    const response = await call(harness(), "GET", "/integrations")
+    const providers = Schema.decodeUnknownSync(Status)(await response.json()).providers
+    expect(providers.map((p) => p.provider)).not.toContain("garmin")
+  })
+
   it("reports connected with the athlete, and the pending/failed/blocked/sent counts", async () => {
     const h = harness()
     await run(h.integrations.upsert(integrationRow("active")))

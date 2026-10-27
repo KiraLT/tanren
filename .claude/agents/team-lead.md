@@ -250,4 +250,9 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
 - `## Integration notes` — a pointer to the `## Integration checklist`
   section of your team sheet: one `- [ ]` line per wiring step (file ·
   change · verify command), written as the need appears, not at the end.
-  The Lead pastes that section into the integration engineer's brief.
+  The Lead pastes that section into the integration engineer's brief. Only
+  items OUTSIDE your owned paths belong there (root config lines, another
+  team's file). An unused export, a stale doc line or a missing test inside
+  your paths is finished by your last engineer before the report, not
+  listed: INT-STLS (2026-10-27) was a 1.7-min agent plus a Lead dispatch for
+  three such lines the team could have closed in its fix round.

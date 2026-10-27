@@ -116,6 +116,11 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   `useStyles` and the tokens; breakpoints from `useBreakpoint()` (phone < 600, tablet 600–899, desktop >= 900).
 - Copy and hit areas follow design-system.md §1 and §4 (sentence case, no all-caps or `textTransform`,
   44 px minimum on `IconButton`/`sizes.tap`); review checks them, so apply them before reporting.
+  Inline text anchors too (`InlineAnchor`: `paddingVertical: 14` on a 16 px line = 44 without moving
+  the line box) and adjacent targets ≥ 44 px apart (LEGAL-1 r4/r5, 2026-10-27).
+- Headings on web: react-native-web 0.21 renders `accessibilityRole="header"` without a level as `<h1>`.
+  Use the `Text` primitive's `headingLevel` (1 page title, 2 sections; `AppBar titleLevel`) so a page has
+  exactly one `h1` — proof `document.querySelectorAll("h1").length === 1` (LEGAL-1 r3: 12 h1s on /privacy).
 - Web hover/focus: `usePressableInteraction()` (`onHoverIn/Out` state; RNW's `hovered` is runtime-only and
   untyped; ring = `outline*` style, 2 px `colors.focus`, only for `:focus-visible`). New pressables use it.
 - DOM-prop rule: never give `accessibilityElementsHidden` / `importantForAccessibility` to `Svg`,

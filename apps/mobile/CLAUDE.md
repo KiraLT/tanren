@@ -22,7 +22,8 @@ app/          ROUTE INVENTORY — every route, kept complete by whoever adds one
   (tabs)/_layout.tsx (five themed tabs, hidden at desktop), (tabs)/{feed,today,plan,programs,library}.tsx
   root Stack: activity/[sessionId].tsx, library/[catalogId].tsx, programs/play.tsx (Player, `nav={false}`),
   progress/{index,[exerciseId]}.tsx, settings.tsx, settings/location/[id].tsx,
-  settings/integrations/{index,[provider]}.tsx
+  settings/integrations/{index,[provider]}.tsx, privacy.tsx + terms.tsx (public legal pages, ADR-0024:
+  `isPublicRoute` in `authGate.ts` lets a signed-out device open them; both render `LegalPage`)
   Not a route but owner-visible: the magic-link email (apps/worker `magicLinkEmail`, EMAIL-1); the
   signed-out web landing (`src/components/landing/Landing.tsx`, rendered by `_layout.tsx` on every
   gated route instead of the `/sign-in` redirect, ADR-0021, `docs/design/landing.md`).
@@ -45,6 +46,9 @@ src/
   store/      migrations, seed (demo rows, _dirty=0), localUser (LOCAL_USER_ID), syncQueries
   hooks/      useToday, usePlanWeek, useLogSet (Promise<boolean>; never rejects), useSync,
               useRestTimer, useLayoutMode / useBreakpoint (+ pure layoutMode), useSignedIn, useSendMagicLink
+  components/legal/  legalCopy (typed Privacy + Terms texts verbatim from docs/design/legal.md §1–§2, sign-in
+              agreement parts, About row titles; `LAST_UPDATED` is the one date), LegalPage (Page + AppBar,
+              section `nativeID` = DOM anchor, `Head` title, `LegalLink` / `InlineAnchor`; web heading levels via `Text headingLevel` and `AppBar titleLevel`)
   library/    CatalogList/Filter/Detail, ExerciseIllustration (webp or fallback tile), MuscleMapImage (webp or SVG), illustration.ts
   illustrations/ imagePrompt (pure half of the generator), images.ts (generated map), muscleMap/
   components/ SetList, ExercisePage, ExercisePager, RestTimerBar, TodayReady, PlanWeek, PlanDayRow,
@@ -206,8 +210,11 @@ expo-types.d.ts (typed routes, committed) · metro.config.js (wasm asset) · vit
   `.expo/types/router.d.ts`, else `tsc` rejects `Link href`. **Native sign-in works via a
   one-time code** (docs/design/native-auth.md): the emailed link opens in Safari, whose "Open Tanren"
   button deep-links `exp://…/--/auth/callback?code=…` into Expo Go; `NativeSession` exchanges the code
-  (PKCE verifier) at `POST /api/native/session` and keeps the session token in `expo-secure-store`,
-  sent as `Authorization: Bearer` (`withSession`). Web keeps the cookie flow above. Phone recipe:
+  (PKCE verifier) at `POST /api/native/session` and keeps the Tanren app token pair (ADR-0022;
+  SecureStore `tanren.access` / `tanren.refresh` / `tanren.expiresAt`, a leftover `tanren.session` is
+  deleted and reads as signed out) in `expo-secure-store`, sent as `Authorization: Bearer` (`withSession`).
+  `NativeSession.token` (`Option<string>`) refreshes once, single-flight, at `expiresAt - 30 s` via
+  `POST /api/token/refresh`; only a 401 clears the pair, a network/5xx failure keeps it and returns none. Web keeps the cookie flow above. Phone recipe:
   `docs/design/local-dev.md` §6a (`pnpm dev:phone`). Live Activities still need a dev build, not
   Expo Go.
 - Sign-in gate (ADR-0019): `app/_layout.tsx` calls `useAuthGate(usePathname())` (web and native). `gateFor`
@@ -355,7 +362,15 @@ Parallel proofs: export to a scratch dir and serve it with `wrangler dev -c wran
   "Export on the web app".
 - Theme preference: `useThemePreference` from `src/ui`; persisted on web in `localStorage["tanren.theme"]`
   (`themePreferenceStore.web.ts`); native keeps it for the session only.
-- Sign-out policy: server first (`POST /api/auth/sign-out`; native goes through `withSession`), then
+- Sign-out policy (native, v5 STLS-5): `POST /api/token/revoke` with the Bearer access token, best-effort
+  (3 s; 2xx or 401 = done), then `forgetOwner`, then — only if the revoke was not done — `deferRevoke`
+  (SecureStore `tanren.pendingRevoke` = the refresh token; `clear` keeps it), then `NativeSession.clear`.
+  `complete` (sign-in) always runs the retry first and removes the marker after storing the new pair, so a
+  deferred revoke can never bump the generation of a later session (STLS-R).
+  The marker is retried once per layer build, first under the session Semaphore (refresh → revoke with
+  the new access, the pair is never stored; 2xx/401 deletes it, offline/5xx keeps it, errors swallowed); `Account` picks native when `NativeSession.hasSession`. Settings →
+  Account "Disconnect AI clients" (danger `ListRow`, native + web) → `POST /api/token/revoke-mcp` + `Banner`.
+  Web sign-out, unchanged: server first (`POST /api/auth/sign-out`), then
   `forgetOwner`, then `NativeSession.clear` (a failed forget keeps the token: `SignOutFailed("server")`; a 401 from the POST means the server session is already gone and counts as success). Local rows are kept. Web then does a full reload to `/today`;
   native shows the banner "Signed out. Reopen the app to finish." Offline or non-2xx gives `SignOutFailed`
   and nothing local changes. A different user on the same device is not built. The sign-out runtime proof

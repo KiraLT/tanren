@@ -14,11 +14,9 @@ const USER = UserId.make("00000000-0000-4000-8000-0000000000aa")
 const EMAIL = "lukas@example.com"
 
 const SESSION_ENTRY = {
-  "tanren.session": JSON.stringify({
-    token: "tok-123",
-    userId: USER,
-    expiresAt: "2099-01-01T00:00:00.000Z",
-  }),
+  "tanren.access": "tok-123",
+  "tanren.refresh": "ref-123",
+  "tanren.expiresAt": "2099-01-01T00:00:00.000Z",
 }
 
 interface Call {
@@ -208,7 +206,7 @@ describe("Account.session", () => {
 })
 
 describe("Account.signOut", () => {
-  it.effect("on 200 posts JSON to sign-out, forgets the owner and clears the native token", () =>
+  it.effect("native: revokes the app tokens (Bearer), forgets the owner, then clears them", () =>
     Effect.gen(function* () {
       const { result, owner, calls, tokens } = yield* scenario((account) => account.signOut, {
         entries: SESSION_ENTRY,
@@ -217,15 +215,69 @@ describe("Account.signOut", () => {
       expect(result).toEqual(Result.succeed(undefined))
       expect(owner).toEqual([])
       expect(tokens).toEqual({})
-      expect(calls).toEqual([
+      expect(
+        calls.map(({ method, url, authorization }) => ({ method, url, authorization })),
+      ).toEqual([
         {
           method: "POST",
-          url: "http://api.test/api/auth/sign-out",
+          url: "http://api.test/api/token/revoke",
           authorization: Option.some("Bearer tok-123"),
-          contentType: Option.some("application/json"),
         },
       ])
     }),
+  )
+
+  it.effect(
+    "native: clears the pair and the owner but keeps a pending-revoke marker when revoke fails",
+    () =>
+      Effect.gen(function* () {
+        const offline = yield* scenario((account) => account.signOut, {
+          entries: SESSION_ENTRY,
+          respond: unreachable,
+        })
+        const refused = yield* scenario((account) => account.signOut, {
+          entries: SESSION_ENTRY,
+          respond: () => json({}, 500),
+        })
+        expect(
+          [offline, refused].map(({ result, owner, tokens }) => ({ result, owner, tokens })),
+        ).toEqual(
+          [offline, refused].map(() => ({
+            result: Result.succeed(undefined),
+            owner: [],
+            tokens: { "tanren.pendingRevoke": "ref-123" },
+          })),
+        )
+      }),
+  )
+
+  it.effect("native: a 2xx or a 401 from revoke leaves no marker", () =>
+    Effect.gen(function* () {
+      const ok = yield* scenario((account) => account.signOut, {
+        entries: SESSION_ENTRY,
+        respond: () => json({ success: true }),
+      })
+      const alreadyRevoked = yield* scenario((account) => account.signOut, {
+        entries: SESSION_ENTRY,
+        respond: () => json({}, 401),
+      })
+      expect([ok.tokens, alreadyRevoked.tokens]).toEqual([{}, {}])
+    }),
+  )
+
+  it.effect(
+    "native: no access token (refresh cannot connect) sends no revoke and keeps a marker",
+    () =>
+      Effect.gen(function* () {
+        const expired = { ...SESSION_ENTRY, "tanren.expiresAt": "1969-12-31T00:00:00.000Z" }
+        const { result, calls, tokens } = yield* scenario((account) => account.signOut, {
+          entries: expired,
+          respond: unreachable,
+        })
+        expect(result).toEqual(Result.succeed(undefined))
+        expect(calls.map(({ url }) => url)).toEqual(["http://api.test/api/token/refresh"])
+        expect(tokens).toEqual({ "tanren.pendingRevoke": "ref-123" })
+      }),
   )
 
   it.effect("on 200 on web (no token) forgets the owner and sends no Authorization", () =>
@@ -282,10 +334,9 @@ describe("Account.signOut", () => {
     }),
   )
 
-  it.effect("offline fails with offline and leaves the owner and the token untouched", () =>
+  it.effect("web offline fails with offline and leaves the owner untouched", () =>
     Effect.gen(function* () {
-      const { result, owner, tokens } = yield* scenario((account) => account.signOut, {
-        entries: SESSION_ENTRY,
+      const { result, owner } = yield* scenario((account) => account.signOut, {
         respond: unreachable,
       })
       expect(Result.isFailure(result) && result.failure).toMatchObject({
@@ -293,7 +344,56 @@ describe("Account.signOut", () => {
         reason: "offline",
       })
       expect(owner).toEqual([USER])
+    }),
+  )
+})
+
+describe("Account.revokeMcp", () => {
+  it.effect("posts to revoke-mcp with the Bearer token and leaves the app login alone", () =>
+    Effect.gen(function* () {
+      const { result, calls, tokens, owner } = yield* scenario((account) => account.revokeMcp, {
+        entries: SESSION_ENTRY,
+        respond: () => json({ success: true }),
+      })
+      expect(result).toEqual(Result.succeed(undefined))
+      expect(
+        calls.map(({ method, url, authorization }) => ({ method, url, authorization })),
+      ).toEqual([
+        {
+          method: "POST",
+          url: "http://api.test/api/token/revoke-mcp",
+          authorization: Option.some("Bearer tok-123"),
+        },
+      ])
       expect(tokens).toEqual(SESSION_ENTRY)
+      expect(owner).toEqual([USER])
+    }),
+  )
+
+  it.effect("on web (cookie, no token) sends no Authorization", () =>
+    Effect.gen(function* () {
+      const { result, calls } = yield* scenario((account) => account.revokeMcp, {
+        respond: () => json({ success: true }),
+      })
+      expect(result).toEqual(Result.succeed(undefined))
+      expect(calls.map((call) => call.authorization)).toEqual([Option.none()])
+    }),
+  )
+
+  it.effect("fails DisconnectFailed offline without a network and server on a non-2xx", () =>
+    Effect.gen(function* () {
+      const offline = yield* scenario((account) => account.revokeMcp, { respond: unreachable })
+      const refused = yield* scenario((account) => account.revokeMcp, {
+        respond: () => json({}, 401),
+      })
+      expect(Result.isFailure(offline.result) && offline.result.failure).toMatchObject({
+        _tag: "DisconnectFailed",
+        reason: "offline",
+      })
+      expect(Result.isFailure(refused.result) && refused.result.failure).toMatchObject({
+        _tag: "DisconnectFailed",
+        reason: "server",
+      })
     }),
   )
 })

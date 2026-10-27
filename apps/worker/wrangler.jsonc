@@ -42,9 +42,8 @@
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-oauth-kv" }],
-  // Production (docs/design/deploy.md §2). The D1 and KV ids were filled 2026-10-26 by the owner
-  // (`wrangler d1 create tanren`, `wrangler kv namespace create OAUTH_KV`); secrets
+  // Production (docs/design/deploy.md §2). The D1 id was filled 2026-10-26 by the owner
+  // (`wrangler d1 create tanren`); OAuth is stateless since ADR-0022 (no KV); secrets
   // (BETTER_AUTH_SECRET, RESEND_API_KEY) are never vars. `wrangler dev` ignores it.
   "env": {
     "production": {
@@ -83,9 +82,7 @@
           "database_id": "0cdfa785-fd69-4971-adf8-14a4acb89a01",
           "migrations_dir": "../../packages/db/migrations"
         }
-      ],
-      // Real production namespace (filled 2026-10-26).
-      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "f7ea7f892333457f991ae37413b89d97" }]
+      ]
     }
   }
 }

@@ -20,8 +20,8 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
 - Migrations: `drizzle-kit generate` writes `packages/db/migrations/*.sql`; the Worker binding points at it
   with `"migrations_dir": "../../packages/db/migrations"` [R §1]. Apply with
   `wrangler d1 migrations apply tanren --local` (no flag also means local, but scripts always pass `--local`).
-- KV (`OAUTH_KV` for `workers-oauth-provider`, step 5) and Durable Objects (only if `McpAgent` is kept;
-  `createMcpHandler` needs none [R §0.3]) are simulated by the same Miniflare instance.
+- KV and Durable Objects would be simulated by the same Miniflare instance, but the Worker uses neither
+  (`OAUTH_KV` and `workers-oauth-provider` were removed by ADR-0022; `createMcpHandler` needs no DO [R §0.3]).
 - **Seed (step 2 target).** Pure, deterministic generator in `@tanren/db` (`src/seed/month.ts`:
   `seedMonth({ userId, seed, endDate }) → rows per table`, built from the shared schemas, unit-tested).
   Runner `apps/worker/scripts/seed.ts` gets `env.DB` from `getPlatformProxy({ configPath: "wrangler.jsonc",
@@ -97,28 +97,56 @@ no login, no production data. Tags: **[R]** = `docs/research/2026-10-19-cloudfla
 
 ## 5. MCP locally
 
-- OAuth (step 5): the Worker's default export is an `OAuthProvider` (`src/oauth/provider.ts`) with
-  grants and tokens in the local KV binding `OAUTH_KV` (`id: "local-oauth-kv"` in
-  `apps/worker/wrangler.jsonc`, kept under `apps/worker/.wrangler/state` by `wrangler dev`; no Durable
-  Object, no account). `MCP_RESOURCE_URL` is `http://localhost:8787/mcp` (`http:` is accepted only when
-  `ENVIRONMENT=local`). The authorize page signs in with Better Auth's magic link, which the local
-  console `EmailSender` prints in the `pnpm dev` terminal (the same link as §4); the token is also in
-  D1 as `verification.identifier = "magic-link:<token>"`. `src/oauth/oauth.workerd.test.ts` is the
-  automated flow test.
-  Proven by curl on port 8794 (S5-T4b, 2026-10-21). Start the Worker with
-  `pnpm -F @tanren/worker exec wrangler dev --port <p> --var BETTER_AUTH_URL:http://localhost:<p> --var MCP_RESOURCE_URL:http://localhost:<p>/mcp`
-  (on 8787 the committed vars already match, so no `--var`). Then:
-  1. `POST /mcp` → 401 `WWW-Authenticate: Bearer realm="OAuth", resource_metadata="http://localhost:<p>/.well-known/oauth-protected-resource/mcp", scope="tanren:read"`.
-  2. `GET /.well-known/oauth-authorization-server` → issuer, `/authorize`, `/oauth/token`, `/oauth/register`, scopes.
-  3. `POST /oauth/register` (public client) → `client_id`.
-  4. `GET /authorize?…` with PKCE S256, signed out → the login page; `POST /authorize/login` → the magic link is printed in the wrangler log (`callbackURL=/authorize?…`).
-  5. Open the link (sets the session cookie) → consent page (`__Host-oauth-consent-…` cookie, `frame-ancestors 'none'`) → Approve → 302 to `callback?code=…&iss=…`.
-  6. `POST /oauth/token` with the URL-decoded code and the verifier → `{token_type: "bearer", expires_in: 3600, scope: "tanren:read tanren:write", refresh_token}`; then `tools/list` → 7 tools.
+- OAuth (stateless since ADR-0022, `docs/design/auth-v2.md` §5): the Worker is its own authorization
+  server. No KV, no Durable Object, no account, no library: `src/oauth/provider.ts` is the router,
+  `clients.ts` (CIMD and DCR), `consent.ts`, `token.ts` and `metadata.ts` hold the logic, and the only state
+  is D1 (`user.appTokenGen` / `mcpTokenGen`, table `oauth_code_use`, migration 0006: `pnpm db:reset` applies
+  it). Every key is an HKDF sub-key of the local fake `BETTER_AUTH_SECRET`. `MCP_RESOURCE_URL` is
+  `http://localhost:8787/mcp` (`http:` is accepted only when `ENVIRONMENT=local`). The authorize page signs
+  in with Better Auth's magic link, which the local console `EmailSender` prints in the wrangler terminal
+  (the same link as §4). `src/oauth/oauth.workerd.test.ts` is the automated flow test (register →
+  authorize → token → `tools/list`, replayed code, refresh, revoke-mcp).
+  Start the Worker as STLS-3's smoke did, on a spare port (on 8787 the committed vars already match, so no `--var`):
+  `apps/worker/node_modules/.bin/wrangler dev --port <p> --var BETTER_AUTH_URL:http://localhost:<p> --var MCP_RESOURCE_URL:http://localhost:<p>/mcp`
+  (backgrounded, PID file; on any port other than 8787 the `MCP_RESOURCE_URL` var is required, otherwise
+  every MCP call is 401 `Invalid audience`). For the web app on another port also pass
+  `--var ALLOWED_ORIGINS:http://localhost:<expo port>` (the CORS default covers 8081 and 8790 only). Native
+  `begin` with `exp://localhost:8081/--/auth/callback` works locally without `NATIVE_RETURN_PREFIXES`.
+  The steps below are the flow the workerd test sends; **run end to end 2026-10-27 13:23–13:28 (STLS-Q,
+  wrangler dev :8982): 9 tools, replayed code → invalid_grant, revoke-mcp → refresh invalid_grant, access token
+  valid ≤ 15 min after revoke (stateless)**; result in `docs/tasks/v5-auth/team-stateless.md`:
+  1. `POST /mcp` (no token) → 401 `WWW-Authenticate: Bearer realm="OAuth", resource_metadata="http://localhost:<p>/.well-known/oauth-protected-resource/mcp", scope="…"`.
+  2. `GET /.well-known/oauth-authorization-server` → issuer, `/authorize`, `/oauth/token`, `/oauth/register`,
+     `scopes_supported`, `code_challenge_methods_supported: ["S256"]`, `client_id_metadata_document_supported: true`.
+  3. `POST /oauth/register`, JSON `{"redirect_uris":["http://localhost:9999/cb"],"client_name":"curl","token_endpoint_auth_method":"none"}`
+     → 201 `{ client_id, … }` (a signed JWT: stateless DCR, nothing is stored).
+  4. `GET /authorize?response_type=code&client_id=<id>&redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcb&scope=tanren%3Aread%20tanren%3Awrite&state=<s>&code_challenge=<S256(verifier)>&code_challenge_method=S256&resource=http%3A%2F%2Flocalhost%3A<p>%2Fmcp`
+     signed out → the login page; `POST /authorize/login` (form `email`, `next`) → the magic link is printed in
+     the wrangler log. Open it in the browser (sets the session cookie).
+  5. Consent page (a DCR client has no verified domain, so the "Unknown app" warning and "Allow anyway" show):
+     the form posts `POST /authorize` with `handle` (the consent JWT), `decision=approve`, `scope=…` and the
+     `__Host-tanren-consent` cookie (Secure, HttpOnly, SameSite=Lax; `http://localhost` is a secure context in
+     browsers, curl needs the cookie passed by hand) → 302 to `redirect_uri?code=…&state=…` (only those two parameters).
+  6. `POST /oauth/token`, form `grant_type=authorization_code`, `code`, `code_verifier`, `client_id`,
+     `redirect_uri` → `{ access_token, token_type: "Bearer", expires_in: 900, scope, refresh_token }`
+     (`no-store`). The same code a second time → 400 `invalid_grant` (burned in `oauth_code_use`).
+  7. `POST /mcp` with `Authorization: Bearer <access_token>`, `accept: application/json, text/event-stream`,
+     JSON-RPC `tools/list` → 9 tools (6 with a read-only grant).
+  8. Refresh: `POST /oauth/token`, form `grant_type=refresh_token`, `refresh_token` → a new pair. After
+     `POST /api/token/revoke-mcp` (web cookie session or an app access JWT) the old refresh token answers 400
+     `invalid_grant`, and the old access token stays valid until it expires (15 min).
+  Native app tokens (not OAuth): `POST /api/native/begin` then the magic link (§6a), then
+  `POST /api/native/session` with JSON `{ code, verifier }` → `{ userId, access: { accessToken, refreshToken, expiresAt } }`.
+  `POST /api/token/refresh` (JSON `{ refreshToken }`, no cookie) → a new `AppTokenPair`; `POST /api/token/revoke`
+  (Bearer app access JWT) → 204 and every app token of the user dies; `POST /api/token/revoke-mcp` → 204 and
+  every MCP token and code of the user dies. Any rejected credential is 401 `TokenRejected` with
+  `reason: "expired" | "revoked" | "invalid"`, all `no-store`. STLS-3 ran the native part on port 8981
+  (`team-stateless.md` Log, 13:08); the MCP part is proven by the workerd test and by STLS-Q's curl run above.
   Claude Code: `claude mcp add --transport http tanren-local http://localhost:8787/mcp` (no header) should run
   the same flow in a browser. **Unverified**: no agent has a headless browser login, so this has not been run.
 - Dev token (fallback, local only): with `ENVIRONMENT=local` the MCP route also accepts
-  `Authorization: Bearer <DEV_MCP_TOKEN>` and acts as the seed user with every scope (`layerDevToken`;
-  through the provider via `resolveExternalToken`). Attach as in the Owner recipe below; the
+  `Authorization: Bearer <DEV_MCP_TOKEN>` and acts as the seed user with every scope (`McpAuth.layerDevToken`;
+  `layerLive` tries the MCP JWT first, then the dev token). Attach as in the Owner recipe below; the
   `--header` form is the one INT-A ran. Port 8788 only if MCP ever becomes its own Worker.
 - The Claude app's custom connector is reached from Anthropic's servers, so it cannot reach
   localhost. Question for the owner: does it get tested on a tunnel or only on the production
@@ -162,7 +190,7 @@ worker only links back to pinned prefixes (`exp://<host>:<port>/--/auth/callback
    and a QR. Scan that QR with the iPhone camera: it must open on the PHONE (Safari). On the Mac the
    deep link has no Expo Go. No camera: copy the URL and paste it into iPhone Safari (Universal Clipboard).
 5. Safari shows "Open Tanren" → tap → "Open in Expo Go?" → Open: Expo Go lands on `/auth/callback`, the app
-   exchanges the one-time code for a session token and shows Today, signed in.
+   exchanges the one-time code for an app token pair (`POST /api/native/session`, ADR-0022) and shows Today, signed in.
 6. Log a set; Terminal A shows `POST /sync/push 200` (wrangler request log).
 
 While `dev:phone` runs, web sign-in on `localhost:8790` does not work (the cookie lands on the LAN host);

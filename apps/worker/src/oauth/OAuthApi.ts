@@ -1,56 +1,40 @@
-// Type-only imports: the package's JS imports `cloudflare:workers`, so a value import would break
-// the Node test project. `AuthorizationError` is therefore recognised by shape (`fromRejection`).
-import type {
-  ApprovedConsent,
-  AuthRequest,
-  ConsentDescription,
-  ConsentTransaction,
-  DeniedConsent,
-  OAuthHelpers,
-} from "@cloudflare/workers-oauth-provider"
+import { UserTokens } from "@tanren/db"
 import type { McpScope, OAuthProps, UserId } from "@tanren/shared"
-import { Context, Data, Effect, HashMap, Layer, Option, Ref, Schema } from "effect"
+import { Context, Data, Effect, HashMap, Layer, Option, Ref } from "effect"
+import { Sessions } from "../auth/Sessions"
+import { type ConsentRequest, Tokens } from "../auth/Tokens"
+import { WorkerConfig } from "../Config"
+import { ClientResolver } from "./clients"
+import {
+  type ApprovedConsent,
+  type AuthorizationRequest,
+  type ConsentDescription,
+  type ConsentTransaction,
+  clearConsentCookie,
+  consentCookie,
+  type DeniedConsent,
+  describeConsent,
+  parseAuthorization,
+  readConsentCookie,
+  sameSecret,
+  withQuery,
+} from "./consent"
+
+/** The parsed authorization request (local since the library left, ADR-0022). */
+export type AuthRequest = AuthorizationRequest
 
 /**
- * A provider helper rejected. Internal: the authorize routes turn it into a page or a redirect.
- * `redirectTo` is Some only when the provider validated the client's redirect URI
- * (`AuthorizationError.redirectTo`, built by the package's `authorizationErrorRedirect`); without
- * it the caller must render locally and must not redirect.
+ * An authorization step was refused. Internal: the authorize routes turn it into a page or a
+ * redirect. `redirectTo` is Some only once the client's redirect URI was validated; without it the
+ * caller must render locally and must not redirect.
  */
 export class OAuthFailure extends Data.TaggedError("OAuthFailure")<{
   readonly message: string
   readonly code: Option.Option<string>
   readonly redirectTo: Option.Option<string>
-}> {
-  /** Maps whatever a helper rejected with; an `AuthorizationError` keeps its code and redirect. */
-  static fromRejection(cause: unknown): OAuthFailure {
-    return Option.match(decodeAuthorizationError(cause), {
-      onNone: () =>
-        new OAuthFailure({
-          message: cause instanceof Error ? cause.message : "OAuth provider failure",
-          code: Option.none(),
-          redirectTo: Option.none(),
-        }),
-      onSome: (error) =>
-        new OAuthFailure({
-          message: error.description,
-          code: Option.some(error.code),
-          redirectTo: Option.fromNullishOr(error.redirectTo),
-        }),
-    })
-  }
-}
+}> {}
 
-/** The fields of the package's `AuthorizationError` we rely on (dist/oauth-provider.d.ts:461). */
-const AuthorizationErrorShape = Schema.Struct({
-  name: Schema.Literal("AuthorizationError"),
-  code: Schema.String,
-  description: Schema.String,
-  redirectTo: Schema.optional(Schema.String),
-})
-const decodeAuthorizationError = Schema.decodeUnknownOption(AuthorizationErrorShape)
-
-/** What the approve step hands to the provider; `props` become `ctx.props` on `/mcp`. */
+/** What the approve step hands over to mint the code. */
 export interface CompleteAuthorization {
   readonly request: AuthRequest
   readonly userId: UserId
@@ -81,32 +65,174 @@ export interface OAuthApiShape {
   ) => Effect.Effect<{ readonly redirectTo: string }, OAuthFailure>
 }
 
-const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, OAuthFailure> =>
-  Effect.tryPromise({ try: run, catch: OAuthFailure.fromRejection })
+type StatelessDeps = Tokens | Sessions | UserTokens | ClientResolver | WorkerConfig
+
+/** A parsed request or a consent handle's request → `AuthRequest` (a fresh copy of every field). */
+const toAuthRequest = (request: AuthorizationRequest | ConsentRequest): AuthRequest => ({
+  responseType: request.responseType,
+  clientId: request.clientId,
+  redirectUri: request.redirectUri,
+  scope: [...request.scope],
+  state: request.state,
+  ...(request.codeChallenge === undefined ? {} : { codeChallenge: request.codeChallenge }),
+  ...(request.codeChallengeMethod === undefined
+    ? {}
+    : { codeChallengeMethod: request.codeChallengeMethod }),
+  ...(request.resource === undefined ? {} : { resource: request.resource }),
+})
+
+const toConsentRequest = (request: AuthRequest): ConsentRequest => ({
+  responseType: request.responseType,
+  clientId: request.clientId,
+  redirectUri: request.redirectUri,
+  scope: request.scope,
+  state: request.state,
+  ...(request.codeChallenge === undefined ? {} : { codeChallenge: request.codeChallenge }),
+  ...(request.codeChallengeMethod === undefined
+    ? {}
+    : { codeChallengeMethod: request.codeChallengeMethod }),
+  ...(request.resource === undefined ? {} : { resource: request.resource }),
+})
 
 export class OAuthApi extends Context.Service<OAuthApi, OAuthApiShape>()(
   "@tanren/worker/OAuthApi",
 ) {
-  /** Per request, over the helpers the provider injects as `env.OAUTH_PROVIDER`. */
-  static readonly layerFromHelpers = (helpers: OAuthHelpers): Layer.Layer<OAuthApi> =>
-    Layer.succeed(
+  /**
+   * The stateless authorization server (docs/design/auth-v2.md §5, §7) for one browser request:
+   * the consent handle is a `Tokens.issueConsent` JWT bound to the signed-in user (`sub`) and to the
+   * browser by the `__Host-tanren-consent` cookie (its `nonce`); approve checks both; the code is a
+   * `Tokens.issueCode` JWT sent only in the 302 `Location`. `request` is the incoming request, read
+   * by `beginConsent` (whose shape carries no request) for the signed-in user.
+   */
+  static readonly layerStateless = (input: {
+    readonly request: Request
+  }): Layer.Layer<OAuthApi, never, StatelessDeps> =>
+    Layer.effect(
       OAuthApi,
-      OAuthApi.of({
-        parseAuthRequest: (request) => attempt(() => helpers.parseAuthRequest(request)),
-        describeConsent: (authRequest) => attempt(() => helpers.describeConsent(authRequest)),
-        beginConsent: (authRequest) => attempt(() => helpers.beginConsent(authRequest)),
-        approveConsent: (request, handle) => attempt(() => helpers.approveConsent(request, handle)),
-        denyConsent: (request, handle) => attempt(() => helpers.denyConsent(request, handle)),
-        completeAuthorization: ({ request, userId, scope, props }) =>
-          attempt(() =>
-            helpers.completeAuthorization({
-              request,
-              userId,
-              metadata: {},
-              scope: [...scope],
-              props,
+      Effect.gen(function* () {
+        const tokens = yield* Tokens
+        const sessions = yield* Sessions
+        const users = yield* UserTokens
+        const clients = yield* ClientResolver
+        const config = yield* WorkerConfig
+        const failure = (message: string, code = "invalid_request") =>
+          new OAuthFailure({ message, code: Option.some(code), redirectTo: Option.none() })
+        const resolve = (clientId: string) =>
+          clients
+            .resolve(clientId)
+            .pipe(Effect.mapError(() => failure("Invalid client", "invalid_client")))
+        const signedIn = (headers: Headers) =>
+          sessions.current(headers).pipe(
+            Effect.mapError(() => failure("Session store unavailable", "temporarily_unavailable")),
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.fail(failure("Not signed in", "access_denied")),
+                onSome: Effect.succeed,
+              }),
+            ),
+          )
+        /** Verifies the handle and the browser binding (cookie nonce == handle nonce). */
+        const openHandle = (request: Request, handle: string) =>
+          Effect.gen(function* () {
+            const consent = yield* tokens
+              .verifyConsent(handle)
+              .pipe(Effect.mapError(() => failure("Invalid or expired consent handle")))
+            const cookie = readConsentCookie(request.headers)
+            if (!Option.exists(cookie, (nonce) => sameSecret(nonce, consent.nonce))) {
+              return yield* failure("Consent was not started in this browser")
+            }
+            return consent
+          })
+        const cleared = () => new Headers({ "set-cookie": clearConsentCookie })
+        return OAuthApi.of({
+          parseAuthRequest: (request) =>
+            Effect.gen(function* () {
+              const url = new URL(request.url)
+              const clientId = url.searchParams.get("client_id")
+              if (clientId === null || clientId.length === 0) {
+                return yield* failure("Missing client_id")
+              }
+              const client = yield* resolve(clientId)
+              const { refusal, request: parsed } = parseAuthorization(
+                url,
+                client,
+                config.mcpResourceUrl,
+              )
+              if (Option.isSome(refusal)) {
+                return yield* new OAuthFailure({
+                  message: refusal.value.message,
+                  code: Option.some(refusal.value.code),
+                  redirectTo: refusal.value.redirect,
+                })
+              }
+              return toAuthRequest(parsed)
             }),
-          ),
+          describeConsent: (authRequest) =>
+            resolve(authRequest.clientId).pipe(
+              Effect.map((client) => {
+                const description = describeConsent(client, authRequest)
+                return { ...description, scope: [...description.scope] }
+              }),
+            ),
+          beginConsent: (authRequest) =>
+            Effect.gen(function* () {
+              const userId = yield* signedIn(input.request.headers)
+              const { handle, nonce } = yield* tokens.issueConsent({
+                userId,
+                request: toConsentRequest(authRequest),
+              })
+              return {
+                handle,
+                headers: new Headers([
+                  ["set-cookie", consentCookie(nonce)],
+                  ["x-frame-options", "DENY"],
+                  ["content-security-policy", "frame-ancestors 'none'"],
+                ]),
+              }
+            }),
+          approveConsent: (request, handle) =>
+            Effect.gen(function* () {
+              const consent = yield* openHandle(request, handle)
+              const userId = yield* signedIn(request.headers)
+              if (userId !== consent.userId) {
+                return yield* failure("Consent belongs to another user", "access_denied")
+              }
+              return { request: toAuthRequest(consent.request), headers: cleared() }
+            }),
+          denyConsent: (request, handle) =>
+            openHandle(request, handle).pipe(
+              Effect.map((consent) => {
+                const redirectTo = withQuery(consent.request.redirectUri, {
+                  error: "access_denied",
+                  state: consent.request.state,
+                })
+                const headers = cleared()
+                return {
+                  request: toAuthRequest(consent.request),
+                  redirectTo,
+                  headers: new Headers([...headers.entries(), ["location", redirectTo]]),
+                }
+              }),
+            ),
+          completeAuthorization: ({ request, userId, scope }) =>
+            Effect.gen(function* () {
+              if (request.codeChallenge === undefined || request.codeChallengeMethod !== "S256") {
+                return yield* failure("PKCE S256 is required")
+              }
+              const gens = yield* users
+                .tokenGens(userId)
+                .pipe(Effect.mapError(() => failure("Unknown user", "access_denied")))
+              const code = yield* tokens.issueCode({
+                userId,
+                scopes: scope,
+                clientId: request.clientId,
+                gen: gens.mcp,
+                redirectUri: request.redirectUri,
+                codeChallenge: request.codeChallenge,
+              })
+              return { redirectTo: withQuery(request.redirectUri, { code, state: request.state }) }
+            }),
+        })
       }),
     )
 
@@ -213,9 +339,6 @@ export class FakeOAuth extends Context.Service<FakeOAuth, FakeOAuthShape>()(
 export const FAKE_CLIENT_ID = "fake-client"
 /** Deliberately hostile, so page tests prove client-supplied strings are escaped. */
 export const FAKE_CLIENT_NAME = `Evil "Client" <script>alert(1)</script>`
-
-const withQuery = (uri: string, query: Readonly<Record<string, string>>): string =>
-  `${uri}${uri.includes("?") ? "&" : "?"}${new URLSearchParams(query).toString()}`
 
 const fakeParse = (request: Request): Effect.Effect<AuthRequest, OAuthFailure> => {
   const url = new URL(request.url)

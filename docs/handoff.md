@@ -5,7 +5,7 @@ Older session history lives in git (`git log -- docs/handoff.md`); this file hol
 
 ## Where we are (2026-10-27 10:05)
 **Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
-mcp.tanren.me (MCP). Production = commit `4426117` (= HEAD), deployed 11:12 (DEPLOY-6) from a clean worktree
+mcp.tanren.me (MCP). Production = commit `17ffeee`, deployed 12:55 (DEPLOY-8: IDENT-1 published identities + EAS prefix) from a clean worktree
 whose root gate was green (159 files, 2002 tests); D1 at migration 0005 (applied by DEPLOY-5); the `*/5`
 Strava-drain cron is registered (account subdomain `tanren-me`, `workers_dev` off). Live features: Plan week
 "Logged N sets · volume" line (PLAN-LOG), W1 wordmark + the T mark as app/PWA icons (plan Amendment 15), OG

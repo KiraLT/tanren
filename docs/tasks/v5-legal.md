@@ -57,3 +57,40 @@ Case check: `ls apps/mobile/src/components/legal apps/mobile/app | tr A-Z a-z | 
 
 ## Log
 - 13:12 architect: ADR-0024, `docs/design/legal.md`, this sheet. Briefs in `docs/tasks/v5-legal-briefs.md`.
+
+## LEGAL-DV — designer verdict (architect as Forge designer, 13:36–13:41)
+
+Shots G1–G9 in `docs/design/screens/UI-LEGAL-*.{png,json}`; gallery `<section id="legal">` appended to
+`docs/design/screens/tanren-screens.html` (9 figures). Tokens cited from `ui/colors.ts`, `ui/tokens.ts`.
+
+| shot | verdict | measured fact |
+| --- | --- | --- |
+| G1 privacy 390 light | PASS | bg `#FFFFFF`; title 28/30/800 ×2 (AppBar "Tanren" + one body title, LEGAL-R r2 frame); 10 `title2` 22/28, 16 body 17/22; heading→block 8 = `rhythm.labelToGroup`, block→block 12 = `space.md`; column 358 |
+| G2 privacy 390 dark | PASS | bg `#0F1113`, same counts as G1; links `#FFB020`; Back 44×44 |
+| G3 privacy 1280 light | PASS | body column x 372 → 908 = 536 px ≈ 63 ch at 17 px (45–75 ch band); AppBar spans 1216, 0 nav links |
+| G4 privacy 1280 dark | PASS | identical boxes to G3 (`contentH` 2384 both); hairline under the AppBar visible on `#0F1113` |
+| G5 terms 390 light | PASS | 11 sections 22/28, 11 body blocks, `contentH` 2040, no horizontal scroll (`docH` 1600 viewport) |
+| G6 terms 1280 dark | PASS | same 536 column, first section at y 167 = AppBar 60 + 16 + title 30 + 4 + 18 + 24 |
+| G7 landing footer 390 | FIX (item 2) | Privacy 61×44, Terms 54×44 at top 1540, 4 px under the 18 px operator row (visual gap 17); "·" has 24 px each side vs ≈5 px around the operator row's dots |
+| G8 sign-in 390 light | FIX (item 1) | inline anchors Terms 38×16, Privacy Policy 85×16 (`small` in the JSON); sentence 13/18/500 wraps to 2 lines inside 358 |
+| G9 sign-in 1280 dark | PASS (item 1 applies) | Privacy Policy box 418×34 = the anchor wraps "Privacy / Policy." across two lines in the 420 column; accent `#FFB020` on `#0F1113` |
+
+FIX items, ranked (both one-liners, no re-shoot beyond G7; bundle with the in-flight heading-level fix):
+1. **Inline anchors are 16 px high** (G8 Terms 38×16, Privacy Policy 85×16; G1–G6 footer `hello@tanren.me` 105×16 — all six
+   JSONs list it under `small`), while the sibling `LegalLink` is 44. `hitSlop` is ignored on RNW (`LegalPage.tsx` comment), so
+   give `InlineAnchor` `paddingVertical: 14` (16 + 2·14 = 44): on an inline span vertical padding extends the hit box without
+   moving the line box. Done when the anchor's `getBoundingClientRect().height` is 44 and `contentH` of G1/G5/G8 is unchanged.
+   Also put a no-break space in the G9 label ("Privacy Policy") so the anchor never splits across lines.
+2. **Footer separator spacing** (G7): 8 px link padding + the "·" row gap makes 24 px each side of the dot, next to a row whose
+   dots sit at ≈5 px. Drop the "·" glyph between the two 44 px targets; the two 8 px paddings leave a 16 px gap (= `space.lg`),
+   which is how the brand row already separates its items. Alternative: keep the dot, `paddingHorizontal: space.xs` → 16 px.
+
+Nits ruled:
+- (a) 24 px around the "·": not accepted as is — see item 2 (the fix removes the glyph, keeps the 44 px targets).
+- (b) landing tagline at 390: 62 ch at 13/18/500 ≈ 390 px > 358, wraps with the one-word orphan "holds." — pre-existing landing
+  copy, out of LEGAL scope: accepted here; landing nit for later (`maxWidth` ≈ 300 px or two balanced lines of ≈31 ch).
+- Two 28/30/800 titles 48 px apart on 390 (AppBar brand + doc title): accepted, it is the LEGAL-R r2 document-frame decision
+  and matches `/settings`; the 1280 column (372) sits right of the brand title (120) for the same reason.
+- (c) heading levels: ignored (code fix in flight, not visual).
+
+LEGAL-DV: FIX (2 items)

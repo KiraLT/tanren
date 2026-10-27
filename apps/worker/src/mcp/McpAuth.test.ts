@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { MCP_SCOPES, UserId } from "@tanren/shared"
 import { Effect, Layer, Option, Redacted } from "effect"
 import { DEV_USER_ID } from "../auth/devUser"
+import { Tokens } from "../auth/Tokens"
 import { type Environment, WorkerConfig } from "../Config"
 import { envVars } from "../testing/fixtures"
 import {
@@ -121,7 +122,12 @@ describe("McpAuth.layerFixed", () => {
 })
 
 const owner = UserId.make("00000000-0000-4000-8000-0000000000a1")
-const withProps = (props: unknown) => ({ props }) as unknown as ExecutionContext
+const TOKENS_CONFIG = {
+  betterAuthUrl: envVars.BETTER_AUTH_URL,
+  betterAuthSecret: Redacted.make(envVars.BETTER_AUTH_SECRET), // test only
+  mcpResourceUrl: envVars.MCP_RESOURCE_URL,
+}
+const tokensLayer = Tokens.layerWith(TOKENS_CONFIG)
 
 const resolveVia = (layer: Layer.Layer<McpAuth>, context: ExecutionContext, headers = {}) =>
   Effect.gen(function* () {
@@ -131,28 +137,59 @@ const resolveVia = (layer: Layer.Layer<McpAuth>, context: ExecutionContext, head
     )
   }).pipe(Effect.provide(layer))
 
-describe("McpAuth.layerOAuth", () => {
-  it.effect("decodes the grant props in ctx.props into the principal", () =>
+/** An MCP access + refresh pair for `owner` with read scope, signed with the fixture secret. */
+const mcpPair = Effect.gen(function* () {
+  return yield* (yield* Tokens).issueMcpPair({
+    userId: owner,
+    scopes: ["tanren:read"],
+    clientId: "https://claude.ai/oauth/claude-code-client-metadata",
+    gen: 0,
+  })
+}).pipe(Effect.provide(tokensLayer))
+
+describe("McpAuth.layerJwt", () => {
+  const jwt = McpAuth.layerJwt.pipe(Layer.provide(tokensLayer))
+
+  it.effect("a valid MCP access JWT resolves to its user and scopes", () =>
     Effect.gen(function* () {
-      const context = withProps({ userId: owner, scopes: ["tanren:read"] })
-      expect(yield* resolveVia(McpAuth.layerOAuth, context)).toEqual(
+      const { accessToken } = yield* mcpPair
+      expect(yield* resolveVia(jwt, ctx, { Authorization: `Bearer ${accessToken}` })).toEqual(
         Option.some({ userId: owner, scopes: ["tanren:read"] }),
       )
     }),
   )
 
-  it.effect("empty, malformed or foreign-scope props resolve to none", () =>
+  it.effect("a refresh token, a garbage token or no header resolve to none", () =>
     Effect.gen(function* () {
-      const cases = [
-        {},
-        { userId: "not-a-uuid", scopes: ["tanren:read"] },
-        { userId: owner, scopes: ["tanren:admin"] },
-        { userId: owner },
-      ]
-      const results = yield* Effect.forEach(cases, (props) =>
-        resolveVia(McpAuth.layerOAuth, withProps(props)),
+      const { refreshToken } = yield* mcpPair
+      const results = yield* Effect.forEach(
+        [{ Authorization: `Bearer ${refreshToken}` }, { Authorization: "Bearer x.y.z" }, {}],
+        (headers) => resolveVia(jwt, ctx, headers),
       )
-      expect(results).toEqual(cases.map(() => Option.none()))
+      expect(results).toEqual([Option.none(), Option.none(), Option.none()])
+    }),
+  )
+
+  it.effect("a token signed with another secret resolves to none", () =>
+    Effect.gen(function* () {
+      const foreign = yield* Effect.gen(function* () {
+        return yield* (yield* Tokens).issueMcpPair({
+          userId: owner,
+          scopes: ["tanren:read"],
+          clientId: "c",
+          gen: 0,
+        })
+      }).pipe(
+        Effect.provide(
+          Tokens.layerWith({
+            ...TOKENS_CONFIG,
+            betterAuthSecret: Redacted.make("other-secret-000000000000000000000000"),
+          }),
+        ),
+      )
+      expect(
+        yield* resolveVia(jwt, ctx, { Authorization: `Bearer ${foreign.accessToken}` }),
+      ).toEqual(Option.none())
     }),
   )
 })
@@ -160,11 +197,11 @@ describe("McpAuth.layerOAuth", () => {
 describe("McpAuth.layerLive", () => {
   const live = McpAuth.layerLive.pipe(Layer.provide(config("local", Option.some(TOKEN))))
 
-  it.effect("prefers the OAuth props over a dev token", () =>
+  it.effect("resolves an MCP access JWT", () =>
     Effect.gen(function* () {
-      const context = withProps({ userId: owner, scopes: ["tanren:read"] })
-      const header = { Authorization: `Bearer ${TOKEN}` }
-      expect(yield* resolveVia(live, context, header)).toEqual(
+      const { accessToken } = yield* mcpPair
+      const header = { Authorization: `Bearer ${accessToken}` }
+      expect(yield* resolveVia(live, ctx, header)).toEqual(
         Option.some({ userId: owner, scopes: ["tanren:read"] }),
       )
     }),

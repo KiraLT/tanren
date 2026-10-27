@@ -26,6 +26,7 @@ import {
 } from "@tanren/shared"
 import { Schema } from "effect"
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup } from "effect/http-api"
+import { AccountApi } from "./AccountApi"
 import { Authentication } from "./Authentication"
 import { IntegrationsApi } from "./IntegrationsApi"
 
@@ -191,4 +192,5 @@ export class Api extends HttpApi.make("tanren")
   .add(SetsApi)
   .add(PlansApi)
   .add(SyncApi)
-  .add(IntegrationsApi) {}
+  .add(IntegrationsApi)
+  .add(AccountApi) {}

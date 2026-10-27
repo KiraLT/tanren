@@ -10,6 +10,8 @@ import {
   ExportFailureReason,
   ExportStatus,
   ExportsQuery,
+  GarminConnectRequest,
+  GarminTokenRejected,
   IntegrationNotConnected,
   IntegrationState,
   IntegrationsStatus,
@@ -62,6 +64,7 @@ describe("literal schemas", () => {
   it.effect("accept every documented literal", () =>
     Effect.gen(function* () {
       yield* accepts(Provider, "strava")
+      yield* accepts(Provider, "garmin")
       yield* Effect.forEach(["connected", "revoked", "disconnected"], (state) =>
         accepts(IntegrationState, state),
       )
@@ -77,6 +80,7 @@ describe("literal schemas", () => {
           "transport",
           "session_missing",
           "app_inactive",
+          "token_rejected",
         ],
         (reason) => accepts(ExportFailureReason, reason),
       )
@@ -85,7 +89,7 @@ describe("literal schemas", () => {
 
   it.effect("reject an unknown literal", () =>
     Effect.gen(function* () {
-      yield* rejects(Provider, "garmin")
+      yield* rejects(Provider, "polar")
       yield* rejects(IntegrationState, "pending")
       yield* rejects(ExportStatus, "queued")
       yield* rejects(ExportFailureReason, "network")
@@ -166,6 +170,117 @@ describe("ProviderStatus", () => {
   )
 })
 
+describe("ProviderStatus imports", () => {
+  const garminWire = {
+    ...disconnectedWire,
+    provider: "garmin",
+    state: "connected",
+    account: { displayName: "Garmin account" },
+    connectedAt: "2026-10-27T08:00:00.000Z",
+    imports: {
+      lastPullAt: "2026-10-27T08:05:00.000Z",
+      lastError: null,
+      activities: 2,
+      days: 7,
+    },
+  } as const
+
+  it.effect("the key is optional: a Strava row without it decodes with no `imports` key", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeUnknownEffect(ProviderStatus)(connectedWire)
+      expect("imports" in decoded).toBe(false)
+      expect("imports" in (yield* Schema.encodeEffect(ProviderStatus)(decoded))).toBe(false)
+    }),
+  )
+
+  it.effect("round-trips a Garmin row with imports, null decoded as None", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(ProviderStatus, garminWire)
+      const decoded = yield* Schema.decodeUnknownEffect(ProviderStatus)(garminWire)
+      expect(decoded.imports?.activities).toBe(2)
+      expect(decoded.imports === undefined || Option.isNone(decoded.imports.lastError)).toBe(true)
+      yield* wireRoundTrips(ProviderStatus, {
+        ...garminWire,
+        imports: { ...garminWire.imports, lastPullAt: null, lastError: "token_rejected" },
+      })
+    }),
+  )
+
+  it.effect("rejects negative counts and an unknown lastError with the path", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(ProviderStatus, {
+          ...garminWire,
+          imports: { ...garminWire.imports, activities: -1 },
+        }),
+      ).toEqual([["imports", "activities"]])
+      expect(
+        yield* failingPaths(ProviderStatus, {
+          ...garminWire,
+          imports: { ...garminWire.imports, lastError: "network" },
+        }),
+      ).toEqual([["imports", "lastError"]])
+    }),
+  )
+})
+
+describe("GarminConnectRequest", () => {
+  it.effect("decodes a token of 16 to 512 characters", () =>
+    Effect.gen(function* () {
+      yield* wireRoundTrips(GarminConnectRequest, { token: "0123456789abcdef" })
+      yield* accepts(GarminConnectRequest, { token: "x".repeat(512) })
+    }),
+  )
+
+  // `Schema.Trimmed` is a check, not a transform: the client trims before sending.
+  it.effect("rejects a token with leading or trailing blanks", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(GarminConnectRequest, { token: "  0123456789abcdef  " })).toEqual([
+        ["token"],
+      ])
+    }),
+  )
+
+  it.effect("rejects a token shorter than 16 or longer than 512, with the path", () =>
+    Effect.gen(function* () {
+      expect(yield* failingPaths(GarminConnectRequest, { token: "short" })).toEqual([["token"]])
+      expect(yield* failingPaths(GarminConnectRequest, { token: "x".repeat(513) })).toEqual([
+        ["token"],
+      ])
+      expect(yield* failingPaths(GarminConnectRequest, { token: " ".repeat(20) })).toEqual([
+        ["token"],
+      ])
+    }),
+  )
+})
+
+describe("GarminTokenRejected", () => {
+  it("answers 400", () => {
+    expect(statusOf(GarminTokenRejected)).toBe(400)
+  })
+
+  it.effect("carries one of three reasons and rejects others", () =>
+    Effect.gen(function* () {
+      const error = new GarminTokenRejected({ reason: "rejected" })
+      expect(error._tag).toBe("GarminTokenRejected")
+      yield* wireRoundTrips(GarminTokenRejected, {
+        _tag: "GarminTokenRejected",
+        reason: "unreachable",
+      })
+      yield* wireRoundTrips(GarminTokenRejected, {
+        _tag: "GarminTokenRejected",
+        reason: "not-configured",
+      })
+      expect(
+        yield* failingPaths(GarminTokenRejected, {
+          _tag: "GarminTokenRejected",
+          reason: "expired",
+        }),
+      ).toEqual([["reason"]])
+    }),
+  )
+})
+
 describe("IntegrationsStatus", () => {
   it.effect("round-trips the wire shape with both examples", () =>
     Effect.gen(function* () {
@@ -179,7 +294,7 @@ describe("IntegrationsStatus", () => {
     Effect.gen(function* () {
       expect(
         yield* failingPaths(IntegrationsStatus, {
-          providers: [connectedWire, { ...disconnectedWire, provider: "garmin" }],
+          providers: [connectedWire, { ...disconnectedWire, provider: "polar" }],
         }),
       ).toEqual([["providers", 1, "provider"]])
     }),

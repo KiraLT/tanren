@@ -3,6 +3,7 @@ import { Array as Arr, Context, Effect, Layer, Option } from "effect"
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig } from "../Config"
 import type { EnvVars } from "../Env"
+import { MemoryTokens } from "../repos/MemoryTokens"
 import { authRoutes } from "./authRoutes"
 import {
   type AuthDatabase,
@@ -48,6 +49,7 @@ const setup = (environment: "local" | "preview") =>
       Layer.provideMerge(BetterAuth.layerMemory),
       Layer.provideMerge(EmailSender.layerCapture),
       Layer.provideMerge(WorkerConfig.layerFromEnv(envVars(environment))),
+      Layer.provideMerge(MemoryTokens.layer), // native session exchange reads token generations
     )
     const context = yield* Layer.build(deps)
     const { handler, dispose } = HttpRouter.toWebHandler(
@@ -93,6 +95,7 @@ const requestThrough = (
       authRoutes.pipe(
         Layer.provide(deps),
         Layer.provide(WorkerConfig.layerFromEnv(envVars("local"))), // native routes read the secret
+        Layer.provide(MemoryTokens.layer),
         Layer.provide(HttpServer.layerServices),
       ),
       { disableLogger: true },

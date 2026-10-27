@@ -1,3 +1,4 @@
+import { UserTokens } from "@tanren/db"
 import {
   EmailDeliveryFailed,
   InternalError,
@@ -10,6 +11,7 @@ import {
   NativeSessionResponse,
   PkceChallenge,
   SessionStoreUnavailable,
+  UserId,
 } from "@tanren/shared"
 import { isAPIError } from "better-auth/api"
 import { Clock, Data, DateTime, Effect, HashMap, Layer, Option, Ref, Schema } from "effect"
@@ -25,6 +27,7 @@ import {
   verifyBegin,
   verifyCode,
 } from "./nativeCode"
+import { Tokens } from "./Tokens"
 
 /** Internal: the auth service or its store could not answer (D1 down, instance failed to build). */
 class NativeStoreFailed extends Data.TaggedError("NativeStoreFailed")<{
@@ -204,12 +207,14 @@ export const clientIp = (request: HttpServerRequest.HttpServerRequest): string =
  * `POST /api/native/begin` signs (email, challenge, returnTo, expiry) into the magic link's
  * callbackURL and sends the link; `GET /auth/native/complete` checks that signature against the
  * fresh Safari session's email and hands out a one-time code bound to the PKCE challenge;
- * `POST /api/native/session` exchanges code + verifier for the Better Auth session token.
+ * `POST /api/native/session` exchanges code + verifier for a stateless app token pair (ADR-0022).
  */
 export const nativeAuthRoutes = Layer.unwrap(
   Effect.gen(function* () {
     const betterAuth = yield* BetterAuth
     const config = yield* WorkerConfig
+    const tokens = yield* Tokens
+    const users = yield* UserTokens
     const limit = yield* makeLimiter
     const allowedReturnTo = isAllowedReturnTo(config.nativeReturnPrefixes)
     const secret = config.betterAuthSecret
@@ -352,22 +357,25 @@ export const nativeAuthRoutes = Layer.unwrap(
             Effect.fail(new NativeCodeRejected({ reason: "invalid" })),
           ),
         )
-        const expiresAt = yield* Effect.fromOption(DateTime.make(verified.session.expiresAt))
-        const response = yield* Schema.decodeUnknownEffect(NativeSessionResponse)({
-          token: verified.session.token,
-          userId: verified.user.id,
-          expiresAt: DateTime.formatIso(expiresAt),
-        })
-        return yield* HttpServerResponse.schemaJson(NativeSessionResponse)(response, {
-          headers: noStore,
-        })
+        // v2 (ADR-0022): the Better Auth session row stays for the web; the app gets a stateless
+        // pair bound to the user's current `appTokenGen`.
+        const userId = yield* Schema.decodeUnknownEffect(UserId)(verified.user.id)
+        const gens = yield* users
+          .tokenGens(userId)
+          .pipe(
+            Effect.catchTag("UserNotFound", () =>
+              Effect.fail(new NativeCodeRejected({ reason: "invalid" })),
+            ),
+          )
+        const access = yield* tokens.issueAppPair(userId, gens.app)
+        return yield* HttpServerResponse.schemaJson(NativeSessionResponse)(
+          { userId, access },
+          { headers: noStore },
+        )
       }).pipe(
         Effect.catchTags({ NativeRateLimited: rateLimited, NativeCodeRejected: codeRejected }),
         // A session row Better Auth returned that our schema rejects (non-UUID user id) is a bug.
-        Effect.catchTags({
-          NoSuchElementError: (error) => Effect.die(error),
-          SchemaError: (error) => Effect.die(error),
-        }),
+        Effect.catchTag("SchemaError", (error) => Effect.die(error)),
         Effect.catch(unavailable),
         Effect.catchDefect(internal),
       )
@@ -378,4 +386,5 @@ export const nativeAuthRoutes = Layer.unwrap(
       HttpRouter.add("POST", "/api/native/session", exchange),
     )
   }),
-)
+  // `Tokens.layer` is a single reference, so the app's other users share this instance.
+).pipe(Layer.provide(Tokens.layer))

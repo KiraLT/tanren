@@ -15,7 +15,7 @@ Run `pnpm deploy:preflight` first (add `--skip-gate` to skip `pnpm check`): a re
 everything below with the next command for each failure; it never deploys, logs in or writes a secret.
 
 Owner values it checks in `apps/worker/wrangler.jsonc` `env.production` (any `<owner: …>` placeholder or
-local value is a ✗): D1 `database_id` and KV `OAUTH_KV` `id` (real ids from §1.3); `vars.NATIVE_RETURN_PREFIXES`
+local value is a ✗): D1 `database_id` (the real id from §1.3; no KV binding any more, ADR-0022); `vars.NATIVE_RETURN_PREFIXES`
 = `exps://u.expo.dev/<projectId>/` (every comma-separated entry starts with `exps://u.expo.dev/` and has the
 project path, §2); `vars.MCP_RESOURCE_URL` = `https://mcp.tanren.me/mcp`; `vars.EMAIL_MODE` = `provider`;
 `vars.EMAIL_FROM` on `tanren.me`; `vars.ALLOWED_ORIGINS` = `https://tanren.me` and nothing else. It also lists
@@ -35,8 +35,10 @@ both secrets (§3), requires `wrangler.web.jsonc` to serve `../mobile/dist` on r
    ```
    pnpm exec wrangler login
    pnpm exec wrangler d1 create tanren                 # prints database_id
-   pnpm exec wrangler kv namespace create OAUTH_KV      # prints the KV id
    ```
+   No KV namespace is created: the MCP OAuth server is stateless (ADR-0022) and the Worker has no
+   `kv_namespaces` binding. The old `OAUTH_KV` namespace (`f7ea7f892333457f991ae37413b89d97`) only
+   lingers until owner step O2 (§3a).
 
 ## 2. `wrangler.jsonc` `env.production` (agents write the block with placeholders, owner fills ids)
 
@@ -57,8 +59,7 @@ both secrets (§3), requires `wrangler.web.jsonc` to serve `../mobile/dist` on r
       "MCP_RESOURCE_URL": "https://mcp.tanren.me/mcp"
     },
     "d1_databases": [{ "binding": "DB", "database_name": "tanren", "database_id": "<owner: wrangler d1 create>",
-                       "migrations_dir": "../../packages/db/migrations" }],
-    "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<owner: wrangler kv namespace create>" }]
+                       "migrations_dir": "../../packages/db/migrations" }]
   }
 }
 ```
@@ -81,9 +82,29 @@ production deploy fail loudly until the ids are real; `wrangler dev` (top level)
 pnpm exec wrangler secret put BETTER_AUTH_SECRET --env production   # ≥ 32 random bytes: `openssl rand -base64 32`
 pnpm exec wrangler secret put RESEND_API_KEY --env production       # from Resend
 ```
-That is the full list for step 5. `OAUTH_KV` needs no secret: the provider derives key material from
-the tokens themselves [V storage-schema]. Never paste a secret into `wrangler.jsonc` or `.dev.vars`
-that is committed.
+That is the full list for step 5. There is no `SECRET_KEY` and no KV: every token key is an HKDF sub-key of
+`BETTER_AUTH_SECRET` (ADR-0022 §6, `auth/Tokens.ts`). Never paste a secret into `wrangler.jsonc` or
+`.dev.vars` that is committed.
+
+**Rotating `BETTER_AUTH_SECRET` signs everyone out**: web cookies (`session_data` JWT), native app token
+pairs and MCP access/refresh tokens, authorization codes, consent handles and DCR client ids are all HKDF
+sub-keys of it (ADR-0022 §6). After a rotation the web app asks for the magic link again, the iPhone app
+returns to sign-in, and Claude / ChatGPT clients reconnect. There are no dual keys yet (auth-v2.md §2).
+
+## 3a. Stateless auth cutover (owner steps O1–O2, ADR-0022, `docs/tasks/v5-auth.md`)
+
+Replaces the `workers-oauth-provider` + KV server. Order for the cutover deploy (the Lead runs the first
+two): migration `0006_token_generations` (`user.appTokenGen`, `user.mcpTokenGen`, table `oauth_code_use`)
+**must be applied remotely before the Worker deploy** (§4), because the new Worker reads those columns; the
+Worker deploy then needs no KV binding.
+
+- **O1** (owner, after the stateless cutover deploy): reconnect the Claude app, Claude Code and ChatGPT
+  **once**. Their old grants lived in KV and are not read by the new server, so the first MCP call answers
+  401 and each client restarts its OAuth flow (§5). Signed-in web sessions survive (Better Auth cookies are
+  unchanged); the iPhone app stores a new token pair at its next sign-in.
+- **O2** (owner, optional, after about a week with nothing broken; agents never run it):
+  `pnpm exec wrangler kv namespace delete --namespace-id f7ea7f892333457f991ae37413b89d97` from
+  `apps/worker/` (the `OAUTH_KV` namespace). **VERIFY** the flag spelling with `wrangler kv namespace delete --help`.
 
 ## §Strava secrets (owner steps O1–O3, `docs/tasks/v4-strava.md`; ADR-0018)
 
@@ -122,7 +143,7 @@ set `env.production.vars.STRAVA_MODE` to `"provider"` in `apps/worker/wrangler.j
 ```
 # API + MCP Worker
 cd apps/worker
-pnpm exec wrangler d1 migrations apply tanren --env production --remote     # packages/db/migrations 0000, 0001, …
+pnpm exec wrangler d1 migrations apply tanren --env production --remote     # packages/db/migrations 0000 … 0006; 0006 BEFORE the deploy below (§3a)
 pnpm exec wrangler deploy --env production                                   # also registers the */5 cron
 curl -i https://api.tanren.me/health                                          # 200
 curl -i -X POST https://mcp.tanren.me/mcp -H 'content-type: application/json' -d '{}'
@@ -155,8 +176,11 @@ via DCR; **VERIFY** the dialog still offers that) → Connect → browser: `api.
 page → enter your email → click the magic link → consent page → Approve → back in the Claude app.
 Then in a chat: "use Tanren get_overview for 30d" and "write next week's plan" (`write_plan_week`).
 If the connector only shows four tools, the grant lacks `tanren:write`: remove the connector and
-redo the flow with both scopes ticked. Revoking: Claude app → connector → Disconnect (the provider's
-KV grant expires with the refresh token, 30 days, or is purged by `purgeExpiredData()` later).
+redo the flow with both scopes ticked. Revoking: Claude app → connector → Disconnect removes the client's
+copy only; the server keeps no grants (stateless, ADR-0022), so the tokens already issued stay valid until
+they expire (access 15 min, refresh 30 days). To kill them all at once use Settings → Account → Disconnect AI
+clients in the app (`POST /api/token/revoke-mcp`, bumps `user.mcpTokenGen`): every MCP token and code of the
+user then fails at its next refresh or call, and each client must reconnect.
 
 Claude Code (your laptop) against production: `claude mcp add --transport http tanren https://mcp.tanren.me/mcp`
 and follow the same browser flow. Local development keeps the dev bearer token (local-dev.md §5).
@@ -177,7 +201,7 @@ export time, so every production update must carry `EXPO_PUBLIC_API_URL`. **VERI
 
 ## 7. Checklist order
 
-DNS/Resend verified → `d1 create` + `kv namespace create` → ids into `env.production` → secrets (incl. §Strava secrets) →
-migrations → `wrangler deploy` (API) → web export + deploy → sign in on tanren.me → Claude app
+DNS/Resend verified → `d1 create` → id into `env.production` → secrets (incl. §Strava secrets) →
+migrations (0006 first, §3a) → `wrangler deploy` (API) → web export + deploy → sign in on tanren.me → Claude app
 connector → EAS Update. Each step's check command is above; stop at the first failure and paste its
 output to the Lead (nothing in this runbook is retried by an agent).

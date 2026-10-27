@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "@effect/vitest"
-import { PkceVerifier } from "@tanren/shared"
-import { Array as Arr, Context, Effect, Layer, Option } from "effect"
+import { NativeSessionResponse, PkceVerifier } from "@tanren/shared"
+import { Array as Arr, Context, Effect, Layer, Option, Schema } from "effect"
 import { HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig } from "../Config"
+import { MemoryTokens } from "../repos/MemoryTokens"
 import { envVars } from "../testing/fixtures"
 import { authRoutes } from "./authRoutes"
 import { BetterAuth, rateLimitFor } from "./BetterAuth"
@@ -33,6 +34,7 @@ const setup = (baseUrl: string) =>
           NATIVE_RETURN_PREFIXES: "exp://localhost:,exp://192.168.1.5:",
         }),
       ),
+      Layer.provideMerge(MemoryTokens.layer),
     )
     const context = yield* Layer.build(deps)
     const { handler, dispose } = HttpRouter.toWebHandler(
@@ -133,11 +135,16 @@ describe("native sign-in flow", () => {
       expect(response.status).toBe(200)
       expect(response.headers.get("cache-control")).toBe("no-store")
       const body = yield* harness.json(response)
-      expect(body).toMatchObject({ token: expect.any(String), userId: expect.any(String) })
-      const { token, userId } = body as { token: string; userId: string } // shape asserted above
+      expect(body).toMatchObject({
+        userId: expect.any(String),
+        access: { accessToken: expect.any(String), refreshToken: expect.any(String) },
+      })
+      const { access, userId } = yield* Schema.decodeUnknownEffect(NativeSessionResponse)(body)
 
       const sessions = Context.get(harness.context, Sessions)
-      const current = yield* sessions.current(new Headers({ authorization: `Bearer ${token}` }))
+      const current = yield* sessions.current(
+        new Headers({ authorization: `Bearer ${access.accessToken}` }),
+      )
       expect(current).toEqual(Option.some(userId))
     }),
   )

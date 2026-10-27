@@ -1,6 +1,6 @@
-import type { ConsentDescription } from "@cloudflare/workers-oauth-provider"
 import { MCP_SCOPES, type McpScope } from "@tanren/shared"
 import { Array as Arr, Match, Schema } from "effect"
+import type { ConsentDescription } from "./consent"
 import type { ClientTrust } from "./knownClients"
 
 /** What each scope lets Claude do, as shown on the consent page (docs/design/oauth.md §4). */

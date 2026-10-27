@@ -186,7 +186,17 @@ Lead had to route it back through the team-lead, one extra turn each way).
    previous.bottom, new.bottom ≤ next.top or last) at 390, plus 1280 when the
    screen has a `Columns` layout — pasted in the report. A snapshot line only
    proves the element exists: TODAY-FIN's button passed its snapshot check
-   while floating over Set 2 (FIN-LAYOUT, 2026-10-26).
+   while floating over Set 2 (FIN-LAYOUT, 2026-10-26). A defect you measured
+   inside your own files is fixed in the same round, never offered ("say if
+   you want it moved"): LEGAL-1 r4 reported a 13 px overlap of two 44 px
+   targets as a question and cost a fifth round (2026-10-27). When a fix
+   names one instance of a class (one 16 px anchor, one footer link), fix
+   every instance of that class on the screens you own and list them.
+15. Shared barrels (`packages/*/src/index.ts`, `repositories/index.ts`) are
+   touched by every live stream: add your export line as the LAST edit of
+   the task, right before the gate, so the Lead can commit the other
+   stream's work meanwhile (the STLS commit waited on LEGAL-2a's line,
+   2026-10-27).
 
 ## Kaizen
 

@@ -1,5 +1,15 @@
 # MCP OAuth + write tools (step 5)
 
+> **Superseded by `docs/design/auth-v2.md` (ADR-0022) for §1 (shape: `OAuthProvider`, KV), §2 (config and
+> bindings: `OAUTH_KV`, `Env`), §4 (identity seam: `ctx.props` / `layerOAuth`) and the library, KV and
+> grant mechanics wherever §3, §6 and §6a mention them** (`makeProvider`, `OAuthHelpers`, `ConsentDescription`
+> from the library, `provider.fetch`, CIMD "10 s / 7 d" → now 5 s / 1 h, tokens 3600 s → access 900 s). The
+> server is now stateless: Tanren JWTs signed with HKDF sub-keys of `BETTER_AUTH_SECRET`, `McpAuth.layerJwt`,
+> `oauth_code_use` as the only table, no KV, no `@cloudflare/workers-oauth-provider`. **Still current:** §3's
+> pages and login/consent behaviour (`authorize.ts`, `pages.ts`, `authorize.test.ts` unchanged), §5 write
+> tools, and §6a trust rules (`knownClients.ts`, `TRUSTED_CLIENT_HOSTS`, the Known/Unknown consent page,
+> IDENT-1). The sections below are kept as written for history; where they disagree with auth-v2.md, auth-v2.md wins.
+
 Status: accepted (Lead delegation), 2026-10-20. Normative for `apps/worker/src/{index,Env,Config}.ts`,
 `src/oauth/**`, `src/mcp/**`, `packages/shared/src/mcp.ts` and `wrangler*.jsonc`. Tags: **[V]** verified
 2026-10-20 (context7 `/cloudflare/workers-oauth-provider` v1 docs, Cloudflare docs MCP, installed

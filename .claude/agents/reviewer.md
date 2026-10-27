@@ -93,6 +93,11 @@ engineer can act on without asking questions.
   component on every surface it sits on — bare page, `Card`, `ListGroup` — a
   `surface` tile inside a `surface` group vanishes (UI-R2). Name the one
   variant in the finding so a single fix engineer closes every screen.
+  Same for hit boxes and heading levels: when one anchor is 16 px high or one
+  heading is an extra `h1`, enumerate every anchor / heading on the changed
+  screens in the finding (count + names) so the fix is one round — LEGAL-1's
+  "landing footer links 44 px" finding left the inline anchors for r4 and
+  the resulting overlap for r5 (2026-10-27).
 - Docs: decisions surfaced in the report (so the Lead can file an ADR); the
   package `CLAUDE.md` still describes reality.
 

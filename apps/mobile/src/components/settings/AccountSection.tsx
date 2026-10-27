@@ -1,10 +1,21 @@
 import { Match } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
-import { type AccountState, type SignOutState, useAccount } from "../../hooks/useAccount"
+import {
+  type AccountState,
+  type DisconnectState,
+  type SignOutState,
+  useAccount,
+} from "../../hooks/useAccount"
 import { Banner, ListRow, sizes, space } from "../../ui"
 import { SettingsSection } from "./SettingsSection"
 import {
+  DISCONNECT_AI_DONE_BODY,
+  DISCONNECT_AI_DONE_TITLE,
+  DISCONNECT_AI_NOTE,
+  DISCONNECT_AI_TITLE,
+  disconnectFailureBody,
+  disconnectFailureTitle,
   KEPT_DATA_NOTE,
   SIGNED_OUT_NATIVE_TITLE,
   signOutFailureBody,
@@ -43,15 +54,61 @@ function SignOut({ state, onPress }: SignOutProps) {
   )
 }
 
+interface DisconnectProps {
+  readonly state: DisconnectState
+  readonly onPress: () => void
+}
+
+/** Danger row that revokes every MCP token, plus the one status banner it can leave. */
+function DisconnectAiClients({ state, onPress }: DisconnectProps) {
+  const working = state._tag === "Working"
+  return (
+    <View>
+      <ListRow
+        tone="danger"
+        leading={<View style={{ width: sizes.iconSm }} />}
+        title={working ? "Disconnecting…" : DISCONNECT_AI_TITLE}
+        subtitle={DISCONNECT_AI_NOTE}
+        accessibilityLabel={DISCONNECT_AI_TITLE}
+        disabled={working}
+        onPress={onPress}
+      />
+      {state._tag === "Done" ? (
+        <View style={{ padding: space.lg }}>
+          <Banner tone="success" title={DISCONNECT_AI_DONE_TITLE} body={DISCONNECT_AI_DONE_BODY} />
+        </View>
+      ) : null}
+      {state._tag === "Failed" ? (
+        <View style={{ padding: space.lg }}>
+          <Banner
+            tone="danger"
+            title={disconnectFailureTitle(state.reason)}
+            body={disconnectFailureBody(state.reason)}
+          />
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
 interface AccountRowsProps {
   readonly account: AccountState
   readonly signOut: SignOutState
   readonly requestSignOut: () => void
+  readonly disconnect: DisconnectState
+  readonly requestDisconnect: () => void
   readonly signIn: () => void
 }
 
 /** Rows are returned as an array: a fragment would be one `ListGroup` child (no hairlines). */
-const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsProps) =>
+const renderRows = ({
+  account,
+  signOut,
+  requestSignOut,
+  disconnect,
+  requestDisconnect,
+  signIn,
+}: AccountRowsProps) =>
   Match.value(account).pipe(
     Match.tagsExhaustive({
       Loading: () => [<ListRow key="account" icon="user" title="Account" subtitle="Checking…" />],
@@ -74,6 +131,7 @@ const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsPro
       ],
       SignedIn: ({ email }) => [
         <ListRow key="who" icon="user" title="Signed in" subtitle={email} />,
+        <DisconnectAiClients key="mcp" state={disconnect} onPress={requestDisconnect} />,
         <SignOut key="out" state={signOut} onPress={requestSignOut} />,
       ],
       SignedInOffline: () => [
@@ -83,6 +141,7 @@ const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsPro
           title="Signed in (offline)"
           subtitle="Your email shows when you are online"
         />,
+        <DisconnectAiClients key="mcp" state={disconnect} onPress={requestDisconnect} />,
         <SignOut key="out" state={signOut} onPress={requestSignOut} />,
       ],
     }),
@@ -91,13 +150,15 @@ const renderRows = ({ account, signOut, requestSignOut, signIn }: AccountRowsPro
 /** Settings > Account: email and Sign out when signed in, a sign-in entry otherwise. */
 export function AccountSection() {
   const router = useRouter()
-  const { account, signOut, requestSignOut } = useAccount()
+  const { account, signOut, requestSignOut, disconnect, requestDisconnect } = useAccount()
   return (
     <SettingsSection title="Account">
       {renderRows({
         account,
         signOut,
         requestSignOut,
+        disconnect,
+        requestDisconnect,
         signIn: () => router.navigate("/sign-in"),
       })}
     </SettingsSection>

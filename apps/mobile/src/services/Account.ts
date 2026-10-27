@@ -25,6 +25,14 @@ export class SignOutFailed extends Data.TaggedError("SignOutFailed")<{
   readonly reason: "offline" | "server"
 }> {}
 
+/**
+ * Internal: "Disconnect AI clients" failed. `offline` = no network or a timeout; `server` = the
+ * worker answered non-2xx (a 401 means the sign-in is gone too).
+ */
+export class DisconnectFailed extends Data.TaggedError("DisconnectFailed")<{
+  readonly reason: "offline" | "server"
+}> {}
+
 export interface AccountUser {
   readonly userId: UserId
   readonly email: Email
@@ -34,11 +42,18 @@ export interface AccountShape {
   /** None when signed out; fails offline (the UI then shows "Signed in (offline)"). */
   readonly session: Effect.Effect<Option.Option<AccountUser>, SignOutFailed>
   /**
-   * `POST /api/auth/sign-out` (cookie on web, Bearer on native), then forgets the owner, then
-   * `NativeSession.clear`. Local rows are kept. Any HTTP failure, and a failed `forgetOwner`,
-   * leave the stored owner and the native token as they were.
+   * Web: `POST /api/auth/sign-out` (cookie), then forgets the owner. Native (a token pair is
+   * stored): best-effort `POST /api/token/revoke` (Bearer; a failure is ignored so a dead network
+   * never traps the user signed in), then forgets the owner, then `NativeSession.clear`. Local rows
+   * are kept. A failed `forgetOwner` leaves the stored owner and the native tokens as they were,
+   * as does any web HTTP failure.
    */
   readonly signOut: Effect.Effect<void, SignOutFailed>
+  /**
+   * `POST /api/token/revoke-mcp` (Bearer on native, cookie on web): every MCP access and refresh
+   * token is dead, so Claude and other apps must reconnect. The app login is untouched.
+   */
+  readonly revokeMcp: Effect.Effect<void, DisconnectFailed>
 }
 
 /** Forgets the stored owner; the next runtime resolves signed out and skips the demo seed. */
@@ -100,7 +115,27 @@ const make = (baseUrl: Effect.Effect<string>) =>
       }))
     })
 
-    const signOut = Effect.gen(function* () {
+    /**
+     * Native: end the app login on the server. True when it is done (2xx, or a 401: the server
+     * already bumped the generation); false when it must be retried at the next start (offline,
+     * timeout, 5xx, or no access token to authenticate with). Never fails.
+     */
+    const revokeAppTokens = Effect.gen(function* () {
+      const base = yield* baseUrl
+      // None = the refresh could not connect (an unauthenticated 401 must not count as done).
+      if (Option.isNone(yield* native.token)) {
+        return false
+      }
+      yield* settle(
+        execute(
+          HttpClientRequest.post(`${base}/api/token/revoke`).pipe(HttpClientRequest.acceptJson),
+        ).pipe(Effect.catchIf(isUnauthorised, () => Effect.void)),
+      )
+      return true
+    }).pipe(Effect.catch(() => Effect.succeed(false)))
+
+    /** Web: Better Auth ends the cookie session. */
+    const endWebSession = Effect.gen(function* () {
       const base = yield* baseUrl
       const request = yield* HttpClientRequest.post(`${base}/api/auth/sign-out`).pipe(
         HttpClientRequest.acceptJson,
@@ -108,14 +143,30 @@ const make = (baseUrl: Effect.Effect<string>) =>
         Effect.mapError(() => failed("server")),
       )
       yield* settle(execute(request).pipe(Effect.catchIf(isUnauthorised, () => Effect.void)))
-      // Owner first: if it cannot be forgotten the token stays, so the user is still signed in
-      // locally and can retry. (The server session is already gone; a retry then gets a 401,
-      // which counts as success.)
+    })
+
+    const revokeMcp = Effect.gen(function* () {
+      const base = yield* baseUrl
+      yield* send(
+        HttpClientRequest.post(`${base}/api/token/revoke-mcp`).pipe(HttpClientRequest.acceptJson),
+      )
+    }).pipe(Effect.mapError((error) => new DisconnectFailed({ reason: error.reason })))
+
+    const signOut = Effect.gen(function* () {
+      const hasTokens = yield* native.hasSession
+      const revoked = yield* hasTokens ? revokeAppTokens : endWebSession.pipe(Effect.as(true))
+      // Owner first: if it cannot be forgotten the tokens stay, so the user is still signed in
+      // locally and can retry. (The server side is already gone; a retry then gets a 401, which
+      // is done on native and counts as success on web.)
       yield* driver.batch([forgetOwner]).pipe(Effect.mapError(() => failed("server")))
+      // A revoke that did not get through leaves the refresh token as a marker the next start retries.
+      if (!revoked) {
+        yield* native.deferRevoke
+      }
       yield* native.clear
     })
 
-    return { session, signOut } satisfies AccountShape
+    return { session, signOut, revokeMcp } satisfies AccountShape
   })
 
 /** Account actions for Settings: who is signed in, and sign-out. */

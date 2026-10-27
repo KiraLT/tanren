@@ -18,13 +18,13 @@
     "check": "biome ci --error-on-warnings . && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@cloudflare/workers-oauth-provider": "catalog:",
     "@modelcontextprotocol/server": "catalog:",
     "@tanren/db": "workspace:*",
     "@tanren/shared": "workspace:*",
     "agents": "catalog:",
     "better-auth": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "jose": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "catalog:",

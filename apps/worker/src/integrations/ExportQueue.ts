@@ -92,6 +92,7 @@ export const failureOutcome = (
     rate_limited: retry,
     rejected: () => ({ _tag: "Failed", reason, now }),
     unauthorized: () => ({ _tag: "Failed", reason, now }),
+    token_rejected: () => ({ _tag: "Failed", reason, now }),
     session_missing: () => ({ _tag: "Dead", reason, now }),
     app_inactive: () => ({
       _tag: "Blocked",

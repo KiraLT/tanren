@@ -48,6 +48,13 @@ const makeAuth = (
     // `basePath` (`normalizePathname`), and `auth.api.*` calls bypass the list.
     disabledPaths: ["/one-time-token/generate", "/one-time-token/verify"],
     rateLimit: rateLimitFor(config.environment),
+    // ADR-0022 / auth-v2.md §4: a 30-day session row (refreshed daily) and a 15-minute HS256
+    // `session_data` cookie, so `get-session` reads no D1 row within `maxAge` (S2: dbCalls=[]).
+    session: {
+      expiresIn: 2_592_000,
+      updateAge: 86_400,
+      cookieCache: { enabled: true, strategy: "jwt", maxAge: 900 },
+    },
     advanced: {
       database: { generateId: "uuid" },
       // The rate limiter keys on the first of these headers that holds a valid IP (default

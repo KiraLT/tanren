@@ -1,17 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { UserId } from "@tanren/shared"
 import { Effect, Layer, Option, Ref, Result } from "effect"
 import { FetchHttpClient } from "effect/http"
-import { NativeSession, SESSION_KEY } from "./NativeSession"
+import { ACCESS_KEY, EXPIRES_KEY, NativeSession, REFRESH_KEY } from "./NativeSession"
 import { SyncTransport } from "./SyncTransport"
 
-const USER = UserId.make("00000000-0000-4000-8000-0000000000aa")
 const ENTRY = {
-  [SESSION_KEY]: JSON.stringify({
-    token: "tok-123",
-    userId: USER,
-    expiresAt: "2099-01-01T00:00:00.000Z",
-  }),
+  [ACCESS_KEY]: "tok-123",
+  [REFRESH_KEY]: "ref-123",
+  [EXPIRES_KEY]: "2099-01-01T00:00:00.000Z",
 }
 
 const pullWith = (respond: () => Promise<Response>) =>
@@ -43,7 +39,7 @@ describe("SyncTransport / withSession failure handling", () => {
           _tag: "TransportError",
           reason: "status",
         })
-        expect(store[SESSION_KEY]).toBeDefined()
+        expect(store[ACCESS_KEY]).toBeDefined()
       }),
   )
 
@@ -53,7 +49,7 @@ describe("SyncTransport / withSession failure handling", () => {
         Promise.reject(new TypeError("Failed to fetch")),
       )
       expect(Result.isFailure(result) && result.failure).toMatchObject({ reason: "unreachable" })
-      expect(store[SESSION_KEY]).toBeDefined()
+      expect(store[ACCESS_KEY]).toBeDefined()
     }),
   )
 

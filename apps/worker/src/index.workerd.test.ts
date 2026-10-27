@@ -109,6 +109,84 @@ describe("src/index.ts default export in workerd", () => {
     )
   })
 
+  it("stateless OAuth through the default export: register → consent → token → /mcp → refresh", async () => {
+    const redirect = "http://localhost:33419/callback"
+    const registered = await call("/oauth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ redirect_uris: [redirect], client_name: "index test" }),
+    })
+    expect(registered.status).toBe(201)
+    const clientId = Schema.decodeUnknownSync(Schema.Struct({ client_id: Schema.String }))(
+      await registered.json(),
+    ).client_id
+    const verifier = "index-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz"
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+    const query = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirect,
+      scope: "tanren:read tanren:write",
+      state: "ix",
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+    })
+    const session = await cookie()
+    const consent = await call(`/authorize?${query.toString()}`, { headers: { cookie: session } })
+    expect(consent.status).toBe(200)
+    const handle = /name="handle" value="([^"]+)"/.exec(await consent.text())?.[1] ?? ""
+    const binding = Arr.map(consent.headers.getSetCookie(), (h) => h.split(";")[0] ?? "")
+    const approved = await call("/authorize", {
+      method: "POST",
+      headers: { cookie: [session, ...binding].join("; "), origin: BASE },
+      body: new URLSearchParams([
+        ["handle", handle],
+        ["decision", "approve"],
+        ["scope", "tanren:read"],
+        ["scope", "tanren:write"],
+      ]),
+    })
+    expect(approved.status).toBe(302)
+    const location = new URL(approved.headers.get("location") ?? "")
+    expect(location.searchParams.get("state")).toBe("ix")
+    const token = await call("/oauth/token", {
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: location.searchParams.get("code") ?? "",
+        redirect_uri: redirect,
+        client_id: clientId,
+        code_verifier: verifier,
+      }),
+    })
+    expect(token.status).toBe(200)
+    expect(token.headers.get("cache-control")).toBe("no-store")
+    const pair = Schema.decodeUnknownSync(
+      Schema.Struct({ access_token: Schema.String, refresh_token: Schema.String }),
+    )(await token.json())
+    const tools = await call("/mcp", {
+      method: "POST",
+      headers: {
+        host: "localhost:8787",
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        authorization: `Bearer ${pair.access_token}`,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    })
+    expect(tools.status).toBe(200)
+    expect(await tools.text()).toContain('"get_overview"')
+    const refreshed = await call("/oauth/token", {
+      method: "POST",
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: pair.refresh_token }),
+    })
+    expect(refreshed.status).toBe(200)
+  })
+
   it("the magic-link cookie is a real session for the dev user", async () => {
     const response = await call("/api/auth/get-session", { headers: { cookie: await cookie() } })
     expect(response.status).toBe(200)

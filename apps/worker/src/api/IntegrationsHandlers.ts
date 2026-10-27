@@ -5,7 +5,7 @@ import {
   IntegrationNotConnected,
   type IntegrationsStatus,
   NotFound,
-  Provider,
+  type Provider,
   type ProviderStatus,
   type UserId,
 } from "@tanren/shared"
@@ -39,6 +39,10 @@ const internal = <A, E, R>(
             Effect.andThen(Effect.fail(new HttpApiError.InternalServerError())),
           ),
   )
+
+/** Providers with a card in the app; `Provider.literals` also holds ones still being built. */
+// garmin joins when GM-4 lands its connect endpoint
+const AVAILABLE_PROVIDERS: ReadonlyArray<Provider> = ["strava"]
 
 const currentUser = CurrentUser.use((user) => Effect.succeed(user.userId))
 
@@ -93,7 +97,7 @@ export const IntegrationsLive = HttpApiBuilder.group(
         internal(
           Effect.gen(function* () {
             const userId = yield* currentUser
-            const providers = yield* Effect.forEach(Provider.literals, (provider) =>
+            const providers = yield* Effect.forEach(AVAILABLE_PROVIDERS, (provider) =>
               providerStatus(userId, provider),
             )
             const result: IntegrationsStatus = { providers }

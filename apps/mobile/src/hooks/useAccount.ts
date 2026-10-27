@@ -19,6 +19,13 @@ export type SignOutState =
   /** Native only: the session is gone, the runtime still holds the old owner until a relaunch. */
   | { readonly _tag: "Done" }
 
+/** "Disconnect AI clients": every MCP token revoked, so Claude and other apps must reconnect. */
+export type DisconnectState =
+  | { readonly _tag: "Idle" }
+  | { readonly _tag: "Working" }
+  | { readonly _tag: "Done" }
+  | { readonly _tag: "Failed"; readonly reason: "offline" | "server" }
+
 const IS_WEB = process.env.EXPO_OS === "web"
 
 /** The worker's answer, else (offline) what the local store knows: signed in or not. */
@@ -48,9 +55,12 @@ export const useAccount = (): {
   readonly account: AccountState
   readonly signOut: SignOutState
   readonly requestSignOut: () => void
+  readonly disconnect: DisconnectState
+  readonly requestDisconnect: () => void
 } => {
   const [account, setAccount] = useState<AccountState>({ _tag: "Loading" })
   const [signOut, setSignOut] = useState<SignOutState>({ _tag: "Idle" })
+  const [disconnect, setDisconnect] = useState<DisconnectState>({ _tag: "Idle" })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -102,5 +112,26 @@ export const useAccount = (): {
     })
   }, [])
 
-  return { account, signOut, requestSignOut }
+  const requestDisconnect = useCallback(() => {
+    setDisconnect({ _tag: "Working" })
+    runtime.runPromiseExit(Account.use((current) => current.revokeMcp)).then((exit) => {
+      if (!mounted.current) {
+        return
+      }
+      setDisconnect(
+        Exit.isSuccess(exit)
+          ? { _tag: "Done" }
+          : {
+              _tag: "Failed",
+              reason: Option.match(Cause.findErrorOption(exit.cause), {
+                onNone: () => "server",
+                onSome: (failure) =>
+                  Predicate.isTagged(failure, "DisconnectFailed") ? failure.reason : "server",
+              }),
+            },
+      )
+    })
+  }, [])
+
+  return { account, signOut, requestSignOut, disconnect, requestDisconnect }
 }

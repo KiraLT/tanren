@@ -13,7 +13,16 @@ import {
   PkceVerifier,
   SessionToken,
 } from "./nativeAuth"
-import { accepts, rejects, wireRoundTrips } from "./testing"
+import { accepts, failingPaths, rejects, wireRoundTrips } from "./testing"
+
+const sessionResponse = {
+  userId: "00000000-0000-4000-8000-000000000001",
+  access: {
+    accessToken: "aaa.bbb.ccc",
+    refreshToken: "ddd.eee.fff",
+    expiresAt: "2026-10-28T07:02:11.000Z",
+  },
+}
 
 const b64url43 = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 const ott = "Ab3dEf6hIj9kLm2nOp5qRs8tUv1wXy4z"
@@ -62,11 +71,35 @@ describe("wire shapes", () => {
   it.effect("NativeSessionRequest rejects a missing verifier", () =>
     rejects(NativeSessionRequest, { code }),
   )
-  it.effect("NativeSessionResponse round-trips the wire", () =>
-    wireRoundTrips(NativeSessionResponse, {
-      token: "aB3x",
-      userId: "00000000-0000-4000-8000-000000000001",
-      expiresAt: "2026-10-28T07:02:11.000Z",
+  it.effect("NativeSessionResponse v2 round-trips the wire", () =>
+    wireRoundTrips(NativeSessionResponse, sessionResponse),
+  )
+  it.effect("NativeSessionResponse rejects the v1 shape (token, no access) at access", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(NativeSessionResponse, {
+          token: "aB3x",
+          userId: sessionResponse.userId,
+          expiresAt: "2026-10-28T07:02:11.000Z",
+        }),
+      ).toEqual([["access"]])
+    }),
+  )
+  it.effect("NativeSessionResponse rejects an empty access token at access.accessToken", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(NativeSessionResponse, {
+          ...sessionResponse,
+          access: { ...sessionResponse.access, accessToken: "" },
+        }),
+      ).toEqual([["access", "accessToken"]])
+    }),
+  )
+  it.effect("NativeSessionResponse rejects a non-UUID userId at userId", () =>
+    Effect.gen(function* () {
+      expect(
+        yield* failingPaths(NativeSessionResponse, { ...sessionResponse, userId: "nope" }),
+      ).toEqual([["userId"]])
     }),
   )
   it.effect("PendingNativeSignIn round-trips the stored JSON", () =>

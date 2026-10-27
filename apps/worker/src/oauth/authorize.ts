@@ -1,4 +1,3 @@
-import type { ConsentDescription, OAuthHelpers } from "@cloudflare/workers-oauth-provider"
 import { MCP_SCOPES, McpScope, type SessionStoreUnavailable } from "@tanren/shared"
 import {
   Array as Arr,
@@ -15,14 +14,13 @@ import { BetterAuth } from "../auth/BetterAuth"
 import { Sessions } from "../auth/Sessions"
 import { SessionsLive } from "../auth/SessionsLive"
 import { WorkerConfig } from "../Config"
+import type { ConsentDescription } from "./consent"
 import { clientTrust } from "./knownClients"
 import { OAuthApi, type OAuthFailure } from "./OAuthApi"
 import { type ConsentView, checkEmailPage, consentPage, errorPage, loginPage } from "./pages"
 
-/** The part of the Worker env this module reads: the helpers the `OAuthProvider` injects. */
-export interface AuthorizeEnv {
-  readonly OAUTH_PROVIDER?: OAuthHelpers
-}
+/** The Worker env as the router hands it over; this module reads nothing from it directly. */
+export type AuthorizeEnv = unknown
 
 export interface AuthorizeServices {
   /** Better Auth for the magic-link send (and, by default, for `Sessions`). */
@@ -30,10 +28,13 @@ export interface AuthorizeServices {
   /** Who is signed in. Default `SessionsLive` on the same Better Auth instance; tests pass `layerFixed`. */
   readonly sessions?: Layer.Layer<Sessions, never, BetterAuth | WorkerConfig>
   /**
-   * The provider port for one request. Default: `OAuthApi.layerFromHelpers(env.OAUTH_PROVIDER)`,
-   * none when the request did not come through the provider. Tests pass one shared fake.
+   * The OAuth port for one request: the Worker passes `OAuthApi.layerStateless({ request })` (it may
+   * use this runtime's `Sessions` and `WorkerConfig`); `None` answers 503. Tests pass one shared fake.
    */
-  readonly oauth?: (env: AuthorizeEnv) => Option.Option<Layer.Layer<OAuthApi>>
+  readonly oauth: (
+    env: AuthorizeEnv,
+    request: Request,
+  ) => Option.Option<Layer.Layer<OAuthApi, never, Sessions | WorkerConfig>>
 }
 
 export interface Authorize {
@@ -259,11 +260,8 @@ const route = (request: Request): Effect.Effect<Response, never, AuthorizeDeps> 
   )
 }
 
-const defaultOAuth = (env: AuthorizeEnv): Option.Option<Layer.Layer<OAuthApi>> =>
-  Option.map(Option.fromNullishOr(env.OAUTH_PROVIDER), OAuthApi.layerFromHelpers)
-
 /**
- * The authorization-server pages the `OAuthProvider` delegates to (docs/design/oauth.md §3):
+ * The authorization-server pages the router serves (docs/design/oauth.md §3):
  * `GET /authorize`, `POST /authorize/login`, `POST /authorize`. Build once per isolate; layers only
  * describe (Better Auth is created on first use). Every outcome is a page or a redirect, never 500.
  */
@@ -275,9 +273,8 @@ export const makeAuthorize = (env: unknown, services: AuthorizeServices): Author
       Layer.orDie,
     ),
   )
-  const oauthFor = services.oauth ?? defaultOAuth
   const handle = (request: Request, workerEnv: AuthorizeEnv, _ctx: ExecutionContext) =>
-    Option.match(oauthFor(workerEnv), {
+    Option.match(services.oauth(workerEnv, request), {
       onNone: () => Promise.resolve(unavailable()),
       onSome: (oauth) =>
         runtime

@@ -1,16 +1,24 @@
-import { OAuthProvider } from "@cloudflare/workers-oauth-provider"
-import { MCP_SCOPES } from "@tanren/shared"
-import { Option } from "effect"
+import type { OAuthCodeUseRepo, UserTokens } from "@tanren/db"
+import { type Effect, Layer, ManagedRuntime, Option } from "effect"
 import type { App } from "../app"
-import type { WorkerConfigShape } from "../Config"
-import type { Env } from "../Env"
-import { devPrincipalFor } from "../mcp/McpAuth"
+import { Tokens } from "../auth/Tokens"
+import { WorkerConfig, type WorkerConfigShape } from "../Config"
 import { mcpLandingResponse } from "../mcp/McpLanding"
 import type { Mcp } from "../mcp/McpRoute"
 import type { Authorize } from "./authorize"
+import { ClientResolver, register } from "./clients"
+import {
+  AUTHORIZATION_SERVER_METADATA,
+  metadataRoute,
+  PROTECTED_RESOURCE_METADATA,
+} from "./metadata"
+import { OAuthApi } from "./OAuthApi"
+import { tokenEndpoint } from "./token"
 
-// The Worker as one `OAuthProvider` in combined mode (docs/design/oauth.md §1). This module imports
-// the package's value (and so `cloudflare:workers`): only `index.ts` and workerd tests load it.
+// The Worker's router (ADR-0022, docs/design/auth-v2.md §5): the stateless OAuth authorization
+// server, the MCP resource and the REST app on one fetch. No KV, no library: discovery, token and
+// registration are `metadata.ts`, `token.ts`, `clients.ts`; consent is `authorize.ts` over
+// `OAuthApi.layerStateless`.
 
 export interface WorkerHandlers {
   readonly app: App
@@ -18,104 +26,170 @@ export interface WorkerHandlers {
   readonly authorize: Authorize
 }
 
-const ACCESS_TOKEN_TTL = 3600
-const REFRESH_TOKEN_TTL = 2_592_000
-
-/** The provider's handler signature; `makeProvider` returns this, `index.ts` calls `fetch`. */
+/** The Worker's fetch; `index.ts` calls it. */
 export interface WorkerFetch {
-  readonly fetch: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>
+  readonly fetch: (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>
 }
 
-const PROTECTED_RESOURCE_METADATA = "/.well-known/oauth-protected-resource"
+/** Where code redemptions and token generations live (D1 in the Worker, memory in Node tests). */
+export type OAuthStore = Layer.Layer<UserTokens | OAuthCodeUseRepo>
+
+export const TOKEN_PATH = "/oauth/token"
+export const REGISTER_PATH = "/oauth/register"
 
 /**
- * `/mcp` → MCP, `GET|HEAD /` on the MCP host → the static landing page (the MCP handler stays on
- * `/mcp`: the bare origin is not the RFC 8707 resource), `/authorize` and below → the authorize
- * pages, everything else → the REST app.
+ * The `authorize.ts` hook: the stateless `OAuthApi` for one browser request, over `Tokens`, the
+ * CIMD/DCR `ClientResolver` and the token store; `Sessions` and `WorkerConfig` come from the
+ * authorize runtime.
  */
-export const serveWith = (mcpResourceUrl: string, { app, mcp, authorize }: WorkerHandlers) => {
-  const mcpHostname = new URL(mcpResourceUrl).hostname
-  return (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
+export const statelessOAuth = (store: OAuthStore) => (_env: unknown, request: Request) =>
+  Option.some(
+    OAuthApi.layerStateless({ request }).pipe(
+      Layer.provide(ClientResolver.layer),
+      Layer.provide(Layer.merge(Tokens.layer, store)),
+    ),
+  )
+
+/**
+ * CORS as the removed OAuth provider library sent it (`withCorsHeaders`): the request's `Origin`
+ * is reflected (bearer tokens are not ambient credentials), `WWW-Authenticate` and `Retry-After`
+ * are exposed, headers the response already has are kept. No `Origin` → unchanged.
+ */
+export const withCors = (response: Response, request: Request): Response => {
+  const origin = request.headers.get("origin")
+  if (origin === null) {
+    return response
+  }
+  const source = response.headers
+  const unlessPresent = (name: string, value: string): ReadonlyArray<[string, string]> =>
+    source.has(name) ? [] : [[name, value]]
+  const headers = new Headers([
+    ...[...source.entries()].filter(
+      ([name]) => name !== "vary" && name !== "access-control-expose-headers",
+    ),
+    ...unlessPresent("access-control-allow-origin", origin),
+    ...unlessPresent("access-control-allow-methods", "*"),
+    ...unlessPresent("access-control-allow-headers", "Authorization, *"),
+    ...unlessPresent("access-control-max-age", "86400"),
+    ["vary", appendValue(source.get("vary"), "Origin")],
+    [
+      "access-control-expose-headers",
+      appendValue(
+        appendValue(source.get("access-control-expose-headers"), "WWW-Authenticate"),
+        "Retry-After",
+      ),
+    ],
+  ])
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+/** `current` (a comma list) plus `value` unless already listed, case-insensitively. */
+const appendValue = (current: string | null, value: string): string => {
+  const values = (current ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+  return values.some((item) => item.toLowerCase() === value.toLowerCase())
+    ? values.join(", ")
+    : [...values, value].join(", ")
+}
+
+const methodNotAllowed = (allow: string, json: boolean): Response =>
+  json
+    ? new Response(
+        JSON.stringify({ error: "invalid_request", error_description: "Method not allowed" }),
+        {
+          status: 405,
+          headers: {
+            allow,
+            "content-type": "application/json",
+            "cache-control": "no-store",
+            pragma: "no-cache",
+          },
+        },
+      )
+    : new Response(null, { status: 405, headers: { allow } })
+
+/**
+ * `OPTIONS` on a CORS path → 204; discovery → `metadata.ts`; `/oauth/token`, `/oauth/register`;
+ * `/mcp` → MCP; `GET|HEAD /` on the MCP host → the static landing page (the bare origin is not the
+ * RFC 8707 resource); `/authorize` and below → the authorize pages; everything else → the REST app.
+ */
+export const makeRouter = (
+  env: unknown,
+  config: WorkerConfigShape,
+  { app, mcp, authorize }: WorkerHandlers,
+  store: OAuthStore,
+): WorkerFetch & { readonly dispose: () => Promise<void> } => {
+  const runtime = ManagedRuntime.make(
+    Layer.merge(Tokens.layer, store).pipe(
+      Layer.provideMerge(WorkerConfig.layerFromEnv(env)),
+      Layer.orDie,
+    ),
+  )
+  const metadata = metadataRoute(config)
+  const mcpHostname = new URL(config.mcpResourceUrl).hostname
+  const run = (effect: Effect.Effect<Response, never, Tokens | UserTokens | OAuthCodeUseRepo>) =>
+    runtime.runPromise(effect)
+
+  const isCorsPath = (pathname: string, hostname: string) =>
+    pathname === "/mcp" ||
+    pathname === TOKEN_PATH ||
+    pathname === REGISTER_PATH ||
+    pathname === AUTHORIZATION_SERVER_METADATA ||
+    (hostname === mcpHostname &&
+      (pathname === PROTECTED_RESOURCE_METADATA ||
+        pathname.startsWith(`${PROTECTED_RESOURCE_METADATA}/`)))
+
+  const fetch = async (request: Request, workerEnv: unknown, ctx: ExecutionContext) => {
     const { pathname, hostname } = new URL(request.url)
+    if (request.method === "OPTIONS" && isCorsPath(pathname, hostname)) {
+      return withCors(
+        new Response(null, { status: 204, headers: { "content-length": "0" } }),
+        request,
+      )
+    }
+    const discovered = metadata(request)
+    if (Option.isSome(discovered)) {
+      return withCors(discovered.value, request)
+    }
+    if (pathname === AUTHORIZATION_SERVER_METADATA) {
+      return withCors(methodNotAllowed("GET, HEAD, OPTIONS", false), request)
+    }
+    if (pathname === TOKEN_PATH) {
+      return withCors(
+        request.method === "POST"
+          ? await run(tokenEndpoint(request))
+          : methodNotAllowed("POST, OPTIONS", true),
+        request,
+      )
+    }
+    if (pathname === REGISTER_PATH) {
+      return withCors(
+        request.method === "POST"
+          ? await run(register(request))
+          : methodNotAllowed("POST, OPTIONS", true),
+        request,
+      )
+    }
     if (pathname === "/mcp") {
-      return mcp.handle(request, env, ctx)
+      return withCors(await mcp.handle(request, workerEnv, ctx), request)
     }
     if (
       pathname === "/" &&
       (request.method === "GET" || request.method === "HEAD") &&
       hostname === mcpHostname
     ) {
-      return Promise.resolve(mcpLandingResponse(request, mcpResourceUrl))
+      return mcpLandingResponse(request, config.mcpResourceUrl)
     }
     if (pathname === "/authorize" || pathname.startsWith("/authorize/")) {
-      return authorize.handle(request, env, ctx)
+      return authorize.handle(request, workerEnv, ctx)
     }
     return app.handler(request)
   }
-}
-
-/**
- * RFC 9728 root form → path form. The provider answers only the metadata URL derived from
- * `resourceMetadata.resource` (`/.well-known/oauth-protected-resource/mcp`, dist/oauth-provider.js
- * `findResourceServerForMetadataUrl`) and 404s the rest of the namespace before any handler runs,
- * so the root form on the MCP host is rewritten to the path form and served by the provider itself:
- * the same JSON, the same `resource`. Other hosts and paths pass through unchanged.
- */
-export const aliasRootResourceMetadata = (mcpResourceUrl: string) => {
-  const resource = new URL(mcpResourceUrl)
-  return (request: Request): Request => {
-    const url = new URL(request.url)
-    return url.pathname === PROTECTED_RESOURCE_METADATA &&
-      url.hostname === resource.hostname &&
-      resource.pathname !== "/"
-      ? new Request(
-          new URL(`${PROTECTED_RESOURCE_METADATA}${resource.pathname}${url.search}`, url.origin),
-          request,
-        )
-      : request
-  }
-}
-
-/**
- * Endpoints are full URLs on `betterAuthUrl` (the api host, where the Better Auth cookie lives):
- * the issuer is the token endpoint's origin and `authorization_servers` defaults to it, so neither
- * is set (S5-T4 Q1/Q2). `authorizeEndpoint` is advertised only; `serveWith` serves it.
- * The provider's `resolveExternalToken` accepts the local dev token as the dev principal's props,
- * so `Bearer <DEV_MCP_TOKEN>` keeps working through the provider (local only).
- */
-export const makeProvider = (config: WorkerConfigShape, handlers: WorkerHandlers): WorkerFetch => {
-  const serve = serveWith(config.mcpResourceUrl, handlers)
-  const alias = aliasRootResourceMetadata(config.mcpResourceUrl)
-  const provider = new OAuthProvider<Env>({
-    apiRoute: "/mcp",
-    apiHandler: { fetch: serve },
-    defaultHandler: { fetch: serve },
-    authorizeEndpoint: `${config.betterAuthUrl}/authorize`,
-    tokenEndpoint: `${config.betterAuthUrl}/oauth/token`,
-    clientRegistrationEndpoint: `${config.betterAuthUrl}/oauth/register`,
-    scopesSupported: [...MCP_SCOPES],
-    // Advertised, not enforced (dist/oauth-provider.d.ts:1132-1143): it becomes the protected-resource
-    // metadata's `scopes_supported` and the 401 challenge `scope`, which MCP clients request. Both
-    // scopes, so a client asks for write; a read-only grant still works, `server.ts` gates the tools.
-    requiredScopes: [...MCP_SCOPES],
-    resourceMetadata: { resource: config.mcpResourceUrl },
-    // An https `client_id` with a path is a Client ID Metadata Document URL: the provider fetches,
-    // validates and caches it and sets `clientDomain` on the consent description (spike S1,
-    // docs/research/2026-10-27-mcp-client-identities.md). Needs `global_fetch_strictly_public`
-    // (wrangler.jsonc). Dynamic registration stays on; `knownClients.ts` decides who is trusted.
-    clientIdMetadataDocumentEnabled: true,
-    accessTokenTTL: ACCESS_TOKEN_TTL,
-    refreshTokenTTL: REFRESH_TOKEN_TTL,
-    resolveExternalToken: ({ token }) =>
-      Promise.resolve(
-        Option.getOrNull(
-          Option.map(devPrincipalFor(config, token), (principal) => ({
-            props: principal,
-            audience: config.mcpResourceUrl,
-          })),
-        ),
-      ),
-  })
-  // `fetch` is a method: called on the instance, never detached.
-  return { fetch: (request, env, ctx) => provider.fetch(alias(request), env, ctx) }
+  return { fetch, dispose: () => runtime.dispose() }
 }
