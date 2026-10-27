@@ -64,9 +64,9 @@
         "EMAIL_FROM": "Tanren <login@tanren.me>",
         "MCP_RESOURCE_URL": "https://mcp.tanren.me/mcp",
         // Owner value (docs/design/deploy.md §2): `exps://u.expo.dev/<projectId>/` with the id from
-        // `eas init` (app.json `extra.eas.projectId`). The placeholder matches no real URL, so native
-        // sign-in answers 400 `return-to` until it is filled. No `tanren://` until universal links.
-        "NATIVE_RETURN_PREFIXES": "exps://u.expo.dev/<owner: eas projectId>/",
+        // `eas init` (app.json `extra.eas.projectId`), filled in 2026-10-27 (EAS-1). No `tanren://`
+        // until universal links.
+        "NATIVE_RETURN_PREFIXES": "exps://u.expo.dev/71f6f700-4c89-4627-8a93-b2fdd82974a5/",
         // console until the owner has a Strava app (O1/O2): flip to "provider" after O2, see docs/design/deploy.md §Strava secrets
         "STRAVA_MODE": "console",
         // Owner step O2 (docs/tasks/v4-strava.md): the Client ID from strava.com/settings/api.

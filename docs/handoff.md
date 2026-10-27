@@ -47,10 +47,13 @@ app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandb
 - PLAN-LOG done and reviewed (`e71da43` → `4426117`: Schema-decoded aggregate rows, `LoggedTotals` from the
   struct, fixture literal; REV-PL2 APPROVE) and live via DEPLOY-6 11:12 (Worker 2f896c11, web 6a38a0dc; "Logged"
   present in the live `__common` chunk). Plan dark captures go to the next polish round.
-- **MCP-ROOT** (owner hit 404 on the bare mcp.tanren.me): help page on `/` + root-form protected-resource
-  metadata rewritten to the `/mcp` form in `makeProvider`; WIP `7b75026`, REV-MR APPROVE, four nits being fixed
-  (security headers, exact status, duplicate test, parse once) → reviewed commit → DEPLOY-7 → verify
-  `curl -sI https://mcp.tanren.me/` 200 and `/.well-known/oauth-protected-resource` 200.
+- MCP-ROOT done and live (DEPLOY-7 12:37, Worker 16e16920, web 54b5d055 after one transient 10013 retry):
+  `https://mcp.tanren.me/` 200 help page (nosniff + CSP) naming the connector URL, root-form
+  protected-resource metadata byte-identical to the `/mcp` form, `/mcp` still 401, api root still 404.
+- **IDENT-1** (engineer/opus, 15 min, dispatched 12:50 on spike S1's findings): `clientIdMetadataDocumentEnabled`
+  + compatibility flag `global_fetch_strictly_public`, `oauth/knownClients.ts` (claude.ai, claude.com, chatgpt.com
+  by host), consent page trust line vs "Unknown app" warning + "Allow anyway". Then REV-ID (opus), commit,
+  DEPLOY-8, and the owner retries the Claude app connector in published-identity mode.
 - **Auth v2 wave** (plan Amendments 16 + 17, dispatched 12:45): spike S1 → `docs/research/mcp-client-identities.md`
   (CIMD in workers-oauth-provider 1.2.3, the Claude/ChatGPT client ids, trust model), spike S2 →
   `docs/research/stateless-sessions.md` (Better Auth stateless options with a symmetric secret; what the OAuth
@@ -90,8 +93,10 @@ on AC). Retro verdict: throughput high (9 streams,
    origin answered 404 on 2026-10-27; MCP-ROOT gives it a help page) as a custom connector in the Claude app,
    then sign in via the magic link in the OAuth window. Checks: `/.well-known/oauth-authorization-server` 200,
    `/mcp` 401 with `www-authenticate` naming the protected-resource metadata.
-5. **EAS**: `eas init` in `apps/mobile` → project id for `NATIVE_RETURN_PREFIXES` (native sign-in return)
-   and EAS Update; Expo Go 58 on the iPhone when the store has it.
+5. **EAS**: done 2026-10-27 13:05 — the owner ran `pnpm dlx eas-cli@latest login` + `init` in `apps/mobile`; project id
+   `71f6f700-4c89-4627-8a93-b2fdd82974a5`, owner `tanren` (app.json). EAS-1 puts it into
+   `env.production.vars.NATIVE_RETURN_PREFIXES` (rides DEPLOY-8). Left: `eas update:configure` + the first EAS Update
+   channel when the iPhone path starts (Expo Go 58 on the phone when the store has it).
 6. **Resend**: key rotated by the owner 2026-10-27 11:20. The production Worker still holds the OLD key as the
    `RESEND_API_KEY` secret unless it was updated too → magic-link emails fail until
    `cd apps/worker && pnpm exec wrangler secret put RESEND_API_KEY --env production` (paste the new key at the
