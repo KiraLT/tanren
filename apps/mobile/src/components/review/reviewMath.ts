@@ -110,6 +110,10 @@ export const reviewSummary = ({
   }
 }
 
+/** True when some day of the week has food logged or a burn row: the eaten vs burned chart has bars. */
+export const weekHasNutritionData = (days: ReadonlyArray<DayTotals>): boolean =>
+  !Arr.every(days, (day) => day.eaten.kcal === 0 && Option.isNone(day.burned))
+
 /** The Sunday ending the week. */
 export const weekEndOf = (weekStart: LocalDate): LocalDate =>
   LocalDate.make(shiftDate(weekStart, 6))

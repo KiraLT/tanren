@@ -1,9 +1,12 @@
 import { Match } from "effect"
 import { type Href, useRouter } from "expo-router"
 import { View } from "react-native"
+import { weekStartFor } from "../../src/components/health/dayBarMath"
+import { localDateOf } from "../../src/components/planFormat"
 import { SettingsSection } from "../../src/components/settings/SettingsSection"
 import { ThisWeekCard } from "../../src/components/week/ThisWeekCard"
 import { type AccountState, useAccount } from "../../src/hooks/useAccount"
+import { useWeekReview } from "../../src/hooks/useWeekReview"
 import {
   AppBar,
   Columns,
@@ -84,6 +87,9 @@ export default function YouScreen() {
   const router = useRouter()
   const { account } = useAccount()
   // One week read per screen: the tiles card below desktop, the rings card on top of Setup at desktop.
+  const week = useWeekReview(weekStartFor(localDateOf(new Date())))
+  const weekCard = (variant: "tiles" | "rings") =>
+    week._tag === "Ready" ? <ThisWeekCard summary={week.value} variant={variant} /> : null
   const desktop = useBreakpoint() === "desktop"
   const open = (href: Href) => () => router.navigate(href)
   const group = ({ title, rows }: HubGroup) => (
@@ -117,7 +123,7 @@ export default function YouScreen() {
         split="6/6"
         main={
           <View style={{ gap: rhythm.groupToLabel }}>
-            {desktop ? null : <ThisWeekCard />}
+            {desktop ? null : weekCard("tiles")}
             <SettingsSection title="Account">
               <ListRow
                 icon="user"
@@ -135,7 +141,7 @@ export default function YouScreen() {
         }
         side={
           <View style={{ gap: rhythm.groupToLabel }}>
-            {desktop ? <ThisWeekCard variant="rings" /> : null}
+            {desktop ? weekCard("rings") : null}
             {group(SETUP)}
             {desktop ? null : group(ABOUT)}
           </View>

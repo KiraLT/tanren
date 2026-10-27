@@ -2,10 +2,7 @@ import { formatInt } from "@tanren/shared"
 import { Option } from "effect"
 import { useRouter } from "expo-router"
 import { View } from "react-native"
-import { useWeekReview } from "../../hooks/useWeekReview"
 import { Card, HealthRings, ProgressRing, StatRow, space, Text } from "../../ui"
-import { weekStartFor } from "../health/dayBarMath"
-import { localDateOf } from "../planFormat"
 import {
   kcalTone,
   NUTRITION_RING,
@@ -68,17 +65,19 @@ function Rings({ summary }: { readonly summary: ReviewSummary }) {
 
 /**
  * "This week" (navigation-v2.md §2 Merge, §3): sessions done / planned, volume and PRs of the local
- * Mon–Sun week, the same `WeekReviewRepo` read the Weekly review shows; `rings` adds the sessions
- * ring and the average kcal / protein rings. Opens `/review`. Nothing while loading or on a read
- * failure (the review page carries the error).
+ * Mon–Sun week, the `summary` the hub screen read once (`useWeekReview`, the Weekly review's
+ * read); `rings` adds the sessions ring and the average kcal / protein rings. Opens `/review`. The
+ * hub renders nothing while loading or on a read failure (the review page carries the error).
  */
-export function ThisWeekCard({ variant = "tiles" }: { readonly variant?: ThisWeekVariant }) {
+export function ThisWeekCard({
+  summary,
+  variant = "tiles",
+}: {
+  readonly summary: ReviewSummary
+  readonly variant?: ThisWeekVariant
+}) {
   const router = useRouter()
-  const state = useWeekReview(weekStartFor(localDateOf(new Date())))
-  if (state._tag !== "Ready") {
-    return null
-  }
-  const { done, planned, volumeKg, prs } = state.value.training
+  const { done, planned, volumeKg, prs } = summary.training
   const sessions = { label: "Sessions", value: sessionsValue(done, planned) }
   const rest = [
     { label: "Volume", value: formatVolume(volumeKg) },
@@ -95,7 +94,7 @@ export function ThisWeekCard({ variant = "tiles" }: { readonly variant?: ThisWee
         <Text variant="caption" tone="muted" headingLevel={2}>
           This week
         </Text>
-        {variant === "rings" ? <Rings summary={state.value} /> : null}
+        {variant === "rings" ? <Rings summary={summary} /> : null}
         <StatRow variant="tile" items={variant === "rings" ? rest : [sessions, ...rest]} />
       </View>
     </Card>

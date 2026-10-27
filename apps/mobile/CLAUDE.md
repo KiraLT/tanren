@@ -21,8 +21,8 @@ recipe) and ADRs, not here.
   Desktop `AppBar` Start comes from `AppBarStartContext` (provided in `(tabs)/_layout.tsx`, hidden on `/home` and `/train`).
   `AppBarNoticeContext` puts a control's failure line under the bar (Start's "Try again"); `StartButton` clears it on blur,
   unmount or target change.
-- Home reads the feed once (`useTodayFeed` → `done` + `latest`). `ThisWeekCard` (`src/components/week/`, `tiles` | `rings`) is
-  Home's and You's single `useWeekReview` read.
+- Home reads the feed once (`useTodayFeed` → `done`, `latest`, `recent`). Home and You each read `useWeekReview` once and pass
+  `summary` to `ThisWeekCard` (`tiles` | `rings`) and Home's aside cards.
 - Train: Plan · Programs · Library segments, `?view=plan|programs|library` is the source of truth (links use `/train?view=…`;
   `/plan`, `/programs`, `/library`, `/feed`, `/today` are not routes). You = Account · Insights · Setup · About, gear → `/settings`.
   `app/+not-found.tsx` redirects every unknown path to `/home`.
@@ -114,8 +114,7 @@ kept per exercise in `exercise_step` (v9, `StepRepo`).
   (`GARMIN_CONNECT_TIMEOUT_SECONDS`, others 5 s). The Worker's "today" is UTC: Today can read "Burned: no data" 00:00–02:00 EET.
 - `NutritionRepo.day(date)` / `.week(monday)` read in `CurrentTimeZone` (insights read the 7 days ENDING the date). Budget = goal
   intake (burn is information); eat-back only when `eatBackActive`; insights ≤ 3.
-- `HealthModule` (→ `/health`): `metaLine` never shows bpm (resting HR only on `/health`, plan Amendment 26); 358 × 214 without an
-  insight, 236 with one line. Settings → Nutrition: the draft is seeded once (a pull mid-edit is lost on
+- `HealthModule` (→ `/health`): `metaLine` never shows bpm (resting HR only on `/health`, plan Amendment 26). Settings → Nutrition: the draft is seeded once (a pull mid-edit is lost on
   Save).
 
 ## Illustrations and brand

@@ -31,13 +31,18 @@ export interface TodayFeed {
   readonly done: ReadonlyArray<Activity>
   /** The newest feed item (Home's latest-activity teaser); none while loading or empty. */
   readonly latest: Option.Option<FeedItem>
+  /** The newest `RECENT_COUNT` feed items (Home's desktop "Recent activity"); empty while loading. */
+  readonly recent: ReadonlyArray<FeedItem>
 }
+
+/** Feed items Home's desktop column shows under "Recent activity" (desktop-fill.md §2). */
+const RECENT_COUNT = 3
 
 /** One feed read for Home's "Done today" and latest activity (and Start's `Done` target). */
 export const useTodayFeed = (): TodayFeed => {
   const { state } = useFeed(DONE_LOOKBACK)
   if (state._tag !== "Ready") {
-    return { done: [], latest: Option.none() }
+    return { done: [], latest: Option.none(), recent: [] }
   }
   const sessions = Arr.flatMap(state.value, (item) =>
     item._tag === "session"
@@ -52,6 +57,7 @@ export const useTodayFeed = (): TodayFeed => {
   return {
     done: finishedOn(sessions, localDateOf(new Date())),
     latest: Arr.head(state.value),
+    recent: Arr.take(state.value, RECENT_COUNT),
   }
 }
 

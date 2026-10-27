@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   type Activity,
   type DayTotals,
+  Kcal,
   LocalDate,
   SessionId,
   type WeekReview,
@@ -16,6 +17,7 @@ import {
   sessionRatio,
   sessionsCentre,
   targetFraction,
+  weekHasNutritionData,
 } from "./reviewMath"
 
 const MONDAY = LocalDate.make("2026-10-19")
@@ -208,5 +210,27 @@ describe("ring helpers", () => {
     expect(kcalTone(1.1)).toBe("accent")
     expect(kcalTone(1.11)).toBe("danger")
     expect(kcalTone(0)).toBe("accent")
+  })
+})
+
+describe("weekHasNutritionData", () => {
+  const week = (patch: (offset: number) => Partial<DayTotals>) =>
+    [0, 1, 2, 3, 4, 5, 6].map((offset) => blank(offset, patch(offset)))
+
+  it("is false for a week with no food and no burn row", () => {
+    expect(weekHasNutritionData(week(() => ({})))).toBe(false)
+    expect(weekHasNutritionData([])).toBe(false)
+  })
+
+  it("is true when one day has food logged", () => {
+    expect(
+      weekHasNutritionData(week((o) => (o === 3 ? { eaten: { ...ZERO, kcal: 420 } } : {}))),
+    ).toBe(true)
+  })
+
+  it("is true when one day has a burn row, even at zero food", () => {
+    expect(
+      weekHasNutritionData(week((o) => (o === 6 ? { burned: Option.some(Kcal.make(2100)) } : {}))),
+    ).toBe(true)
   })
 })
