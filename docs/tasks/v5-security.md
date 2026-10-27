@@ -1,5 +1,5 @@
 # Security review (owner ask 2026-10-27 14:07: "launch security reviewer to verify if there are any big security gaps")
-Status: review B done 14:13 · review A running · fixes queued as SEC-1 (dispatch right after the Garmin team commit, before DEPLOY-10, because items 2–3 change the token-seal format and must land before the first real sealed Garmin token exists in production)
+Status: reviews A+B done · SEC-A2, SEC-1a, SEC-1b done and committed (df89c09); open: SEC-1c (native Strava connect interstitial, Low — Strava parked), STLS-F5 (refresh rotation, Medium hardening), A9 sign-up policy (owner) · original plan: fixes queued as SEC-1 (dispatch right after the Garmin team commit, before DEPLOY-10, because items 2–3 change the token-seal format and must land before the first real sealed Garmin token exists in production)
 
 ## Review B — REST, repositories, sync, integrations, deletion, mobile (fable reviewer, HEAD 4248fa4, 4 min)
 Verdict: **Big gaps: none** — 0 Critical, 0 High, 1 Medium, 5 Low. Clean: IDOR (every query userId-scoped), sync push (foreign ids → forbidden, future `updatedAt` clamped, limits 500/4000), no `sql.unsafe`, mass assignment blocked, Strava state HMAC + returnTo exact-match, email escaping, SecureStore on native / cookie-only on web, errors without detail.
