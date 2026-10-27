@@ -30,6 +30,13 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   `crypto.randomUUID` is unverified, so do not call it directly.
 - Effect runs only in `src/services/` behind one `runtime`; components see
   `src/hooks/` only (`.claude/rules/react.md`).
+- Writes derived from synced state (auto-finish, cleanup, backfill) are a
+  `SyncEngine` step after `pullLoop` has landed every page, under the sync
+  lock; never from a screen hook or at startup. `pullLoop` commits per
+  200-row page and bumps `StoreEvents`, so a `useToday` reload runs between
+  pages and sees a pulled session before its sets (AUTO-FIN brief put
+  `finishStaleSessions` in `useToday`; REV-AF found it tombstoning server
+  sessions, 2026-10-26). Soft-delete only `_dirty = 1` rows the server never saw.
 - Tests: vitest with `node:sqlite` (Node 24) as the SqlDriver; expo-sqlite
   is the runtime layer. Package gate: `pnpm -F @tanren/mobile test` +
   `typecheck` + `biome ci apps/mobile`.

@@ -3,49 +3,52 @@
 Cold-start order: `lead-playbook` skill → this file → `docs/tasks/step-2.md` Log tail → `git status --short`.
 Older session history lives in git (`git log -- docs/handoff.md`); this file holds only what a new session needs.
 
-## Where we are (2026-10-26 23:45)
+## Where we are (2026-10-27 10:05)
 **Production is live and current.** tanren.me (web), api.tanren.me (REST + Better Auth magic link),
-mcp.tanren.me (MCP). Production = commit `a049b38`, deployed 23:26 from a clean worktree whose root gate
-was green (155 files, 1927 tests). Live features: Forge design, designed magic-link email, sign-in gate
-(ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated illustrations), Feed tab +
-activity detail + `/progress` (ADR-0017), guided programs with rep-count items (ADR-0020: 15 of 24 Core 30
-moves count reps), **Finish workout** on Today, Settings → Integrations with Strava in **console mode**
-(ADR-0018; real export waits for the owner's Strava app keys), final 力 app icon / favicon / PWA icons,
-brandbook artifact v3. Later commits (not deployed yet): auto-finish of stale sessions (review pending),
-traced SVG mark, desktop polish round 4 (in flight at the time of writing — see Live).
+mcp.tanren.me (MCP). Production = commit `e34ca1e` (= HEAD), deployed 09:50 from a clean worktree whose
+root gate was green (156 files, 1948 tests). Live features: Forge design, designed magic-link email,
+sign-in gate (ADR-0019) with the signed-out **landing page** on web (ADR-0021, five generated
+illustrations), Feed tab + activity detail + `/progress` (ADR-0017), guided programs with rep-count items
+(ADR-0020: 15 of 24 Core 30 moves count reps), **Finish workout** on Today (inline after the set list on
+phones since FIN-LAYOUT) plus auto-finish of stale sessions after a complete pull, Settings → Integrations
+with Strava in **console mode** (ADR-0018; real export waits for the owner's Strava app keys), final 力
+app icon / favicon / PWA icons + traced SVG mark, desktop polish round 4, brandbook artifact v3.
 
 ## Verified today (evidence in docs/tasks/step-2.md Log)
-- Root `pnpm check` green at every deploy; last main-tree run 1935 tests (TODAY-FIN), mobile 929 (AUTO-FIN).
-- Live chunk check: `_layout-e4cecc5b….js` on tanren.me carries `assets/landing` ×5 and the landing CTA;
-  `today-….js` carries "Finish workout"; `/health` → `{"ok":true}`; index.html has the dark pre-mount style.
-- Designer verdicts: mobile-A r3 PASS, mobile-B r2 PASS, landing LAND-R PASS, desktop r3 "another round"
-  (r4 running). Code reviews: REV-PL (PROG-1/2, LOGO-2, FEED-7), PROG-R (PROG-3), REV-TF (Finish workout),
-  REV-3 (Strava) all APPROVE; fixes landed.
-- Gallery https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ v10 (13 sections; source tracked at
+- Root `pnpm check` green at every deploy; DEPLOY-4 worktree run 156 files / 1948 tests (09:49).
+- Live chunk check 09:55 (DEPLOY-4): root `_layout-d3f87cf8….js` carries the landing (`assets/landing` ×5,
+  all five webps HTTP 200, "Sign in with a magic link"); `today-2b4c0ecf….js` carries "Finish workout" and
+  the FIN-LAYOUT footer margin; `plan-570b4dd8….js` carries "Up next"; `__common-….js` carries the r4
+  ListRow props and `finishStaleSessions`; `/health` → `{"ok":true}`. Route chunk names are listed inside
+  the `entry-*.js` script that index.html names (not `index-*.js`); two `_layout-*` chunks exist and the
+  landing is in the larger one.
+- Designer verdicts: mobile-A r3 PASS, mobile-B r2 PASS, landing LAND-R PASS, desktop r4 PASS (all seven
+  screens 4 at 1280/900). Code reviews: REV-PL (PROG-1/2, LOGO-2, FEED-7), PROG-R (PROG-3), REV-TF (Finish
+  workout), REV-3 (Strava), REV-AF r2 (auto-finish), REV-POLISH (mobile pairs) all APPROVE; fixes landed,
+  REV-POLISH should-fixes queued into polish round 5.
+- Gallery https://claude.ai/artifact/YD5RTPNpuPy9hmpQLhJADQ v11 (14 sections, `desktop-r4` K1–K62; source tracked at
   `docs/design/screens/tanren-screens.html`; `node docs/design/gallery.mjs --publish` prints the files map).
   Brandbook https://claude.ai/artifact/S6ngEL7NHXU1LaMECafJYa v3.
 
-## Live at hand-off (resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
-- AUTO-FIN done and reviewed (close only after a complete pull under the sync lock; soft-delete only
-  never-pushed empty sessions; 48 h Strava backfill guard). Not yet deployed. Known limit: an offline device
-  that never completes a pull never auto-closes.
-- Desktop r4 landed and PASSED the designer (commit a83eb16: Today/Programs/Plan/Player/Library/Progress/
-  Settings all 4 at 1280/900; reviewer should-fixes applied, not re-reviewed). Gallery v11 = section
-  `desktop-r4`, badges K1–K62. "Left for r5" list + REV-POLISH queued rows are in
-  `docs/tasks/v3-design/team-desktop-r4.md`. Not deployed yet (next deploy).
-- FIN-LAYOUT done (gate 934): the Finish workout button is inline after the set list on phones (footer
-  passed through `ExercisePager` → `ExercisePage`, current page only); desktop slot unchanged. **UNCOMMITTED on
-  disk** together with this handoff edit: 1Password refused to sign at 23:5x ("agent returned an error").
-  First thing next session (after the owner unlocks 1Password): `git add -A apps/mobile/src/components
-  docs/handoff.md docs/tasks && git commit` ("Today: Finish workout inline after the set list (FIN-LAYOUT);
-  handoff"), then DEPLOY-4 (`scratchpad/deploy.sh` in the background; recreate from the recipe below if the
-  scratchpad was purged) and verify the `today-*.js` chunk carries the change.
-- Streams are QUIET as of 23:57 (all agents reported; nothing live). The owner may restart Claude Code. 
+## Live at hand-off (2026-10-27 10:05; resume by SendMessage with a fresh box; ids in the scratchpad `live-agents.txt`)
+- **Polish round 5** team-lead (sonnet) dispatched 10:00, hard stop ≈ 11:05: charter + team sheet in
+  `docs/tasks/v3-design/team-desktop-r5.md` (R5a ∥ R5b ∥ R5c → REV-R5 → captures at 390 and 1280 → fable
+  designer; badges Q1–Qn; fragment `docs/design/screens/UI-P5-rows.html`). On PASS: the Lead commits, inserts
+  the fragment into the gallery source before `<footer>`, publishes gallery v12 to the same URL, then DEPLOY-5.
+- EM batch 6 done 09:58 (fable, 7.5 min): reviewer "Layout proofs" (open the PNG, box order), engineer item 14
+  (box order at 390 pasted in the report), ui-check Today-with-sets recipe + designer states reachable before a
+  round, expo-mobile derived-writes rule (after a complete pull, under the lock). P1–P4 applied to the
+  lead-playbook (commit before the owner leaves + `ssh-add -l` check, watchdog group liveness, 390 box-order
+  Done-when, `In:` names the rendering component); deltas forwarded to the r5 team-lead.
+- Done this morning: FIN-LAYOUT + handoff committed `e34ca1e` after the owner unlocked 1Password ("retry");
+  DEPLOY-4 live and verified (Verified above). Auto-finish known limit: an offline device that never completes
+  a pull never auto-closes.
 ## Experiment for the next step (retro 2026-10-26-v4-evening)
 Wave dispatch + background deploy. Metrics that decide it: zero Lead acceptance edges > 5 min; team-lead
-streams ≥ 1.3 children-active ÷ wall; desktop r5 PASS ≤ 45 min wall. Research spike open: do background
-subagents pause while the main session is blocked, or were 22:32–22:51 provider throttles?
-(`docs/research/process-lockstep-gaps.md` when it lands). Retro verdict: throughput high (9 streams,
+streams ≥ 1.3 children-active ÷ wall; polish r5 PASS ≤ 45 min wall (r5 dispatched 10:00 with three parallel
+children: measure it). Lockstep spike answered: the 22:32–22:51 gaps were the Mac idle-sleeping on battery
+(`docs/research/process-lockstep-gaps.md`; `caffeinate -i` at session start is playbook step 0; keep the Mac
+on AC). Retro verdict: throughput high (9 streams,
 3 deploys, 64 acceptances in 3 h), process quality medium (≈ 30 min lost to Lead stalls + lockstep gaps).
 
 ## Owner-gated (exact steps)
@@ -71,14 +74,13 @@ subagents pause while the main session is blocked, or were 22:32–22:51 provide
    owner-registered `em-cadence.sh` becomes active then).
 8. Later: Apple Health needs the native dev build (Apple Developer account).
 
-## Next actions (in order, new session)
-1. Accept whatever of the three live items did not land; un-WIP `889cfea` after REV-AF; publish gallery v11.
-2. Desktop r5 charter (from r4's "left for r5" + `team-desktop.md` worklist): Today "Sets / Back Squat"
-   single row, stat-row style rule, Plan "Up next", Player enrolled render, Library/Progress desktop fill,
-   Strava Failed/Blocked pill baseline, feed stat tiles → `StatRow` (FEED-8).
+## Next actions (in order)
+1. Accept polish round 5 (Live above): commit, gallery v12, DEPLOY-5 from a clean worktree, verify the
+   `plan-*.js` / `feed-*.js` / `library-*.js` chunks. Accept EM batch 6 and apply its proposals.
+2. Strava follow-ups in `docs/tasks/v4-strava.md` (refresh lease, planned-session name, typed 400 on
+   `GET …/exports`) as one worker engineer; no owner input needed; disjoint from r5 (apps/worker only).
 3. LOGO-4 + BRAND-2b when the owner picks a letter; wire the SVG mark into the AppBar / landing header.
-4. Strava go-live when keys arrive (step 1 above) + SV-Q2; auto-finish un-WIP; follow-ups in
-   `docs/tasks/v4-strava.md` (refresh lease, planned-session name, typed 400 on `GET …/exports`).
+4. Strava go-live when keys arrive (owner step 1 below) + SV-Q2.
 5. Design notes parked: landing light-scheme illustration amber vs rust primary (one colour set, D1),
    eyebrow repeats the name; landing `contentH` probe is the measure (`docH` = viewport on `Page scroll`).
 6. Process: EM batch 6 is due at the next ≥ 4 commits (hook); forward role-file deltas to any team-lead
@@ -99,8 +101,8 @@ Account `326ec3d6fda1261c15bf6580fd81e426`, zone `50927fc2e0c893c52ce33e169700ee
 ## Gotchas that cost time today (all in docs/retro/incidents.md; rules applied by EM batches 1–5)
 - Never commit a file two live streams edit unless both pieces are in the tree; deploy only from a clean
   worktree (settings.tsx blocked a deploy for an hour).
-- Team-lead children run sequentially (harness): order charters by critical path; parallelism = several
-  team-leads or a ≤ 2-task pair run by the Lead.
+- Team-lead children run concurrently only when dispatched in ONE Agent message (retro correction of EM
+  batch 3's "sequential by construction"); charters say so and give each child a disjoint file set.
 - Capture `Commit:` is stamped at export; `get-session` must be non-null before a capture batch; pid files
   guarded (`kill 0` killed an engineer's own stack); charter ports probed with `ps -ef | grep "port <n>"`.
 - A design predicate names its writer (ADR-0018's `finishedAt` had none → Today never exported).

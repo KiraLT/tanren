@@ -151,7 +151,12 @@ Lead had to route it back through the team-lead, one extra turn each way).
    carries a label unique to its screen (`grep -c "<screen label>"
    <file>.json` ≥ 1: the pasted Plan JSON was the Today JSON). Fix what
    is yours before reporting; list the rest as findings. One minute here
-   saves a 10-min fable round.
+   saves a 10-min fable round. When your change adds or moves an element on
+   a screen, the proof is its bounding box against its neighbours (new.top ≥
+   previous.bottom, new.bottom ≤ next.top or last) at 390, plus 1280 when the
+   screen has a `Columns` layout — pasted in the report. A snapshot line only
+   proves the element exists: TODAY-FIN's button passed its snapshot check
+   while floating over Set 2 (FIN-LAYOUT, 2026-10-26).
 
 ## Kaizen
 

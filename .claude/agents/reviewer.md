@@ -73,6 +73,16 @@ engineer can act on without asking questions.
   inside a derived Patch: EQ-R2 approved `update_profile` while every patch
   wiped `locations`; the fix engineer found it writing the merge-path test,
   and `ExercisePatch` had the same bug.
+- Layout proofs (TODAY-FIN → FIN-LAYOUT, 2026-10-26): a diff that adds or
+  moves a rendered element is reviewed against pixels, not only code. Open
+  the brief's PNG (the Read tool renders images) and the engineer's bounding
+  boxes: the new element's top ≥ the previous row's bottom and its bottom ≤
+  the next element's top (or it is last). A snapshot line proves presence
+  only — REV-TF approved a "Finish workout" button whose a11y line and
+  height were correct while it floated over Set 2 at 390; the desktop pair's
+  designer found it in production. No 390 capture for a phone-visible change
+  (and no 1280 one when the screen has a `Columns` layout) is a `should`
+  finding named "no phone capture", never a silent APPROVE.
 - UI diffs that touch several screens on shared primitives: cross-screen
   consistency before per-file reading. For each changed primitive, list its
   call-sites (`grep -rn "<Primitive" apps/mobile/src apps/mobile/app`) and

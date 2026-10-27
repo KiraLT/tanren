@@ -140,6 +140,17 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   with your own `--persist-to` copy. `ab close` ends the browser profile and the local store with it: shoot
   everything you need before closing. Metro needs `expo start --clear` after a route file is added; a
   `(tabs)` route not listed in `APP_NAV` redirects to `/today`.
+  Today with sets on a dev server (FIN-LAYOUT, 2026-10-26): `EXPO_PUBLIC_DEV_USER_ID` skips the seed, so
+  Today reads "Nothing planned today"; start signed out instead, log sets with a DOM click (`ab eval
+  'document.querySelector("[aria-label^=\"Log set\"]").click()'`; the landing covers Today until a set
+  exists), then reload. The state a designer must score has to be reachable by recipe before the round
+  starts, and the brief names the recipe: desktop r4 shipped Plan "Up next" UNREVIEWED (seeded week all
+  done; needs a fake date, e.g. Thu 22 Oct, or a seed with an upcoming session) and Programs on day 1
+  instead of day 3.
+- New or moved element (TODAY-FIN → FIN-LAYOUT, 2026-10-26): the proof is bounding boxes, not a
+  snapshot line. Paste the new element's box and its neighbours' (previous.bottom ≤ new.top,
+  new.bottom ≤ next.top or the element is last) at 390, and at 1280 when the screen has a `Columns`
+  layout; then open the PNG. "Finish workout" passed its snapshot + height check while drawn over Set 2.
   Rounds of one pair shoot against the pair's own `--persist-to` state dir seeded once (isolated stack
   above), never the shared `.wrangler/state` D1: other agents' proofs mutate it (mobile-A r1→r2 found every
   seeded session "done", so Today/Plan were not like-for-like across rounds).

@@ -155,6 +155,10 @@ task sheet. Tactics, in order of payoff:
   the child's final report, not "Async agent launched"), and the Lead slept
   7 h 48 m. Ask the owner to switch the ask list to deny for the night
   (`.claude/settings.local.json`); the Lead cannot edit its own permissions.
+- A team-lead is quiet while a child runs (desktop r4: 22 of 36 min idle): its
+  liveness is the newest mtime among its own transcript and its children's
+  (`grep -o '"agentId":"a[0-9a-f]*"' <tl>.output | sort -u` → `tasks/<id>.output`);
+  the watchdog alerts only when the whole group is silent (EM batch 6, P2).
 - Background dispatch is proven by the ack text, never by the flag; the retro
   counts acks.
 
@@ -324,7 +328,9 @@ Time box: <10–15 min sonnet | 20 min opus> (at the box: stop, report what you 
   from a structural count, not a fixed-context grep (EQ-C: 19 was 24).
 
 ## Scope
-In: <files / modules you own in this brief>
+In: <files / modules you own in this brief — name the component that *renders* the thing being
+changed, found by grep (`grep -rn SetList apps/mobile/src`), not the file a diagnosis cites:
+FIN-LAYOUT's "TodayReady.tsx only" was wrong and the engineer rightly deviated (EM batch 6, P4)>
 Out: <explicitly not this brief; leave notes instead>
 
 ## Interfaces / decisions already made
@@ -347,6 +353,9 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       them) + foreign reds listed with their owner", never "package gate green" (F2 r2, 00:45)
 - [ ] tests: for every exported Schema — decode-ok, decode-fail with the path asserted, and a round-trip (`.claude/rules/tests.md`); plus <behaviour-specific cases>
 - [ ] runtime smoke shown in the report when the task touches an entry point, auth or an import path (worker: `wrangler dev --port <n>` + `curl`; mobile/web: `ui-check`); Node tests alone do not count
+- [ ] (any new or moved on-screen element) `ui-check` at 390, plus 1280 when the screen has a `Columns` layout: paste the
+      element's bounding box and its neighbours' (prev.bottom ≤ new.top; new.bottom ≤ next.top, or "last") and open the
+      PNG; a snapshot line proves presence only (TODAY-FIN shipped the Finish button floating over Set 2; EM batch 6, P3)
 - [ ] (bundled assets or generated files) size budget as a number + the command that measures it
       (`du -ch apps/mobile/assets/illustrations/*.webp | tail -1` <= 3 MB — a glob of the shipped
       files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
@@ -491,6 +500,14 @@ scratchpad is for in-flight files only: macOS purges `/private/tmp` files
 older than three days, which cost the 2026-10-21 review set during a
 five-day gap (incidents.md 2026-10-26). `SendUserFile` links are not a
 store either; the Artifact URL is what you quote.
+
+**Commit before the owner leaves.** When the owner says they are finishing or
+leaving, commit the checkpoint in that same turn, while the signing agent is
+still unlocked, and before the last wave run
+`SSH_AUTH_SOCK="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ssh-add -l`;
+a non-zero exit means the owner line must say "unlock 1Password before you go".
+Never bypass signing. 2026-10-26: three commits failed from 23:50 and DEPLOY-4
+slid to 09:48 the next morning (EM batch 6, P1).
 
 ## Lead load limit (owner, 2026-10-26: "better split your work if you feel overwhelmed")
 
