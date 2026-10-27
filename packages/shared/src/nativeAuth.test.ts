@@ -11,7 +11,6 @@ import {
   PendingNativeSignIn,
   PkceChallenge,
   PkceVerifier,
-  SessionToken,
 } from "./nativeAuth"
 import { accepts, failingPaths, rejects, wireRoundTrips } from "./testing"
 
@@ -58,10 +57,6 @@ describe("NativeCode", () => {
       yield* rejects(NativeCode, ott)
     }),
   )
-})
-
-describe("SessionToken", () => {
-  it.effect("rejects an empty token", () => rejects(SessionToken, ""))
 })
 
 describe("wire shapes", () => {

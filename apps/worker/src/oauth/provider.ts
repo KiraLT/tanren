@@ -1,5 +1,6 @@
 import type { OAuthCodeUseRepo, UserTokens } from "@tanren/db"
-import { Effect, Layer, ManagedRuntime, Option } from "effect"
+import type { NativeRateLimited } from "@tanren/shared"
+import { Context, Effect, Layer, ManagedRuntime, Option } from "effect"
 import type { App } from "../app"
 import { makeLimiterWith } from "../auth/nativeAuthRoutes"
 import { Tokens } from "../auth/Tokens"
@@ -130,6 +131,23 @@ export const OAUTH_RATE_LIMITS = {
 
 type LimitedRoute = keyof typeof OAUTH_RATE_LIMITS
 
+type OAuthLimit = (key: string) => Effect.Effect<void, NativeRateLimited>
+
+/** The three per-route limiters; their `Ref`s are built with the router's runtime (SEC-1 N2). */
+export class OAuthLimiters extends Context.Service<
+  OAuthLimiters,
+  Readonly<Record<LimitedRoute, OAuthLimit>>
+>()("@tanren/worker/OAuthLimiters") {
+  static readonly layer = Layer.effect(
+    this,
+    Effect.all({
+      authorize: makeLimiterWith(OAUTH_RATE_LIMITS.authorize),
+      token: makeLimiterWith(OAUTH_RATE_LIMITS.token),
+      register: makeLimiterWith(OAUTH_RATE_LIMITS.register),
+    }),
+  )
+}
+
 /** RFC 6749 has no 429 error code; `temporarily_unavailable` (§4.1.2.1) is the closest. */
 const tooManyJson = (retryAfterSeconds: number): Response =>
   new Response(
@@ -169,7 +187,7 @@ export const makeRouter = (
   store: OAuthStore,
 ): WorkerFetch & { readonly dispose: () => Promise<void> } => {
   const runtime = ManagedRuntime.make(
-    Layer.merge(Tokens.layer, store).pipe(
+    Layer.mergeAll(Tokens.layer, store, OAuthLimiters.layer).pipe(
       Layer.provideMerge(WorkerConfig.layerFromEnv(env)),
       Layer.orDie,
     ),
@@ -178,14 +196,6 @@ export const makeRouter = (
   const mcpHostname = new URL(config.mcpResourceUrl).hostname
   const run = (effect: Effect.Effect<Response, never, Tokens | UserTokens | OAuthCodeUseRepo>) =>
     runtime.runPromise(effect)
-  // Three `Ref.make`s: no I/O, so building them where `index.ts` builds the router is safe.
-  const limiters = Effect.runSync(
-    Effect.all({
-      authorize: makeLimiterWith(OAUTH_RATE_LIMITS.authorize),
-      token: makeLimiterWith(OAUTH_RATE_LIMITS.token),
-      register: makeLimiterWith(OAUTH_RATE_LIMITS.register),
-    }),
-  )
   /** `handle()` unless this `cf-connecting-ip` is over the route's limit, then the 429. */
   const limited = (
     route: LimitedRoute,
@@ -193,10 +203,11 @@ export const makeRouter = (
     tooMany: (retryAfterSeconds: number) => Response,
     handle: () => Promise<Response>,
   ): Promise<Response> =>
-    Effect.runPromise(
-      limiters[route](
-        `oauth-${route}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`,
-      ).pipe(
+    runtime.runPromise(
+      OAuthLimiters.pipe(
+        Effect.flatMap((limiters) =>
+          limiters[route](`oauth-${route}:${request.headers.get("cf-connecting-ip") ?? "unknown"}`),
+        ),
         Effect.flatMap(() => Effect.promise(handle)),
         Effect.catchTag("NativeRateLimited", ({ retryAfterSeconds }) =>
           Effect.succeed(tooMany(retryAfterSeconds)),

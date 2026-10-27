@@ -68,7 +68,7 @@ const hmacKey = (secret: Redacted.Redacted<string>) =>
     ),
   )
 
-/** `b64url(HMAC-SHA256(secret, input))`, 43 chars. Also signs the Strava connect `state`. */
+/** `b64url(HMAC-SHA256(secret, input))`, 43 chars. Signs the native sign-in code. */
 export const mac = (secret: Redacted.Redacted<string>, input: string) =>
   Effect.gen(function* () {
     const key = yield* hmacKey(secret)

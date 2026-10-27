@@ -52,9 +52,31 @@ const ensureOwner = () =>
     .run()
 beforeAll(ensureOwner)
 
+/**
+ * SEC-1 N1: every test calls from its own `cf-connecting-ip` (its name), so the OAuth limiters'
+ * per-IP buckets never fill across tests (they all shared `unknown` before). A header the test sets
+ * itself wins.
+ */
+const withTestIp = (init?: RequestInit): RequestInit => {
+  const headers = new Headers(init?.headers)
+  return headers.has("cf-connecting-ip")
+    ? { ...init, headers }
+    : {
+        ...init,
+        headers: [
+          ...headers.entries(),
+          ["cf-connecting-ip", `test:${expect.getState().currentTestName ?? "suite"}`],
+        ],
+      }
+}
+
 const send = async (path: string, init?: RequestInit): Promise<Response> => {
   const ctx = createExecutionContext()
-  const response = await provider.fetch(new Request(new URL(path, BASE), init), env, ctx)
+  const response = await provider.fetch(
+    new Request(new URL(path, BASE), withTestIp(init)),
+    env,
+    ctx,
+  )
   await waitOnExecutionContext(ctx)
   return response
 }
@@ -284,9 +306,9 @@ describe("OAuth flow through the provider (workerd)", () => {
     expect(await toolNames(Option.some(token))).toEqual([...MCP_TOOLS])
   })
 
-  it("a read-only grant lists the six read tools and cannot call a write tool", async () => {
+  it("a read-only grant lists the eight read tools and cannot call a write tool", async () => {
     const token = await grant(["tanren:read"])
-    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 6))
+    expect(await toolNames(Option.some(token))).toEqual(MCP_TOOLS.slice(0, 8))
     const response = await mcp(Option.some(token), "tools/call", {
       name: "update_profile",
       arguments: { timezone: "Europe/Vilnius" },

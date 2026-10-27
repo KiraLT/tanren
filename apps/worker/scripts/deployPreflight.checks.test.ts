@@ -358,7 +358,7 @@ describe("wrangler.jsonc env.production.vars", () => {
         Effect.provide(
           WorkerConfig.layerFromEnv({
             ...vars,
-            BETTER_AUTH_SECRET: "test-only-auth-secret",
+            BETTER_AUTH_SECRET: "test-only-auth-secret-0123456789abcdef",
             RESEND_API_KEY: "re_test_only_not_a_key",
             INTEGRATION_TOKEN_KEY: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", // 32 x 0x01, test only
           }),

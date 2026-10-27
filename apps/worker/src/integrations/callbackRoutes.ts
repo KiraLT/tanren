@@ -1,11 +1,17 @@
 import { SealedToken as DbSealedToken, IntegrationRepo, UserTokens } from "@tanren/db"
 import { IdGenerator, type NativeRateLimited, type UserId } from "@tanren/shared"
-import { DateTime, Effect, Layer } from "effect"
+import { DateTime, Effect, Layer, Option } from "effect"
 import { HttpRouter, type HttpServerRequest, HttpServerResponse } from "effect/http"
 import { clientIp, makeLimiter } from "../auth/nativeAuthRoutes"
 import { WorkerConfig } from "../Config"
 import { escapeHtml } from "../oauth/pages"
-import { isConsoleOutsideLocal, STRAVA_CALLBACK_PATH, verifyState } from "./connect"
+import {
+  CONNECT_COOKIE,
+  checkBinding,
+  isConsoleOutsideLocal,
+  STRAVA_CALLBACK_PATH,
+  verifyState,
+} from "./connect"
 import { isNativeReturnTo } from "./returnTo"
 import { StravaApi } from "./StravaApi"
 import { TokenSeal } from "./TokenSeal"
@@ -47,6 +53,25 @@ export const notConnectedPage = page(
   "Strava not connected",
   "<h1>Strava is not connected yet</h1><p>Strava is not available on this server yet.</p>",
 )
+
+/**
+ * 400, nothing stored: the state was minted for a web browser whose `CONNECT_COOKIE` this request
+ * does not carry, i.e. someone else's connect link (forced connect, SEC-1 B1) or another browser.
+ */
+export const otherBrowserPage = page(
+  400,
+  "Start again",
+  "<h1>Start again from Settings</h1><p>This Strava link was started in another browser. Open Settings → Integrations here and connect again.</p>",
+)
+
+/** The binding cookie is single-use: expired on every outcome that consumed a verified state. */
+const clearBinding = (response: HttpServerResponse.HttpServerResponse) =>
+  HttpServerResponse.expireCookie(CONNECT_COOKIE, {
+    path: "/",
+    secure: true,
+    httpOnly: true,
+    sameSite: "lax",
+  })(response).pipe(Effect.orDie)
 
 const rateLimitedPage = (error: NativeRateLimited) =>
   Effect.succeed(
@@ -113,8 +138,17 @@ export const callbackRoutes = Layer.unwrap(
         // `request.url` is the path + query; the base only lets URL parse it.
         const params = new URL(request.url, "http://callback.invalid").searchParams
         const state = yield* verifyState(config, params.get("state") ?? "")
+        // SEC-1 B1: a web state is good only in the browser that started it (double-submit cookie).
+        yield* checkBinding(
+          state,
+          Option.fromNullishOr(request.cookies[CONNECT_COOKIE]),
+          isNativeReturnTo(state.returnTo),
+        )
         const finish = (outcome: CallbackOutcome) =>
-          logOutcome(state.userId, outcome).pipe(Effect.as(back(state.returnTo, outcome)))
+          logOutcome(state.userId, outcome).pipe(
+            Effect.as(back(state.returnTo, outcome)),
+            Effect.flatMap(clearBinding),
+          )
         if (params.has("error")) {
           return yield* finish("denied")
         }
@@ -175,7 +209,8 @@ export const callbackRoutes = Layer.unwrap(
       }).pipe(
         Effect.catchTags({
           NativeRateLimited: rateLimitedPage,
-          StateRejected: () => Effect.succeed(expiredPage),
+          StateRejected: ({ reason }) =>
+            Effect.succeed(reason === "binding" ? otherBrowserPage : expiredPage),
         }),
         Effect.catchDefect((defect) =>
           Effect.logError("[strava] callback defect", defect).pipe(Effect.as(expiredPage)),

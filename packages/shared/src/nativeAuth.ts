@@ -25,15 +25,6 @@ export const NativeCode = Schema.String.check(
 ).pipe(Schema.brand("NativeCode"))
 export type NativeCode = typeof NativeCode.Type
 
-/**
- * The raw Better Auth `session.token`, sent as `Authorization: Bearer`. Superseded by
- * `AppTokenPair` on the wire; kept until the mobile client moves over (STLS-5).
- */
-export const SessionToken = Schema.String.check(Schema.isMinLength(1)).pipe(
-  Schema.brand("SessionToken"),
-)
-export type SessionToken = typeof SessionToken.Type
-
 /** `POST /api/native/session` body. */
 export const NativeSessionRequest = Schema.Struct({ code: NativeCode, verifier: PkceVerifier })
 export type NativeSessionRequest = typeof NativeSessionRequest.Type

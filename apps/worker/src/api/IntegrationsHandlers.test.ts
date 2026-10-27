@@ -268,14 +268,22 @@ describe("POST /integrations/strava/connect", () => {
 
   it("connects end to end: connect → console callback → status connected", async () => {
     const h = harness()
+    const connect = await call(h, "POST", "/integrations/strava/connect", {
+      returnTo: "http://localhost:8081/settings/integrations",
+    })
+    // SEC-1 B1: the web connect sets the binding cookie; the browser sends it back to the callback.
+    const setCookie = connect.headers.get("set-cookie") ?? ""
+    expect(setCookie).toMatch(/^__Host-tanren-connect=[A-Za-z0-9_-]{22};/)
+    expect(setCookie).toContain("Max-Age=600")
+    expect(setCookie).toContain("HttpOnly")
+    expect(setCookie).toContain("Secure")
+    expect(setCookie).toContain("SameSite=Lax")
     const { url } = Schema.decodeUnknownSync(Schema.Struct({ url: Schema.String }))(
-      await (
-        await call(h, "POST", "/integrations/strava/connect", {
-          returnTo: "http://localhost:8081/settings/integrations",
-        })
-      ).json(),
+      await connect.json(),
     )
-    const callback = await h.app.handler(new Request(url))
+    const cookie = setCookie.split(";")[0] ?? ""
+    expect((await h.app.handler(new Request(url))).status).toBe(400)
+    const callback = await h.app.handler(new Request(url, { headers: { cookie } }))
     expect(callback.status).toBe(303)
     expect(callback.headers.get("location")).toBe(
       "http://localhost:8081/settings/integrations?connected=strava",
@@ -473,5 +481,29 @@ describe("DELETE /integrations/garmin", () => {
       _tag: "IntegrationNotConnected",
       provider: "garmin",
     })
+  })
+})
+
+describe("POST /api/account/delete revokes Strava first (SEC-1 B4)", () => {
+  // The memory erasure leaves integration rows (MemoryAccountErasure); D1 erasure deletes them.
+  it("revokes with the opened access token, then erases", async () => {
+    const h = harness()
+    await run(h.integrations.upsert(integrationRow("active")))
+    const response = await call(h, "POST", "/api/account/delete")
+    expect(response.status).toBe(200)
+    expect(await run(Ref.get(h.revoked))).toEqual(["access-token-1"])
+  })
+
+  it("still erases (200) when the revoke call fails", async () => {
+    const h = harness("fail")
+    await run(h.integrations.upsert(integrationRow("active")))
+    expect((await call(h, "POST", "/api/account/delete")).status).toBe(200)
+    expect(await run(Ref.get(h.revoked))).toEqual(["access-token-1"])
+  })
+
+  it("calls no revoke when nothing is connected", async () => {
+    const h = harness()
+    expect((await call(h, "POST", "/api/account/delete")).status).toBe(200)
+    expect(await run(Ref.get(h.revoked))).toEqual([])
   })
 })

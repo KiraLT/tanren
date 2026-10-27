@@ -84,3 +84,4 @@ Evidence: `docs/research/2026-10-27-stateless-sessions.md` (S2), `2026-10-27-mcp
 ## Amendments
 
 - 2026-10-27 STLS-F3: writes check the user row exists; reads stay stateless — a deleted user's tokens fail writes immediately (`Authentication.layer`: any method but GET/HEAD/OPTIONS → `UserTokens.tokenGens`, gone → 401; `/sync/pull` is a POST and pays the one read too).
+- 2026-10-27 SEC-1 A6: the Better Auth cookie cache (`session_data`, 900 s) is not bound to the session id, so a copy of it replays for up to 900 s after sign-out by design (auth-v2 §4). Writes are still gated by the user-row check (STLS-F3), which refuses them once the account is erased; after a plain sign-out the copy works until it expires. The window is the price of 0 D1 reads per read request.

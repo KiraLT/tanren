@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { PersistenceError, UserTokens } from "@tanren/db"
 import { SessionStoreUnavailable, UserId } from "@tanren/shared"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
 import { makeApp, memoryPersistence } from "../app"
 import { BetterAuth } from "../auth/BetterAuth"
 import { EmailSender } from "../auth/EmailSender"
@@ -10,7 +10,7 @@ import { Tokens } from "../auth/Tokens"
 import { WorkerConfig } from "../Config"
 import { MemoryStore } from "../repos"
 import { envVars as env } from "../testing/fixtures"
-import { isWriteMethod } from "./Authentication"
+import { isWriteMethod, rateBucket, USER_RATE_LIMITS } from "./Authentication"
 
 /** The session store is down: every lookup fails. */
 const failingSessions = Layer.succeed(
@@ -95,5 +95,71 @@ describe("Authentication user-row check (STLS-F3)", () => {
       _tag: "SessionStoreUnavailable",
       message: "session store unavailable",
     })
+  })
+})
+
+describe("Authentication per-user limiter and no-store (SEC-1 B5, G1)", () => {
+  const userA = "00000000-0000-4000-8000-0000000000a1"
+  const userB = "00000000-0000-4000-8000-0000000000b1"
+  /** One app per test; the user comes from the `x-user` header (none → signed out). */
+  const headerApp = () =>
+    makeApp(env, {
+      auth: {
+        _tag: "Fixed",
+        sessions: Layer.succeed(
+          Sessions,
+          Sessions.of({
+            current: (headers) =>
+              Effect.succeed(Option.map(Option.fromNullishOr(headers.get("x-user")), UserId.make)),
+          }),
+        ),
+      },
+    })
+  const send = (app: ReturnType<typeof headerApp>, user: string, method: string, path: string) =>
+    app.handler(
+      new Request(`http://localhost${path}`, {
+        method,
+        headers: { "content-type": "application/json", "x-user": user },
+        ...(method === "GET" ? {} : { body: JSON.stringify({ changes: [] }) }),
+      }),
+    )
+  const statuses = (responses: ReadonlyArray<Response>) => responses.map((r) => r.status)
+
+  it("answers the 61st /sync/push in a minute 429 with Retry-After, per user", async () => {
+    const app = headerApp()
+    const first = await Promise.all(
+      Array.from({ length: USER_RATE_LIMITS.push.max }, () =>
+        send(app, userA, "POST", "/sync/push"),
+      ),
+    )
+    expect(statuses(first)).not.toContain(429)
+    const over = await send(app, userA, "POST", "/sync/push")
+    expect(over.status).toBe(429)
+    expect(Number(over.headers.get("retry-after"))).toBeGreaterThan(0)
+    expect(await over.json()).toMatchObject({ _tag: "NativeRateLimited" })
+    const other = await send(app, userB, "POST", "/sync/push")
+    expect(other.status).not.toBe(429)
+  })
+
+  it("keeps reads unlimited (GET and POST /sync/pull)", async () => {
+    const app = headerApp()
+    const reads = await Promise.all(
+      Array.from({ length: USER_RATE_LIMITS.write.max + 5 }, () =>
+        send(app, userA, "GET", "/exercises"),
+      ),
+    )
+    expect(statuses(reads)).not.toContain(429)
+    expect(rateBucket("POST", "/sync/pull?x=1")).toEqual(Option.none())
+    expect(rateBucket("POST", "/exercises")).toEqual(Option.some("write"))
+    expect(rateBucket("POST", "/sync/push")).toEqual(Option.some("push"))
+  })
+
+  it("sends Cache-Control: no-store on an authenticated route, not on /health", async () => {
+    const app = headerApp()
+    const listed = await send(app, userA, "GET", "/exercises")
+    expect(listed.status).toBe(200)
+    expect(listed.headers.get("cache-control")).toBe("no-store")
+    const health = await app.handler(new Request("http://localhost/health"))
+    expect(health.headers.get("cache-control")).toBeNull()
   })
 })

@@ -13,7 +13,7 @@ import { DEV_USER_EMAIL, DEV_USER_ID } from "./auth/devUser"
 import { Sessions } from "./auth/Sessions"
 import { FAKE_INTEGRATION_TOKEN_KEY, WorkerConfig } from "./Config"
 import worker from "./index"
-import { signState } from "./integrations/connect"
+import { CONNECT_COOKIE, signState } from "./integrations/connect"
 import { ExportQueue } from "./integrations/ExportQueue"
 import { TokenSeal } from "./integrations/TokenSeal"
 import { DEV_PRINCIPAL, McpAuth } from "./mcp/McpAuth"
@@ -526,11 +526,22 @@ describe("/integrations/strava/callback through the default export (design §4)"
     const returnTo = "http://localhost:8790/settings/integrations"
     const now = await Effect.runPromise(Clock.currentTimeMillis)
     const state = await Effect.runPromise(
-      signState(config, { userId: UserId.make(DEV_USER_ID), returnTo, expiresAt: now + 60_000 }),
+      signState(config, {
+        userId: UserId.make(DEV_USER_ID),
+        returnTo,
+        expiresAt: now + 60_000,
+        binding: "workerd-binding",
+      }),
     )
+    // SEC-1 B1: a web state needs the binding cookie the connect response set.
     const response = await call(
       `/integrations/strava/callback?${new URLSearchParams({ state, code: "console", scope: "read,activity:write" })}`,
-      { headers: { "cf-connecting-ip": "198.51.100.4" } },
+      {
+        headers: {
+          "cf-connecting-ip": "198.51.100.4",
+          cookie: `${CONNECT_COOKIE}=workerd-binding`,
+        },
+      },
     )
     expect(response.status).toBe(303)
     expect(response.headers.get("location")).toBe(`${returnTo}?connected=strava`)

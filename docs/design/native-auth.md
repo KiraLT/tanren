@@ -150,7 +150,7 @@ export const PkceChallenge = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-
 export const NativeCode    = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{32}\.[A-Za-z0-9_-]{43}$/)).pipe(Schema.brand("NativeCode"))
 export const NativeSessionRequest  = Schema.Struct({ code: NativeCode, verifier: PkceVerifier })
 // ADR-0022: the response is the app token pair (`AppTokenPair` in `auth.ts`: accessToken, refreshToken, expiresAt);
-// the old `{ token, userId, expiresAt }` wire shape is gone (the `SessionToken` brand is still exported, unused).
+// the old `{ token, userId, expiresAt }` wire shape and its `SessionToken` brand are gone (SEC-1 H1).
 export const NativeSessionResponse = Schema.Struct({ userId: UserId /* ids.ts */, access: AppTokenPair })
 /** Stored on the device between steps 1 and 7 (mobile only, not on the wire). */
 export const PendingNativeSignIn   = Schema.Struct({ verifier: PkceVerifier, createdAt: Timestamp })

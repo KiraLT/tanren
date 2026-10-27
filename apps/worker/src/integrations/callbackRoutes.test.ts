@@ -6,7 +6,7 @@ import { HttpRouter, HttpServer } from "effect/http"
 import { WorkerConfig, type WorkerConfigShape } from "../Config"
 import { envVars } from "../testing/fixtures"
 import { callbackRoutes } from "./callbackRoutes"
-import { signState } from "./connect"
+import { CONNECT_COOKIE, signState } from "./connect"
 import { StravaApi, StravaRequestFailed, type TokenGrant } from "./StravaApi"
 import { TokenSeal } from "./TokenSeal"
 
@@ -110,10 +110,20 @@ const harness = (
     }),
   )
 
+/** The web flow's binding (SEC-1 B1): in a web state and, by default, in the request's cookie. */
+const BINDING = "test-binding-0123456789"
+const BINDING_COOKIE = `${CONNECT_COOKIE}=${BINDING}`
+
+/** A state as `startConnect` mints it: web returns carry `BINDING`, native ones none. */
 const state = (returnTo: string, ttlMs = 60_000, userId = attacker) =>
   Effect.runPromise(
     Effect.flatMap(Clock.currentTimeMillis, (now) =>
-      signState(config, { userId, returnTo, expiresAt: now + ttlMs }),
+      signState(config, {
+        userId,
+        returnTo,
+        expiresAt: now + ttlMs,
+        ...(returnTo === NATIVE ? {} : { binding: BINDING }),
+      }),
     ),
   )
 
@@ -125,7 +135,7 @@ const get = (
   handler(
     new Request(
       `http://localhost:8787/integrations/strava/callback?${new URLSearchParams(query)}`,
-      { headers: { "cf-connecting-ip": "203.0.113.7", ...headers } },
+      { headers: { "cf-connecting-ip": "203.0.113.7", cookie: BINDING_COOKIE, ...headers } },
     ),
   )
 
@@ -259,7 +269,7 @@ describe("GET /integrations/strava/callback", () => {
       h.handler,
       { state: await state(WEB), code: CODE, scope: "activity:write" },
       {
-        cookie: "better-auth.session_token=victim-session",
+        cookie: `better-auth.session_token=victim-session; ${BINDING_COOKIE}`,
         authorization: "Bearer victim-token",
         "x-user": "00000000-0000-4000-8000-0000000000b2",
       },
@@ -295,5 +305,52 @@ describe("console mode outside local (REV-2)", () => {
     expect(await response.text()).toContain("Strava is not connected yet")
     expect(read(h.exchanges)).toEqual([])
     expect(read(h.upserts)).toEqual([])
+  })
+})
+
+describe("forced connect: the web double-submit cookie (SEC-1 B1)", () => {
+  const callback = (h: ReturnType<typeof harness>, raw: string, cookie: string) =>
+    get(h.handler, { state: raw, code: CODE, scope: "activity:write" }, { cookie })
+
+  it("a web state without the cookie → 400 page, no exchange, no upsert", async () => {
+    const h = harness()
+    const response = await callback(h, await state(WEB), "")
+    expect(response.status).toBe(400)
+    expectSecureHeaders(response)
+    expect(await response.text()).toContain("started in another browser")
+    expect(read(h.exchanges)).toEqual([])
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a web state with another browser's cookie → 400, no upsert", async () => {
+    const h = harness()
+    const response = await callback(h, await state(WEB), `${CONNECT_COOKIE}=someone-else`)
+    expect(response.status).toBe(400)
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("a web state signed without a binding is refused even with a cookie", async () => {
+    const h = harness()
+    const now = await Effect.runPromise(Clock.currentTimeMillis)
+    const unbound = await Effect.runPromise(
+      signState(config, { userId: attacker, returnTo: WEB, expiresAt: now + 60_000 }),
+    )
+    expect((await callback(h, unbound, BINDING_COOKIE)).status).toBe(400)
+    expect(read(h.upserts)).toEqual([])
+  })
+
+  it("the matching cookie connects and is expired on the 303", async () => {
+    const h = harness()
+    const response = await callback(h, await state(WEB), BINDING_COOKIE)
+    expect(response.status).toBe(303)
+    expect(read(h.upserts)).toHaveLength(1)
+    expect(response.headers.get("set-cookie")).toContain(`${CONNECT_COOKIE}=;`)
+  })
+
+  it("a native state (no cookie jar) still connects without the cookie", async () => {
+    const h = harness()
+    const response = await callback(h, await state(NATIVE), "")
+    expect(response.status).toBe(200)
+    expect(read(h.upserts)).toHaveLength(1)
   })
 })

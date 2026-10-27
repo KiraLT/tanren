@@ -24,6 +24,12 @@ export const DEFAULT_GARMIN_BASE_URL = "https://personal.connectapi.garmin.com"
 /** 32 zero bytes, base64. The local `wrangler.jsonc` value; refused outside `local` (docs/design/integrations.md §3). */
 export const FAKE_INTEGRATION_TOKEN_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
+/** The local `wrangler.jsonc` `BETTER_AUTH_SECRET`; refused outside `local` (SEC-1 A1). */
+export const LOCAL_BETTER_AUTH_SECRET = "local-dev-only-not-a-secret-0000000000000000"
+
+/** Outside `local` the auth secret roots every HKDF sub-key, so it must carry ≥ 32 characters. */
+export const MIN_BETTER_AUTH_SECRET_LENGTH = 32
+
 /** `INTEGRATION_TOKEN_KEY` must be base64 for exactly 32 bytes (AES-256). */
 const isAes256KeyBase64 = (raw: string): boolean =>
   Result.match(Base64.decode(raw), {
@@ -212,12 +218,30 @@ const decodeEnv = (env: unknown): Effect.Effect<WorkerConfigShape, ConfigError> 
         message: `INTEGRATION_TOKEN_KEY is the local fake key; it is only allowed when ENVIRONMENT is "local" (got "${raw.ENVIRONMENT}")`,
       })
     }
+    const authSecret = Redacted.value(raw.BETTER_AUTH_SECRET)
+    if (raw.ENVIRONMENT !== "local" && authSecret === LOCAL_BETTER_AUTH_SECRET) {
+      return yield* new ConfigError({
+        message: `BETTER_AUTH_SECRET is the local dev value; it is only allowed when ENVIRONMENT is "local" (got "${raw.ENVIRONMENT}")`,
+      })
+    }
+    if (raw.ENVIRONMENT !== "local" && authSecret.length < MIN_BETTER_AUTH_SECRET_LENGTH) {
+      return yield* new ConfigError({
+        message: `BETTER_AUTH_SECRET must be at least ${MIN_BETTER_AUTH_SECRET_LENGTH} characters outside "local" (openssl rand -base64 32)`,
+      })
+    }
+    // An empty list would make `HttpRouter.cors` answer `*` with credentials (SEC-1 A7).
+    const allowedOrigins = splitOrigins(raw.ALLOWED_ORIGINS)
+    if (allowedOrigins.length === 0) {
+      return yield* new ConfigError({
+        message: "ALLOWED_ORIGINS must name at least one origin (comma-separated)",
+      })
+    }
     const mcpResourceUrl = yield* checkResourceUrl(raw.MCP_RESOURCE_URL, raw.ENVIRONMENT)
     return {
       environment: raw.ENVIRONMENT,
       betterAuthUrl: raw.BETTER_AUTH_URL,
       betterAuthSecret: raw.BETTER_AUTH_SECRET,
-      allowedOrigins: splitOrigins(raw.ALLOWED_ORIGINS),
+      allowedOrigins,
       emailMode: raw.EMAIL_MODE,
       emailFrom: raw.EMAIL_FROM,
       resendApiKey,

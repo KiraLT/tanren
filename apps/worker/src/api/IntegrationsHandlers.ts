@@ -19,13 +19,20 @@ import {
   Uuid,
 } from "@tanren/shared"
 import { Array as Arr, DateTime, Effect, Option, Predicate, Redacted } from "effect"
+import { HttpEffect, HttpServerResponse } from "effect/http"
 import { HttpApiBuilder, HttpApiError } from "effect/http-api"
 import { makeLimiter } from "../auth/nativeAuthRoutes"
 import { WorkerConfig } from "../Config"
-import { startConnect } from "../integrations/connect"
+import {
+  CONNECT_COOKIE,
+  CONNECT_COOKIE_MAX_AGE_SECONDS,
+  newBinding,
+  startConnect,
+} from "../integrations/connect"
 import { ExportQueue } from "../integrations/ExportQueue"
 import { GarminApi } from "../integrations/GarminApi"
 import { GarminPull, readCursor } from "../integrations/GarminPull"
+import { isNativeReturnTo } from "../integrations/returnTo"
 import { StravaApi } from "../integrations/StravaApi"
 import { SealedToken, TokenSeal } from "../integrations/TokenSeal"
 import type { PersistenceError } from "../repos"
@@ -209,7 +216,24 @@ export const IntegrationsLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const userId = yield* currentUser
           yield* limit(`strava-connect:${userId}`)
-          return yield* startConnect(config, userId, payload.returnTo)
+          // SEC-1 B1: the web flow binds the state to a cookie in this browser; native has no jar.
+          const binding = isNativeReturnTo(payload.returnTo)
+            ? Option.none<string>()
+            : Option.some(yield* newBinding)
+          const response = yield* startConnect(config, userId, payload.returnTo, binding)
+          if (Option.isSome(binding)) {
+            yield* HttpEffect.appendPreResponseHandler((_request, res) =>
+              // Constant name, base64url value, fixed options: a `CookiesError` is a defect.
+              HttpServerResponse.setCookie(CONNECT_COOKIE, binding.value, {
+                path: "/",
+                secure: true,
+                httpOnly: true,
+                sameSite: "lax",
+                maxAge: `${CONNECT_COOKIE_MAX_AGE_SECONDS} seconds`,
+              })(res).pipe(Effect.orDie),
+            )
+          }
+          return response
         }),
       disconnect: () =>
         internal(

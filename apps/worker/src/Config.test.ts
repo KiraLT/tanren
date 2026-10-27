@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Option, Redacted } from "effect"
-import { ConfigError, FAKE_INTEGRATION_TOKEN_KEY, WorkerConfig } from "./Config"
+import {
+  ConfigError,
+  FAKE_INTEGRATION_TOKEN_KEY,
+  LOCAL_BETTER_AUTH_SECRET,
+  WorkerConfig,
+} from "./Config"
 import type { EnvVars } from "./Env"
 
 const localEnv: EnvVars = {
@@ -34,6 +39,7 @@ const productionEnv = (() => {
     STRAVA_CLIENT_ID: "<owner: strava client id>", // the wrangler.jsonc placeholder must load
     STRAVA_CLIENT_SECRET: STRAVA_SECRET,
     INTEGRATION_TOKEN_KEY: REAL_KEY,
+    BETTER_AUTH_SECRET: "test-only-production-secret-0123456789",
   }
 })()
 
@@ -439,6 +445,44 @@ describe("Garmin config", () => {
       expect(value.message).toContain('GARMIN_CONSOLE_FAIL "inactive"')
       const mode = yield* Effect.flip(load({ ...localEnv, GARMIN_MODE: "live" }))
       expect(mode).toBeInstanceOf(ConfigError)
+    }),
+  )
+})
+
+describe("BETTER_AUTH_SECRET and ALLOWED_ORIGINS guards (SEC-1 A1, A7)", () => {
+  it.effect("refuses the local dev secret outside local", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, BETTER_AUTH_SECRET: LOCAL_BETTER_AUTH_SECRET }),
+      )
+      expect(error.message).toContain("BETTER_AUTH_SECRET is the local dev value")
+    }),
+  )
+
+  it.effect("refuses a secret shorter than 32 characters outside local", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        load({ ...productionEnv, ENVIRONMENT: "preview", BETTER_AUTH_SECRET: "short-secret" }),
+      )
+      expect(error.message).toContain("at least 32 characters")
+    }),
+  )
+
+  it.effect("accepts the local dev secret and a short secret locally", () =>
+    Effect.gen(function* () {
+      const dev = yield* load({ ...localEnv, BETTER_AUTH_SECRET: LOCAL_BETTER_AUTH_SECRET })
+      expect(dev.environment).toBe("local")
+      const short = yield* load({ ...localEnv, BETTER_AUTH_SECRET: "short" })
+      expect(short.environment).toBe("local")
+    }),
+  )
+
+  it.effect("refuses an empty or blank ALLOWED_ORIGINS", () =>
+    Effect.gen(function* () {
+      const empty = yield* Effect.flip(load({ ...localEnv, ALLOWED_ORIGINS: "" }))
+      expect(empty.message).toContain("ALLOWED_ORIGINS")
+      const blank = yield* Effect.flip(load({ ...productionEnv, ALLOWED_ORIGINS: " , " }))
+      expect(blank.message).toContain("ALLOWED_ORIGINS")
     }),
   )
 })

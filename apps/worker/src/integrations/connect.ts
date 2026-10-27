@@ -12,18 +12,52 @@ export const STATE_TTL_MS = 10 * 60 * 1000
 /** Strava documents no limit; we keep the whole `state` well under 600 chars (design §4). */
 export const MAX_STATE_LENGTH = 600
 
-/** What the signed `state` carries. `expiresAt` is epoch milliseconds. */
+/**
+ * SEC-1 B1 (forced connect): the web flow's double-submit cookie. Set on the
+ * `POST /integrations/strava/connect` response (host-only, `Secure`, `HttpOnly`, `SameSite=Lax`, so
+ * Strava's top-level redirect back carries it), required by the callback to equal the state's
+ * `binding`. An attacker's authorize link finished in the victim's browser has no matching cookie.
+ */
+export const CONNECT_COOKIE = "__Host-tanren-connect"
+export const CONNECT_COOKIE_MAX_AGE_SECONDS = STATE_TTL_MS / 1000
+
+/** What the signed `state` carries. `expiresAt` is epoch milliseconds; `binding` = web flow only. */
 export const ConnectState = Schema.Struct({
   userId: UserId,
   returnTo: Schema.String,
   expiresAt: Schema.Number.check(Schema.isInt()),
+  binding: Schema.optionalKey(Schema.String),
 })
 export type ConnectState = typeof ConnectState.Type
 
 /** Internal: why a callback `state` was refused. Never carries the state itself. */
 export class StateRejected extends Data.TaggedError("StateRejected")<{
-  readonly reason: "malformed" | "signature" | "expired" | "return-to"
+  readonly reason: "malformed" | "signature" | "expired" | "return-to" | "binding"
 }> {}
+
+/** 16 random bytes, base64url (22 chars): the cookie value and the state's `binding`. */
+export const newBinding: Effect.Effect<string> = Effect.sync(() =>
+  Base64Url.encode(crypto.getRandomValues(new Uint8Array(16))),
+)
+
+/**
+ * The callback's binding check: a state minted for a web `returnTo` must carry a `binding` equal to
+ * the cookie. A native state (no cookie jar) carries none and passes; `isNative` is decided by the
+ * signed `returnTo`, so a web return cannot be downgraded to the unbound path.
+ */
+export const checkBinding = (
+  state: ConnectState,
+  cookie: Option.Option<string>,
+  isNative: boolean,
+): Effect.Effect<void, StateRejected> => {
+  if (isNative && state.binding === undefined) {
+    return Effect.void
+  }
+  const matches =
+    state.binding !== undefined &&
+    Option.match(cookie, { onNone: () => false, onSome: (value) => value === state.binding })
+  return matches ? Effect.void : Effect.fail(new StateRejected({ reason: "binding" }))
+}
 
 type StateConfig = Pick<
   WorkerConfigShape,
@@ -140,11 +174,15 @@ export const authorizeUrl = (config: ConnectConfig, state: string): string => {
       })}`
 }
 
-/** `POST /integrations/strava/connect`: allow-list `returnTo`, sign a 10-minute state, build the URL. */
+/**
+ * `POST /integrations/strava/connect`: allow-list `returnTo`, sign a 10-minute state, build the URL.
+ * `binding` (web flow): bound into the state; the handler sets it as `CONNECT_COOKIE`.
+ */
 export const startConnect = (
   config: ConnectConfig,
   userId: UserId,
   returnTo: string,
+  binding: Option.Option<string> = Option.none(),
 ): Effect.Effect<ConnectResponse, ConnectRejected> =>
   Effect.gen(function* () {
     if (!isAllowedIntegrationReturnTo(returnTo, config)) {
@@ -157,6 +195,11 @@ export const startConnect = (
       return yield* new ConnectRejected({ reason: "not-configured" })
     }
     const now = yield* Clock.currentTimeMillis
-    const state = yield* signState(config, { userId, returnTo, expiresAt: now + STATE_TTL_MS })
+    const state = yield* signState(config, {
+      userId,
+      returnTo,
+      expiresAt: now + STATE_TTL_MS,
+      ...Option.match(binding, { onNone: () => ({}), onSome: (value) => ({ binding: value }) }),
+    })
     return { url: authorizeUrl(config, state) }
   })
