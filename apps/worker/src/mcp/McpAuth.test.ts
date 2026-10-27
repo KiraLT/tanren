@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
+import { UserNotFound, UserTokens } from "@tanren/db"
 import { MCP_SCOPES, UserId } from "@tanren/shared"
 import { Effect, Layer, Option, Redacted } from "effect"
 import { DEV_USER_ID } from "../auth/devUser"
 import { Tokens } from "../auth/Tokens"
 import { type Environment, WorkerConfig } from "../Config"
+import { MemoryTokens } from "../repos/MemoryTokens"
 import { envVars } from "../testing/fixtures"
 import {
   challenge,
@@ -148,7 +150,7 @@ const mcpPair = Effect.gen(function* () {
 }).pipe(Effect.provide(tokensLayer))
 
 describe("McpAuth.layerJwt", () => {
-  const jwt = McpAuth.layerJwt.pipe(Layer.provide(tokensLayer))
+  const jwt = McpAuth.layerJwt.pipe(Layer.provide(Layer.mergeAll(tokensLayer, MemoryTokens.layer)))
 
   it.effect("a valid MCP access JWT resolves to its user and scopes", () =>
     Effect.gen(function* () {
@@ -195,7 +197,9 @@ describe("McpAuth.layerJwt", () => {
 })
 
 describe("McpAuth.layerLive", () => {
-  const live = McpAuth.layerLive.pipe(Layer.provide(config("local", Option.some(TOKEN))))
+  const live = McpAuth.layerLive.pipe(
+    Layer.provide(Layer.mergeAll(config("local", Option.some(TOKEN)), MemoryTokens.layer)),
+  )
 
   it.effect("resolves an MCP access JWT", () =>
     Effect.gen(function* () {
@@ -278,4 +282,48 @@ describe("challenge", () => {
       'Bearer realm="OAuth", resource_metadata="https://mcp.tanren.me/.well-known/oauth-protected-resource/mcp", scope="tanren:read tanren:write"',
     )
   })
+})
+
+describe("McpAuth.writeAllowed (STLS-F4)", () => {
+  /** `UserTokens` with no `user` rows at all: every lookup is `UserNotFound`. */
+  const noUsers = Layer.succeed(
+    UserTokens,
+    UserTokens.of({
+      tokenGens: (userId) => Effect.fail(new UserNotFound({ userId })),
+      bumpAppTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
+      bumpMcpTokenGen: (userId) => Effect.fail(new UserNotFound({ userId })),
+    }),
+  )
+  const principal: McpPrincipal = { userId: owner, scopes: ["tanren:write"] }
+  const allowedVia = (layer: Layer.Layer<McpAuth>) =>
+    Effect.gen(function* () {
+      return yield* (yield* McpAuth).writeAllowed(principal)
+    }).pipe(Effect.provide(layer))
+
+  it.effect("the JWT layer allows a write while the user row exists", () =>
+    Effect.gen(function* () {
+      const layer = McpAuth.layerJwt.pipe(
+        Layer.provide(Layer.mergeAll(tokensLayer, MemoryTokens.layer)),
+      )
+      expect(yield* allowedVia(layer)).toBe(true)
+    }),
+  )
+
+  it.effect("the JWT and live layers refuse a write once the user row is gone", () =>
+    Effect.gen(function* () {
+      const jwt = McpAuth.layerJwt.pipe(Layer.provide(Layer.mergeAll(tokensLayer, noUsers)))
+      const live = McpAuth.layerLive.pipe(
+        Layer.provide(Layer.mergeAll(config("local", Option.some(TOKEN)), noUsers)),
+      )
+      expect([yield* allowedVia(jwt), yield* allowedVia(live)]).toEqual([false, false])
+    }),
+  )
+
+  it.effect("the dev-token and fixed layers never read a user row", () =>
+    Effect.gen(function* () {
+      const dev = McpAuth.layerDevToken.pipe(Layer.provide(config("local", Option.some(TOKEN))))
+      const fixed = McpAuth.layerFixed(Option.some(principal))
+      expect([yield* allowedVia(dev), yield* allowedVia(fixed)]).toEqual([true, true])
+    }),
+  )
 })

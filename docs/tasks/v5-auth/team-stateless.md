@@ -164,3 +164,4 @@ across waves is promised.
 ## Follow-ups
 
 - 2026-10-27 STLS-F3 (engineer): writes need the `user` row — `api/Authentication.ts` (`layer` checks via `UserTokens`, `layerFixed` for the Fixed test mode), `app.ts` picks per AuthMode; `auth/deletedUser.workerd.test.ts`: app JWT and cookie-cache after delete → push 401, GET 200; ADR-0022 amendment line. MCP writes are NOT covered (separate `McpAuth`, no shared middleware).
+- 2026-10-27 STLS-F4 (engineer): MCP write tools need the `user` row — `McpAuth.writeAllowed` (layerJwt/layerLive read `UserTokens.tokenGens`; dev token/fixed always true), guard in `mcp/server.ts` `createServer` for `kind: "write"` (`guardWrite`, `Forbidden: this account no longer exists` isError), `McpRoute.ts` serves `UserTokens` from persistence; `mcp/deletedUser.workerd.test.ts`.

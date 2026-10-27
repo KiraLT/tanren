@@ -1,3 +1,4 @@
+import { type PersistenceError, UserTokens } from "@tanren/db"
 import { MCP_SCOPES, type McpScope, type UserId } from "@tanren/shared"
 import { Array as Arr, Context, Effect, Layer, Option, Redacted } from "effect"
 import { DEV_USER_ID } from "../auth/devUser"
@@ -21,7 +22,15 @@ export interface McpAuthShape {
     request: Request,
     ctx: ExecutionContext,
   ) => Effect.Effect<Option.Option<McpPrincipal>>
+  /**
+   * May this principal run a write tool (STLS-F4)? `resolve` reads no D1, so an MCP access JWT
+   * outlives an erased account by up to 15 minutes; the JWT layers answer from the `user` row (one
+   * primary-key read, write tools only), the dev token and fixed test principals always may.
+   */
+  readonly writeAllowed: (principal: McpPrincipal) => Effect.Effect<boolean, PersistenceError>
 }
+
+const always = (): Effect.Effect<boolean> => Effect.succeed(true)
 
 /**
  * The 401 challenge for `/mcp`, byte-identical to the `OAuthProvider`'s own (RFC 9728 §5.1;
@@ -92,7 +101,7 @@ export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/w
         Effect.sync(() =>
           Option.flatMap(bearerToken(request), (token) => devPrincipalFor(config, token)),
         )
-      return { resolve }
+      return { resolve, writeAllowed: always }
     }),
   )
 
@@ -100,11 +109,18 @@ export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/w
    * Stateless OAuth (ADR-0022, docs/design/auth-v2.md §1): the bearer is an MCP access JWT verified
    * by `Tokens.verifyMcp` (signature, `exp`, `aud` = `MCP_RESOURCE_URL`, `iss`); no D1 read, so a
    * revoked grant's access token lives out its 15 minutes. Anything else → `None`. Ignores `ctx`.
+   * `writeAllowed` reads the `user` row: a deleted user's token still reads but cannot write.
    */
-  static readonly layerJwt: Layer.Layer<McpAuth, never, Tokens> = Layer.effect(
+  static readonly layerJwt: Layer.Layer<McpAuth, never, Tokens | UserTokens> = Layer.effect(
     this,
     Effect.gen(function* () {
       const tokens = yield* Tokens
+      const users = yield* UserTokens
+      const writeAllowed = ({ userId }: McpPrincipal) =>
+        users.tokenGens(userId).pipe(
+          Effect.as(true),
+          Effect.catchTag("UserNotFound", () => Effect.succeed(false)),
+        )
       const resolve = (request: Request): Effect.Effect<Option.Option<McpPrincipal>> =>
         Option.match(bearerToken(request), {
           onNone: () => Effect.succeed(Option.none()),
@@ -114,12 +130,15 @@ export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/w
               Effect.orElseSucceed(() => Option.none()),
             ),
         })
-      return { resolve }
+      return { resolve, writeAllowed }
     }),
   )
 
-  /** The Worker: an MCP access JWT first, then the local dev token. */
-  static readonly layerLive: Layer.Layer<McpAuth, never, WorkerConfig> = Layer.effect(
+  /**
+   * The Worker: an MCP access JWT first, then the local dev token. Writes check the `user` row for
+   * both (the dev token's seed user exists in a seeded local D1).
+   */
+  static readonly layerLive: Layer.Layer<McpAuth, never, WorkerConfig | UserTokens> = Layer.effect(
     this,
     Effect.gen(function* () {
       const oauth = yield* McpAuth.pipe(
@@ -136,11 +155,12 @@ export class McpAuth extends Context.Service<McpAuth, McpAuthShape>()("@tanren/w
               }),
             ),
           ),
+        writeAllowed: oauth.writeAllowed,
       })
     }),
   )
 
   /** Tests: every request resolves to `principal`. */
   static readonly layerFixed = (principal: Option.Option<McpPrincipal>): Layer.Layer<McpAuth> =>
-    Layer.succeed(this, this.of({ resolve: () => Effect.succeed(principal) }))
+    Layer.succeed(this, this.of({ resolve: () => Effect.succeed(principal), writeAllowed: always }))
 }

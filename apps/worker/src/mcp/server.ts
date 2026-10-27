@@ -1,4 +1,5 @@
 import { type CallToolResult, McpServer } from "@modelcontextprotocol/server"
+import type { PersistenceError } from "@tanren/db"
 import type { McpToolName, UserId } from "@tanren/shared"
 import { Effect, Predicate, Schema } from "effect"
 import type { McpPrincipal } from "./McpAuth"
@@ -13,7 +14,30 @@ export interface ServerInput {
   readonly principal: McpPrincipal
   /** Runs a tool program on the isolate's runtime (`ManagedRuntime.runPromise`). */
   readonly run: (effect: Effect.Effect<CallToolResult, never, ToolDeps>) => Promise<CallToolResult>
+  /** `McpAuth.writeAllowed(principal)`: asked before every `kind: "write"` tool call (STLS-F4). */
+  readonly writeAllowed: Effect.Effect<boolean, PersistenceError>
 }
+
+/** A write by a principal whose `user` row is gone: the `Forbidden` tool error of `callTool`. */
+export const GONE_USER = "Forbidden: this account no longer exists"
+
+/**
+ * Runs `call` only when `writeAllowed` says yes; a gone user gets the `Forbidden` isError result and
+ * a storage failure the usual `storage unavailable`. Read tools never come here (0 extra reads).
+ */
+export const guardWrite = (
+  writeAllowed: Effect.Effect<boolean, PersistenceError>,
+  call: Effect.Effect<CallToolResult, never, ToolDeps>,
+): Effect.Effect<CallToolResult, never, ToolDeps> =>
+  writeAllowed.pipe(
+    Effect.matchEffect({
+      onFailure: (error) =>
+        Effect.logError("MCP write check storage failure", error.operation, error.cause).pipe(
+          Effect.as(errorResult("storage unavailable")),
+        ),
+      onSuccess: (allowed) => (allowed ? call : Effect.succeed(errorResult(GONE_USER))),
+    }),
+  )
 
 const SERVER_INFO = { name: "tanren", version: "0.4.0" }
 
@@ -99,7 +123,7 @@ export const toolsFor = (principal: McpPrincipal): ReadonlyArray<AnyTool> => [
  * One `McpServer` per request (stateless `createMcpHandler`) with the principal's tools
  * registered; an unregistered tool is "unknown tool" to the SDK.
  */
-export const createServer = ({ principal, run }: ServerInput): McpServer => {
+export const createServer = ({ principal, run, writeAllowed }: ServerInput): McpServer => {
   const { userId } = principal
   const server = new McpServer(SERVER_INFO)
   toolsFor(principal).forEach((tool) => {
@@ -110,7 +134,12 @@ export const createServer = ({ principal, run }: ServerInput): McpServer => {
         inputSchema: inputSchemaOf(tool),
         annotations: { ...ANNOTATIONS[tool.name] },
       },
-      (args) => run(callTool(tool, userId, args)),
+      (args) =>
+        run(
+          tool.kind === "write"
+            ? guardWrite(writeAllowed, callTool(tool, userId, args))
+            : callTool(tool, userId, args),
+        ),
     )
   })
   return server

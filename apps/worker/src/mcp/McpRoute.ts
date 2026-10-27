@@ -1,3 +1,4 @@
+import type { UserTokens } from "@tanren/db"
 import { IdGenerator } from "@tanren/shared"
 import { createMcpHandler } from "agents/mcp/server"
 import { Effect, Layer, ManagedRuntime, Option } from "effect"
@@ -11,7 +12,8 @@ import { createServer } from "./server"
 
 export interface McpServices {
   readonly persistence: Layer.Layer<Persistence>
-  readonly auth: Layer.Layer<McpAuth, never, WorkerConfig>
+  /** May need `UserTokens` (the write check, STLS-F4): it is served from `persistence`. */
+  readonly auth: Layer.Layer<McpAuth, never, WorkerConfig | UserTokens>
 }
 
 export interface Mcp {
@@ -28,20 +30,29 @@ const unauthorized = (mcpResourceUrl: string): Response =>
  */
 export const makeMcp = (env: unknown, services: McpServices): Mcp => {
   const runtime = ManagedRuntime.make(
-    Layer.mergeAll(services.persistence, IdGenerator.layer, services.auth).pipe(
-      Layer.provideMerge(WorkerConfig.layerFromEnv(env)),
-    ),
+    Layer.mergeAll(
+      services.persistence,
+      IdGenerator.layer,
+      // Same `persistence` reference: memoised, one instance per runtime.
+      services.auth.pipe(Layer.provide(services.persistence)),
+    ).pipe(Layer.provideMerge(WorkerConfig.layerFromEnv(env))),
   )
   const handle = (request: Request, workerEnv: unknown, ctx: ExecutionContext) =>
     runtime.runPromise(
       Effect.gen(function* () {
         const config = yield* WorkerConfig
-        const principal = yield* (yield* McpAuth).resolve(request, ctx)
+        const auth = yield* McpAuth
+        const principal = yield* auth.resolve(request, ctx)
         if (Option.isNone(principal)) {
           return unauthorized(config.mcpResourceUrl)
         }
         const handler = createMcpHandler(
-          () => createServer({ principal: principal.value, run: runtime.runPromise }),
+          () =>
+            createServer({
+              principal: principal.value,
+              run: runtime.runPromise,
+              writeAllowed: auth.writeAllowed(principal.value),
+            }),
           { route: "/mcp", allowedHostnames: [new URL(config.mcpResourceUrl).hostname] },
         )
         return yield* Effect.promise(() => handler(request, workerEnv, ctx))
