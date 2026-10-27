@@ -37,6 +37,7 @@ export {
 export { EmptyState } from "./EmptyState"
 export { Icon, type IconName } from "./Icon"
 export { IconButton } from "./IconButton"
+export { type PressableInteraction, usePressableInteraction } from "./interaction"
 export {
   type DiscState,
   ListGroup,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { UserId } from "@tanren/shared"
 import { Option } from "effect"
-import { gateFor, isSignInRoute } from "./authGate"
+import { gateFor, isPublicRoute, isSignInRoute } from "./authGate"
 import { parseDevUserId } from "./CurrentUser"
 
 const USER = UserId.make("00000000-0000-4000-8000-0000000000aa")
@@ -32,6 +32,20 @@ describe("gateFor", () => {
     expect(routes.map((route) => gateFor({ account: none, localSets: 0, route }))).toEqual(
       routes.map(() => "allow"),
     )
+  })
+
+  it("allows the public legal pages with no account and no sets", () => {
+    const routes = ["/privacy", "/terms"]
+    expect(routes.map((route) => gateFor({ account: none, localSets: 0, route }))).toEqual(
+      routes.map(() => "allow"),
+    )
+    expect(routes.map(isPublicRoute)).toEqual([true, true])
+  })
+
+  it("does not treat look-alike routes as public", () => {
+    const routes = ["/privacyx", "/privacy/x", "/terms-of", "/term"]
+    expect(routes.map(isPublicRoute)).toEqual(routes.map(() => false))
+    expect(gateFor({ account: none, localSets: 0, route: "/privacyx" })).toBe("sign-in")
   })
 
   it("does not treat look-alike routes as sign-in", () => {

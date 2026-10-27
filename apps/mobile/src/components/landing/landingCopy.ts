@@ -45,7 +45,16 @@ export const LANDING = {
     },
   ],
   closing: "Ready to train?",
-  footer: { name: "鍛錬 Tanren", domain: "tanren.me" },
+  footer: {
+    name: "鍛錬 Tanren",
+    domain: "tanren.me",
+    operator: "© 2026 Tanren · Vilnius, Lithuania",
+    contact: "hello@tanren.me",
+    links: [
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+    ],
+  },
 } as const satisfies {
   readonly eyebrow: string
   readonly meaning: string
@@ -55,5 +64,11 @@ export const LANDING = {
   readonly ctaNote: string
   readonly features: ReadonlyArray<LandingFeatureCopy>
   readonly closing: string
-  readonly footer: { readonly name: string; readonly domain: string }
+  readonly footer: {
+    readonly name: string
+    readonly domain: string
+    readonly operator: string
+    readonly contact: string
+    readonly links: ReadonlyArray<{ readonly label: string; readonly href: "/privacy" | "/terms" }>
+  }
 }

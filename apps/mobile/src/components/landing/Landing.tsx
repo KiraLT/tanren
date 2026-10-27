@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router"
+import { Fragment } from "react"
 import { Image, type ImageStyle, View, type ViewStyle } from "react-native"
 import { Button, Columns, Page, space, Text, useBreakpoint, useTheme } from "../../ui"
+import { LegalLink } from "../legal/LegalPage"
 import { LandingFeature, LandingImageSlot } from "./LandingFeature"
 import { LANDING } from "./landingCopy"
 import { LANDING_IMAGES } from "./landingImages"
@@ -143,6 +145,29 @@ export function Landing() {
           <Text variant="caption" tone="muted" style={{ textAlign: "center" }}>
             {LANDING.meaning}
           </Text>
+          <Text
+            testID="landing-operator"
+            variant="caption"
+            tone="muted"
+            style={{ textAlign: "center" }}
+          >
+            {`${LANDING.footer.operator} · ${LANDING.footer.contact}`}
+          </Text>
+          <View
+            testID="landing-legal-links"
+            style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}
+          >
+            {LANDING.footer.links.map((link, index) => (
+              <Fragment key={link.href}>
+                {index > 0 ? (
+                  <Text variant="caption" tone="muted">
+                    ·
+                  </Text>
+                ) : null}
+                <LegalLink label={link.label} href={link.href} />
+              </Fragment>
+            ))}
+          </View>
         </View>
       </Page>
     </View>

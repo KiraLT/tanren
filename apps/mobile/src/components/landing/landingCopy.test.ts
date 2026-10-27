@@ -26,7 +26,16 @@ describe("LANDING copy", () => {
     expect(LANDING.cta).toBe("Sign in")
     expect(LANDING.ctaNote).toBe("Magic link by email. No password.")
     expect(LANDING.closing).toBe("Ready to train?")
-    expect(LANDING.footer).toEqual({ name: "鍛錬 Tanren", domain: "tanren.me" })
+    expect(LANDING.footer).toEqual({
+      name: "鍛錬 Tanren",
+      domain: "tanren.me",
+      operator: "© 2026 Tanren · Vilnius, Lithuania",
+      contact: "hello@tanren.me",
+      links: [
+        { label: "Privacy", href: "/privacy" },
+        { label: "Terms", href: "/terms" },
+      ],
+    })
   })
 
   it("lists four features with the §2 icons, titles and one distinct image slot each", () => {
