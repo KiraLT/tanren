@@ -379,4 +379,5 @@ the next session. Until then the Lead dispatches the EM by the playbook rule (�
 
 ### §11 addendum (retro 2026-10-26-v4-evening, Lead)
 - Any stream with three or more dependent tasks is a `team-lead` stream; the Lead runs at most a two-task disjoint pair itself. Team-lead children run concurrently only when dispatched in one message (single Agent calls serialise).
+- Every designer brief names the reference product(s) the owner judges against (Apple Fitness and Apple Health for health and stat surfaces, Strava for feed and activity cards) and scores per module against them; a text row of `·`-joined stats is a FIX, not a PASS (EM batch 15, P3; the owner rejected the Garmin strip on 2026-10-27 after two designer rounds had passed it).
 - Deploys are Lead-run but never foreground during a fan-out (background script; acceptance lag stays ≤ 5 min).

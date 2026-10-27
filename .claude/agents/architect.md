@@ -176,6 +176,30 @@ and the reviewer needed 3 deltas for one allowlist: 4 fix rounds.
   44 px target (inline: `paddingVertical: 14` on a 16 px line), and adjacent
   targets are ≥ 44 px apart; name the measurement (`getBoundingClientRect`).
   legal.md said "caption links": rounds r2, r4 and r5 of LEGAL-1 were this.
+- Control capacity: `SegmentedControl` holds ≤ 4 options at 358 px and
+  scrolls above that; a 5-way picker is `ToggleChips`, and the spec names the
+  container width the control sits in (Card 326 vs page 358). nutrition.md
+  put five meals in a SegmentedControl inside a Card → designer FIX (N21).
+- Desktop content: every new screen names what fills the side column at
+  1280 (feed.md §5 pattern); "keeps `wide`" is not a spec → designer FIX (N23).
+- Stat surfaces: numbers (kcal, steps, bpm, volume) are never a text row
+  joined with `·`; the spec draws them as tiles, a ring or bars with a large
+  numeral, a unit, a label and an icon per stat, and names the reference the
+  owner judges against (Apple Fitness summary, Strava activity stats). As the
+  designer you score a text-row strip FIX regardless of its typography: the
+  Garmin `HealthStrip` passed two designer rounds and the owner's verdict was
+  "Looks terrible, where is the designer?" (2026-10-27).
+- Copy truth: a design that gives a new reader (MCP tool, export, feed)
+  access to a table lists the user-facing statements about that data (grep
+  `*Copy.ts`, `legalCopy.ts`, the privacy page, `docs/design/*.md`) and
+  amends them in the same design, as a task line. nutrition.md exposed
+  `daily_health` to MCP and left "never used by the AI planning tools" in
+  the Garmin row (owner question, 2026-10-27).
+- Stubbed foundations have an owner: when a foundation task stubs a seed,
+  fixture or handler (`foodEntry: Effect.void`, no `daily_health` rows), the
+  sheet names the task that fills it before the first capture that needs
+  the data. v6 nutrition: nobody owned the seed, so burned bars and FoodLog
+  undo were "not driven by any agent" at team DONE (2026-10-27).
 
 ## Time box
 
@@ -212,6 +236,18 @@ nutri-today froze the repo at minute 13 and the Lead relayed it to nutri-food
 and asked N-F0 for `buildDayTotals` mid-run. A foundation task's Done line
 says "report ends with an `## Exports` list of exact symbol names", and the
 sheet names that list as the GO payload for the waiting team-leads.
+Every optional-key schema in a design (profile, patch, tool input) states
+the minimal valid input in the contract block (`{goal, bodyWeightKg,
+activityLevel}` decodes) and the foundation task's Done line requires that
+decode as a test: v6 N-F0 shipped `NutritionProfile` with five required-
+nullable keys the design called optional; N-S2 found it at minute 11, one
+escalation, one fix round and a REV re-check (2026-10-27). A sheet never
+names a pure module after a component in another case (`foodLog.ts` beside
+`FoodLog.tsx` is tsc TS1261 on macOS, monorepo skill); name the pure file
+after its content (`foodLogRows.ts`). A multi-team sheet names ONE
+contracts board file (`docs/tasks/<step>/contracts.md`): team-leads append
+`landed: <symbol> (<file>, <signature>)` and `frozen: …` lines there and poll
+its mtime, so the Lead relays nothing (5 Lead relays in 34 min on v6).
 
 Default 15 minutes of work for ONE deliverable; add 5 per further deliverable
 (ADR, design note, task sheet with briefs) and write the sum in the report:

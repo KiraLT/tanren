@@ -8,3 +8,5 @@
 - [EM batch watchlist 2026-10-27e](project_em-batch-watchlist-2026-10-27e.md) — items 61–64: optional design assets → serial follow-ups, reviewers run workerd, storage-shape grep, Amendment 23 no-legacy/migrate-first
 - [EM batch watchlist 2026-10-27f](project_em-batch-watchlist-2026-10-27f.md) — items 65–69: registry size/index consumers (Cursor regex), commit-as-gate in 3 places, forbidden-string grep, research∥design, delta-pass shape
 - [EM batch watchlist 2026-10-27g](project_em-batch-watchlist-2026-10-27g.md) — items 70–74: one-task synced tables, port signatures in sheets, HOLD defaults + GO→child ≤ 2 min, multi-run pagination tests, scripted-rewrite slips
+- [EM batch watchlist 2026-10-27h](project_em-batch-watchlist-2026-10-27h.md) — items 75–79: optional-key contract defects, contracts board vs Lead relays, spike-before-fix, live-team hunk staging, designer FIXes from spec gaps
+- [EM batch watchlist 2026-10-27i](project_em-batch-watchlist-2026-10-27i.md) — items 80–85: untested failure-path claims, runFork build errors, after-paint captures, no reference app in designer briefs, copy truth, unowned stubs

@@ -69,7 +69,10 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   native where `navigator.locks` does not exist) so Chrome evicts the bfcached
   holder, then builds `SqlDriver.layer` under `Effect.retry` (250 ms × 20).
   Consequence: two live tabs cannot share the store (the second fails after
-  10 s) — a product decision, open. Do not add a second `SqlDriver` opener
+  10 s) — a product decision, open. The failure is a runtime BUILD error, so
+  a hook sees it only through `runtime.runCallback(…, { onExit })` +
+  `runFailed` (`src/hooks/runExit.ts`), never inside the program's
+  `catchCause` (BS-1 black screen, HOTFIX-1/2, 2026-10-27). Do not add a second `SqlDriver` opener
   outside `PageSqlDriver`.
 - Serve: `pnpm web:serve` = assets-only Worker `apps/worker/wrangler.web.jsonc`
   on :8790 (SPA fallback, `_headers` parsed by Workers static assets). Under
@@ -114,6 +117,16 @@ Official docs: https://docs.expo.dev/ (Router, SQLite, monorepos, web).
   font sizes, no hex or `rgb()` outside `src/ui/colors.ts` (drift grep: `grep -rn '#[0-9A-Fa-f]\{6\}'
   apps/mobile/src/components apps/mobile/app` must be empty); colours and spacing come from `useTheme()` /
   `useStyles` and the tokens; breakpoints from `useBreakpoint()` (phone < 600, tablet 600–899, desktop >= 900).
+- Navigators are themed too: `app/_layout.tsx` wraps the Stack in `ForgeNavigationTheme`
+  (`src/ui/navigationTheme.ts`, expo-router's re-exported `ThemeProvider`/`DarkTheme`/`DefaultTheme`,
+  `background`/`card` = `colors.bg` of the APP scheme, not the OS scheme). A new navigator (Stack, Tabs,
+  modal group) inherits it; one outside that provider paints React Navigation's default light theme
+  between screens — the "flashes white on every click" the owner saw on production for four days
+  (HOTFIX-1, 2026-10-27). Screenshots are taken after paint and cannot show it; use the ui-check
+  mid-navigation ancestor-chain read.
+- A pure sibling of a component never shares its basename in another case: `foodLog.ts` beside
+  `FoodLog.tsx` is tsc TS1261 on macOS (monorepo skill); name it after its content (`foodLogRows.ts`,
+  `quickAddMath.ts`), even when the brief says otherwise, and list the rename under Decisions (N-Q2).
 - Copy and hit areas follow design-system.md §1 and §4 (sentence case, no all-caps or `textTransform`,
   44 px minimum on `IconButton`/`sizes.tap`); review checks them, so apply them before reporting.
   Inline text anchors too (`InlineAnchor`: `paddingVertical: 14` on a 16 px line = 44 without moving

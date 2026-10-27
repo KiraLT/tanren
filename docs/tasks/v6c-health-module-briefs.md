@@ -52,3 +52,8 @@ no profile, nothing logged, over budget, stale burnedAsOf via a seeded `updatedA
 wrap (`scrollWidth === clientWidth` on the card); confirm `grep -rn "legacy\|old\|remove later" apps/mobile/src/components/today
 apps/mobile/src/components/health` is empty; `node docs/design/gallery.mjs docs/design/screens/HM-rows.html` exits 0.
 Done: review file lists each state × width × theme with PASS/FAIL and the measured card sizes; Lead publishes the rows.
+
+
+## Lead amendments (2026-10-27 16:22)
+- Plan Amendment 26: no resting heart rate on the Today module (steps only in the caption); `/health` keeps it as one small weekly trend stat. Applies to HM-2 (module) and HM-3 (hero/week).
+- Start condition met: the v6 files are committed in c759af0; HM tasks may start once the owner's A/B/merge answer is in or at 16:40 (default merge).

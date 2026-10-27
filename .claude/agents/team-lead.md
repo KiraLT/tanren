@@ -143,7 +143,9 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    re-ran the package gates yourself after the last fix (team mcp 23:43:
    "S4-T3 fix r1 in flight, gate not yet run" in the report → the Lead sent
    it back, final at 23:45; one Lead round trip to save two minutes of
-   waiting). Log the agent id of every in-flight child in the sheet so
+   waiting). A fix that only drops a `.fails` / `// DEFECT:` marker after a
+   shared fix landed needs the package gate you run, not a re-review
+   (nutri-server REV leftover, 2026-10-27). Log the agent id of every in-flight child in the sheet so
    you (or the Lead, if the harness hands you back early) can resume by
    re-reading the sheet and messaging that id. Waiting means a blocking
    call, never an idle turn end: the harness turns a turn that ends without
@@ -182,6 +184,11 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    the shooting engineer's report carries the engineer.md rule 14
    self-check (every control visible in light and dark, no truncated
    label at 390, each measure JSON carries a label of its own screen).
+   The designer brief names the reference the owner judges against (Apple
+   Fitness for stat surfaces, Strava for feeds) and asks for a per-module
+   score against it; "PASS 4/5" on a `·`-joined text row of kcal/steps/bpm
+   (Garmin `HealthStrip`, v5 and v6 rounds) met "Looks terrible, where is
+   the designer?" (2026-10-27).
    mobile-A round 1 (2026-10-26) spent a 10-min fable round finding an
    invisible pause disc in light, six truncated plan names and a Plan JSON
    that was a copy of the Today JSON — all visible to whoever shot them.
@@ -245,7 +252,11 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    you continue when resumed; never hold one for the final report (the
    worker team's 22:26 interim put S2-T6/T7 on the Lead's board 7 min
    before its final). Interims carry escalations only, never progress
-   percentages. Two cases need action
+   percentages. A cross-team symbol you freeze or land is appended to the
+   sheet's contracts board (`docs/tasks/<step>/contracts.md`, `landed: <symbol>
+   (<file>, <signature>)`) the moment it is final, and you poll that file's
+   mtime for the symbols you wait on — not the Lead (v6: FoodEntryRepo
+   frozen 15:00, implemented 15:34, both relayed by the Lead). Two cases need action
    before the final report, not in it: (a) a port another stream will
    implement (e.g. a store interface the db stream fills) is frozen in the
    team sheet the moment it compiles, with "FROZEN HH:MM", before any

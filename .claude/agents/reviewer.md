@@ -45,6 +45,20 @@ engineer can act on without asking questions.
   the tree — grep the field; no writer and no task that adds it is
   blocking (SV-Q1 2026-10-26: REV-3 approved an export pipeline whose
   predicate nothing wrote; QA found it 15 min later, TODAY-FIN fixed it).
+- Failure-path claims: every comment, ADR or design sentence in the diff that
+  says what happens on failure (`Failed → allow`, "second tab fails after
+  10 s") is matched to a test or a repro in the Verification; none is
+  `should: untested failure path`. In mobile hooks, `runtime.runFork` /
+  `runPromise` with the only handler inside the program is `blocking`: the
+  runtime's build error (second tab, `StoreError`) bypasses it; the pattern is
+  `runCallback` + `onExit` + `runFailed` (BS-1 black screen, 2026-10-27, five
+  days and every review missed it).
+- Copy truth: when the diff adds a reader of stored data (an MCP tool over a
+  table, an export, a feed import), grep the user-facing statements about that
+  data (`apps/mobile/src/components/**/*Copy.ts`, `legalCopy.ts`,
+  `docs/design/*.md` privacy paragraphs); a statement the diff makes false is
+  `should` with the new wording (Garmin "never used by the AI planning tools"
+  went false with v6's `get_nutrition_day`; the owner caught it, 2026-10-27).
 - Runtime smoke: when the diff touches an entry point (`src/index.ts`,
   `src/app.ts`, `_layout.tsx`), auth, or a dependency's import path, the
   report must show it running in its target runtime (`wrangler dev` + `curl`,

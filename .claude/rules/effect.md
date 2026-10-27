@@ -59,6 +59,13 @@ When this file and the installed `.d.ts` disagree, the `.d.ts` wins; report it.
   a `Schema.Class` instance yields a plain object: rebuild with `X.makeEffect`.
 - Running: `Effect.runPromise` / `ManagedRuntime.make(layer)` only in entry
   points (Worker `fetch`, CLI, `@effect/vitest`). Library code returns Effects.
+- Mobile hooks run programs with `runtime.runCallback(program, { onExit })` and
+  decide the failure state from the exit (`runFailed` in `src/hooks/runExit.ts`),
+  never with `runFork` plus a `catchCause` inside the program: a runtime BUILD
+  failure (`DatabaseInUse` from a second tab, `StoreError`) never enters the
+  program, so `catchCause` cannot see it and the hook stays loading forever
+  (BS-1 black screen on tanren.me, 2026-10-27: shipped 2026-10-22, survived
+  every review until the owner hit it).
 - No I/O at module scope. A Worker's module scope runs at isolate start, where
   workerd forbids I/O and the clock reads 1970; `HttpRouter.toWebHandler(layer)`
   builds layers eagerly there, so a layer's `make` must not open connections or

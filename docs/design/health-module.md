@@ -144,3 +144,7 @@ routes; `ab errors` empty; shots `UI-HM-{today,health}-{state}-{w}-{theme}.png` 
   covers it). `VERIFY:` `DailyHealth` Option field names on `useDailyHealth`'s value (`restingHeartRate`, `steps`).
 - Week rings (direction A2) are not built unless the owner picks A; a seven-day ring row is 7 × 40 + 6 × 8 = 328 ≤ 326?
   No — 2 px over the Card inner at 390 (would need 38 px rings); recorded so the A pick does not inherit the slip.
+
+
+## Addendum (Lead, 2026-10-27 16:22) — plan Amendment 26
+Owner: "I think you can drop bpm from UI — or do you think we need it somewhere?" Decision: resting heart rate is **not shown on the Today module** in any direction (the caption line carries steps only); it stays on `/health` as one small weekly stat (7-day average with the trend arrow, `HealthStat` size `sm`) — a recovery signal worth a glance, not a daily headline. HM-1/HM-2 briefs apply this; the A/B mockups predate it.

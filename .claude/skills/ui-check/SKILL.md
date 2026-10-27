@@ -9,6 +9,21 @@ Prerequisite (once per machine, by the owner):
 `npm i -g agent-browser && agent-browser install` (downloads Chrome for Testing into `~/.agent-browser/`).
 Verified 2026-10-20 with agent-browser 0.39.1 (docs/research/2026-10-20-agent-browser.md).
 
+**Signed out, the web dev server shows the Landing over a hidden navigator**: whatever route you open,
+every measurement and screenshot is the Landing until you sign in or start the server with
+`EXPO_PUBLIC_DEV_USER_ID=<uuid>` (recipe below, "Measured baselines"). HOTFIX-1 (2026-10-27) measured the
+Landing's backgrounds for a Today fix first. Name the data state in the report line.
+
+Two checks the screenshot-after-paint recipe misses, both found by the owner on production (2026-10-27):
+- Mid-navigation background: after `ab set media dark`, click a route and read the ancestor chain of
+  the new screen (`ab eval '(() => { let e = document.querySelector("main") ?? document.body; const
+  out = []; while (e) { out.push(getComputedStyle(e).backgroundColor); e = e.parentElement } return
+  out })()'`) — no `rgb(255, 255, 255)` / `rgb(242, 242, 242)` (React Navigation's default light theme)
+  in a dark capture; the app themes the navigators through `src/ui/navigationTheme.ts`.
+- Second tab: `ab open` the same app URL in a second session (`--session <task>-2`); within 16 s it must
+  show the "open in another tab" error, never a blank page (`document.body.innerText` non-empty,
+  `ab errors` read). A blank page with an empty console was BS-1.
+
 ```
 CI=1 pnpm -F @tanren/mobile web --port 8089 &        # wait for "Waiting on http://localhost:8089"; note the PID
 ab() { agent-browser --session <your task id> "$@"; }   # ALWAYS your own session: the default session is shared by every

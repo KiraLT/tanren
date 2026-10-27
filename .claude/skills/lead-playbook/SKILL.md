@@ -144,6 +144,12 @@ task sheet. Tactics, in order of payoff:
    every HOLD question in one block; a TL that asked nothing it could default
    is the norm (team-lead.md). v6: four TLs lost ≈ 3 min each to GO
    slot-filling and Lead relays the sheet should have carried (EM batch 13, P1).
+10. **Measure before a performance or quota fix.** A performance/quota task
+   is dispatched only after a measurement names the cost centre. An
+   unexplained production number (the 28 ms cron tick) gets a ≤ 5-min spike
+   FIRST (profile, then fix): GM-F2 (6 min + a deploy) attacked layer build,
+   which spike GM-F3a then measured at 0.28 ms; the post-GM-F2 ticks did
+   drop to 12–15 ms, but by luck, not by diagnosis (EM batch 14, P2).
 
 ## Unattended mode (owner away; set 2026-10-21 00:35 for 8 h)
 
@@ -255,7 +261,11 @@ a fixable contract: switch to company mode (`docs/dev-system.md` §11).
    (`opus`; `fable` for the hardest contract) in a single message, each with
    its charter. 4. Read team reports, not diffs (at a sonnet team-lead's first interim, check
 its sheet Log has a line per dispatch; empty → send it back for the Log before
-anything else — desktop r3 ended with an empty Log). 5. One integration engineer
+anything else — desktop r3 ended with an empty Log). Cross-team symbols travel
+through the sheet's contracts board (`docs/tasks/<step>/contracts.md`, named
+in the architect's sheet and in every GO message): team-leads append
+`landed:`/`frozen:` lines and poll its mtime; the Lead never relays a symbol
+by message (nutri-server: five relays in 34 min, EM batch 14 P4). 5. One integration engineer
    wires the teams together and runs the full gate; cross-team `reviewer`;
    `qa`. 6. Bookkeeping and handoff as usual. You may run one stream
    yourself only when it is the foundation/critical-path stream with ≤ ~6
@@ -478,10 +488,17 @@ cause (22:32–22:51, every agent idle together) is known.
 (8) **Path-list commits while another stream is live** (EM batch 12, P2):
 before `git add <99 paths>`, check that no listed file changed after the live
 stream's dispatch — `stat -f %m` (or `find <paths> -newer <marker>`) against
-the dispatch time; exclude or hunk-stage the newer files. The check and the
-`git add` run in ONE shell command: the Garmin 99-file commit checked at
-14:46:36 and added at 14:47:50; N-F0 edited `common.ts` at 14:47:00 in
-between, HEAD got a half-edit and DEPLOY-12's gate went red (2026-10-27).
+the dispatch time; exclude or hunk-stage the newer files. A file inside a
+LIVE team's owned paths (charter) or marked `shared with <stream>` is never
+`git add`ed whole, whatever its mtime: stage only the finished stream's hunks
+(`git diff -- <f> > $S/f.patch`, delete the live team's hunks by its
+engineer's reported hunk list, `git apply --cached $S/f.patch`) or defer the
+file to that team's commit — mtime missed SEC-1b's `oauth.workerd.test.ts`
+(N-S2's edit predated the check; DEPLOY-14 red, EM batch 14 P1). The mtime
+check and the `git add` run in ONE shell command: the Garmin 99-file commit
+checked at 14:46:36 and added at 14:47:50; N-F0 edited `common.ts` at
+14:47:00 in between, HEAD got a half-edit and DEPLOY-12's gate went red
+(2026-10-27).
 Repair without touching the tree: `git show HEAD:<f> | <fix> > $S/f; git
 update-index --cacheinfo 100644,$(git hash-object -w $S/f),<f>; git commit`.
 
@@ -583,6 +600,22 @@ You are responsible for the process, not just the output.
   two retros, dispatch a spike on external multi-agent practice.
 - The Engineering Manager is a separate agent on purpose: fresh context, no
   stake in the current setup, and your context stays on the build.
+
+## Production incidents (owner-reported symptoms)
+
+An owner-reported production symptom ("black screen", "flashes white")
+dispatches a `spike` (opus, ≤ 12 min) **within one minute**, with the owner's
+words verbatim and the deployed commit; the Lead's own curl / headless-console
+/ grep checks run in parallel and are forwarded to the spike as interim facts
+by SendMessage, never as a precondition. BS-1 (2026-10-27): five minutes of
+Lead triage preceded a spike that found the cause in nine. The owner gets the
+cause, the data-safety statement and a workaround in the first reply; the fix
+ships as a hotfix commit from HEAD (the engineer prepares HEAD-based copies of
+any file a live team also edits, playbook (8)). Before any deploy that changes
+`apps/mobile`, the QA or ui-check run includes the two checks the `ui-check`
+skill added after BS-1 and the white flash: the mid-navigation ancestor-chain
+background read in dark mode, and the second-tab blank-page check (EM batch
+15, P1–P2).
 
 ## Reporting to the owner
 

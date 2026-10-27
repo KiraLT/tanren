@@ -47,3 +47,14 @@ paths:
   above it — one spelling, no severity in the marker. Fixing the defect means
   dropping `.fails` and the comment; `grep -rn "DEFECT" <paths>` must then
   find nothing in the fixed paths (two spellings once hid 2 of 4 defects).
+- Every schema with optional keys (profile, patch, tool input) has a
+  minimal-input decode test: `Schema.decodeUnknownSync(X)(<required keys
+  only>)` succeeds. `NutritionProfile` required five nullable keys the design
+  called optional; only the MCP tool test caught it (N-S2, 2026-10-27).
+- A comment or doc line that states what happens on a failure path
+  (`Failed → allow`, "the second tab fails after 10 s", "cached by
+  ManagedRuntime: the copy asks for a reload") is a claim, and every claim
+  has a test or a recorded ui-check repro (two tabs, offline, lock timeout)
+  in the same change — or the sentence goes. `useAuthGate` documented the
+  second-tab case for five days while the real behaviour was a silent black
+  screen (BS-1, 2026-10-27).
