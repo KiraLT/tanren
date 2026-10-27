@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Pressable, View, type ViewStyle } from "react-native"
 import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
+import { continueLabel, continueLine, type DayProgress } from "../../services/ProgramRepo"
 import {
   Button,
   type ButtonVariant,
@@ -132,6 +133,8 @@ interface DayCardProps {
   readonly resumeVariant?: ButtonVariant
   /** When given, the header (ring + name) opens the current day's read-only preview. */
   readonly onOpenDay?: () => void
+  /** An unfinished day (`ActiveProgram.inProgress`): "Day n · k of m done" + "Continue day n". */
+  readonly inProgress?: Option.Option<DayProgress>
 }
 
 /** The enrolled program: progress ring, name, "Day 2 of 30 · …" and the one primary pill. */
@@ -143,8 +146,13 @@ export function DayCard({
   onResume,
   resumeVariant = "primary",
   onOpenDay,
+  inProgress = Option.none(),
 }: DayCardProps) {
   const total = program.days.length
+  const line = Option.match(inProgress, {
+    onNone: () => dayCardLine(day, total),
+    onSome: (progress) => continueLine(day.dayNumber, progress),
+  })
   const headerContent = (
     <>
       <ProgressRing
@@ -162,7 +170,7 @@ export function DayCard({
           {program.name}
         </Text>
         <Text variant="subhead" tone="muted">
-          {dayCardLine(day, total)}
+          {line}
         </Text>
         {paused ? <StatusPill tone="muted" label="Paused" /> : null}
       </View>
@@ -197,6 +205,15 @@ export function DayCard({
             variant={resumeVariant}
             size="lg"
             onPress={onResume}
+          />
+        ) : Option.isSome(inProgress) ? (
+          <Button
+            label={continueLabel(day.dayNumber)}
+            accessibilityLabel={`${continueLabel(day.dayNumber)} of ${program.name}`}
+            icon="play"
+            variant="primary"
+            size="lg"
+            onPress={onStart}
           />
         ) : (
           <Button

@@ -9,14 +9,16 @@ import {
   countdownCue,
   cueFor,
   initialRun,
+  initialRunFrom,
   isRunning,
   type PlayerRun,
   parseSpeed,
   prefillFor,
   type RunConfig,
   reduceRun,
+  snapshotOf,
 } from "../player/cues"
-import { initialPlan, reconcilePlan } from "../player/mergeDay"
+import { initialPlan, type RunPlan, reconcilePlan } from "../player/mergeDay"
 import {
   COMPLETION_FAILED,
   type CompletionResult,
@@ -27,6 +29,7 @@ import {
   syncAlerts,
 } from "../player/playerEffects"
 import { type PlayerEventTag, phaseKey, playerEvent, remainingMs } from "../player/playerMachine"
+import { type DaySnapshot, readProgress, saveProgress } from "../services/DayProgressRepo"
 import type { SetEntry } from "../services/ProgramRepo"
 import { runtime } from "../services/runtime"
 
@@ -63,8 +66,48 @@ const haptic = (run: () => Promise<void>): void => {
  * tick on `AppState` → active (deadlines catch up), cues on every phase change, the phase-end
  * alert (re)scheduled through `PhaseAlerts`, and on `Done` the day completed and synced.
  */
+/**
+ * The saved unfinished day of `id`, read once per id: `None` while loading (or no id), then
+ * `Some(snapshot)`; a failed read counts as no snapshot (the day starts fresh).
+ */
+export const useDaySnapshot = (
+  id: Option.Option<ProgramEnrollmentId>,
+): Option.Option<Option.Option<DaySnapshot>> => {
+  const key = Option.getOrElse(id, () => "")
+  const [read, setRead] = useState<{
+    readonly key: string
+    readonly snapshot: Option.Option<DaySnapshot>
+  }>()
+  useEffect(() => {
+    if (Option.isNone(id)) {
+      return
+    }
+    return runtime.runCallback(readProgress(id.value), {
+      onExit: (exit) =>
+        setRead({ key, snapshot: Exit.isSuccess(exit) ? exit.value : Option.none() }),
+    })
+  }, [key])
+  return read !== undefined && read.key === key && key !== ""
+    ? Option.some(read.snapshot)
+    : Option.none()
+}
+
+/** Every item-round's exercise: the snapshot's performed ids, then the day's plan for the rest. */
+const planFrom = (day: ProgramDay, snapshot: Option.Option<DaySnapshot>): RunPlan => {
+  const fresh = initialPlan(day)
+  return Option.match(snapshot, {
+    onNone: () => fresh,
+    onSome: (saved) => {
+      const done = Arr.take(saved.performedIds, saved.performedItems)
+      return [...done, ...Arr.drop(fresh, done.length)]
+    },
+  })
+}
+
 export const usePlayer = (
   session: PlayerSession,
+  /** A saved unfinished day of this session: the run restarts from it, paused. */
+  snapshot: Option.Option<DaySnapshot>,
 ): {
   readonly run: PlayerRun
   readonly speed: number
@@ -92,13 +135,22 @@ export const usePlayer = (
   // The exercise of every item-round. A swap reaches the player as a new `session.day` (the
   // route's `mergeDay`); it renames the item-rounds still open and never the ones already done,
   // so `complete` logs what was performed, and the weights follow the same ids (`RunConfig.ids`).
-  const [plan, setPlan] = useState({ day: session.day, ids: initialPlan(session.day) })
+  const [plan, setPlan] = useState(() => ({
+    day: session.day,
+    ids: planFrom(session.day, snapshot),
+  }))
   const config: RunConfig = useMemo(
     () => ({ day: session.day, speed: SPEED, prefill, ids: plan.ids }),
     [session.day, prefill, plan.ids],
   )
   const reducer = useMemo(() => reduceRun(config), [config])
-  const [run, dispatch] = useReducer(reducer, undefined, () => initialRun(Date.now()))
+  const [run, dispatch] = useReducer(reducer, undefined, () => {
+    const nowMs = Date.now()
+    return Option.getOrElse(
+      Option.flatMap(snapshot, (saved) => initialRunFrom(config, saved, nowMs)),
+      () => initialRun(nowMs),
+    )
+  })
   // `start` usually runs before the read lands: an untouched draft of the item being worked
   // moves to the loaded value (a stepper the user already changed is kept).
   const [prefillSeen, setPrefillSeen] = useState(prefill)
@@ -192,6 +244,13 @@ export const usePlayer = (
     if (run.player._tag !== "Idle") {
       runtime.runPromise(syncAlerts(alertFor(config, run.player))).catch(() => undefined)
     }
+    // The unfinished day, on every phase change and pause (§3.2); Idle and Done write nothing
+    // (`complete` clears the row). Leaving the screen needs no write: this one is the state.
+    Option.map(
+      snapshotOf(run, { dayNumber: session.dayNumber, ids: plan.ids }, Date.now()),
+      (saved) =>
+        runtime.runPromise(saveProgress(session.enrollmentId, saved)).catch(() => undefined),
+    )
   }, [key])
 
   // 3-2-1 before the next work phase starts.

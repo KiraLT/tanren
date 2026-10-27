@@ -4,7 +4,12 @@ import { useEffect, useState } from "react"
 import { Pressable, View } from "react-native"
 import { dayMinutes } from "../player/programDays"
 import { useStoreVersion } from "../player/usePrograms"
-import { type ActiveProgram, ProgramRepo } from "../services/ProgramRepo"
+import {
+  type ActiveProgram,
+  continueLabel,
+  continueLine,
+  ProgramRepo,
+} from "../services/ProgramRepo"
 import { runtime } from "../services/runtime"
 import {
   Button,
@@ -39,11 +44,15 @@ export const useDueToday = (): ReadonlyArray<ActiveProgram> => {
   return due
 }
 
-/** "Day 3 · ≈ 15 min" under the program title. */
-const dueSubtitle = ({ day }: ActiveProgram): string =>
+/** "Day 3 · ≈ 15 min" under the program title; "Day 3 · 2 of 21 done" for an unfinished day. */
+const dueSubtitle = ({ day, inProgress }: ActiveProgram): string =>
   Option.match(day, {
     onNone: () => "",
-    onSome: (today) => `Day ${today.dayNumber} · ≈ ${dayMinutes(today)} min`,
+    onSome: (today) =>
+      Option.match(inProgress, {
+        onNone: () => `Day ${today.dayNumber} · ≈ ${dayMinutes(today)} min`,
+        onSome: (progress) => continueLine(today.dayNumber, progress),
+      }),
   })
 
 interface DueRowProps {
@@ -96,8 +105,13 @@ function DueRow({ entry, onOpen, onStart }: DueRowProps) {
       <Button
         size="sm"
         variant="primary"
-        label="Start"
-        accessibilityLabel={`Start ${entry.program.name}`}
+        {...Option.match(entry.inProgress, {
+          onNone: () => ({ label: "Start", accessibilityLabel: `Start ${entry.program.name}` }),
+          onSome: () => {
+            const label = continueLabel(entry.enrollment.currentDay)
+            return { label, accessibilityLabel: `${label} of ${entry.program.name}` }
+          },
+        })}
         onPress={onStart}
       />
     </View>

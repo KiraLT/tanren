@@ -107,6 +107,7 @@ function DayPage({
                 program={program}
                 day={day}
                 canStart={startable(enrollment, dayNumber)}
+                inProgress={Option.flatMap(running, (entry) => entry.inProgress)}
                 onStart={() =>
                   Option.match(enrollment, {
                     onNone: () => undefined,

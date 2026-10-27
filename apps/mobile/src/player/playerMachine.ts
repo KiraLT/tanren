@@ -323,6 +323,66 @@ export const step =
       Done: (s): PlayerState => s,
     })
 
+/** What `restore` needs of a saved day (`DayProgressRepo.DaySnapshot` is one). */
+export interface RestorePoint {
+  readonly startedAtMs: number
+  /** Paused time before the save; the save → restore gap is added on top. */
+  readonly pausedMs: number
+  readonly savedAtMs: number
+  readonly phase: {
+    readonly _tag: "Working" | "Resting"
+    readonly round: number
+    readonly stepIndex: number
+    readonly remainingMs: Option.Option<number>
+  }
+}
+
+/**
+ * A saved phase brought back as `Paused` at `nowMs` (programs-player-v2 §3.4): the frozen
+ * countdown is the saved `remainingMs`, and the time between the save and `nowMs` counts as
+ * paused, so `Done.durationSeconds` excludes the time away. `None` when the step or round no
+ * longer exists in the day (a program edited under an open day).
+ */
+export const restore = (
+  config: PlayerConfig,
+  point: RestorePoint,
+  nowMs: number,
+): Option.Option<Paused> => {
+  const { phase } = point
+  const steps = expandDay(config.day)
+  if (phase.stepIndex < 0 || phase.stepIndex >= steps.length || phase.round >= config.day.rounds) {
+    return Option.none()
+  }
+  const clock = {
+    startedAtMs: point.startedAtMs,
+    pausedMs: point.pausedMs + Math.max(0, nowMs - point.savedAtMs),
+    phaseStartMs: nowMs,
+    round: Math.max(0, phase.round),
+    stepIndex: phase.stepIndex,
+  }
+  const inner: Working | Resting =
+    phase._tag === "Working"
+      ? {
+          _tag: "Working",
+          ...clock,
+          endsAtMs: Option.map(phase.remainingMs, (remaining) => nowMs + remaining),
+        }
+      : {
+          _tag: "Resting",
+          ...clock,
+          endsAtMs: nowMs + Option.getOrElse(phase.remainingMs, () => 0),
+        }
+  return Option.some({
+    _tag: "Paused",
+    inner,
+    remainingMs:
+      phase._tag === "Working"
+        ? phase.remainingMs
+        : Option.some(Option.getOrElse(phase.remainingMs, () => 0)),
+    pausedAtMs: nowMs,
+  })
+}
+
 // Selectors for the player screen.
 
 /** Countdown left; `None` in Idle, Done and on a `reps` item. */

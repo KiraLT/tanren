@@ -18,6 +18,7 @@ import { seedIfEmpty } from "../store/seed"
 import { Account } from "./Account"
 import { CurrentUser } from "./CurrentUser"
 import { DataExporter } from "./DataExport"
+import { DayProgressRepo } from "./DayProgressRepo"
 import { ExerciseLink } from "./ExerciseLink"
 import { FeedRepo } from "./FeedRepo"
 import { FoodEntryRepo } from "./FoodEntryRepo"
@@ -179,6 +180,7 @@ export const AppLayer = Layer.effectDiscard(startup).pipe(
       Layer.mergeAll(
         ProgramRepo.layerNoDeps.pipe(Layer.provide(ExerciseLink.layerNoDeps)),
         PhaseAlerts.layer,
+        DayProgressRepo.layer,
       ),
       PlanWeekRepo.layer,
       ProfileRepo.layer,

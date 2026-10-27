@@ -44,6 +44,7 @@ export function ActiveSection({ active, onStart, onResume, onOpenDay }: ActiveSe
                 onStart={() => onStart(entry.enrollment.id)}
                 onResume={() => onResume(entry)}
                 onOpenDay={() => onOpenDay(entry)}
+                inProgress={entry.inProgress}
                 resumeVariant="raised"
               />
             ),

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import {
   CatalogId,
   CORE30,
+  DayNumber,
   ExerciseId,
   IdGenerator,
   LocalDate,
@@ -21,6 +22,7 @@ import { DateTime, Effect, Layer, Option, Predicate, Schema } from "effect"
 import { TestClock } from "effect/testing"
 import { LOCAL_USER_ID } from "../store/localUser"
 import { CurrentUser } from "./CurrentUser"
+import { DayProgressRepo, type DayProgressRepoShape, type DaySnapshot } from "./DayProgressRepo"
 import { ExerciseLink, UnknownCatalogExercise } from "./ExerciseLink"
 import { decodeRecords, LocalStore } from "./LocalStore"
 import { ProgramRepo, plannedItems, type SetEntry } from "./ProgramRepo"
@@ -1132,6 +1134,74 @@ describe("ProgramRepo.complete logs one set per straight set", () => {
           [exerciseIdOf("squat"), 95, 8],
           [exerciseIdOf("plank"), 0, 30],
         ])
+      }),
+    ),
+  )
+})
+
+/** PROG-2: a saved unfinished day through the real `DayProgressRepo` on the same store. */
+const withProgress = <A, E, R>(f: (repo: DayProgressRepoShape) => Effect.Effect<A, E, R>) =>
+  DayProgressRepo.use(f).pipe(Effect.provide(DayProgressRepo.layer))
+
+const unfinished = (dayNumber: number): DaySnapshot => ({
+  dayNumber: DayNumber.make(dayNumber),
+  performedItems: 0,
+  performedIds: [],
+  entries: [],
+  draft: Option.none(),
+  startedAtMs: NOW - 60_000,
+  pausedMs: 0,
+  savedAtMs: NOW - 30_000,
+  phase: { _tag: "Working", round: 0, stepIndex: 0, remainingMs: Option.some(20_000) },
+})
+
+describe("ProgramRepo unfinished day (PROG-2)", () => {
+  it.effect(
+    "activeEnrollments reports inProgress k of m when the snapshot is the current day",
+    () =>
+      run(
+        Effect.gen(function* () {
+          const enrollment = yield* stored(TWO_DAY, {})
+          yield* withProgress((repo) => repo.write(enrollment.id, unfinished(1)))
+          const [entry] = yield* (yield* ProgramRepo).activeEnrollments()
+          expect(entry?.inProgress).toEqual(Option.some({ performedItems: 0, totalItems: 1 }))
+        }),
+      ),
+  )
+
+  it.effect("a snapshot of another day reads None and is deleted", () =>
+    run(
+      Effect.gen(function* () {
+        const enrollment = yield* stored(TWO_DAY, { currentDay: 2 })
+        yield* withProgress((repo) => repo.write(enrollment.id, unfinished(1)))
+        const [entry] = yield* (yield* ProgramRepo).activeEnrollments()
+        expect(entry?.inProgress).toEqual(Option.none())
+        expect(yield* withProgress((repo) => repo.read(enrollment.id))).toEqual(Option.none())
+      }),
+    ),
+  )
+
+  it.effect("complete deletes the unfinished day", () =>
+    run(
+      Effect.gen(function* () {
+        const enrollment = yield* stored(TWO_DAY, {})
+        yield* withProgress((repo) => repo.write(enrollment.id, unfinished(1)))
+        yield* (yield* ProgramRepo).complete(dayInput(enrollment.id, 1))
+        expect(yield* rows(`SELECT * FROM "program_day_progress"`)).toEqual([])
+      }),
+    ),
+  )
+
+  it.effect("abandoning deletes the unfinished day; pausing keeps it", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* stored(TWO_DAY, {})
+        yield* withProgress((progress) => progress.write(enrollment.id, unfinished(1)))
+        yield* repo.setStatus(enrollment.id, "paused")
+        expect(Option.isSome(yield* withProgress((p) => p.read(enrollment.id)))).toBe(true)
+        yield* repo.setStatus(enrollment.id, "abandoned")
+        expect(yield* withProgress((p) => p.read(enrollment.id))).toEqual(Option.none())
       }),
     ),
   )

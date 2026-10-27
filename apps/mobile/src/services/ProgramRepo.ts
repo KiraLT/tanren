@@ -50,6 +50,7 @@ import {
   Semaphore,
 } from "effect"
 import { CurrentUser, ownerId } from "./CurrentUser"
+import { DayProgressRepo, snapshotFits } from "./DayProgressRepo"
 import { ExerciseLink } from "./ExerciseLink"
 import { HistoryRepo } from "./HistoryRepo"
 import { decodeRecords, LocalStore, type LocalStoreShape } from "./LocalStore"
@@ -137,7 +138,22 @@ export interface ActiveProgram {
   readonly program: Program
   /** The day to do next with the enrollment's swaps applied; `None` past the last day. */
   readonly day: Option.Option<ProgramDay>
+  /** Some when an unfinished-day snapshot exists for `enrollment.currentDay`: "k of m done". */
+  readonly inProgress: Option.Option<DayProgress>
 }
+
+/** An unfinished day's position: `performedItems` of `totalItems` (`plannedItems(day).length`). */
+export interface DayProgress {
+  readonly performedItems: number
+  readonly totalItems: number
+}
+
+/** "Day 3 · 2 of 21 done" (programs-player-v2 §4): the Continue row's subtitle. */
+export const continueLine = (dayNumber: number, progress: DayProgress): string =>
+  `Day ${dayNumber} · ${progress.performedItems} of ${progress.totalItems} done`
+
+/** "Continue day 3": the Continue button's label. */
+export const continueLabel = (dayNumber: number): string => `Continue day ${dayNumber}`
 
 /** The statuses a user (or Claude) may set; `completed` is written only by `complete`. */
 export type SettableStatus = Exclude<EnrollmentStatus, "completed">
@@ -327,6 +343,7 @@ const make = (find: ProgramFinder) =>
     const owner = ownerId(yield* CurrentUser)
     const link = yield* ExerciseLink
     const history = yield* HistoryRepo
+    const progressRepo = yield* DayProgressRepo
     const withDeps = <A, E>(
       effect: Effect.Effect<A, E, IdGenerator | DateTime.CurrentTimeZone>,
     ): Effect.Effect<A, E> =>
@@ -376,16 +393,41 @@ const make = (find: ProgramFinder) =>
         ),
       )
 
+    /**
+     * The saved unfinished day of `enrollment` when it is still its current day (§3.3); a snapshot
+     * that no longer fits (another day, a step the edited day lacks, no day left) is cleared.
+     */
+    const inProgressOf = (enrollment: ProgramEnrollment, day: Option.Option<ProgramDay>) =>
+      Effect.gen(function* () {
+        const saved = yield* progressRepo.read(enrollment.id)
+        if (Option.isNone(saved)) {
+          return Option.none<DayProgress>()
+        }
+        const fits = Option.filter(day, (today) =>
+          snapshotFits(saved.value, today, enrollment.currentDay),
+        )
+        if (Option.isNone(fits)) {
+          yield* progressRepo.clear(enrollment.id)
+          return Option.none<DayProgress>()
+        }
+        return Option.some({
+          performedItems: saved.value.performedItems,
+          totalItems: plannedItems(fits.value).length,
+        })
+      })
+
     const withProgram = (enrollment: ProgramEnrollment) =>
       find(enrollment.programId).pipe(
-        Effect.map(
-          Option.map(
-            (program): ActiveProgram => ({
-              enrollment,
-              program,
-              day: Option.map(dayOf(program, enrollment.currentDay), (day) =>
-                applySwaps(day, enrollment.swaps),
-              ),
+        Effect.flatMap((found) =>
+          Effect.transposeOption(
+            Option.map(found, (program) => {
+              const day = Option.map(dayOf(program, enrollment.currentDay), (today) =>
+                applySwaps(today, enrollment.swaps),
+              )
+              return Effect.map(
+                inProgressOf(enrollment, day),
+                (inProgress): ActiveProgram => ({ enrollment, program, day, inProgress }),
+              )
             }),
           ),
         ),
@@ -514,10 +556,11 @@ const make = (find: ProgramFinder) =>
         }),
       )
 
+    /** Leaving a program drops its unfinished day; a paused one keeps it (Resume → Continue). */
     const setStatus = (id: ProgramEnrollmentId, status: SettableStatus) =>
       updateEnrollment(id, (enrollment) =>
         enrollment.status === status ? Option.none() : Option.some({ status }),
-      )
+      ).pipe(Effect.tap(() => (status === "abandoned" ? progressRepo.clear(id) : Effect.void)))
 
     const setSwap = (id: ProgramEnrollmentId, from: CatalogId, to: Option.Option<CatalogId>) =>
       updateEnrollment(id, (enrollment) => {
@@ -829,6 +872,9 @@ const make = (find: ProgramFinder) =>
               ],
               { dirty: true },
             )
+            // Right after the day's batch (a second transaction: `LocalStore.write` takes synced
+            // rows only). Should it fail, `currentDay` has moved on and `inProgressOf` drops the row.
+            yield* progressRepo.clear(enrollment.id)
             return completion
           }),
         ),
@@ -857,14 +903,17 @@ export class ProgramRepo extends Context.Service<ProgramRepo, ProgramRepoShape>(
 ) {
   /** Against a given finder (tests pass a fixture). */
   static readonly layerWith = (find: ProgramFinder) =>
-    Layer.effect(this, make(find)).pipe(Layer.provide(HistoryRepo.layer))
+    Layer.effect(this, make(find)).pipe(
+      Layer.provide(Layer.mergeAll(HistoryRepo.layer, DayProgressRepo.layer)),
+    )
 
   /**
    * Built-ins then the owner's `program` rows.
    * Needs LocalStore | CurrentUser | IdGenerator | DateTime.CurrentTimeZone | ExerciseLink;
-   * `HistoryRepo` (`lastLoads` reads its `lastSet`) is built in, it needs only `LocalStore`.
+   * `HistoryRepo` (`lastLoads` reads its `lastSet`) and `DayProgressRepo` (`inProgress`, the
+   * clears) are built in, they need only `LocalStore`.
    */
   static readonly layerNoDeps = Layer.effect(this, Effect.flatMap(storeFinder, make)).pipe(
-    Layer.provide(HistoryRepo.layer),
+    Layer.provide(Layer.mergeAll(HistoryRepo.layer, DayProgressRepo.layer)),
   )
 }

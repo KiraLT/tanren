@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { useEffect, useState } from "react"
 import { View } from "react-native"
 import { useNavGuard } from "../../src/components/programs/useGoBack"
-import { type PlayerSession, usePlayer } from "../../src/hooks/usePlayer"
+import { type PlayerSession, useDaySnapshot, usePlayer } from "../../src/hooks/usePlayer"
 import { ExerciseIllustration } from "../../src/library/ExerciseIllustration"
 import { CompletionSheet, PlayerView } from "../../src/player/components/PlayerView"
 import { approxMinutes } from "../../src/player/components/ProgramHome"
@@ -14,6 +14,7 @@ import { mergeDay } from "../../src/player/mergeDay"
 import { dayFraction, eyebrowLabel, segmentsFilled } from "../../src/player/playerHeader"
 import { progress } from "../../src/player/playerMachine"
 import { usePrograms } from "../../src/player/usePrograms"
+import { type DaySnapshot, snapshotFits } from "../../src/services/DayProgressRepo"
 import {
   AppBar,
   Banner,
@@ -79,23 +80,28 @@ function KeepAwake() {
 interface Latched {
   readonly session: PlayerSession
   readonly original: ProgramDay
+  /** The unfinished day saved for this session (it still fits the day), read once at latch. */
+  readonly snapshot: Option.Option<DaySnapshot>
 }
 
 function Player({
   session,
   original,
+  snapshot,
   onClose,
 }: {
   readonly session: PlayerSession
   /** The day as the program writes it: a swap is keyed by the original catalog id. */
   readonly original: ProgramDay
+  readonly snapshot: Option.Option<DaySnapshot>
   readonly onClose: () => void
 }) {
   const router = useRouter()
   const once = useNavGuard()
-  const { run, remainingMs, send, adjust, completion, retry } = usePlayer(session)
+  const { run, remainingMs, send, adjust, completion, retry } = usePlayer(session, snapshot)
   const { player } = run
-  // "Start" on the Programs tab already asked for the run: begin at once (`start` is a no-op later).
+  // "Start" / "Continue" already asked for the run: begin at once. `start` acts on Idle only, so
+  // a restored (Paused) run stays paused until Resume.
   useEffect(() => send("start"), [send])
   const position = progress(session.day, player)
   /** The current exercise's original id; `None` before the first exercise and after the last. */
@@ -197,9 +203,15 @@ export default function PlayScreen() {
   // Latch the first loaded day: completing it bumps `currentDay`, which must not swap the player.
   // `original` is that day without swaps (the swap sheet keys on it).
   const [latched, setLatched] = useState<Option.Option<Latched>>(Option.none())
+  const saved = useDaySnapshot(Option.map(target, (entry) => entry.enrollment.id))
   useEffect(() => {
     const day = Option.flatMap(target, (entry) => entry.day)
-    if (Option.isNone(latched) && Option.isSome(target) && Option.isSome(day)) {
+    if (
+      Option.isNone(latched) &&
+      Option.isSome(target) &&
+      Option.isSome(day) &&
+      Option.isSome(saved)
+    ) {
       const dayNumber = day.value.dayNumber
       setLatched(
         Option.some({
@@ -208,10 +220,13 @@ export default function PlayScreen() {
             Arr.findFirst(target.value.program.days, (d) => d.dayNumber === dayNumber),
             () => day.value,
           ),
+          snapshot: Option.filter(saved.value, (snapshot) =>
+            snapshotFits(snapshot, day.value, target.value.enrollment.currentDay),
+          ),
         }),
       )
     }
-  }, [latched, target])
+  }, [latched, target, saved])
   // After the swap sheet (any store write): fold the re-read day into the running session. Only
   // item names change (`mergeDay`), so the running phase keeps its clock; a day that completing
   // moved on (`currentDay` ahead of the latched one) is not folded in.
@@ -241,7 +256,9 @@ export default function PlayScreen() {
   )
 
   return Option.match(latched, {
-    onSome: (l) => <Player session={l.session} original={l.original} onClose={close} />,
+    onSome: (l) => (
+      <Player session={l.session} original={l.original} snapshot={l.snapshot} onClose={close} />
+    ),
     onNone: () => (
       <Page header={header} scroll>
         {Match.value(state).pipe(

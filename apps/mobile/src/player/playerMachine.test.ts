@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { dayDurationSeconds, ProgramDay } from "@tanren/shared"
-import { Array as Arr, Option, Schema } from "effect"
+import { Array as Arr, Clock, Effect, Option, Schema } from "effect"
+import { TestClock } from "effect/testing"
 import {
   currentItem,
   idle,
@@ -10,7 +11,9 @@ import {
   phaseKey,
   playerEvent,
   progress,
+  type RestorePoint,
   remainingMs,
+  restore,
   step,
   upNext,
 } from "./playerMachine"
@@ -400,5 +403,72 @@ describe("straight sets (programs-player-v2 §7.3)", () => {
 
   it("plans the day as 3 × (16 s + 90 s rest) + 30 s", () => {
     expect(dayDurationSeconds(gymDay)).toBe(3 * 16 + 3 * 90 + 30)
+  })
+})
+
+describe("restore (PROG-2)", () => {
+  /** Saved 48 s into the run: side-plank (round 1, step 2) working with 12 s left. */
+  const point: RestorePoint = {
+    startedAtMs: T0,
+    pausedMs: 0,
+    savedAtMs: T0 + 48_000,
+    phase: { _tag: "Working", round: 0, stepIndex: 1, remainingMs: Option.some(12_000) },
+  }
+
+  it.effect("comes back Paused at the saved step with the remaining countdown", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(1_000_000)
+      const nowMs = yield* Clock.currentTimeMillis
+      const restored = restore(config, point, nowMs)
+      expect(Option.map(restored, (s) => s.inner._tag)).toEqual(Option.some("Working"))
+      expect(Option.map(restored, (s) => s.inner.endsAtMs)).toEqual(
+        Option.some(Option.some(nowMs + 12_000)),
+      )
+      expect(Option.flatMap(restored, (s) => s.remainingMs)).toEqual(Option.some(12_000))
+      expect(Option.map(restored, (s) => s.inner.stepIndex)).toEqual(Option.some(1))
+    }),
+  )
+
+  it.effect("durationSeconds after resume excludes the time away", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(1_000_000)
+      const restored = restore(config, point, yield* Clock.currentTimeMillis)
+      expect(Option.isSome(restored)).toBe(true)
+      yield* TestClock.adjust("5 seconds")
+      const resumed = step(config)(
+        Option.getOrElse(restored, (): PlayerState => idle),
+        playerEvent("resume", yield* Clock.currentTimeMillis),
+      )
+      yield* TestClock.adjust("2 seconds")
+      const done = step(config)(resumed, playerEvent("finish", yield* Clock.currentTimeMillis))
+      // 48 s before the save + 2 s after the resume; the ~16 min away and the 5 s paused are not counted.
+      expect(done).toEqual({ _tag: "Done", durationSeconds: 50 })
+    }),
+  )
+
+  it("a Resting point restores with its rest deadline", () => {
+    const resting = restore(
+      config,
+      {
+        ...point,
+        phase: { _tag: "Resting", round: 0, stepIndex: 0, remainingMs: Option.some(4_000) },
+      },
+      5_000_000,
+    )
+    expect(Option.map(resting, (s) => s.inner)).toMatchObject(
+      Option.some({ _tag: "Resting", endsAtMs: 5_004_000 }),
+    )
+  })
+
+  it("a step or round the day lacks restores nothing", () => {
+    const at = (round: number, stepIndex: number) =>
+      restore(config, { ...point, phase: { ...point.phase, round, stepIndex } }, 5_000_000)
+    expect(at(0, 2)).toEqual(Option.none())
+    expect(at(2, 0)).toEqual(Option.none())
+  })
+
+  it("start is a no-op on a restored run (Idle-only)", () => {
+    const restored = Option.getOrElse(restore(config, point, 5_000_000), (): PlayerState => idle)
+    expect(step(config)(restored, playerEvent("start", 5_001_000))).toBe(restored)
   })
 })

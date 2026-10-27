@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { CatalogId, ProgramDay } from "@tanren/shared"
+import { CatalogId, DayNumber, ProgramDay } from "@tanren/shared"
 import { Array as Arr, Option, Schema } from "effect"
 import {
   alertFor,
@@ -8,14 +8,17 @@ import {
   cueFor,
   exerciseName,
   initialRun,
+  initialRunFrom,
   itemAmount,
   nextCaption,
   type PlayerRun,
   parseSpeed,
   prefillFor,
   type RunConfig,
+  type RunEvent,
   reduceRun,
   repsOf,
+  snapshotOf,
 } from "./cues"
 import { type PlayerEventTag, PREVIOUS_GRACE_MS, playerEvent } from "./playerMachine"
 
@@ -578,5 +581,85 @@ describe("weights across straight sets (programs-player-v2 §7.3)", () => {
       Option.some({ weightKg: 70, reps: 10 }),
       Option.none(),
     ])
+  })
+})
+
+describe("nextCaption across straight sets", () => {
+  const gym = Schema.decodeUnknownSync(ProgramDay)({
+    dayNumber: 1,
+    title: "Day 1 · Push",
+    rounds: 1,
+    restBetweenRoundsSeconds: 0,
+    items: [
+      { kind: "reps", catalogId: "barbell-bench-press", reps: 10, restSeconds: 0, sets: 4 },
+      { kind: "timed", catalogId: "plank", seconds: 30, restSeconds: 0 },
+    ],
+  })
+  const reduce = reduceRun({ day: gym, speed: 1, prefill: NO_PREFILL, ids: [] })
+  const at = (nexts: number) =>
+    Arr.reduce(Arr.range(1, nexts), reduce(initialRun(0), playerEvent("start", T0)), (r, n) =>
+      reduce(r, playerEvent("next", T0 + n * 1000)),
+    )
+
+  it("names the next set of the same exercise, then the next exercise after the last set", () => {
+    expect(nextCaption(gym, at(1).player)).toEqual(Option.some("Next · Set 3/4"))
+    expect(nextCaption(gym, at(3).player)).toEqual(
+      Option.some(`Next · ${exerciseName(CatalogId.make("plank"))} 30 s`),
+    )
+  })
+})
+
+describe("snapshotOf / initialRunFrom (PROG-2)", () => {
+  /** Bench 8 reps (weighted) then a 30 s plank, 2 rounds. */
+  const push = Schema.decodeUnknownSync(ProgramDay)({
+    dayNumber: 1,
+    title: "Day 1 · Push",
+    rounds: 2,
+    restBetweenRoundsSeconds: 30,
+    items: [
+      { kind: "reps", catalogId: "barbell-bench-press", reps: 8, restSeconds: 60 },
+      { kind: "timed", catalogId: "plank", seconds: 30, restSeconds: 15 },
+    ],
+  })
+  const pushConfig: RunConfig = { day: push, speed: 1, prefill: NO_PREFILL, ids: [] }
+  const at = { dayNumber: DayNumber.make(1), ids: [] }
+  const events: ReadonlyArray<RunEvent> = [
+    playerEvent("start", T0),
+    { _tag: "adjust", weightKg: 62.5, reps: 8 },
+    playerEvent("next", 5_000),
+    playerEvent("next", 6_000),
+    playerEvent("next", 7_000),
+    playerEvent("next", 8_000),
+    { _tag: "adjust", weightKg: 65, reps: 6 },
+    playerEvent("pause", 9_000),
+  ]
+  const paused = Arr.reduce(events, initialRun(0), (state, event) =>
+    reduceRun(pushConfig)(state, event),
+  )
+
+  it("is None on Idle and Done", () => {
+    expect(snapshotOf(initialRun(0), at, T0)).toEqual(Option.none())
+    const done = reduceRun(pushConfig)(paused, playerEvent("finish", 10_000))
+    expect(done.player._tag).toBe("Done")
+    expect(snapshotOf(done, at, 10_000)).toEqual(Option.none())
+  })
+
+  it("restores the step, the performed sets with their weights and the draft", () => {
+    expect(paused.player._tag).toBe("Paused")
+    const restored = Option.flatMap(snapshotOf(paused, at, 9_000), (saved) =>
+      initialRunFrom(pushConfig, saved, 600_000),
+    )
+    expect(Option.map(restored, (r) => r.performedItems)).toEqual(Option.some(2))
+    expect(Option.map(restored, (r) => r.entries)).toEqual(
+      Option.some([Option.some({ weightKg: 62.5, reps: 8 }), Option.none()]),
+    )
+    expect(Option.map(restored, (r) => r.draft)).toEqual(
+      Option.some(Option.some({ weightKg: 65, reps: 6 })),
+    )
+    expect(
+      Option.map(restored, (r) =>
+        r.player._tag === "Paused" ? [r.player.inner.round, r.player.inner.stepIndex] : [],
+      ),
+    ).toEqual(Option.some([1, 0]))
   })
 })

@@ -1,10 +1,11 @@
 import type { Program, ProgramDay } from "@tanren/shared"
-import { Array as Arr } from "effect"
+import { Array as Arr, Option } from "effect"
 import { View } from "react-native"
 import { useBreakpoint } from "../../hooks/useLayoutMode"
 import { ExerciseIllustration } from "../../library/ExerciseIllustration"
 import { exerciseName } from "../../player/cues"
 import { dayTrailing } from "../../player/programDays"
+import { continueLabel, continueLine, type DayProgress } from "../../services/ProgramRepo"
 import {
   Button,
   Card,
@@ -25,9 +26,17 @@ interface DayPreviewProps {
   /** Shows "Start this day" (the current day of an active enrollment, `startable`). */
   readonly canStart: boolean
   readonly onStart: () => void
+  /** The current day is unfinished: "Day n · k of m done" + "Continue day n" (PROG-2). */
+  readonly inProgress?: Option.Option<DayProgress>
 }
 
-function PositionCard({ program, day, canStart, onStart }: DayPreviewProps) {
+function PositionCard({
+  program,
+  day,
+  canStart,
+  onStart,
+  inProgress = Option.none(),
+}: DayPreviewProps) {
   return (
     <Card>
       <View style={{ gap: space.lg }}>
@@ -39,7 +48,21 @@ function PositionCard({ program, day, canStart, onStart }: DayPreviewProps) {
             {positionLabel(day, program.days.length)}
           </Text>
         </View>
-        {canStart ? (
+        {canStart && Option.isSome(inProgress) ? (
+          <View style={{ gap: space.sm }}>
+            <Text variant="subhead" tone="muted">
+              {continueLine(day.dayNumber, inProgress.value)}
+            </Text>
+            <Button
+              label={continueLabel(day.dayNumber)}
+              accessibilityLabel={`${continueLabel(day.dayNumber)} of ${program.name}`}
+              icon="play"
+              variant="primary"
+              size="lg"
+              onPress={onStart}
+            />
+          </View>
+        ) : canStart ? (
           <Button
             label="Start this day"
             accessibilityLabel={`Start day ${day.dayNumber} of ${program.name}`}

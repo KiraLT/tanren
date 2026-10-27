@@ -229,8 +229,22 @@ const v7: ReadonlyArray<string> = [
 )`,
 ]
 
+/**
+ * v8 (docs/design/programs-player-v2.md §3.1): an unfinished program day per enrollment, device-local
+ * like v7 (no `userId`, no sync columns, never pushed); `snapshot` is the Schema-encoded
+ * `DaySnapshot` JSON (`DayProgressRepo`).
+ */
+const v8: ReadonlyArray<string> = [
+  `CREATE TABLE IF NOT EXISTS "program_day_progress" (
+  "enrollmentId" TEXT PRIMARY KEY NOT NULL,
+  "dayNumber" INTEGER NOT NULL,
+  "snapshot" TEXT NOT NULL,
+  "updatedAt" TEXT NOT NULL
+)`,
+]
+
 /** Append only. Never edit a shipped migration. */
-export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6, v7]
+export const MIGRATIONS: ReadonlyArray<ReadonlyArray<string>> = [v1, v2, v3, v4, v5, v6, v7, v8]
 
 const statement = (sql: string): SqlStatement => ({ sql, params: [] })
 

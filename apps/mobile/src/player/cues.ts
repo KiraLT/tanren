@@ -1,5 +1,6 @@
 import {
   type CatalogId,
+  type DayNumber,
   expandDay,
   findCatalogExercise,
   isLoaded,
@@ -8,10 +9,12 @@ import {
   setsOf,
 } from "@tanren/shared"
 import { Array as Arr, Match, Option, String as Str } from "effect"
+import type { DaySnapshot } from "../services/DayProgressRepo"
 import type { SetEntry } from "../services/ProgramRepo"
 import type { RunPlan } from "./mergeDay"
 import {
   currentItem,
+  currentStep,
   idle,
   nextAfterWork,
   type PlayerConfig,
@@ -19,8 +22,12 @@ import {
   type PlayerState,
   phaseKey,
   playerEvent,
+  type Resting,
+  remainingMs,
   restAfter,
+  restore,
   step,
+  type Working,
 } from "./playerMachine"
 
 /**
@@ -84,6 +91,81 @@ export const initialRun = (nowMs: number): PlayerRun => ({
   entries: [],
   draft: Option.none(),
 })
+
+/**
+ * The run of a saved unfinished day (programs-player-v2 §3.4): the machine `restore`d as `Paused`,
+ * the performed count derived from that phase, `entries` kept (padded with `None` should the
+ * snapshot hold fewer), the steppers' `draft` on a work phase. `None` when the snapshot no longer
+ * fits the day.
+ */
+export const initialRunFrom = (
+  config: PlayerConfig,
+  snapshot: DaySnapshot,
+  nowMs: number,
+): Option.Option<PlayerRun> =>
+  Option.map(restore(config, snapshot, nowMs), (player): PlayerRun => {
+    const performedItems = performedBefore(config.day, player)
+    const padding = Arr.makeBy(Math.max(1, performedItems), () => Option.none<SetEntry>())
+    return {
+      player,
+      previous: player,
+      nowMs,
+      previousNowMs: nowMs,
+      startedAtMs: Option.some(snapshot.startedAtMs),
+      performedItems,
+      entries: Arr.take(Arr.appendAll(snapshot.entries, padding), performedItems),
+      draft: player.inner._tag === "Working" ? snapshot.draft : Option.none(),
+    }
+  })
+
+/**
+ * What `DayProgressRepo.write` stores for `run` at `nowMs`; `None` on Idle and Done (nothing to
+ * resume). A Paused run folds its current pause into `pausedMs` so the save → restore gap is the
+ * only time `restore` adds.
+ */
+export const snapshotOf = (
+  run: PlayerRun,
+  at: { readonly dayNumber: DayNumber; readonly ids: RunPlan },
+  nowMs: number,
+): Option.Option<DaySnapshot> => {
+  const open: Option.Option<{
+    readonly phase: Working | Resting
+    readonly pausedMs: number
+    readonly remaining: Option.Option<number>
+  }> = Match.valueTags(run.player, {
+    Idle: () => Option.none(),
+    Done: () => Option.none(),
+    Paused: (s) =>
+      Option.some({
+        phase: s.inner,
+        pausedMs: s.inner.pausedMs + Math.max(0, nowMs - s.pausedAtMs),
+        remaining: s.remainingMs,
+      }),
+    Working: (s) =>
+      Option.some({ phase: s, pausedMs: s.pausedMs, remaining: remainingMs(s, nowMs) }),
+    Resting: (s) =>
+      Option.some({ phase: s, pausedMs: s.pausedMs, remaining: remainingMs(s, nowMs) }),
+  })
+  return Option.map(
+    open,
+    ({ phase, pausedMs, remaining }): DaySnapshot => ({
+      dayNumber: at.dayNumber,
+      performedItems: run.performedItems,
+      performedIds: Arr.take(at.ids, run.performedItems),
+      entries: run.entries,
+      draft: run.draft,
+      startedAtMs: phase.startedAtMs,
+      pausedMs,
+      savedAtMs: nowMs,
+      phase: {
+        _tag: phase._tag,
+        round: phase.round,
+        stepIndex: phase.stepIndex,
+        remainingMs: remaining,
+      },
+    }),
+  )
+}
 
 /** A reps item of an exercise that moves a load: the player shows kg × reps steppers. */
 export const isWeighted = (item: ProgramItem): boolean =>
@@ -330,13 +412,19 @@ export const repsOf = (item: ProgramItem): Option.Option<number> =>
   )
 
 /**
- * The work screen's preview line under the transport row: "Next · Crunch 25 s". `None` when no
- * exercise follows (last item of the last round) or the player is not on a work phase.
+ * The work screen's preview line under the transport row: "Next · Crunch 25 s", or "Next · Set 3/4"
+ * when the next step is another set of the same exercise. `None` when nothing follows (last step
+ * of the last round) or the player is not on a work phase.
  */
 export const nextCaption = (day: ProgramDay, state: PlayerState): Option.Option<string> =>
-  Option.map(
-    nextAfterWork(day, state),
-    (item) => `Next · ${exerciseName(item.catalogId)} ${itemAmount(item)}`,
+  Option.map(nextAfterWork(day, state), (item) =>
+    Option.match(
+      Option.filter(currentStep(day, state), (s) => s.set < s.sets),
+      {
+        onNone: () => `Next · ${exerciseName(item.catalogId)} ${itemAmount(item)}`,
+        onSome: (s) => `Next · Set ${s.set + 1}/${s.sets}`,
+      },
+    ),
   )
 
 /** What a phase change sounds/feels like. */
