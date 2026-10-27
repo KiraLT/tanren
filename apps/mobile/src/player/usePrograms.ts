@@ -6,6 +6,7 @@ import type {
   UserProgramId,
 } from "@tanren/shared"
 import { Array as Arr, Effect, Exit, Option, Stream } from "effect"
+import { useFocusEffect } from "expo-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { type ActiveProgram, ProgramRepo, type SettableStatus } from "../services/ProgramRepo"
 import { failureMessage, runtime } from "../services/runtime"
@@ -180,6 +181,13 @@ export const usePrograms = (): {
 } => {
   const [state, setState] = useState<ProgramsState>({ _tag: "Loading" })
   const storeVersion = useStoreVersion()
+  // Tabs stay mounted: re-read on focus so `doneToday` clears after local midnight (§6.3).
+  const [focusCount, setFocusCount] = useState(0)
+  useFocusEffect(
+    useCallback(() => {
+      setFocusCount((count) => count + 1)
+    }, []),
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -198,7 +206,7 @@ export const usePrograms = (): {
       )
     })
     return () => controller.abort()
-  }, [storeVersion])
+  }, [storeVersion, focusCount])
 
   const setStatus = useCallback((enrollmentId: ProgramEnrollmentId, status: SettableStatus) => {
     return runtime

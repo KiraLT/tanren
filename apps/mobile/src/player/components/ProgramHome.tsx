@@ -32,6 +32,7 @@ import {
   daysDone,
   dayTrailing,
   doneLabel,
+  doneTodayLine,
   programProgress,
   weekWindow,
 } from "../programDays"
@@ -135,6 +136,11 @@ interface DayCardProps {
   readonly onOpenDay?: () => void
   /** An unfinished day (`ActiveProgram.inProgress`): "Day n · k of m done" + "Continue day n". */
   readonly inProgress?: Option.Option<DayProgress>
+  /**
+   * A day was completed today (`ActiveProgram.doneToday`): "Done for today · Day n tomorrow" and a
+   * muted "Done today" pill in place of the primary button (programs-player-v2 §6.3).
+   */
+  readonly doneToday?: boolean
 }
 
 /** The enrolled program: progress ring, name, "Day 2 of 30 · …" and the one primary pill. */
@@ -147,12 +153,16 @@ export function DayCard({
   resumeVariant = "primary",
   onOpenDay,
   inProgress = Option.none(),
+  doneToday = false,
 }: DayCardProps) {
   const total = program.days.length
-  const line = Option.match(inProgress, {
-    onNone: () => dayCardLine(day, total),
-    onSome: (progress) => continueLine(day.dayNumber, progress),
-  })
+  const done = doneToday && !paused
+  const line = done
+    ? doneTodayLine(day.dayNumber)
+    : Option.match(inProgress, {
+        onNone: () => dayCardLine(day, total),
+        onSome: (progress) => continueLine(day.dayNumber, progress),
+      })
   const headerContent = (
     <>
       <ProgressRing
@@ -206,6 +216,8 @@ export function DayCard({
             size="lg"
             onPress={onResume}
           />
+        ) : done ? (
+          <StatusPill tone="muted" label="Done today" icon="check" />
         ) : Option.isSome(inProgress) ? (
           <Button
             label={continueLabel(day.dayNumber)}

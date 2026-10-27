@@ -92,7 +92,7 @@ function ProgramPage({
                   onEnrol={enroll}
                 />
               ),
-              onSome: ({ enrollment, day, inProgress }) =>
+              onSome: ({ enrollment, day, inProgress, doneToday }) =>
                 Option.match(day, {
                   onNone: () => <ProgramFinished program={program} />,
                   onSome: (today) => (
@@ -110,6 +110,7 @@ function ProgramPage({
                         }
                         onResume={() => setStatus(enrollment.id, "active")}
                         inProgress={inProgress}
+                        doneToday={doneToday}
                         onOpenDay={() =>
                           // biome-ignore lint/plugin/noMutation: Expo Router's navigation call, not an array push
                           router.push({

@@ -325,7 +325,8 @@ export const getProgramProgress: Tool<typeof GetProgramProgressInput, typeof Pro
   description:
     "Returns the user's enrollments (status, current day, completed days, swaps) for one program " +
     "or for all of them, plus every completed day when programId is given (a paused enrollment is " +
-    "reported as paused).",
+    "reported as paused). currentDay is the first day not completed; days are sequential, a " +
+    "missed calendar day is not skipped, and at most one day completes per calendar day.",
   input: GetProgramProgressInput,
   output: ProgramProgress,
   run: Effect.fn("get_program_progress")(function* (

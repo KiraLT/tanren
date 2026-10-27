@@ -1206,3 +1206,74 @@ describe("ProgramRepo unfinished day (PROG-2)", () => {
     ),
   )
 })
+
+describe("ProgramRepo dynamic schedule (PROG-4)", () => {
+  /** 2026-10-21 23:59 in Europe/Vilnius (EEST, UTC+3): the test layer's zone. */
+  const LATE = Date.UTC(2026, 9, 21, 20, 59)
+
+  it.effect("a second complete on one local day fails DayDoneToday, writing nothing", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* stored(TWO_DAY, {})
+        yield* repo.complete(dayInput(enrollment.id, 1))
+        yield* withProgress((progress) => progress.write(enrollment.id, unfinished(2)))
+        const before = yield* version
+        const error = yield* Effect.flip(repo.complete(dayInput(enrollment.id, 2)))
+        expect(error.cause).toMatchObject({ _tag: "DayDoneToday", nextDay: 2 })
+        expect(yield* version).toBe(before)
+        expect(yield* rows(`SELECT "dayNumber" FROM "program_day_completion"`)).toEqual([
+          { dayNumber: 1 },
+        ])
+        expect(yield* rows(`SELECT "currentDay" FROM "program_enrollment"`)).toEqual([
+          { currentDay: 2 },
+        ])
+        expect(yield* rows(`SELECT "id" FROM "workout_session"`)).toHaveLength(1)
+        expect(
+          Option.map(yield* withProgress((progress) => progress.read(enrollment.id)), (saved) =>
+            Number(saved.dayNumber),
+          ),
+        ).toEqual(Option.some(2))
+      }),
+    ),
+  )
+
+  it.effect("doneToday is true after a completion at 23:59 local and false at 00:01", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* stored(TWO_DAY, {})
+        yield* TestClock.setTime(LATE)
+        yield* repo.complete(dayInput(enrollment.id, 1))
+        const [late] = yield* repo.activeEnrollments()
+        expect(late?.doneToday).toBe(true)
+        yield* TestClock.adjust("2 minutes")
+        const [next] = yield* repo.activeEnrollments()
+        expect(next?.doneToday).toBe(false)
+        expect(Option.map(next?.day ?? Option.none(), (day) => day.dayNumber)).toEqual(
+          Option.some(2),
+        )
+        const second = yield* repo.complete(dayInput(enrollment.id, 2))
+        expect(second.dayNumber).toBe(2)
+      }),
+    ),
+  )
+
+  it.effect("a missed calendar day skips nothing: three days after enrolling day 1 is due", () =>
+    run(
+      Effect.gen(function* () {
+        const repo = yield* ProgramRepo
+        const enrollment = yield* repo.enroll(PROGRAM_ID)
+        yield* TestClock.adjust("3 days")
+        const [entry] = yield* repo.activeEnrollments()
+        expect(entry?.enrollment.id).toBe(enrollment.id)
+        expect(entry?.doneToday).toBe(false)
+        expect(Option.map(entry?.day ?? Option.none(), (day) => day.dayNumber)).toEqual(
+          Option.some(1),
+        )
+        const due = yield* repo.dueToday(DateTime.makeUnsafe(NOW + 3 * 86_400_000))
+        expect(due.map((item) => item.enrollment.id)).toEqual([enrollment.id])
+      }),
+    ),
+  )
+})

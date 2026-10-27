@@ -192,6 +192,7 @@ describe("ProgramRepo edge cases", () => {
         const over = yield* repo.complete(input(1, 999))
         expect(Option.isSome(over.sessionId)).toBe(true)
         expect(yield* count("workout_set")).toBe(2)
+        yield* TestClock.adjust("1 day") // one program day per local calendar day (PROG-4)
         const under = yield* repo.complete(input(2, -5))
         expect(Option.isNone(under.sessionId)).toBe(true)
         expect(yield* count("workout_set")).toBe(2)
@@ -208,6 +209,7 @@ describe("ProgramRepo edge cases", () => {
           yield* storedEnrollment(ENR, {})
           yield* repo.complete(input(1, Number.NaN))
           expect(yield* count("workout_set")).toBeLessThanOrEqual(2)
+          yield* TestClock.adjust("1 day") // one program day per local calendar day (PROG-4)
           yield* repo.complete(input(2, Number.POSITIVE_INFINITY))
           expect(yield* count("workout_set")).toBeLessThanOrEqual(4)
         }),

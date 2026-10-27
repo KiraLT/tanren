@@ -116,6 +116,15 @@ export class DayOutOfOrder extends Data.TaggedError("DayOutOfOrder")<{
   readonly got: number
 }> {}
 
+/**
+ * Internal: `complete` when the enrollment already completed a day on this local calendar day
+ * (programs-player-v2 §6.2: at most one program day per day). Carried as `StoreError.cause`.
+ */
+export class DayDoneToday extends Data.TaggedError("DayDoneToday")<{
+  readonly id: ProgramEnrollmentId
+  readonly nextDay: number
+}> {}
+
 /** Internal: the enrollment is unknown, tombstoned or not the owner's. Carried as `StoreError.cause`. */
 export class EnrollmentNotFound extends Data.TaggedError("EnrollmentNotFound")<{
   readonly id: ProgramEnrollmentId
@@ -140,6 +149,11 @@ export interface ActiveProgram {
   readonly day: Option.Option<ProgramDay>
   /** Some when an unfinished-day snapshot exists for `enrollment.currentDay`: "k of m done". */
   readonly inProgress: Option.Option<DayProgress>
+  /**
+   * A day of this enrollment was completed on the current local calendar day: `currentDay` waits
+   * until tomorrow ("Done for today · Day N tomorrow", §6.2). Turns false at local midnight.
+   */
+  readonly doneToday: boolean
 }
 
 /** An unfinished day's position: `performedItems` of `totalItems` (`plannedItems(day).length`). */
@@ -223,7 +237,9 @@ export interface ProgramRepoShape {
    * call. A second call for a day that already has a live completion returns that one and writes
    * nothing. Otherwise a non-`active` (incl. `paused`) enrollment fails with
    * `StoreError(EnrollmentNotActive)`, writing nothing. Only the enrollment's `currentDay` can be
-   * completed: any other day fails with `StoreError(DayOutOfOrder)`, writing nothing.
+   * completed: any other day fails with `StoreError(DayOutOfOrder)`, writing nothing. At most one
+   * day completes per local calendar day: a second one fails with `StoreError(DayDoneToday)`,
+   * writing nothing and leaving the saved unfinished day alone.
    */
   readonly complete: (input: CompletionInput) => Effect.Effect<ProgramDayCompletion, StoreError>
   /**
@@ -416,26 +432,6 @@ const make = (find: ProgramFinder) =>
         })
       })
 
-    const withProgram = (enrollment: ProgramEnrollment) =>
-      find(enrollment.programId).pipe(
-        Effect.flatMap((found) =>
-          Effect.transposeOption(
-            Option.map(found, (program) => {
-              const day = Option.map(dayOf(program, enrollment.currentDay), (today) =>
-                applySwaps(today, enrollment.swaps),
-              )
-              return Effect.map(
-                inProgressOf(enrollment, day),
-                (inProgress): ActiveProgram => ({ enrollment, program, day, inProgress }),
-              )
-            }),
-          ),
-        ),
-      )
-
-    const activeEnrollments = () =>
-      running.pipe(Effect.flatMap(Effect.forEach(withProgram)), Effect.map(Arr.getSomes))
-
     const liveCompletions = (enrollmentId: ProgramEnrollmentId) =>
       store
         .all(
@@ -450,22 +446,59 @@ const make = (find: ProgramFinder) =>
 
     const localDate = (at: DateTime.Utc) => DateTime.formatIsoDate(DateTime.setZone(at, zone))
 
-    const dueToday = (now: DateTime.Utc) =>
-      Effect.gen(function* () {
-        const today = localDate(now)
-        const candidates = Arr.filter(
-          yield* activeEnrollments(),
-          (entry) => entry.enrollment.status === "active" && Option.isSome(entry.day),
-        )
-        return yield* Effect.filter(candidates, (entry) =>
-          liveCompletions(entry.enrollment.id).pipe(
-            Effect.map(
-              (done) =>
-                !Arr.some(done, (completion) => localDate(completion.completedAt) === today),
-            ),
+    /** A live completion of `enrollmentId` falls on the local calendar day of `now` (§6.2). */
+    const completedOn = (enrollmentId: ProgramEnrollmentId, now: DateTime.Utc) =>
+      liveCompletions(enrollmentId).pipe(
+        Effect.map((done) =>
+          Arr.some(done, (completion) => localDate(completion.completedAt) === localDate(now)),
+        ),
+      )
+
+    const withProgram = (enrollment: ProgramEnrollment, now: DateTime.Utc) =>
+      find(enrollment.programId).pipe(
+        Effect.flatMap((found) =>
+          Effect.transposeOption(
+            Option.map(found, (program) => {
+              const day = Option.map(dayOf(program, enrollment.currentDay), (today) =>
+                applySwaps(today, enrollment.swaps),
+              )
+              return Effect.all({
+                inProgress: inProgressOf(enrollment, day),
+                doneToday: completedOn(enrollment.id, now),
+              }).pipe(
+                Effect.map(
+                  ({ inProgress, doneToday }): ActiveProgram => ({
+                    enrollment,
+                    program,
+                    day,
+                    inProgress,
+                    doneToday,
+                  }),
+                ),
+              )
+            }),
           ),
-        )
-      })
+        ),
+      )
+
+    const activeAt = (now: DateTime.Utc) =>
+      running.pipe(
+        Effect.flatMap((rows) => Effect.all(Arr.map(rows, (row) => withProgram(row, now)))),
+        Effect.map(Arr.getSomes),
+      )
+
+    /** `doneToday` is read against the Clock's `now`: it turns false at local midnight. */
+    const activeEnrollments = () => DateTime.now.pipe(Effect.flatMap(activeAt))
+
+    const dueToday = (now: DateTime.Utc) =>
+      activeAt(now).pipe(
+        Effect.map(
+          Arr.filter(
+            (entry) =>
+              entry.enrollment.status === "active" && Option.isSome(entry.day) && !entry.doneToday,
+          ),
+        ),
+      )
 
     const list = () =>
       Effect.gen(function* () {
@@ -828,6 +861,14 @@ const make = (find: ProgramFinder) =>
               )
             }
             const now = yield* DateTime.now
+            if (yield* completedOn(enrollment.id, now)) {
+              // Before any write: the saved unfinished-day row (`DayProgressRepo`) stays as it is.
+              return yield* Effect.fail(
+                toStoreError(
+                  new DayDoneToday({ id: enrollment.id, nextDay: enrollment.currentDay }),
+                ),
+              )
+            }
             const history = yield* historyFor(enrollment, input, now)
             const historyChanges: ReadonlyArray<SyncChange> = Option.match(history, {
               onNone: () => [],

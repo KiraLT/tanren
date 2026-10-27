@@ -13,6 +13,7 @@ import { isRunning } from "../../src/player/cues"
 import { mergeDay } from "../../src/player/mergeDay"
 import { dayFraction, eyebrowLabel, segmentsFilled } from "../../src/player/playerHeader"
 import { progress } from "../../src/player/playerMachine"
+import { doneTodayBanner } from "../../src/player/programDays"
 import { usePrograms } from "../../src/player/usePrograms"
 import { type DaySnapshot, snapshotFits } from "../../src/services/DayProgressRepo"
 import {
@@ -192,14 +193,18 @@ export default function PlayScreen() {
   const { enrollmentId } = useLocalSearchParams<{ enrollmentId?: string | string[] }>()
   const desktop = useBreakpoint() === "desktop"
   const close = () => (router.canGoBack() ? router.back() : router.replace("/train?view=programs"))
-  /** The `active` enrollment named by `?enrollmentId=`; a missing, unknown or paused one is `None`. */
-  const target =
+  /** The `active` enrollment named by `?enrollmentId=`, whatever its day. */
+  const named =
     state._tag === "Ready"
       ? Arr.findFirst(
           state.active,
           (entry) => entry.enrollment.id === enrollmentId && entry.enrollment.status === "active",
         )
       : Option.none()
+  /** A day of it was completed today: the banner says when the next one is due (§6.2). */
+  const doneToday = Option.filter(named, (entry) => entry.doneToday)
+  /** The playable enrollment; a missing, unknown, paused or done-for-today one is `None`. */
+  const target = Option.filter(named, (entry) => !entry.doneToday)
   // Latch the first loaded day: completing it bumps `currentDay`, which must not swap the player.
   // `original` is that day without swaps (the swap sheet keys on it).
   const [latched, setLatched] = useState<Option.Option<Latched>>(Option.none())
@@ -261,25 +266,38 @@ export default function PlayScreen() {
     ),
     onNone: () => (
       <Page header={header} scroll>
-        {Match.value(state).pipe(
-          Match.tag("Loading", () => <Skeleton width="100%" height={320} />),
-          Match.tag("Failed", ({ message }) => (
-            <Banner tone="danger" title="Could not load the workout" body={message} />
-          )),
-          Match.when(
-            () => Option.isNone(target),
-            () => (
-              <Banner tone="danger" title="Could not load the workout" body={WORKOUT_NOT_FOUND} />
-            ),
+        {Option.match(doneToday, {
+          onSome: (entry) => (
+            <Banner tone="success" title={doneTodayBanner(entry.enrollment.currentDay)} />
           ),
-          Match.orElse(() =>
-            desktop ? (
-              <NoWorkoutDesktop onOpen={() => router.replace("/train?view=programs")} />
-            ) : (
-              <EmptyState title="No workout today" body="Enrol in a program in Train → Programs." />
+          onNone: () =>
+            Match.value(state).pipe(
+              Match.tag("Loading", () => <Skeleton width="100%" height={320} />),
+              Match.tag("Failed", ({ message }) => (
+                <Banner tone="danger" title="Could not load the workout" body={message} />
+              )),
+              Match.when(
+                () => Option.isNone(target),
+                () => (
+                  <Banner
+                    tone="danger"
+                    title="Could not load the workout"
+                    body={WORKOUT_NOT_FOUND}
+                  />
+                ),
+              ),
+              Match.orElse(() =>
+                desktop ? (
+                  <NoWorkoutDesktop onOpen={() => router.replace("/train?view=programs")} />
+                ) : (
+                  <EmptyState
+                    title="No workout today"
+                    body="Enrol in a program in Train → Programs."
+                  />
+                ),
+              ),
             ),
-          ),
-        )}
+        })}
       </Page>
     ),
   })

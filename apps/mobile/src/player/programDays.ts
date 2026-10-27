@@ -62,3 +62,10 @@ export const dayCardLine = (day: ProgramDay, totalDays: number): string =>
 /** "1 of 30 done", the accent counter above the day list. */
 export const doneLabel = (currentDay: number, totalDays: number): string =>
   `${daysDone(currentDay, totalDays)} of ${totalDays} done`
+
+/** "Done for today · Day 2 tomorrow": the line of a `doneToday` day card (programs-player-v2 §6.3). */
+export const doneTodayLine = (nextDay: number): string => `Done for today · Day ${nextDay} tomorrow`
+
+/** "Done for today. Day 2 is up tomorrow.": the player's banner for a `doneToday` enrollment. */
+export const doneTodayBanner = (nextDay: number): string =>
+  `Done for today. Day ${nextDay} is up tomorrow.`

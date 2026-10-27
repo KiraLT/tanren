@@ -113,6 +113,8 @@ public/_headers (COOP/COEP, copied into dist/) · public/manifest.json + icons/ 
 - Built-ins (`PROGRAMS`) + the owner's live `program` rows (ids matched case-insensitively). Statuses `active | paused | completed |
   abandoned` (several active, one per program; terminal → `EnrollmentTerminal`). `complete` accepts only `day === currentDay`
   (`DayOutOfOrder`) and logs one session + one set per performed item-round; a repeat for the same day writes nothing.
+  Schedule is a sequence (§6, PROG-4): a missed day stays due; one day per local calendar day (`DayDoneToday`), and
+  `ActiveProgram.doneToday` (read against `DateTime.now`, so `usePrograms` also re-reads on focus) hides Start everywhere.
 - Swaps live on the enrollment keyed by the ORIGINAL catalog id. Mid-workout `mergeDay` renames only open item-rounds; done rounds
   keep the exercise performed (`performedIds`) — history is never rewritten.
 - Player: `playerMachine` is pure, a late `tick` chains every elapsed phase; `phaseKey` changes on pause/resume so cues compare

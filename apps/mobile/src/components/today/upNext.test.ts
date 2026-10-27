@@ -1,8 +1,31 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Option } from "effect"
-import { doneLine, exerciseNames, finishedOn, sessionMeta, startLabel, startTarget } from "./upNext"
+import { CORE30 } from "@tanren/shared"
+import { Array as Arr, Option } from "effect"
+import {
+  type DueInput,
+  doneLine,
+  exerciseNames,
+  finishedOn,
+  programLine,
+  sessionMeta,
+  startLabel,
+  startTarget,
+} from "./upNext"
 
-const due = [{ enrollment: { id: "enr-1" } }, { enrollment: { id: "enr-2" } }]
+const dueEntry = (id: string, fields: Partial<Omit<DueInput, "enrollment">> = {}): DueInput => ({
+  enrollment: { id },
+  day: Option.some({ dayNumber: 3 }),
+  inProgress: Option.none(),
+  doneToday: false,
+  ...fields,
+})
+const due = [dueEntry("enr-1"), dueEntry("enr-2")]
+const programTarget = (enrollmentId: string) => ({
+  _tag: "Program",
+  enrollmentId,
+  dayNumber: 3,
+  inProgress: Option.none(),
+})
 const open = Option.some({})
 
 describe("startTarget", () => {
@@ -35,7 +58,7 @@ describe("startTarget", () => {
   })
 
   it("the first due program day beats a free workout", () => {
-    expect(startTarget({ _tag: "Empty" }, due)).toEqual({ _tag: "Program", enrollmentId: "enr-1" })
+    expect(startTarget({ _tag: "Empty" }, due)).toEqual(programTarget("enr-1"))
   })
 
   it("nothing planned or due starts a free workout", () => {
@@ -53,7 +76,6 @@ describe("startLabel", () => {
     expect(startLabel({ _tag: "Session", resume: true })).toBe("Continue")
     expect(startLabel({ _tag: "Session", resume: false })).toBe("Start")
     expect(startLabel({ _tag: "AddExercise" })).toBe("Add exercise")
-    expect(startLabel({ _tag: "Program", enrollmentId: "x" })).toBe("Start")
     expect(startLabel({ _tag: "Free" })).toBe("Start")
   })
 })
@@ -101,10 +123,7 @@ describe("startTarget with a workout done today", () => {
     expect(startTarget({ _tag: "Free", exercises: [], session: Option.none() }, [], 1)).toEqual({
       _tag: "AddExercise",
     })
-    expect(startTarget({ _tag: "Empty" }, due, 1)).toEqual({
-      _tag: "Program",
-      enrollmentId: "enr-1",
-    })
+    expect(startTarget({ _tag: "Empty" }, due, 1)).toEqual(programTarget("enr-1"))
   })
 
   it("loading stays none", () => {
@@ -135,5 +154,38 @@ describe("finishedOn and doneLine", () => {
         kg,
       ),
     ).toBe("2 workouts · 3 sets")
+  })
+})
+
+describe("the Program target (NAV-3e)", () => {
+  const empty = { _tag: "Empty" } as const
+  const halfway = Option.some({ performedItems: 2, totalItems: 6 })
+
+  it("a due day reads Start day N", () => {
+    const target = startTarget(empty, [dueEntry("enr-1")])
+    expect(startLabel(target)).toBe("Start day 3")
+  })
+
+  it("an unfinished day reads Continue day N with k of m done", () => {
+    const entry = dueEntry("enr-1", { inProgress: halfway })
+    expect(startLabel(startTarget(empty, [entry]))).toBe("Continue day 3")
+    const day = Option.getOrThrow(Arr.head(CORE30.days))
+    expect(programLine({ program: CORE30, day: Option.some(day), inProgress: halfway })).toBe(
+      "Day 1 · 2 of 6 done",
+    )
+  })
+
+  it("a done-for-today enrollment yields no Program target", () => {
+    expect(startTarget(empty, [dueEntry("enr-1", { doneToday: true })])).toEqual({ _tag: "Free" })
+    expect(startTarget(empty, [dueEntry("enr-1", { doneToday: true }), dueEntry("enr-2")])).toEqual(
+      programTarget("enr-2"),
+    )
+  })
+
+  it("a due day's line names the day, the length and the minutes", () => {
+    const day = Option.getOrThrow(Arr.head(CORE30.days))
+    expect(
+      programLine({ program: CORE30, day: Option.some(day), inProgress: Option.none() }),
+    ).toMatch(/^Day 1 of 30 · ≈ \d+ min$/)
   })
 })

@@ -1,4 +1,7 @@
+import type { ProgramDay } from "@tanren/shared"
 import { Array as Arr, Match, Option } from "effect"
+import { dayMinutes } from "../../player/programDays"
+import { continueLabel, continueLine, type DayProgress } from "../../services/ProgramRepo"
 
 /**
  * What the shared Start does (navigation-v2.md §2 Merge, §6): open today's session in the pager
@@ -9,7 +12,13 @@ export type StartTarget =
   | { readonly _tag: "None" }
   | { readonly _tag: "Session"; readonly resume: boolean }
   | { readonly _tag: "AddExercise" }
-  | { readonly _tag: "Program"; readonly enrollmentId: string }
+  | {
+      readonly _tag: "Program"
+      readonly enrollmentId: string
+      readonly dayNumber: number
+      /** An unfinished day (`ActiveProgram.inProgress`): "Continue day N", "Day N · k of m done". */
+      readonly inProgress: Option.Option<DayProgress>
+    }
   | { readonly _tag: "Free" }
   /** A workout was finished today and nothing is open or due: "Start another" does `next`. */
   | { readonly _tag: "Done"; readonly next: StartTarget }
@@ -26,8 +35,13 @@ export type StartInput =
       readonly session: Option.Option<unknown>
     }
 
+/** The parts of `ActiveProgram` the decision reads. */
 export interface DueInput {
   readonly enrollment: { readonly id: string }
+  readonly day: Option.Option<{ readonly dayNumber: number }>
+  readonly inProgress: Option.Option<DayProgress>
+  /** A day was completed today: no Program target (the feed's "Done today" covers it). */
+  readonly doneToday: boolean
 }
 
 /**
@@ -57,13 +71,22 @@ const baseTarget = (state: StartInput, due: ReadonlyArray<DueInput>): StartTarge
           ? { _tag: "Session", resume: true }
           : { _tag: "AddExercise" },
       Empty: (): StartTarget =>
-        Option.match(Arr.head(due), {
-          onNone: (): StartTarget => ({ _tag: "Free" }),
-          onSome: (entry): StartTarget => ({
-            _tag: "Program",
-            enrollmentId: entry.enrollment.id,
-          }),
-        }),
+        Option.match(
+          Arr.findFirst(due, (entry) =>
+            entry.doneToday
+              ? Option.none()
+              : Option.map(entry.day, (day) => ({ entry, dayNumber: day.dayNumber })),
+          ),
+          {
+            onNone: (): StartTarget => ({ _tag: "Free" }),
+            onSome: ({ entry, dayNumber }): StartTarget => ({
+              _tag: "Program",
+              enrollmentId: entry.enrollment.id,
+              dayNumber,
+              inProgress: entry.inProgress,
+            }),
+          },
+        ),
     }),
   )
 
@@ -74,11 +97,30 @@ export const startLabel = (target: StartTarget): string =>
       None: () => "Start",
       Session: ({ resume }) => (resume ? "Continue" : "Start"),
       AddExercise: () => "Add exercise",
-      Program: () => "Start",
+      Program: ({ dayNumber, inProgress }) =>
+        Option.isSome(inProgress) ? continueLabel(dayNumber) : `Start day ${dayNumber}`,
       Free: () => "Start",
       Done: () => "Start another",
     }),
   )
+
+/** The parts of `ActiveProgram` the Up-next program line reads. */
+export interface ProgramLineInput {
+  readonly program: { readonly days: ReadonlyArray<unknown> }
+  readonly day: Option.Option<ProgramDay>
+  readonly inProgress: Option.Option<DayProgress>
+}
+
+/** "Day 2 of 30 · ≈ 15 min", or "Day 2 · 3 of 21 done" for an unfinished day. */
+export const programLine = ({ program, day, inProgress }: ProgramLineInput): string =>
+  Option.match(day, {
+    onNone: () => `${program.days.length} days`,
+    onSome: (next) =>
+      Option.match(inProgress, {
+        onNone: () => `Day ${next.dayNumber} of ${program.days.length} · ≈ ${dayMinutes(next)} min`,
+        onSome: (progress) => continueLine(next.dayNumber, progress),
+      }),
+  })
 
 export interface DoneInput {
   readonly status: "done" | "inProgress"
@@ -86,7 +128,7 @@ export interface DoneInput {
   readonly date: string
 }
 
-/** Workouts finished on `today` (local date), newest first as given. */
+/** Finished workouts that started on `today` (local date of `startedAt`), newest first as given. */
 export const finishedOn = <A extends DoneInput>(
   items: ReadonlyArray<A>,
   today: string,

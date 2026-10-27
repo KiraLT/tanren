@@ -5,7 +5,6 @@ import { useState } from "react"
 import { View } from "react-native"
 import type { StartWorkout } from "../../hooks/useStartWorkout"
 import { type TodayState, useFreeWorkoutActions } from "../../hooks/useToday"
-import { dayMinutes } from "../../player/programDays"
 import type { ActiveProgram } from "../../services/ProgramRepo"
 import { Banner, Button, Card, Skeleton, space, Text } from "../../ui"
 import { formatVolume } from "../volumeFormat"
@@ -19,13 +18,13 @@ import {
   WORKOUT_STARTED_TITLE,
 } from "./freeWorkoutCopy"
 import { todayEmptyCopy } from "./todayEmptyCopy"
-import { doneLine, exerciseNames, sessionMeta } from "./upNext"
+import { doneLine, exerciseNames, programLine, sessionMeta } from "./upNext"
 
 export interface UpNextCardProps {
   readonly state: TodayState
   readonly due: ReadonlyArray<ActiveProgram>
   readonly action: StartWorkout
-  /** Today's finished workouts (`useDoneToday`): the "Done today" row while `action` is `Done`. */
+  /** Today's finished workouts (`useTodayFeed().done`): the "Done today" row while `action` is `Done`. */
   readonly done: ReadonlyArray<Activity>
 }
 
@@ -66,13 +65,6 @@ function UpNextBody({ eyebrow, title, lines, primary, secondary }: CardBodyProps
     </Card>
   )
 }
-
-/** "Day 12 of 30 · ≈ 15 min" under the program's name. */
-const programLine = ({ program, day }: ActiveProgram): string =>
-  Option.match(day, {
-    onNone: () => `${program.days.length} days`,
-    onSome: (next) => `Day ${next.dayNumber} of ${program.days.length} · ≈ ${dayMinutes(next)} min`,
-  })
 
 /**
  * Home's first card (navigation-v2.md §6): what to do now with the one Start pill. Planned

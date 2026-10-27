@@ -9,6 +9,8 @@ import {
   daysDone,
   dayTrailing,
   doneLabel,
+  doneTodayBanner,
+  doneTodayLine,
   programProgress,
   WEEK_LENGTH,
   weekWindow,
@@ -100,5 +102,12 @@ describe("day text", () => {
     expect(dayCardLine({ ...firstDay, items: [...Arr.take(firstDay.items, 1)] }, 30)).toContain(
       "1 exercise ·",
     )
+  })
+})
+
+describe("done-today text", () => {
+  it("names the next day on the card line and in the player banner", () => {
+    expect(doneTodayLine(2)).toBe("Done for today · Day 2 tomorrow")
+    expect(doneTodayBanner(2)).toBe("Done for today. Day 2 is up tomorrow.")
   })
 })
