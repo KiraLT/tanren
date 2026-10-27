@@ -388,7 +388,10 @@ bearer path needed?" — never as a port number, a fix to apply, or a "may need"
       (`du -ch apps/mobile/assets/illustrations/*.webp | tail -1` <= 3 MB — a glob of the shipped
       files, never `du -sh <dir>`, which counts git-ignored raw/ sources (ILL-1 read 6.9M for 175K);
       `wc -c` for one file) — IMG-2 read "a few MB" and shipped 11 MB
-- [ ] every proof names the output that would fail it; a check that cannot fail is not a criterion
+- [ ] every proof names the output that would fail it; a check that cannot fail is not
+- [ ] no legacy left behind (plan Amendment 23): the replacement deleted what it replaced — no shim,
+      alias, dual path, `legacy`/`old` name, dead export or "remove later" marker (`grep -rn "deprecated\|legacy\|TODO remove" <paths>` → 0);
+      a schema/wire change the running Worker cannot serve is split expand → migrate → deploy → contract a criterion
 - [ ] every proof names output the Lead has seen in this repo (a test name, a preflight line, a `curl` body). Never ask an
       engineer to paste `wrangler deploy --dry-run` or any `wrangler deploy|secret|d1 execute --remote` output: those are
       the Lead's deploy/preflight steps. A config-only wrangler task gets a 5-min box with `pnpm deploy:preflight

@@ -319,3 +319,13 @@ Recorded 2026-10-19, from the owner's kickoff message:
    timed/reps mode) and the swap is remembered per enrollment, so it works
    for default programs without editing them (ADR-0026 amended,
    `docs/design/programs-mcp.md`, `docs/tasks/v6b-programs.md`).
+23. **Code hygiene and breaking changes** (2026-10-27 14:41, owner, verbatim):
+   "also keep the code clean, no legasy shit. If you make breaking changes -
+   migrate live db first and then deploy new changes." Lead reading: no
+   compatibility shims, dual code paths, deprecated aliases, `legacy`/`old`
+   names, dead exports or "remove later" markers survive a task — the
+   replacement deletes what it replaces in the same change (reviewers flag
+   any leftover as a should); a schema or wire change that the running
+   Worker cannot serve is split expand → migrate live D1 → deploy → contract,
+   and every deploy applies pending migrations to production before the
+   Worker upload (`scratchpad/deploy.sh` `MIGRATE=1`, `docs/design/deploy.md`).

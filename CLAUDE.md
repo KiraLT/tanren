@@ -102,3 +102,8 @@ only when it is green and its output is in the report.
   Effect code.
 - Prefer editing an existing file over adding one. Keep modules small and
   named after the domain (`Session.ts`, `PlannedSet.ts`), not after patterns.
+- No legacy (owner, plan Amendment 23): a replacement deletes what it
+  replaces in the same change — no compatibility shim, alias, dual code path,
+  `legacy`/`old` name, dead export or "remove later" marker. Breaking schema or
+  wire changes ship expand → migrate live D1 → deploy → contract; every deploy
+  applies pending migrations to production before the Worker upload.
