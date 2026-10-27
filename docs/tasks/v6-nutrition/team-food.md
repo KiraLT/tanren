@@ -1,19 +1,231 @@
-# Team charter: Nutrition quick-add + food log + settings (v6, ADR-0025)
-Status: skeleton 2026-10-27 14:09 (architect) · dispatch after N-F0's commit · Lead sheet: `docs/tasks/v6-nutrition.md` (team "nutri-food": mission, owned paths, frozen contracts, Assumes — normative; copy them here at dispatch) · Design: `docs/design/nutrition.md`
+# Team nutri-food: quick-add + food log + Settings → Nutrition (v6, ADR-0025)
+Status: HOLD (prepared 14:58, waiting for the Lead's GO after N-F0) · team-lead opus · Lead sheet `docs/tasks/v6-nutrition.md`
+("Team nutri-food", normative) · Design `docs/design/nutrition.md` §1, §4, §6, §7 · Forge `docs/design/ui-direction-final.md`, `docs/design/ui-polish.md`
+Ports (probed 14:50, all free: `ps -ef | grep "port 903"` empty, curl 000): **N-Q1 web 9033** · **N-Q2 web 9035** · **N-Q2S worker 9034
+(inspector 9534) + web 9035**. Never 8787/8790/8081/8991/9011/9012/9021/9031/9032.
+
+Mission: quick-add sheet (`/health/add`, local `QUICK_ADD` catalog only, no external API in v1), `FoodLog` list with delete +
+15 s Undo (pure component; nutri-today mounts it in `/health` at INT-N), Settings → Nutrition & goals (goal, body data,
+derived targets from `nutritionTargets` with manual overrides winning, eat-back switch when Garmin is connected, Turn off).
+
+Owned (charter): `apps/mobile/app/health/add.tsx`, `apps/mobile/app/settings/nutrition.tsx`, `apps/mobile/app/settings.tsx` (one row),
+`apps/mobile/src/components/health/{FoodLog,QuickAddSheet}.tsx`, `apps/mobile/src/components/settings/{NutritionSection.tsx,nutritionCopy.ts,
+nutritionCopy.test.ts}`, `apps/mobile/app/_layout.tsx` (modal `presentation` line for `health/add` only), `apps/mobile/CLAUDE.md` (our lines, team-lead).
+Asked at HOLD (interim 14:58; see Decisions D1–D2): `src/components/health/{quickAddSheet,quickAddSheet.test,foodLog,foodLog.test}.ts`
+instead of `{QuickAddSheet,FoodLog}.test.tsx`; new `src/hooks/useAddFood.ts`; new `src/components/settings/{nutritionSettings,
+nutritionSettings.test,useNutritionSettings}.ts`.
+Adjacent: nutri-today (`app/health.tsx`, `src/services/{FoodEntryRepo,NutritionRepo}.ts`, `src/hooks/useNutrition*.ts`,
+`src/services/runtime.ts` layer lines, `iconPaths.ts`), N-F0 (`packages/shared/**`, `store/migrations.ts`, `services/{LocalStore,DataExport}.ts`),
+nutri-server (`packages/db`, `apps/worker`), LEGAL-2b (`settings/{DataSection.tsx,dataCopy.ts}`, `components/legal/**`).
+Forbidden (every brief): dependency changes, root config, files outside owned paths, `git commit|push|reset|checkout`, `rm -r*`,
+`wrangler deploy|login|secret|d1 execute --remote|d1 migrations apply --remote|deploy --dry-run`, `eas *`, reading `.env*`.
 
 ## Task table
-| id | role/model | box | status | notes |
-| --- | --- | --- | --- | --- |
-(paste the team's rows from the Lead sheet; order: N-Q1 ∥ N-Q2 → N-QR ∥ N-QD → fix)
+| id | title | role/model | depends | wave | box | status |
+| --- | --- | --- | --- | --- | --- | --- |
+| N-Q1 | QuickAddSheet + `/health/add` modal + FoodLog (code, tests, ui-check 390 + shots N20–N21) | engineer/opus | GO | W1 | 20 | queued |
+| N-Q2 | NutritionSection row + `/settings/nutrition` (code, tests, ui-check 390+1280, shots N22–N23) | engineer/opus | GO | W1 | 20 | queued |
+| N-Q2S | N-Q2 resume: eat-back Switch shot N24 on worker 9034 Garmin console mode, signed in | engineer/opus (resume) | N-Q2 | W2 | 10 | queued |
+| N-Q1W | N-Q1 resume: wire `useAddFood` → mobile `FoodEntryRepo.insert` if N-M1 was not in the tree during N-Q1 | engineer/opus (resume) | N-Q1, N-M1 | W2 | 5 | queued (only if needed) |
+| REV-1 | review N-Q1 + N-Q2 code (diff scope = owned paths) | reviewer/opus | N-Q1, N-Q2 | W2 | 8 | queued |
+| N-QD | designer verdict on N20–N23 (+ N24 delta) — architect-as-designer | architect/fable | N-Q1, N-Q2 shots | W2 | 10 | queued |
+| FIX-1 | blocking findings → same engineers (SendMessage) | engineer (resume) | REV-1, N-QD | W3 | 10 | queued |
+| REV-2 | delta pass over FIX-1 + N-Q2S/N-Q1W (last review row) + package gate quoted | reviewer/opus (resume) | FIX-1 | W3 | 5 | queued |
+Team box 60 (Lead sheet): W1 20 → W2 10 → W3 10 + 5 → root gate + CLAUDE.md lines 3.
 
-## Frozen contracts
-(from the Lead sheet's "Frozen" line + N-F0's report: exact exported symbol names)
+## Frozen contracts (N-F0 symbol names pasted at GO)
+- Shared: `QUICK_ADD`, `search` (§7), `QuickAddItem`, `FoodItem`, `FoodItems`, `totalsOf`, `FoodEntry`, `FoodEntryInsert`, `Meal`,
+  `FoodSource`, `NutritionProfile`, `NutritionGoal`, `ActivityLevel`, `Sex`, `nutritionTargets(profile, today)`, `ProfilePatch.nutrition`.
+  (exact names: GO)
+- Mobile `FoodEntryRepo` (nutri-today N-M1): `list(range)`, `insert(entry)`, `softDelete(id)`, `restore(id)` — arg/return types: GO.
+- Mobile `ProfileRepo.save(patch: ProfilePatch)` + `modify(f)` (`apps/mobile/src/services/ProfileRepo.ts:30`, `:33`).
+- Provides (frozen the moment it compiles): `FoodLog({ entries, onDelete, onRestore })` from `src/components/health/FoodLog.tsx`.
 
-## Assumes (cited)
-(from the Lead sheet; re-read each against its source before the first brief)
+## Assumes (cross-team, each re-read against its source 14:50)
+- `FoodEntryRepo` mobile is nutri-today's (N-M1, box 15, same GO); until it is in the tree N-Q1 builds the pure parts and wires the hook last (N-Q1W if late).
+- The quick-add write and the food log rows reach `/health` through nutri-today's hooks at INT-N; we own no hook nutri-today owns.
+- `useProfile()` / `useProfileState()` exist (`src/hooks/useProfile.ts:21,60`).
+- Garmin connected = `useIntegrationsOverview().state` Loaded and `overview.garmin.state === "connected"` (`src/hooks/useIntegrations.ts:32,201`;
+  `IntegrationState` `connected|revoked|disconnected`, `packages/shared/src/integrations.ts:10`). The design's `useIntegrations().garmin.status`
+  does not exist (grep 14:50).
+- Runtime is `src/services/runtime.ts` (`runtime`, `failureMessage`); hook pattern `src/components/settings/useLocations.ts` (never rejects, error Option).
+- Vitest runs only `src/**/*.test.ts` in node (`apps/mobile/vitest.config.ts` `include`), so `.test.tsx` files never run → pure `.ts` helpers carry the tests.
+- `BannerTone` = `info|success|danger` (no `neutral`, `src/ui/Banner.tsx:10`); `IconButtonVariant` = `plain|filled`, no `tone` (`src/ui/IconButton.tsx:10`).
+- `ActivityLevel` has FIVE values; design §6's "activity (4 at 358 = 89.5)" is a slip → 5 segments at 71.6 px (≥ 44) only if no label truncates, else radio `ListRow`s.
+- Root Stack `app/_layout.tsx` is `<Stack screenOptions={{ headerShown: false }} />` (self-closing); `health/add` modal = one `Stack.Screen` child.
+- New routes need `CI=1 node_modules/.bin/expo start` once to regenerate the git-ignored `.expo/types/router.d.ts` (typed routes).
+- `app/health.tsx` (nutri-today) and `app/health/add.tsx` (ours) coexist like `settings.tsx` + `settings/integrations/`.
+- Targets copy uses §4's pins (male 85 kg 180 cm 1990 moderate gain → 3 080 / 155); §8's "3 100 kcal · 170 g" predates §4 and is not a pin.
+- Gallery badges: N20+ (nutri-today N1–N19); prefixes from `docs/design/screens/gallery.json`; fragments `docs/design/screens/NUTRI-Q{1,2}-rows.html`.
 
-## Ports
-web 9033 — probe `ps -ef | grep "port 903"` first; never 8787/8790/8081/8991/9011/9012/9021.
+## Briefs (prepared at HOLD; GO fills the `<GO: …>` slots)
+
+### N-Q1 — Quick-add sheet + `/health/add` + FoodLog
+```
+# Brief: N-Q1 — Quick-add sheet, /health/add modal, FoodLog component
+Role: engineer   Model: opus   Step: v6 nutrition   Task sheet: docs/tasks/v6-nutrition/team-food.md
+Time box: 20 min by `date` (at the box: stop, report what you have + gate output + what is left) · Report ≤ 40 lines
+
+## Goal
+The owner adds a typical food in three taps: /health/add searches the local QUICK_ADD catalog (no network, no external API in
+v1), a tap opens an inline editor (multiplier Stepper, meal SegmentedControl, primary "Add 360 kcal"), Add writes one FoodEntry
+(source "quick_add") through the mobile FoodEntryRepo and pops. FoodLog is a pure list component (delete + 15 s Undo) that
+nutri-today mounts in /health at integration.
+
+## Read first
+- CLAUDE.md, apps/mobile/CLAUDE.md; skills expo-mobile, ui-check (Isolated stack, Measured baselines, Gallery check)
+- docs/design/nutrition.md §1, §6 ("Quick-add" + the "food log" row + Delete/Undo paragraph), §7; docs/design/ui-direction-final.md; docs/design/ui-polish.md
+- code: app/sign-in.tsx (48-high TextInput), src/ui/{ListRow.tsx (ListRow + ListGroup), Stepper.tsx, SegmentedControl.tsx, Button.tsx,
+  Banner.tsx, IconButton.tsx, Page.tsx, AppBar.tsx}, src/components/settings/useLocations.ts (hook pattern), src/hooks/useLogSet.ts
+- Facts (grep 14:50): `apps/mobile/vitest.config.ts` include = ["src/**/*.test.ts"] (node; .tsx tests never run) · runtime =
+  src/services/runtime.ts (`runtime`, `failureMessage`) · `BannerTone = "info" | "success" | "danger"` (Banner.tsx:10) ·
+  `IconButtonVariant = "plain" | "filled"`, no tone (IconButton.tsx:10) · app/_layout.tsx renders `<Stack screenOptions={{ headerShown: false }} />`
+- Shared (N-F0): <GO: exact names — QUICK_ADD, search, QuickAddItem, FoodItem, totalsOf, FoodEntry, FoodEntryInsert, Meal, thousands formatter if any>
+- Mobile FoodEntryRepo (nutri-today N-M1, live in parallel): <GO: path, `insert` arg type, who assigns id/userId/timestamps>
+
+## Scope
+In: apps/mobile/app/health/add.tsx (new) · src/components/health/QuickAddSheet.tsx · src/components/health/quickAddSheet.ts + .test.ts
+(pure) · src/components/health/FoodLog.tsx · src/components/health/foodLog.ts + .test.ts (pure) · src/hooks/useAddFood.ts (new) ·
+apps/mobile/app/_layout.tsx: ONE child `<Stack.Screen name="health/add" options={{ presentation: "modal" }} />` · captures in
+docs/design/screens/ (UI-NUTRI-N20-*, UI-NUTRI-N21-*) + docs/design/screens/NUTRI-Q1-rows.html
+Out: app/health.tsx and anything nutri-today owns (FoodEntryRepo/NutritionRepo services, useNutrition* hooks, runtime.ts layers,
+NutritionStrip, iconPaths.ts) · packages/** · store/** · settings (N-Q2 is live in parallel on src/components/settings/**, app/settings*)
+Registry: none expected; a one-line fill in an exhaustive consumer outside scope is granted — list it as `registry: <file>`.
+
+## Interfaces / decisions already made
+- Quick-add is local catalog data only (Lead ruling). Search = shared `search` (case-insensitive substring on name + aliases, sorted by name).
+- quickAddSheet.ts (pure): `scaleItem(item, multiplier): FoodItem` (grams Option scaled; kcal/proteinG/carbsG/fatG scaled, same
+  rounding as totalsOf: kcal int, grams 0.1) · multiplier 0.5–5 in 0.5 steps (clamp) · `addLabel(kcal)` → "Add 360 kcal" with the
+  §5 thin-space thousands ("Add 1 230 kcal"; reuse N-F0's formatter if exported) · `buildQuickAddEntry({ item, multiplier, meal, now })`
+  → <GO: FoodEntryInsert | FoodEntry> with source "quick_add", items [scaled], totals = totalsOf(items), note None · default meal = item.meal.
+- Editor: Stepper label + valueText ("×1.5") with the scaled portion/grams shown; SegmentedControl meal (5 values, 71.6 px each at 358 —
+  no truncated label at 390, else shorter copy in quickAddSheet.ts); Button variant primary size lg (56). Search TextInput 48, radius.md.
+- Page `wide` at desktop with AppBar title "Add food" + leading close IconButton (back; fallback `router.replace("/today")`).
+- useAddFood.ts: `{ add(input) => Promise<boolean>, error: Option<string>, dismiss }`, never rejects (useLocations pattern); Effect =
+  FoodEntryRepo insert of buildQuickAddEntry(...). Success → router.back(). If src/services/FoodEntryRepo.ts is not in the tree at
+  minute 12 (`ls`), ship everything else and report "N-Q1W: hook wiring left"; you will be resumed.
+- FoodLog.tsx: `export function FoodLog({ entries, onDelete, onRestore }: { readonly entries: ReadonlyArray<FoodEntry>; readonly
+  onDelete: (id: FoodEntryId) => void; readonly onRestore: (id: FoodEntryId) => void })` — FROZEN signature (nutri-today imports it).
+  ListGroup of ListRow title = items[0].name + (n > 1 ? " +n-1" : "") , subtitle "12:40 · 540 kcal · 38 g protein" (local time),
+  trailing IconButton icon "trash" accessibilityLabel "Delete <title>"; delete calls onDelete at once and shows Banner tone "info"
+  title "Entry deleted" action Undo → onRestore, gone after 15 s (timer cleared on unmount). Rows newest first. Empty → nothing rendered.
+- foodLog.ts (pure): rowTitle, rowSubtitle(entry, zone), sortNewestFirst, undo reducer (delete → pending{id, until}; undo → restore id;
+  tick ≥ until → cleared; a second delete replaces the pending one).
+- No legacy (plan Amendment 23): no shim/alias/TODO-remove; engineer.md rule 15: any CLAUDE.md line is NOT yours (team-lead writes it).
+
+## Done when
+- [ ] tests (quickAddSheet.test.ts): search "shake" → 3 ids, "SHAKE" same, "" → all sorted by name, unknown → []; scaleItem ×1.5 scales all
+      four totals + grams and totalsOf([scaled]) equals them; clamp 0.25 → 0.5, 6 → 5; addLabel 360 / 1230 (thin space asserted);
+      buildQuickAddEntry decodes with the shared schema (Schema.decodeUnknownSync on its encoded form) with source "quick_add".
+      foodLog.test.ts: "+n" title, subtitle format, newest first, undo reducer: restore before expiry, expiry at 15 s, replace on 2nd delete.
+- [ ] `pnpm -F @tanren/mobile check` (or test + typecheck + biome on your files) green — paste tail; reds outside scope listed with owner
+- [ ] ui-check on dev server 9033 (`CI=1 EXPO_PUBLIC_DEV_USER_ID=<uuid> node_modules/.bin/expo start --web --port 9033`, pid file
+      $S/N-Q1-expo.pid, guarded kill + `ps` re-check at the end): /health/add at 390 → type "shake" → 3 rows → tap Whey → ×1.5 →
+      button reads "Add 180 kcal" → Add → pops (or, if N-Q1W pending, the button state only). `ab errors` empty. Bounding boxes of
+      search, list, editor rows, Add button at 390 and 1280 pasted (prev.bottom ≤ next.top).
+- [ ] shots: N20 (search "shake" list) and N21 (editor ×1.5) at 390 + 1280 × light + dark → docs/design/screens/UI-NUTRI-N20-quickadd-<w>-<scheme>.png,
+      UI-NUTRI-N21-quickadd-edit-<w>-<scheme>.png; rows fragment NUTRI-Q1-rows.html (pattern LOGO-4-rows.html); `node docs/design/gallery.mjs
+      docs/design/screens/NUTRI-Q1-rows.html docs/design/screens` output pasted (exit 0). Report line: `Data state: dev-server empty store ·
+      Scheme: both · Commit: <sha> (<n> dirty) · Routes: /health/add`. engineer.md rule 14 self-check done (every PNG opened, both schemes).
+- [ ] no files outside Scope changed; `grep -rn "legacy\|TODO remove\|deprecated" <your files>` → 0
+Forbidden: dependency changes, root config, files outside Scope, `git commit|push|reset|checkout`, `rm -r*`, `wrangler deploy|login|secret|
+d1 execute --remote|d1 migrations apply --remote|deploy --dry-run`, `eas *`, reading `.env*`. Never kill a process you did not start.
+## Report
+engineer report format; exact commands + trimmed output.
+```
+
+### N-Q2 — Settings → Nutrition & goals
+```
+# Brief: N-Q2 — NutritionSection row + /settings/nutrition
+Role: engineer   Model: opus   Step: v6 nutrition   Task sheet: docs/tasks/v6-nutrition/team-food.md
+Time box: 20 min by `date` · Report ≤ 40 lines
+
+## Goal
+Settings gets a "Nutrition & goals" row (subtitle = goal label · targets, or Off) opening /settings/nutrition: goal, weight,
+optional height / birth year / sex, activity, derived targets (shared nutritionTargets; manual overrides win), eat-back Switch only
+when Garmin is connected, Save, Turn off. Saving writes profile.nutrition through the mobile ProfileRepo (offline, dirty → syncs).
+
+## Read first
+- CLAUDE.md, apps/mobile/CLAUDE.md; skills expo-mobile, ui-check
+- docs/design/nutrition.md §1 (NutritionProfile), §4 (targets + pins), §6 ("Settings → Nutrition" paragraph); ui-direction-final.md; ui-polish.md
+- code: app/settings.tsx (Columns main: Account, Integrations, Equipment), src/components/settings/{EquipmentSection.tsx, SettingsSection.tsx,
+  useLocations.ts, settingsCopy.ts + .test.ts}, app/settings/location/[id].tsx (sub-page pattern), src/services/ProfileRepo.ts (`save` :30,
+  `modify` :33), src/hooks/useProfile.ts (`useProfileState` :21), src/hooks/useIntegrations.ts (`useIntegrationsOverview` :201, garmin :32),
+  src/ui/{Stepper,SegmentedControl,StatRow,ListRow,Button}.tsx
+- Facts (grep 14:50): vitest include ["src/**/*.test.ts"] (node) · IntegrationState = connected|revoked|disconnected
+  (packages/shared/src/integrations.ts:10) · the design's `useIntegrations().garmin.status` does NOT exist → use useIntegrationsOverview ·
+  ActivityLevel has five values (the design's "4 at 358" is a slip)
+- Shared (N-F0): <GO: NutritionProfile, NutritionGoal, ActivityLevel, Sex, nutritionTargets signature, ProfilePatch.nutrition, formatter if any>
+
+## Scope
+In: apps/mobile/app/settings/nutrition.tsx (new) · src/components/settings/NutritionSection.tsx (new) · src/components/settings/nutritionCopy.ts
++ .test.ts (labels, subtitle) · src/components/settings/nutritionSettings.ts + .test.ts (pure draft ↔ NutritionProfile, validation, Effect
+`saveNutrition`) · src/components/settings/useNutritionSettings.ts (hook) · apps/mobile/app/settings.tsx: ONE line `<NutritionSection />`
+after `<EquipmentSection />` (+ its import) · captures UI-NUTRI-N22-*, UI-NUTRI-N23-* + docs/design/screens/NUTRI-Q2-rows.html
+Out: app/health*, src/components/health/** (N-Q1 live in parallel), DataSection/dataCopy (LEGAL-2b), packages/**, services/**, hooks/** (read only)
+Registry: one-line fills outside scope granted; list as `registry: <file>`.
+
+## Interfaces / decisions already made
+- Targets: shared nutritionTargets(profile, today) with today = device-local LocalDate; overrides win (kcalTarget / proteinTargetG Some).
+- Screen (Page `wide`, AppBar "Nutrition & goals" + back; Loading | Ready in the same frame): SegmentedControl goal (Gain muscle /
+  Lose weight / Maintain — pinned copy), Stepper weight 0.5 kg (30–300), height (1 cm, 120–230) and birth year (1920–2020) each with an
+  explicit unset state ("—" + "Add"/"Clear"; engineer picks, designer rules), SegmentedControl sex (Male / Female / Skip), activity (5 values;
+  no truncated label at 390 — else radio ListRows with subtitles), derived targets StatRow variant "tile" 2 items (kcal, protein; "Custom"
+  marker when overridden) with "Edit" → override Steppers (kcal step 50, 800–8000; protein step 5, 20–500) + "Use derived" reset,
+  ListRow "Eat back active calories" / "Adds Garmin active calories to the day's budget" trailing RN Switch (44 tap, default off) shown only
+  when garmin.state === "connected", primary "Save" (enabled when the draft is valid and differs), "Turn off" (only when nutrition is Some)
+  → ProfilePatch { nutrition: None }. 1280: Columns like Settings (form main, targets + eat-back side) or one column in `wide` — engineer
+  picks, shows boxes.
+- NutritionSection: SettingsSection with one ListRow title "Nutrition & goals", subtitle from nutritionCopy, chevron → /settings/nutrition.
+- Hook: `useNutritionSettings()` → `{ save(next: Option<NutritionProfile>) => Promise<boolean>, error: Option<string>, dismiss }`, never
+  rejects (useLocations pattern); reads via useProfileState.
+- No legacy (plan Amendment 23). Any CLAUDE.md line is NOT yours (team-lead writes it).
+
+## Done when
+- [ ] nutritionCopy.test.ts pins: goal labels; activity labels; subtitle "Gain muscle · 3 080 kcal · 155 g" for §4's pin (male 85 kg 180 cm
+      1990 moderate gain, today 2026-10-27, thin space asserted), "Lose weight · 2 060 kcal · 185 g" fallback pin, override variant
+      (kcalTarget 2800, proteinTargetG 170 → "· 2 800 kcal · 170 g"), None → "Off".
+- [ ] nutritionSettings.test.ts: draft → NutritionProfile encode/decode round-trip; weight 29.5 / 300.5 → validation failure with the field named;
+      unset height → None; eatBackActive default false kept; `saveNutrition(Option.some(p))` then ProfileRepo.get → nutrition Some(p) and
+      `saveNutrition(Option.none())` clears it, on the SqlDriver.testing layer (pattern ProfileRepo.test.ts); its failure path (ProfileRepo
+      error) surfaces as the typed failure.
+- [ ] `pnpm -F @tanren/mobile check` (or test + typecheck + biome on your files) green — paste tail; reds outside scope listed with owner
+- [ ] ui-check dev server 9035 (`CI=1 EXPO_PUBLIC_DEV_USER_ID=<uuid> node_modules/.bin/expo start --web --port 9035`, pid file
+      $S/N-Q2-expo.pid, guarded kill + `ps` re-check): Settings shows the row "Off" → open → goal Gain, 85 kg, 180 cm, 1990, Male, Moderate →
+      tile reads 3 080 / 155 → Save → back: subtitle "Gain muscle · 3 080 kcal · 155 g" → reload → still there → Edit override 2 800 →
+      tile 2 800 "Custom" → Turn off → "Off". `ab errors` empty. Bounding boxes of every control row at 390 and 1280 pasted.
+- [ ] shots: N22 (Settings with the row, nutrition Some) and N23 (/settings/nutrition filled, derived) at 390 + 1280 × light + dark →
+      docs/design/screens/UI-NUTRI-N22-settings-<w>-<scheme>.png, UI-NUTRI-N23-nutrition-<w>-<scheme>.png; NUTRI-Q2-rows.html;
+      gallery.mjs check output pasted. Report line: `Data state: dev-server empty store · Scheme: both · Commit: <sha> (<n> dirty) ·
+      Routes: /settings, /settings/nutrition`. engineer.md rule 14 self-check (every PNG opened, no ellipsis at 390).
+- [ ] no files outside Scope changed; `grep -rn "legacy\|TODO remove\|deprecated" <your files>` → 0
+Forbidden: dependency changes, root config, files outside Scope, `git commit|push|reset|checkout`, `rm -r*`, `wrangler deploy|login|secret|
+d1 execute --remote|d1 migrations apply --remote|deploy --dry-run`, `eas *`, reading `.env*`. Never kill a process you did not start.
+## Report
+engineer report format; exact commands + trimmed output.
+```
+
+### N-Q2S (resume of N-Q2) — eat-back shot N24
+Worker 9034 (`--inspector-port 9534 --persist-to $S/N-Q2S-state --var GARMIN_MODE:console --var ALLOWED_ORIGINS:http://localhost:9035
+--var BETTER_AUTH_URL:http://localhost:9034 --var MCP_RESOURCE_URL:http://localhost:9034/mcp`, migrations applied to the persist dir first)
++ dev server 9035 with `EXPO_PUBLIC_API_URL=http://localhost:9034`; sign in by magic link, connect Garmin in console mode, then shoot
+/settings/nutrition with the Switch row (N24, 390 + 1280 × light + dark), toggle it, Save, reload → on. Stop both by pid files. 10 min.
+
+## Decisions (for the Lead to ratify)
+- D1 (14:58) Tests in pure `.ts` siblings (`quickAddSheet.ts`, `foodLog.ts`, `nutritionSettings.ts` + `.test.ts`) instead of the charter's
+  `{QuickAddSheet,FoodLog}.test.tsx`: vitest includes only `src/**/*.test.ts` in node; changing that is package config (forbidden).
+- D2 (14:58) Two hook files the charter does not list: `src/hooks/useAddFood.ts` (quick-add write; components run no Effect) and
+  `src/components/settings/useNutritionSettings.ts` (pattern `useLocations.ts`). Disjoint from nutri-today's `useNutritionDay/Week`.
+- D3 (14:58) Ports: Q1 web 9033, Q2 web 9035, Q2S worker 9034 — a stack per task (ui-check), all probed free.
+- D4 (14:58) N-Q2S split from N-Q2 (GM-6S pattern): the connected-Garmin state needs a signed-in worker; N-Q2 shoots the dev-server states.
+
+## Escalations
+(none)
+
+## Integration checklist (items outside our owned paths; INT-N pastes these)
+- [ ] `apps/mobile/app/health.tsx` (nutri-today) · render `<FoodLog entries={day.entries} onDelete={softDelete} onRestore={restore} />`
+      from `src/components/health/FoodLog.tsx` with nutri-today's FoodEntryRepo actions · verify: ui-check /health delete → Undo → row back.
 
 ## Log
 - 2026-10-27 14:09 · skeleton written (architect).
+- 2026-10-27 14:58 · HOLD: prepared (charter, design §1/§4/§6/§7, ui-check, engineer.md rules 14–17 read; ports 9033/9034/9035 probed free; briefs N-Q1/N-Q2 written; interim sent).

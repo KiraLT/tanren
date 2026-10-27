@@ -26,6 +26,11 @@ paths:
   inside workerd (`@cloudflare/vitest-plugin`) against a migrated local D1:
   provide `TestLayer` from `packages/db/src/testing/fixtures.ts`; one D1 per test
   file, shared by its tests, so every test uses its own ids.
+- Registry-driven code (`SYNC_TABLE_ORDER`, provider lists, migrations):
+  tests iterate the registry (`for (const t of SYNC_TABLE_ORDER)`) or pin
+  the LAST entry (`tableRank("dailyHealth")`), never a literal mid-range
+  sample — a cursor regex with a one-digit rank passed on 9 tables and
+  failed on 11 (2026-10-27).
 - Deterministic: no `Date.now()`, no random without a seeded `Random`.
 - One assertion idea per test; failures must read as a sentence.
 - Keep fixtures tiny and next to the test; build them with the schema's

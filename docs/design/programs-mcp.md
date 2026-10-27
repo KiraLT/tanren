@@ -2,7 +2,7 @@
 
 Scope: user-owned programs (`program` table), enrollment status incl. `paused` with several active programs,
 per-enrollment exercise swaps, seven+two MCP tools, the Programs tab / detail / editor screens, Today's due list,
-and the second default program "12-Week Lean Body" (§7). Shared vocabulary reused everywhere: `Label` (80), `Note`
+and the second default program "12-Week Lean Build" (§7). Shared vocabulary reused everywhere: `Label` (80), `Note`
 (500), `Text` (4000), `Slug`, `CatalogId`, `Weekday`, `LocalDate`, `Timestamp`, `RestSeconds`, `Reps`, `ProgramDay`,
 `ProgramItem`, `ProgramId`, `ProgramEnrollment*`, `ProgramDayCompletion*` (`packages/shared/src/{common,program}.ts`,
 `catalog/taxonomy.ts`, `programs/Program.ts`; each checked with `grep -n "export const <Name>"`).
@@ -202,7 +202,7 @@ becomes `usePrograms` (`Loading | Failed | Ready { summaries, active: ReadonlyAr
 1. Claude app (connector, write scope): `search_exercises "plank"` → `write_program { slug: "mobility-20", title: "20-Day
    Mobility", summary, schedule: { kind: "weekdays", weekdays: [mon..sat] }, days: 20 × { title, rounds 1, items 6 timed 40 s
    rest 15, restBetweenRoundsSeconds 0 } }` → result `created: true`, `minutesPerDay` ≈ 5–6, `warnings: []`.
-2. `list_programs` shows 3 (Core 30, 12-Week Lean Body, 20-Day Mobility `source: mcp`). `enroll_program` → `currentDay: 1`.
+2. `list_programs` shows 3 (Core 30, 12-Week Lean Build, 20-Day Mobility `source: mcp`). `enroll_program` → `currentDay: 1`.
 3. App (web 390, signed in): pull → Programs tab shows "Active · 20-Day Mobility · Day 1" and the row with "Yours · Made
    with Claude"; Today shows "Programs due: 20-Day Mobility, Day 1". Start → player runs day 1; Swap on item 2 lists
    candidates; pick one → the item shows the new name; complete the day → `get_program_progress` shows `completedDays: 1`,
@@ -224,9 +224,9 @@ becomes `usePrograms` (`Loading | Failed | Ready { summaries, active: ReadonlyAr
   `Button`, `Banner`, `EmptyState` (`ls apps/mobile/src/ui`). `TextInput` is RN's.
 - Nutrition lands migration 0008 and mobile v5, `MCP_TOOLS` 13 names, `tools/list` asserted 13 in N-S3 (`docs/tasks/v6-nutrition.md`).
 
-## 7. Second built-in: "12-Week Lean Body" (`packages/shared/src/programs/leanBody.ts`, `programId: "lean-body-12"`)
+## 7. Second built-in: "12-Week Lean Build" (`packages/shared/src/programs/leanBuild.ts`, `programId: "lean-build-12"`)
 Neutral name, no author or trademark anywhere (code, copy, docs). Generated like `core30.ts` from templates; 84 days,
-`PROGRAMS = [CORE30, LEAN_BODY_12]`. Every id below exists in `packages/shared/src/catalog/data/*.ts` (verified
+`PROGRAMS = [CORE30, LEAN_BUILD_12]`. Every id below exists in `packages/shared/src/catalog/data/*.ts` (verified
 2026-10-27 14:42 against the `catalogId:` greps of chest/back/legs/shoulders/arms/hips/cardio/core); the test asserts
 `findCatalogExercise` is `Some` for every item, `days.length === 84`, every day `dayDurationSeconds` within 10–40 min,
 and `(d % 7 === 0) → rounds 1`.

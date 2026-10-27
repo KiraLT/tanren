@@ -2,7 +2,7 @@
 
 Design: `docs/design/nutrition.md` (normative; § refs below). Research: `docs/research/2026-10-27-nutrition-tracking.md`.
 Hand-off point: **the Garmin team's commit** that lands GM-2 (shared sync members, `SyncStore`, migration 0007) and
-GM-5 (mobile `migrations.ts` v4, `LocalStore`, `DailyHealthRepo`, `useDailyHealth`); N-F0 starts after it. GM-6's
+GM-5 (mobile `migrations.ts` v4, `LocalStore`, `DailyHealthRepo`, `useDailyHealth`); N-F0 starts when those files are final (EM batch 12, P3 — it started 14:45 on the W1 tree state). GM-6's
 `HealthStrip.tsx` + `TodayReady banner` must be in HEAD before N-M2 wires the strip (probe below if it is not).
 v6 consumes from Garmin: `DailyHealth` (`totalCalories`, `activeCalories`, `steps`, `updatedAt`), mobile
 `useDailyHealth(localDate)` + `DailyHealthRepo`, db `GarminImportRepo` (adds `listDays`, N-S1), `ImportedCard`.
@@ -18,7 +18,7 @@ N-F0 (foundation, serial, 20) ─► team nutri-server  (N-S1 → N-S2 ∥ N-S3 
                               ─► INT-N (wire, route inventory, privacy sentence, gate, N1–N6 shots) ─► INT-R ∥ N-QA
 ```
 
-## N-F0 — Foundation (engineer, opus, 20 min) · starts at the hand-off commit
+## N-F0 — Foundation (engineer, opus, 20 min) · starts when GM-2/GM-5's shared files are final (their W1 report), not at a commit
 Files: `packages/shared/src/{nutrition.ts,nutrition.test.ts,nutrition/quickAdd.ts,nutrition/quickAdd.test.ts,ids.ts,common.ts,
 user.ts,user.test.ts,row.ts,row.test.ts,sync.ts,sync.test.ts,mcp.ts,mcp.test.ts,index.ts}`, `packages/db/src/schema/parity.test.ts`
 (table set only), `packages/db/src/sync/SyncStore.ts` (+ `SyncStore.nutrition.test.ts`), `apps/worker/src/sync/SyncStore.ts` (wrap),

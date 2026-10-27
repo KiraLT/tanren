@@ -40,8 +40,12 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    same band (8897/8898 → 8899/8900), write it in the sheet header and in
    the first interim (desktop's charter ports 8861/8862 were a live strava
    wrangler's, 2026-10-26; the pair's capture and LOGO-2 both collided).
-   A path another team holds is released the moment that team's report is
-   **committed**: run `git log --oneline -3` and read its sheet instead of
+   A path another team holds is released the moment that team's report (or
+   its sheet Log) says the files are final — the owning wave is DONE and only
+   fix rounds elsewhere remain — not at the commit: build on the tree state,
+   edit additively, re-read before editing, list reds by their owner (v6 N-F0
+   waited ≈ 40 min on the Garmin commit although GM-2/GM-5 were final at
+   14:01, 2026-10-27). Run `git log --oneline -3` and read its sheet instead of
    waiting for the Lead's message (mcp-oauth started T1b at 23:59 on
    plan-web's commit 154232c, 7 min before any Lead message would have
    arrived); record it under Decisions with the commit hash. An uncommitted
@@ -245,6 +249,11 @@ it read `apps/mobile/CLAUDE.md` as outside its owned component files.
    `// INTEGRATION: move to @tanren/shared`, and listed under Escalations.
 
 ## Team report (your final message)
+
+≤ 40 lines. The sheet Log carries the per-task lines; the report points at
+it (`see sheet Log 13:51–14:47`) instead of repeating them. The Garmin
+team's final report was 78 lines after 21 interims of ≤ 24 (2026-10-27);
+the Lead reads the Outcome table, the Review line and the commit list.
 
 - `## Team` — name, mission, owned paths.
 - `## Outcome` — tasks done / not done, in a table with status and evidence,

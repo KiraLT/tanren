@@ -95,6 +95,14 @@ engineer can act on without asking questions.
   @tanren/worker exec vitest --project @tanren/worker-workerd <name>`, ≈ 30 s)
   and quote the count; "workerd project not run" as a `should` (OAUTH-UI,
   2026-10-27) only costs a fix round for something you could verify.
+- Registry growth is a consumer check, not a diff check: when the diff adds an
+  entry to `SYNC_TABLE_ORDER`, `AVAILABLE_PROVIDERS`, a migration list or any
+  ordered registry, open the files that encode the registry's size or an index
+  into it (`grep -rn "rank\|\\d\|\.length" packages/db/src/sync apps/worker/src/sync`)
+  even when they are not in the diff, and require a round-trip test at the
+  last entry. REV-1 and GM-R (diff-scoped) both missed `Cursor.ts`'s
+  one-digit rank regex after GM-2 made ranks 10 and 11 (2026-10-27); a
+  `blocking` finding costs one fix round, the QA catch cost a wave.
 - Leftovers are findings (owner, plan Amendment 23): a compatibility shim,
   alias, dual code path, `legacy`/`old` name, dead export, export kept for
   its own test, or "remove later" marker is a `should` naming the line to

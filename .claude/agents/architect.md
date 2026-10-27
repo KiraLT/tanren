@@ -186,6 +186,21 @@ changed) and the design, and drop a lower-priority section if the box
 needs it. The legal architect (2026-10-27) took "no placeholders, operator
 Tanren, no address" at minute 6 of 8 and shipped ADR-0024 with it; that is
 the rule.
+When the owner says "don't mention X" (a brand, a product, a person), list
+the forbidden strings in the ADR's `## Overrides` and run
+`grep -rn -i "<string>" docs/adr docs/design docs/tasks` before reporting;
+the v6b architect gave the program the working title "Lean Body" — the very
+name the owner excluded — and the Lead renamed it in a brief (2026-10-27).
+A hand-off point in a task sheet is stated as a FILE condition, never as a
+commit: "starts when `<files>` are final (owner team's W<n> report landed)",
+not "starts at the hand-off commit". v6 N-F0 was written "at the hand-off
+commit" and the Lead held it ≈ 40 min after the files were final
+(2026-10-27).
+A sheet whose tasks grow a registry (`SYNC_TABLE_ORDER`, providers,
+migrations) lists the registry's consumers (`grep -rln <registry> apps
+packages`) in the sheet, marking the ones that encode its size or an index
+(cursor regexes, fixed widths); the Garmin team-lead spent 2.5 of its 7 prep
+minutes rebuilding that list and still read `Cursor.ts` as a non-consumer.
 
 Default 15 minutes of work for ONE deliverable; add 5 per further deliverable
 (ADR, design note, task sheet with briefs) and write the sum in the report:

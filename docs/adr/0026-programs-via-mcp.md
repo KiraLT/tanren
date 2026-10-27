@@ -21,7 +21,7 @@ swap inside the player and a second default 12-week program.
    `mcp | manual`, `version` bumped by every write, `slug` unique per user among live rows. `durationDays` is derived.
    Built-ins stay in code and appear in the same read model (`ProgramSummary`) with `source: "builtin"`.
 2. **One `ProgramId` namespace, enrollment keys unchanged.** A custom program's `programId` is its row `id` (a lowercase
-   UUID satisfies the `Slug` pattern; 36 < 64). Built-ins keep slugs (`core-30`, `lean-body-12`). The mobile finder
+   UUID satisfies the `Slug` pattern; 36 < 64). Built-ins keep slugs (`core-30`, `lean-build-12`). The mobile finder
    becomes "built-ins, then local `program` rows" (effectful).
 3. **Statuses and concurrency.** `EnrollmentStatus` gains `paused`. Several programs may be active at once (the
    existing index already allows one live active enrollment per program). `paused` freezes `currentDay`, blocks
@@ -47,7 +47,7 @@ swap inside the player and a second default 12-week program.
    rest, item cards with Timed/Reps segmented control, value and rest steppers, up/down/remove, exercise picker
    filtered by the active location). Every save writes the row and bumps `version`; no draft state. Delete only when
    no enrollment is active or paused. Reorder is up/down, not drag (RN web).
-8. **Second built-in "12-Week Lean Body"** (`lean-body-12`, 84 days): push / pull / cardio / legs / upper / cardio /
+8. **Second built-in "12-Week Lean Build"** (`lean-build-12`, 84 days): push / pull / cardio / legs / upper / cardio /
    recovery each week, three 4-week blocks (reps 12 → 10 → 8, rest 60 → 75 → 90 s, cardio 15 → 20 → 25 min), generated
    from templates like Core 30; every id verified against the catalog; neutral name, no author or brand anywhere.
 9. **Sync**: `program` is a normal push/pull table; every exhaustive consumer is listed with an owner in design §2.
@@ -74,5 +74,5 @@ swap inside the player and a second default 12-week program.
   authoring is NOT deferred (in-app editor + duplicate a built-in), every enrollment has `status: active | paused |
   completed | abandoned` with several active programs and Today listing each due day, "Swap exercise" in the player
   (similar by muscle, `kind`, location equipment; stored per enrollment; revert), and a second default 12-week
-  lean-body program (neutral name). Changed: decisions 3, 4, 7, 8; tools 7 → 9; design §4 editor/swap/Today rows,
+  lean-build program (neutral name). Changed: decisions 3, 4, 7, 8; tools 7 → 9; design §4 editor/swap/Today rows,
   §7 program table; sheet tasks P-D1, P-M3, P-M4.

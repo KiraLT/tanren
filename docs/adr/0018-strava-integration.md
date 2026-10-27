@@ -104,3 +104,7 @@ at that set's `loggedAt` (so it exports with its real duration), and one with no
 soft-deleted only if it was never pushed. A session whose `finishedAt` is more than
 `EXPORT_BACKFILL_HOURS` (48) before the push that completes it is not queued for Strava (no
 backfill flood).
+
+## Amendments
+
+- 2026-10-27 (SEC-1a, security review B2/B3): `TokenSeal` binds each sealed value to its row column — AES-GCM `additionalData` = `"${userId}:${provider}:${slot}"` (`slot` `access` | `refresh`; Garmin: `refresh` = personal key, `access` = 24 h JWT) — so a value copied to another user, provider or slot fails as `TokenSealError { reason: "authentication" }`; `INTEGRATION_TOKEN_KEY` is no longer used raw: the AES key is its HKDF-SHA256 sub-key `tanren-seal-v2` and the Strava connect `state` HMAC key is `tanren-state-v2` (the `tanren-strava-state-v1:` MAC prefix is gone). The envelope stays `v1.<iv>.<ct>`. No data migration and no compatibility path: Strava runs in console mode in production (no real sealed Strava tokens) and Garmin was not yet deployed, so no sealed value exists in production; a value sealed under the old format would fail to open and revoke its row version.

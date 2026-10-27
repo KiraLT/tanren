@@ -313,6 +313,8 @@ Registry growth: one-line fills in exhaustive consumers outside the owned paths
   (erasure table lists, seeds, mock servers, `Record<Union, …>` tests) are
   granted in advance; the team lists them as `registry` files in interims, no
   grant ask (Garmin W1 asked for 10; EM batch 10, P3)
+Hand-off: <files> are final when <owner team>'s W<n> report lands (its sheet Log)
+  — never "at the commit" (v6 N-F0 waited ≈ 40 min on a commit; EM batch 12, P1)
 Role files: before briefing each round, re-read engineer.md / reviewer.md / ui-check
   when their mtime is newer than your dispatch (`stat -f %m <file>`); the Lead also
   forwards EM deltas to live team-leads in the turn it accepts the EM report (r5's

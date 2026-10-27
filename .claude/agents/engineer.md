@@ -212,6 +212,14 @@ Lead had to route it back through the team-lead, one extra turn each way).
    together. Breaking storage or wire changes follow the deploy order in the
    `cloudflare-workers` skill (expand → migrate → deploy → contract) and say
    so in the report's Decisions.
+18. Growing a registry (`SYNC_TABLE_ORDER`, `AVAILABLE_PROVIDERS`, a migration
+   list) also means the consumers that encode its SIZE or an INDEX into it,
+   not only the exhaustive matches: `grep -rn "rank\|\\d\|\.length\|indexOf" <registry
+   consumers>` and run the round-trip test at the LAST registered entry
+   (table-driven over the registry, never a literal sample). GM-2 took
+   `SYNC_TABLE_ORDER` from 10 to 12 tables and `Cursor.ts` kept a single-digit
+   `\d` rank regex: every pull after an import returned 400; two reviews
+   missed it because the file was not in the diff (GM-Q1, 2026-10-27).
 15. Shared barrels (`packages/*/src/index.ts`, `repositories/index.ts`) are
    touched by every live stream: add your export line as the LAST edit of
    the task, right before the gate, so the Lead can commit the other
