@@ -138,8 +138,9 @@ export const callbackRoutes = Layer.unwrap(
             return yield* finish("provider")
           }
           const grant = yield* strava.exchangeCode(code)
-          const access = yield* seal.seal(grant.accessToken)
-          const refresh = yield* seal.seal(grant.refreshToken)
+          const bound = { userId: state.userId, provider: "strava" } as const
+          const access = yield* seal.seal(grant.accessToken, { ...bound, slot: "access" })
+          const refresh = yield* seal.seal(grant.refreshToken, { ...bound, slot: "refresh" })
           const now = yield* DateTime.now
           yield* integrations.upsert({
             id: yield* ids.next,

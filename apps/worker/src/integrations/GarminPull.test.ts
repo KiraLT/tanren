@@ -172,27 +172,30 @@ const setup = (script: Script, opts: Setup = {}) =>
       Layer.merge(GarminPull.layer.pipe(Layer.provide(services)), services),
     )
     const sealer = Context.get(context, TokenSeal)
-    const key = yield* sealer.seal(Redacted.make(KEY))
-    const jwt = yield* sealer.seal(Redacted.make(JWT))
     const integrations = Context.get(context, IntegrationRepo)
     const imports = Context.get(context, GarminImportRepo)
-    yield* Effect.forEach(Arr.range(1, opts.users ?? 1), (n) => {
-      const row: IntegrationRow = {
-        id: rowId(n),
-        userId: userId(n),
-        provider: "garmin",
-        status: "active",
-        externalId: "personal",
-        displayName: "Stub",
-        accessToken: DbSealedToken.make(jwt),
-        refreshToken: DbSealedToken.make(key),
-        expiresAt: DateTime.makeUnsafe(NOW + (opts.expiresInMinutes ?? 720) * 60_000),
-        scope: opts.scope ?? "",
-        createdAt: DateTime.makeUnsafe(NOW - 3_600_000 + n),
-        updatedAt: DateTime.makeUnsafe(NOW - 3_600_000 + n),
-      }
-      return integrations.upsert(row)
-    })
+    yield* Effect.forEach(Arr.range(1, opts.users ?? 1), (n) =>
+      Effect.gen(function* () {
+        const bound = { userId: userId(n), provider: "garmin" } as const
+        const key = yield* sealer.seal(Redacted.make(KEY), { ...bound, slot: "refresh" })
+        const jwt = yield* sealer.seal(Redacted.make(JWT), { ...bound, slot: "access" })
+        const row: IntegrationRow = {
+          id: rowId(n),
+          userId: userId(n),
+          provider: "garmin",
+          status: "active",
+          externalId: "personal",
+          displayName: "Stub",
+          accessToken: DbSealedToken.make(jwt),
+          refreshToken: DbSealedToken.make(key),
+          expiresAt: DateTime.makeUnsafe(NOW + (opts.expiresInMinutes ?? 720) * 60_000),
+          scope: opts.scope ?? "",
+          createdAt: DateTime.makeUnsafe(NOW - 3_600_000 + n),
+          updatedAt: DateTime.makeUnsafe(NOW - 3_600_000 + n),
+        }
+        return yield* integrations.upsert(row)
+      }),
+    )
     const pull = Context.get(context, GarminPull)
     const run = <A, E>(effect: Effect.Effect<A, E>) => effect.pipe(Effect.provide(logs.layer))
     const row = (n = 1) =>

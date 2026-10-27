@@ -36,7 +36,18 @@ const sessionId = (n: number) =>
 // Web Crypto is async: sealed once, at module load (top-level await).
 const sealed = await Effect.runPromise(
   Effect.flatMap(makeTokenSeal(Redacted.make(env.INTEGRATION_TOKEN_KEY)), (seal) =>
-    seal.seal(Redacted.make("access-token-1")),
+    Effect.all({
+      access: seal.seal(Redacted.make("access-token-1"), {
+        userId: owner,
+        provider: "strava",
+        slot: "access",
+      }),
+      refresh: seal.seal(Redacted.make("refresh-token-1"), {
+        userId: owner,
+        provider: "strava",
+        slot: "refresh",
+      }),
+    }),
   ),
 )
 
@@ -47,8 +58,8 @@ const integrationRow = (status: IntegrationRow["status"]): IntegrationRow => ({
   status,
   externalId: "12345",
   displayName: "Ada Lovelace",
-  accessToken: DbSealedToken.make(sealed),
-  refreshToken: DbSealedToken.make(sealed),
+  accessToken: DbSealedToken.make(sealed.access),
+  refreshToken: DbSealedToken.make(sealed.refresh),
   expiresAt: t(59),
   scope: "read,activity:write",
   createdAt: t(0),

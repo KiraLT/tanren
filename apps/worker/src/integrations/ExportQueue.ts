@@ -201,12 +201,17 @@ const make = Effect.gen(function* () {
    * since `seen`; none → `TokenRejected { seen }` (revoke exactly that version).
    */
   /**
-   * Opens one sealed token of row version `row.updatedAt`. Tokens that no longer open (rotated
-   * key, tampering) reject exactly that version, so the guarded revoke hits the row it read.
+   * Opens the `slot` token of row version `row.updatedAt`, bound to the row's user and provider.
+   * Tokens that no longer open (rotated key, tampering, a value copied from another row) reject
+   * exactly that version, so the guarded revoke hits the row it read.
    */
-  const openOf = (row: IntegrationRow, sealed: IntegrationRow["accessToken"]) =>
+  const openOf = (row: IntegrationRow, slot: "access" | "refresh") =>
     seal
-      .open(sealed)
+      .open(slot === "access" ? row.accessToken : row.refreshToken, {
+        userId: row.userId,
+        provider: row.provider,
+        slot,
+      })
       .pipe(Effect.mapError((_: TokenSealError) => new TokenRejected({ seen: row.updatedAt })))
 
   const storedIfRotated = Effect.fn("ExportQueue.storedIfRotated")(function* (
@@ -215,7 +220,7 @@ const make = Effect.gen(function* () {
   ) {
     const current = yield* integrations.get(integration.userId, integration.provider)
     if (isActive(current) && !DateTime.Equivalence(current.value.updatedAt, seen)) {
-      const token = yield* openOf(current.value, current.value.accessToken)
+      const token = yield* openOf(current.value, "access")
       return { token, version: current.value.updatedAt } satisfies VersionedToken
     }
     return yield* new TokenRejected({ seen })
@@ -235,7 +240,7 @@ const make = Effect.gen(function* () {
     if (DateTime.Equivalence(current.value.updatedAt, integration.updatedAt)) {
       return yield* new RefreshDeferred()
     }
-    const token = yield* openOf(current.value, current.value.accessToken)
+    const token = yield* openOf(current.value, "access")
     return { token, version: current.value.updatedAt } satisfies VersionedToken
   })
 
@@ -275,7 +280,7 @@ const make = Effect.gen(function* () {
     integration: IntegrationRow,
     now: Timestamp,
   ) {
-    const refreshToken = yield* openOf(integration, integration.refreshToken)
+    const refreshToken = yield* openOf(integration, "refresh")
     const rotated = yield* strava.refresh(refreshToken).pipe(
       Effect.map(Option.some),
       Effect.catchIf(
@@ -287,8 +292,9 @@ const make = Effect.gen(function* () {
       const token = yield* storedIfRotated(integration, integration.updatedAt)
       return { token, released: false }
     }
-    const access = yield* seal.seal(rotated.value.accessToken)
-    const refresh = yield* seal.seal(rotated.value.refreshToken)
+    const bound = { userId: integration.userId, provider: integration.provider } as const
+    const access = yield* seal.seal(rotated.value.accessToken, { ...bound, slot: "access" })
+    const refresh = yield* seal.seal(rotated.value.refreshToken, { ...bound, slot: "refresh" })
     yield* integrations.setTokens(integration.id, {
       // Same `v1.<iv>.<ct>` string: TokenSeal's brand and the db column's brand name one value.
       access: DbSealedToken.make(access),
@@ -305,7 +311,7 @@ const make = Effect.gen(function* () {
     DateTime.isLessThan(integration.expiresAt, DateTime.add(now, REFRESH_MARGIN))
       ? refreshTokens(integration, now)
       : Effect.map(
-          openOf(integration, integration.accessToken),
+          openOf(integration, "access"),
           (token): VersionedToken => ({ token, version: integration.updatedAt }),
         )
 
@@ -326,7 +332,7 @@ const make = Effect.gen(function* () {
     const next: VersionedToken = DateTime.Equivalence(current.value.updatedAt, used.version)
       ? yield* refreshTokens(current.value, now)
       : {
-          token: yield* openOf(current.value, current.value.accessToken),
+          token: yield* openOf(current.value, "access"),
           version: current.value.updatedAt,
         }
     return yield* strava.createActivity(next.token, activity).pipe(

@@ -1,7 +1,7 @@
 import { ConnectRejected, type ConnectResponse, UserId } from "@tanren/shared"
 import { Clock, Data, Effect, Option, Result, Schema } from "effect"
 import { Base64Url } from "effect/encoding"
-import { mac, macMatches } from "../auth/nativeCode"
+import { deriveSubKey } from "../auth/Tokens"
 import type { WorkerConfigShape } from "../Config"
 import { isAllowedIntegrationReturnTo } from "./returnTo"
 
@@ -30,18 +30,49 @@ type StateConfig = Pick<
   "integrationTokenKey" | "allowedOrigins" | "nativeReturnPrefixes"
 >
 
-/** Versioned MAC input: no other signature in the worker can collide with a connect state. */
-const macInput = (payload: string) => `tanren-strava-state-v1:${payload}`
+/**
+ * HKDF `info` of the state HMAC key: its own sub-key of `INTEGRATION_TOKEN_KEY`, never the AES key
+ * `TokenSeal` uses (security review B3).
+ */
+export const STATE_KEY_INFO = "tanren-state-v2"
+
+const encoder = new TextEncoder()
+
+const stateKey = (config: StateConfig) =>
+  Effect.gen(function* () {
+    const sub = yield* deriveSubKey(config.integrationTokenKey, STATE_KEY_INFO)
+    return yield* Effect.promise(() =>
+      crypto.subtle.importKey("raw", sub.bytes, { name: "HMAC", hash: "SHA-256" }, false, [
+        "sign",
+        "verify",
+      ]),
+    )
+  })
 
 const encodeState = Schema.encodeSync(Schema.fromJsonString(ConnectState))
 const decodeState = Schema.decodeUnknownOption(Schema.fromJsonString(ConnectState))
 
-/** `base64url(JSON {userId, returnTo, expiresAt}) + "." + b64url(HMAC-SHA256(key, …))`. */
+/** `base64url(JSON {userId, returnTo, expiresAt}) + "." + b64url(HMAC-SHA256(stateKey, …))`. */
 export const signState = (config: StateConfig, state: ConnectState): Effect.Effect<string> =>
   Effect.gen(function* () {
     const payload = Base64Url.encode(encodeState(state))
-    const signature = yield* mac(config.integrationTokenKey, macInput(payload))
-    return `${payload}.${signature}`
+    const key = yield* stateKey(config)
+    const signature = yield* Effect.promise(() =>
+      crypto.subtle.sign("HMAC", key, encoder.encode(payload)),
+    )
+    return `${payload}.${Base64Url.encode(new Uint8Array(signature))}`
+  })
+
+/** Constant-time check of `signature` against `payload` (`subtle.verify`). */
+const signatureMatches = (config: StateConfig, payload: string, signature: string) =>
+  Result.match(Base64Url.decode(signature), {
+    onFailure: () => Effect.succeed(false),
+    onSuccess: (bytes) =>
+      Effect.flatMap(stateKey(config), (key) =>
+        Effect.promise(() =>
+          crypto.subtle.verify("HMAC", key, new Uint8Array(bytes), encoder.encode(payload)),
+        ),
+      ),
   })
 
 /** Signature first (constant time), then expiry, then the `returnTo` allow-list again. */
@@ -55,7 +86,7 @@ export const verifyState = (
     if (parts.length !== 2 || payload.length === 0 || signature.length === 0) {
       return yield* new StateRejected({ reason: "malformed" })
     }
-    if (!(yield* macMatches(config.integrationTokenKey, macInput(payload), signature))) {
+    if (!(yield* signatureMatches(config, payload, signature))) {
       return yield* new StateRejected({ reason: "signature" })
     }
     const json = Result.match(Base64Url.decode(payload), {

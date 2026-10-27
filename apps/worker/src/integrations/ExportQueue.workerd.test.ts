@@ -199,8 +199,20 @@ const seed = (
         status: integration,
         externalId: `athlete-${n}`,
         displayName: "Athlete",
-        accessToken: DbSealedToken.make(yield* seal.seal(Redacted.make("access-1"))),
-        refreshToken: DbSealedToken.make(yield* seal.seal(Redacted.make("refresh-1"))),
+        accessToken: DbSealedToken.make(
+          yield* seal.seal(Redacted.make("access-1"), {
+            userId,
+            provider: "strava",
+            slot: "access",
+          }),
+        ),
+        refreshToken: DbSealedToken.make(
+          yield* seal.seal(Redacted.make("refresh-1"), {
+            userId,
+            provider: "strava",
+            slot: "refresh",
+          }),
+        ),
         expiresAt: DateTime.add(now, expiresIn),
         scope: "activity:write",
         createdAt: now,
@@ -398,8 +410,13 @@ describe("ExportQueue.drain", () => {
           yield* (yield* IntegrationRepo).get(seeded.userId, "strava"),
         )
         const seal = yield* TokenSeal
-        expect(Redacted.value(yield* seal.open(stored.accessToken))).toBe("access-2")
-        expect(Redacted.value(yield* seal.open(stored.refreshToken))).toBe("refresh-2")
+        const bound = { userId: seeded.userId, provider: "strava" } as const
+        expect(
+          Redacted.value(yield* seal.open(stored.accessToken, { ...bound, slot: "access" })),
+        ).toBe("access-2")
+        expect(
+          Redacted.value(yield* seal.open(stored.refreshToken, { ...bound, slot: "refresh" })),
+        ).toBe("refresh-2")
         expect(stored.expiresAt).toEqual(DateTime.add(NOW, { days: 30 }))
         expect((yield* onlyRow(seeded.userId)).status).toBe("sent")
       }).pipe(Effect.provide(queueWith(strava.layer)))
@@ -560,8 +577,13 @@ describe("drain attempts survive the push budget and token races (REV-1)", () =>
           yield* (yield* IntegrationRepo).get(seeded.userId, "strava"),
         )
         const seal = yield* TokenSeal
-        expect(Redacted.value(yield* seal.open(stored.accessToken))).toBe("access-2")
-        expect(Redacted.value(yield* seal.open(stored.refreshToken))).toBe("refresh-2")
+        const bound = { userId: seeded.userId, provider: "strava" } as const
+        expect(
+          Redacted.value(yield* seal.open(stored.accessToken, { ...bound, slot: "access" })),
+        ).toBe("access-2")
+        expect(
+          Redacted.value(yield* seal.open(stored.refreshToken, { ...bound, slot: "refresh" })),
+        ).toBe("refresh-2")
         expect((yield* onlyRow(seeded.userId)).status).toBe("sent")
       }).pipe(Effect.provide(withSync(strava.layer)))
     }),

@@ -144,11 +144,13 @@ const make = Effect.gen(function* () {
     ]).pipe(Effect.flatMap((ok) => (ok ? Effect.void : Effect.fail(new GarminOutOfBudget()))))
 
     const revokedVersion = (seen: Timestamp) => (_: TokenSealError) => new GarminRevoked({ seen })
+    // The personal key is the `refresh` slot, the 24 h JWT the `access` slot (garmin.md §3).
+    const bound = { userId: row.userId, provider: row.provider } as const
     const key = yield* seal
-      .open(row.refreshToken)
+      .open(row.refreshToken, { ...bound, slot: "refresh" })
       .pipe(Effect.mapError(revokedVersion(row.updatedAt)))
     const storedJwt = yield* seal
-      .open(row.accessToken)
+      .open(row.accessToken, { ...bound, slot: "access" })
       .pipe(Effect.mapError(revokedVersion(row.updatedAt)))
     const auth = yield* Ref.make({ jwt: storedJwt, version: row.updatedAt, exchanged: false })
 
@@ -162,7 +164,7 @@ const make = Effect.gen(function* () {
           () => Effect.fail(new GarminRevoked({ seen: current.version })),
         ),
       )
-      const access = yield* seal.seal(fresh.jwt)
+      const access = yield* seal.seal(fresh.jwt, { ...bound, slot: "access" })
       yield* integrations.setTokens(row.id, {
         // Same `v1.<iv>.<ct>` string: TokenSeal's brand and the db column's brand name one value.
         access: DbSealedToken.make(access),

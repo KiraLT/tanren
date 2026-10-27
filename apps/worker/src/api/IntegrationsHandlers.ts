@@ -165,8 +165,10 @@ export const IntegrationsLive = HttpApiBuilder.group(
           ),
           Effect.catch(() => Effect.succeed(GARMIN_FALLBACK_NAME)),
         )
-        const access = yield* seal.seal(exchanged.jwt)
-        const refresh = yield* seal.seal(key)
+        // The 24 h JWT is the `access` slot, the personal key the `refresh` slot (garmin.md §3).
+        const bound = { userId, provider: "garmin" } as const
+        const access = yield* seal.seal(exchanged.jwt, { ...bound, slot: "access" })
+        const refresh = yield* seal.seal(key, { ...bound, slot: "refresh" })
         const now = yield* DateTime.now
         // A re-connect keeps the row's id and createdAt (the upsert's conflict clause).
         yield* integrations.upsert({
@@ -219,12 +221,18 @@ export const IntegrationsLive = HttpApiBuilder.group(
             }
             // Best effort: a dead token or a Strava outage must not keep the row (design §5).
             // Same `v1.<iv>.<ct>` string under the db column's brand and TokenSeal's brand.
-            yield* seal.open(SealedToken.make(row.value.accessToken)).pipe(
-              Effect.flatMap(strava.revoke),
-              Effect.catch((error) =>
-                Effect.logWarning(`[strava] revoke failed userId=${userId} tag=${error._tag}`),
-              ),
-            )
+            yield* seal
+              .open(SealedToken.make(row.value.accessToken), {
+                userId,
+                provider: "strava",
+                slot: "access",
+              })
+              .pipe(
+                Effect.flatMap(strava.revoke),
+                Effect.catch((error) =>
+                  Effect.logWarning(`[strava] revoke failed userId=${userId} tag=${error._tag}`),
+                ),
+              )
             yield* integrations.remove(userId, "strava")
           }),
         ),

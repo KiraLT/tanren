@@ -465,8 +465,20 @@ describe("/sync/push exports a completed session within the push (design §6)", 
           status: "active",
           externalId: "athlete",
           displayName: "Athlete",
-          accessToken: DbSealedToken.make(yield* seal.seal(Redacted.make("access"))),
-          refreshToken: DbSealedToken.make(yield* seal.seal(Redacted.make("refresh"))),
+          accessToken: DbSealedToken.make(
+            yield* seal.seal(Redacted.make("access"), {
+              userId: CONNECTED,
+              provider: "strava",
+              slot: "access",
+            }),
+          ),
+          refreshToken: DbSealedToken.make(
+            yield* seal.seal(Redacted.make("refresh"), {
+              userId: CONNECTED,
+              provider: "strava",
+              slot: "refresh",
+            }),
+          ),
           expiresAt: DateTime.add(now, { hours: 6 }),
           scope: "activity:write",
           createdAt: now,
