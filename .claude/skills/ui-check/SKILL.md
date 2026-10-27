@@ -132,7 +132,11 @@ W H` apply live without reload; a dpr-2 full-page screenshot is clipped — use 
   whole session, so the open flag is not evidence of a file's scheme — the `set media` call before it is.
   The viewport command is `ab set viewport <w> <h>` (not `--viewport` on later calls). A session
   started after `ab close` is back at the default viewport: re-run `set viewport` after every `open`
-  (TODAY-EMPTY shot 1280 instead of 390 once, 2026-10-27).
+  (TODAY-EMPTY shot 1280 instead of 390 once, 2026-10-27). After a `screenshot` or `set media` the
+  page can go `document.visibilityState === "hidden"`, which stalls CSS animations and resize events
+  (react-native-web Modals never become active, so Escape and the focus trap never arm): before a
+  capture that needs a live page run `close`, `open`, `set viewport`, `open` again and check
+  `document.visibilityState` first (CONFIRM-1, 2026-10-27).
   Commit-stamp every set: the report line and the set's name carry `git rev-parse --short HEAD` plus
   `git status --short | wc -l` (dirty count). When two streams change layout at once (2026-10-26: the
   desktop pair moved the page width while FEED-5 measured 696), compare only runs on the same commit, or
